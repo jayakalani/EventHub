@@ -47,7 +47,7 @@ Route::post('/logout', [AuthController::class, 'logout'])
 |--------------------------------------------------------------------------
 */
 Route::get('/dashboard', [DashboardController::class, 'index'])
-    ->middleware(['auth', 'prevent-back'])
+    ->middleware(['auth', 'verified', 'prevent-back'])
     ->name('dashboard');
 
 
@@ -58,7 +58,7 @@ Route::get('/dashboard', [DashboardController::class, 'index'])
 */
 Route::prefix('admin')->name('admin.')->group(function () {
     // Users Management
-    Route::middleware(['auth', 'role:' . UserRole::ADMIN])->group(function () {
+    Route::middleware(['auth', 'verified', 'role:' . UserRole::ADMIN])->group(function () {
         Route::get('/users', [UserController::class, 'index'])->name('users');
         Route::get('/user/{id}/edit', [UserController::class, 'edit'])->name('user.edit');
         Route::put('/user/{id}', [UserController::class, 'update'])->name('user.update');
@@ -124,7 +124,7 @@ require __DIR__.'/auth.php';
 | Profile Routes (All Authenticated Users)
 |--------------------------------------------------------------------------
 */
-Route::middleware('auth')->group(function () {
+Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');

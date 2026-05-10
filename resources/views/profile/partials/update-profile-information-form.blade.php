@@ -18,9 +18,60 @@
         @method('patch')
 
         <div>
-            <x-input-label for="name" :value="__('Name')" />
-            <x-text-input id="name" name="name" type="text" class="mt-1 block w-full" :value="old('name', $user->name)" required autofocus autocomplete="name" />
-            <x-input-error class="mt-2" :messages="$errors->get('name')" />
+            <x-input-label for="first_name" :value="__('First Name')" />
+            <x-text-input id="first_name" name="first_name" type="text" class="mt-1 block w-full" :value="old('first_name', $user->first_name)" required autofocus autocomplete="first_name" />
+            <x-input-error class="mt-2" :messages="$errors->get('first_name')" />
+        </div>
+
+        <div>
+            <x-input-label for="last_name" :value="__('Last Name')" />
+            <x-text-input id="last_name" name="last_name" type="text" class="mt-1 block w-full" :value="old('last_name', $user->last_name)" required autofocus autocomplete="last_name" />
+            <x-input-error class="mt-2" :messages="$errors->get('last_name')" />
+        </div>
+
+        <div>
+            <x-input-label for="nic" :value="__('NIC')" />
+            <x-text-input id="nic" name="nic" type="text" class="mt-1 block w-full" :value="old('nic', $user->nic)" required autofocus autocomplete="nic" />
+            <x-input-error class="mt-2" :messages="$errors->get('nic')" />
+        </div>
+
+        <div>
+            <x-input-label for="contact_number" :value="__('Contact Number')" />
+            <x-text-input id="contact_number" name="contact_number" type="text" class="mt-1 block w-full" :value="old('contact_number', $user->contact_number)" required autofocus autocomplete="contact_number" />
+            <x-input-error class="mt-2" :messages="$errors->get('contact_number')" />
+        </div>
+
+        <div>
+            <x-input-label for="date_of_birth" :value="__('Date Of Birth')" />
+            <x-text-input id="date_of_birth" name="date_of_birth" type="date" class="mt-1 block w-full" :value="old('date_of_birth', $user->date_of_birth)" required autofocus autocomplete="date_of_birth" />
+            <x-input-error class="mt-2" :messages="$errors->get('date_of_birth')" />
+        </div>
+
+        <div>
+            <x-input-label for="address" :value="__('Address')" />
+            <x-text-input id="address" name="address" type="text" class="mt-1 block w-full" :value="old('address', $user->address)" required autofocus autocomplete="address" />
+            <x-input-error class="mt-2" :messages="$errors->get('address')" />
+        </div>
+
+        <div>
+            <x-input-label for="gender" :value="__('Gender')" />
+
+            <select id="gender" name="gender"
+                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                required>
+                <option value="" disabled selected>-- Select Gender --</option>
+                <option value="male" {{ old('gender', $user->gender) === 'male' ? 'selected' : '' }}>Male</option>
+                <option value="female" {{ old('gender', $user->gender) === 'female' ? 'selected' : '' }}>Female</option>
+            </select>
+
+            <x-input-error class="mt-2" :messages="$errors->get('gender')" />
+        </div>
+
+
+        <div>
+            <x-input-label for="profile_picture" :value="__('Profile Picture')" />
+            <x-text-input id="profile_picture" name="profile_picture" type="file" class="mt-1 block w-full" :value="old('profile_picture', $user->profile_picture)" required autofocus autocomplete="profile_picture" />
+            <x-input-error class="mt-2" :messages="$errors->get('profile_picture')" />
         </div>
 
         <div>

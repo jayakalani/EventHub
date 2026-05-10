@@ -26,6 +26,7 @@ class User extends Authenticatable
         'last_name',
         'nic',
         'email',
+        'google_id',
         'contact_number',
         'date_of_birth',
         'address',
@@ -49,7 +50,13 @@ class User extends Authenticatable
         'password',
         'remember_token',
     ];
-
+    /**
+     * Get the user's full name by concatenating first and last name.
+     */
+    public function getFullNameAttribute(): string
+    {
+        return "{$this->first_name} {$this->last_name}";
+    }
     /**
      * Get the attributes that should be cast.
      *

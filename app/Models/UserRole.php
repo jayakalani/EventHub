@@ -12,10 +12,10 @@ class UserRole extends Model
 {
     use HasFactory, Notifiable, SoftDeletes;
 
-    public const ADMIN = 'Administrator';
-    public const ORGANIZER = 'Event Organizer';
-    public const CRO = 'Customer Relations Officer';
-    public const ATTENDEE = 'Attendee';
+    public const ADMIN = 'admin';
+    public const ORGANIZER = 'event organizer';
+    public const CRO = 'customer relations officer';
+    public const ATTENDEE = 'attendee';
 
     /**
      * The table associated with the model.

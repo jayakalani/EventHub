@@ -43,6 +43,7 @@ class EventCategoryController extends Controller
         $event = EventCategory::create([
             'name' => $validatedData['name'],
             'cover' => $fileName,
+            'created_by' => Auth::user()->id,
             'is_active' => true, //default true          
         ]);
 
@@ -185,7 +186,7 @@ class EventCategoryController extends Controller
                 $category->cover ?? 'N/A',
                 $category->is_active ? 'Active' : 'Inactive',
                 $category->created_at->format('Y-m-d H:i'),
-                $category->created_by ?? 'System',
+                $category->creator->first_name . ' ' . $category->creator->last_name ?? 'System',
             ];
         }
 

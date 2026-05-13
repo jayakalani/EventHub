@@ -45,9 +45,7 @@ class HostController extends Controller
             'cover' => $fileName,
             'created_by' => Auth::user()->id, //nullable
             'is_active' => true, //default true
-            // is_active
-            // is_default_password_changed
-            // created_by
+            
         ]);
 
         return redirect()->route('organizer.host.create')->with('success','New Host was added successfully.'

@@ -20,5 +20,10 @@ class EventCategory extends Model
     {
         return $this->hasMany(Event::class,'category_id');
     }
+
+    public function creator()
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
     
 }

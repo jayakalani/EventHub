@@ -83,7 +83,7 @@
                                     <tr>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ $event_category->id }}</td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ $event_category->name }}</td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ $user->userRole->name_en ?? 'N/A' }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ $event_category->creator->first_name }} {{ $event_category->creator->last_name }}</td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm">
                                                                                             
                                             <!-- Active/Inactive Toggle Button -->

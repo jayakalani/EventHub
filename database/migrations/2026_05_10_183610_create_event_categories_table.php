@@ -15,6 +15,8 @@ return new class extends Migration
             $table->id();
             $table->string('name');
             $table->string('cover')->nullable();
+            $table->string('created_by')->nullable();
+            $table->foreign('created_by')->references('id')->on('users')->onDelete('set null');
             $table->boolean('is_active')->default(true);
             $table->timestamps();
         });

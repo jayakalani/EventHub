@@ -48,14 +48,25 @@
             <div class="mt-8">
                 <h2 class="text-xl font-semibold text-gray-900 mb-4">Quick Actions</h2>
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <a href="#" class="bg-blue-600 text-white rounded-lg p-4 text-center hover:bg-blue-700">
-                        Create New Event
-                    </a>
+                    <a href="{{ route('organizer.events.create') }}"class="bg-blue-600 text-white rounded-lg p-4 text-center hover:bg-blue-700">Create New Event</a>
+
                     <a href="#" class="bg-green-600 text-white rounded-lg p-4 text-center hover:bg-green-700">
                         View My Events
                     </a>
                     <a href="#" class="bg-purple-600 text-white rounded-lg p-4 text-center hover:bg-purple-700">
                         Manage Attendees
+                    </a>
+
+                    <a href="#" class="bg-purple-600 text-white rounded-lg p-4 text-center hover:bg-purple-700">
+                        View Unpublished Events
+                    </a>
+
+                     <a href="{{ route('organizer.host.create') }}" class="bg-purple-600 text-white rounded-lg p-4 text-center hover:bg-purple-700">
+                        Create Host
+                    </a>
+
+                     <a href="#" class="bg-purple-600 text-white rounded-lg p-4 text-center hover:bg-purple-700">
+                        View Host Persons
                     </a>
                 </div>
             </div>

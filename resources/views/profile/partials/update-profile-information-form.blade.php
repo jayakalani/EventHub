@@ -9,11 +9,43 @@
         </p>
     </header>
 
+    @if ($errors->any())
+            <div class="mb-6 p-4 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+                <div class="flex gap-3">
+                    <i class="bi bi-exclamation-circle text-red-600 dark:text-red-400 text-lg flex-shrink-0"></i>
+                    <div>
+                        <h3 class="font-semibold text-red-900 dark:text-red-300 mb-2">Registration Failed</h3>
+                        <ul class="text-sm text-red-800 dark:text-red-200 space-y-1">
+                            @foreach ($errors->all() as $error)
+                                <li>{{ $error }}</li>
+                            @endforeach
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        @endif
+
+    <!-- Success Message -->
+     @if (session('status') === 'profile-updated')
+        <div class="mb-6 p-4 rounded-xl bg-green-50 border border-green-200">
+            <div class="flex gap-3">
+                <i class="bi bi-check-circle text-green-600 text-lg flex-shrink-0"></i>
+                <div>
+                    <h3 class="font-semibold text-green-900 mb-2">Profile Updated</h3>
+                    <p class="text-sm text-green-800">
+                        Your profile information has been successfully updated.
+                    </p>
+                </div>
+            </div>
+        </div>
+    @endif
+
+
     <form id="send-verification" method="post" action="{{ route('verification.send') }}">
         @csrf
     </form>
 
-    <form method="post" action="{{ route('profile.update') }}" class="mt-6 space-y-6">
+    <form method="post" action="{{ route('profile.update') }}" class="mt-6 space-y-6" enctype="multipart/form-data">
         @csrf
         @method('patch')
 
@@ -68,10 +100,14 @@
         </div>
 
 
-        <div>
-            <x-input-label for="profile_picture" :value="__('Profile Picture')" />
-            <x-text-input id="profile_picture" name="profile_picture" type="file" class="mt-1 block w-full" :value="old('profile_picture', $user->profile_picture)" required autofocus autocomplete="profile_picture" />
-            <x-input-error class="mt-2" :messages="$errors->get('profile_picture')" />
+       <div>
+            <x-input-label for="profile_photo" :value="__('Profile Photo')" />
+            <input id="profile_photo" name="profile_photo" type="file"
+                class="mt-1 block w-full" accept="image/*">
+            <x-input-error class="mt-2" :messages="$errors->get('profile_photo')" />
+            @if ($user->profile_photo)
+                <img src="{{ asset('uploads/users-profile-photos/' .$user->profile_photo) }}" alt="Profile Photo" class="img-thumbnail mt-2" width="100">
+            @endif
         </div>
 
         <div>

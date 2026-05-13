@@ -9,6 +9,22 @@
         </p>
     </header>
 
+    @if (session('status') === 'password-updated')
+        <div class="mb-6 p-4 rounded-xl bg-green-50 border border-green-200">
+            <div class="flex gap-3">
+                <i class="bi bi-check-circle text-green-600 text-lg flex-shrink-0"></i>
+                <div>
+                    <h3 class="font-semibold text-green-900 mb-2">Password Updated</h3>
+                    <p class="text-sm text-green-800">
+                        Your password has been successfully updated.
+                    </p>
+                </div>
+            </div>
+        </div>
+    @endif
+
+
+
     <form method="post" action="{{ route('password.update') }}" class="mt-6 space-y-6">
         @csrf
         @method('put')

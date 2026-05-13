@@ -2,6 +2,22 @@
     <div class="max-w-2xl mx-auto p-6 bg-white shadow rounded">
         <h1 class="text-2xl font-bold mb-4">Create New Employee</h1>
 
+        @if ($errors->any())
+            <div class="mb-6 p-4 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+                <div class="flex gap-3">
+                    <i class="bi bi-exclamation-circle text-red-600 dark:text-red-400 text-lg flex-shrink-0"></i>
+                    <div>
+                        <h3 class="font-semibold text-red-900 dark:text-red-300 mb-2">Registration Failed</h3>
+                        <ul class="text-sm text-red-800 dark:text-red-200 space-y-1">
+                            @foreach ($errors->all() as $error)
+                                <li>{{ $error }}</li>
+                            @endforeach
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        @endif
+
         <form method="POST" action="{{ route('admin.employee.store') }}">
             @csrf
 

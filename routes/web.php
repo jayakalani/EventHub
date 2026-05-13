@@ -10,6 +10,10 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\EmployeeController;
+use App\Http\Controllers\OrganizerEventController;
+use App\Http\Controllers\HostController;
+use App\Http\Controllers\EventCategoryController;
+
 
 
 
@@ -57,20 +61,37 @@ Route::get('/dashboard', [DashboardController::class, 'index'])
 |--------------------------------------------------------------------------
 */
 Route::prefix('admin')->name('admin.')->group(function () {
+    
+    Route::middleware(['auth', 'verified', 'prevent-back', 'role:' . UserRole::ADMIN])->group(function () {
+
     // Users Management
-    Route::middleware(['auth', 'verified', 'role:' . UserRole::ADMIN])->group(function () {
         Route::get('/users', [UserController::class, 'index'])->name('users');
         Route::get('/user/{id}/edit', [UserController::class, 'edit'])->name('user.edit');
         Route::put('/user/{id}', [UserController::class, 'update'])->name('user.update');
         Route::post('/user/{id}/toggle-lock', [UserController::class, 'toggleLock'])->name('user.toggleLock');
         Route::post('/user/{id}/toggle-active', [UserController::class, 'toggleActive'])->name('user.toggleActive');
         Route::delete('/user/{id}', [UserController::class, 'destroy'])->name('user.destroy');
+
+    // Employee Management
         Route::get('/employees/create', [EmployeeController::class, 'create'])->name('employees.create');
         Route::post('/employees', [EmployeeController::class, 'store'])->name('employee.store');
-        Route::post('/admin/employees', [EmployeeController::class, 'store'])->name('admin.employee.store');
         Route::get('/admin/employees', [EmployeeController::class, 'index'])->name('employees.index');
         Route::get('/admin/employees/export/csv', [EmployeeController::class, 'exportCsv'])->name('employees.export.csv');
         Route::get('/admin/employees/export/pdf', [EmployeeController::class, 'exportPdf'])->name('employees.export.pdf');
+
+    // Event category Management
+        Route::get('/event-categories', [EventCategoryController::class, 'index'])->name('event-categories');
+        Route::get('/event/category/form', [EventCategoryController::class, 'createEventCategory'])->name('event.category.create');
+        Route::post('/event/category/store', [EventCategoryController::class, 'storeEventCategory'])->name('event.category.store');
+        Route::get('/admin/event-categories/export/csv', [EventCategoryController::class, 'exportCsv'])->name('event-categories.export.csv');
+        Route::get('/admin/event-categories/export/pdf', [EventCategoryController::class, 'exportPdf'])->name('event-categories.export.pdf');
+        Route::get('/event/category/{id}/edit', [EventCategoryController::class, 'edit'])->name('event.category.edit');
+        Route::put('/event/category/{id}', [EventCategoryController::class, 'update'])->name('event.category.update');
+        Route::post('/event/category/{id}/toggle-lock', [EventCategoryController::class, 'toggleLock'])->name('event.category.toggleLock');
+        Route::post('/event/category/{id}/toggle-active', [EventCategoryController::class, 'toggleActive'])->name('event.category.toggleActive');
+        Route::delete('/event/category/{id}', [EventCategoryController::class, 'destroy'])->name('event.category.destroy');
+        Route::get('/admin/event-categories', [EventCategoryController::class, 'index'])->name('event-categories.index');
+
 
 
         
@@ -83,10 +104,16 @@ Route::prefix('admin')->name('admin.')->group(function () {
 | Organizer Routes
 |--------------------------------------------------------------------------
 */
-Route::prefix('organizer')->name('organizer.')->group(function () {
-       
-    // Add organizer-specific routes here
+Route::prefix('organizer')->name('organizer.')->middleware(['auth', 'verified', 'prevent-back', 'role:'. UserRole::ORGANIZER])->group(function () {
+    // Event routes
+    Route::get('/events/create', [OrganizerEventController::class, 'create'])->name('events.create');
+    Route::post('/events', [OrganizerEventController::class, 'store'])->name('events.store');
+
+    // Host routes
+    Route::get('/host/form', [HostController::class, 'create'])->name('host.create');
+    Route::post('/host/store', [HostController::class, 'store'])->name('host.store');
 });
+
 
 
 /*

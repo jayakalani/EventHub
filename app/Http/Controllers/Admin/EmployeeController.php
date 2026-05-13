@@ -22,7 +22,7 @@ class EmployeeController extends Controller
             'customer relations officer'
         ])->where('is_active', true)->get();
 
-        return view('employees.create', compact('roles'));
+        return view('admin.users.create-employee', compact('roles'));
     }
 
     public function store(Request $request)

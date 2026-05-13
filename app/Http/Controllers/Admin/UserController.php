@@ -69,7 +69,7 @@ class UserController extends Controller
 
         $users = $query->paginate(10)->appends($request->all());
 
-        return view('admin.users', compact('users'));
+        return view('admin.users.index', compact('users'));
 
     }
 
@@ -80,7 +80,7 @@ class UserController extends Controller
     {
         $user = User::findOrFail($id);
         $roles = UserRole::all();
-        return view('admin.user-edit', compact('user', 'roles'));
+        return view('admin.users.user-edit', compact('user', 'roles'));
     }
 
     /**

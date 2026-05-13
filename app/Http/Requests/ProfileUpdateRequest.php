@@ -8,6 +8,7 @@ use Illuminate\Validation\Rule;
 
 class ProfileUpdateRequest extends FormRequest
 {
+    
     /**
      * Get the validation rules that apply to the request.
      *
@@ -16,15 +17,16 @@ class ProfileUpdateRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name' => ['required', 'string', 'max:255'],
-            'email' => [
-                'required',
-                'string',
-                'lowercase',
-                'email',
-                'max:255',
-                Rule::unique(User::class)->ignore($this->user()->id),
-            ],
+            'first_name' => ['required', 'string', 'max:255'],
+            'last_name' => ['required', 'string', 'max:255'],
+            'nic'            => ['required', 'string', 'max:20', Rule::unique(User::class)->ignore($this->user()->id)],
+            'contact_number' => ['required', 'string', 'max:15'],
+            'date_of_birth'  => ['required', 'date'],
+            'address'        => ['required', 'string', 'max:255'],
+            'gender'         => ['required', Rule::in(['male','female'])],
+            'profile_photo'  => ['nullable','image','max:2048'],
+            'email' => ['required','string','lowercase','email','max:255',Rule::unique(User::class)->ignore($this->user()->id),],
         ];
     }
 }
+

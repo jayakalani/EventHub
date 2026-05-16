@@ -14,7 +14,7 @@ class Host extends Model
     protected $fillable = [
         'name',
         'email',
-        'phone_number',
+        'contact_number',
         'cover',
         'created_by',
         'is_active',

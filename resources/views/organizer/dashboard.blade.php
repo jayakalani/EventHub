@@ -65,7 +65,7 @@
                         Create Host
                     </a>
 
-                     <a href="#" class="bg-purple-600 text-white rounded-lg p-4 text-center hover:bg-purple-700">
+                     <a href="{{ route('organizer.hosts') }}" class="bg-purple-600 text-white rounded-lg p-4 text-center hover:bg-purple-700">
                         View Host Persons
                     </a>
                 </div>

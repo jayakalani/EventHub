@@ -110,8 +110,15 @@ Route::prefix('organizer')->name('organizer.')->middleware(['auth', 'verified', 
     Route::post('/events', [OrganizerEventController::class, 'store'])->name('events.store');
 
     // Host routes
+    Route::get('/hosts', [HostController::class, 'index'])->name('hosts');
     Route::get('/host/form', [HostController::class, 'create'])->name('host.create');
     Route::post('/host/store', [HostController::class, 'store'])->name('host.store');
+    Route::get('/organizer/hosts/export/csv', [HostController::class, 'exportCsv'])->name('hosts.export.csv');
+    Route::get('/organizer/hosts/export/pdf', [HostController::class, 'exportPdf'])->name('hosts.export.pdf');
+    Route::post('hosts/{id}/toggle-active', [HostController::class, 'toggleActive'])->name('hosts.toggleActive');
+    Route::get('hosts/{id}/edit', [HostController::class, 'edit'])->name('hosts.edit');
+    Route::put('hosts/{id}', [HostController::class, 'update'])->name('hosts.update');
+    Route::delete('hosts/{id}', [HostController::class, 'destroy'])->name('hosts.destroy');
 });
 
 

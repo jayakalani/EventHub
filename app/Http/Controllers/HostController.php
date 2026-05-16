@@ -19,7 +19,7 @@ class HostController extends Controller
 {
     public function create()
     {
-        return view('organizer/create-host-form');
+        return view('organizer/hosts/create-host-form');
     }
 
     public function store(Request $request)
@@ -27,7 +27,7 @@ class HostController extends Controller
         $validatedData = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:hosts'],
-            'phone_number' => ['required', 'string', 'max:20'],
+            'contact_number' => ['required', 'string', 'max:20'],
             'cover' => 'required|image|mimes:jpg,jpeg,png,gif|max:2048',
         ]);
 
@@ -41,25 +41,52 @@ class HostController extends Controller
         $host = Host::create([
             'name' => $validatedData['name'],
             'email' => $validatedData['email'],
-            'phone_number' => $validatedData['phone_number'],
+            'contact_number' => $validatedData['contact_number'],
             'cover' => $fileName,
             'created_by' => Auth::user()->id, //nullable
             'is_active' => true, //default true
             
         ]);
 
-        return redirect()->route('organizer.host.create')->with('success','New Host was added successfully.'
-);
-    }
+        return redirect()->route('organizer.host.create')->with('success','New Host was added successfully.');
+    }    
 
-    
-
-    public function view()
+    /*public function index()
     {
         $hosts = Host::all();
-        $hostSubscription = HostsSubscription::all();
+        //$hostSubscription = HostsSubscription::all();
 
-        return view('hosts/view-hosts', ['hosts' => $hosts, 'hostSubscription' => $hostSubscription]);
+        //return view('hosts/view-hosts', ['hosts' => $hosts, 'hostSubscription' => $hostSubscription]);
+        return view('organizer/hosts/index', ['hosts' => $hosts, ]);
+    }*/
+    
+    public function index(Request $request)
+    {
+        $query = Host::query();
+
+        // Search
+        if ($request->filled('search')) {
+            $query->where('name', 'like', '%' . $request->search . '%');
+        }
+
+        // Status Filter
+        if ($request->filled('status')) {
+            $query->where('is_active', $request->status === 'active');
+        }
+
+        // Date Range Filter
+        if ($request->filled('from_date')) {
+            $query->whereDate('created_at', '>=', $request->from_date);
+        }
+
+        if ($request->filled('to_date')) {
+            $query->whereDate('created_at', '<=', $request->to_date);
+        }
+
+        // Latest First + Pagination
+        $hosts = $query->latest()->paginate(20)->withQueryString();
+
+        return view('organizer.hosts.index', compact('hosts'));
     }
 
     public function viewProfile(int $id)
@@ -77,26 +104,36 @@ class HostController extends Controller
         ]);
     }
 
+    public function toggleActive(int $id)
+    {
+        $host = Host::findOrFail($id);
+        $host->is_active = $host->is_active ? 0 : 1;
+        $host->save();
+
+        return redirect()->back()->with('success', 'Host status updated successfully.');
+    }
+
     public function edit(int $id)
     {
         $host = Host::findOrFail($id);
 
         // dd($author);
-        return view('hosts/edit-host-profile', ['host' => $host]);
+        return view('organizer/hosts/edit', ['host' => $host]);
     }
 
     public function update(int $id, Request $request)
     {
+        $host = Host::findOrFail($id);
 
         $validatedData = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'email', 'max:255', 'unique:hosts'],
-            'phone_number' => ['required', 'string', 'max:20'],
+            'email' => ['required', 'string', 'email', 'max:255', Rule::unique(Host::class)->ignore($host->id)],
+            'contact_number' => ['required', 'string', 'max:20'],
             'cover' => 'nullable|image|mimes:jpg,jpeg,png,gif|max:2048',
 
         ]);
 
-        $host = Host::findOrFail($id);
+        
 
         $default_host_cover = $host->cover;
 
@@ -113,12 +150,71 @@ class HostController extends Controller
 
         $host->name = $validatedData['name'];
         $host->email = $validatedData['email'];
-        $host->phone_number = $validatedData['phone_number'];
+        $host->contact_number = $validatedData['contact_number'];
 
         $host->save();
 
-        return redirect()->route('organizer.host.create')
-                 ->with('success', 'New Host was added successfully.');
+        return redirect()->route('organizer.hosts')
+                 ->with('success', 'Host updated successfully.');
 
     }
+
+    public function destroy(Request $request, $id)
+    {
+        $host = Host::findOrFail($id);
+        
+        $host->delete();
+
+        return redirect()->route('organizer.hosts')->with('success', "Host {$host->name} has been deleted.");
+
+    }
+
+    /**
+     * Export hosts as CSV
+     */
+    public function exportCsv(Request $request)
+    {
+        $hosts = Host::all();
+
+        $csvData = [];
+        $csvData[] = ['ID', 'Name', 'Email', 'Contact Number', 'Status', 'Created At'];
+
+        foreach ($hosts as $host) {
+            $csvData[] = [
+                $host->id,
+                $host->name,
+                $host->email,
+                $host->contact_number,
+                $host->is_active ? 'Active' : 'Inactive',
+                $host->created_at->format('Y-m-d H:i'),
+            ];
+        }
+
+        $filename = "hosts_" . now()->format('Ymd_His') . ".csv";
+        $handle = fopen('php://temp', 'r+');
+        foreach ($csvData as $row) {
+            fputcsv($handle, $row);
+        }
+        rewind($handle);
+        $content = stream_get_contents($handle);
+        fclose($handle);
+
+        return response($content, 200, [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => "attachment; filename={$filename}",
+        ]);
+    }
+
+    /**
+     * Export hosts as PDF
+     */
+    public function exportPdf(Request $request)
+    {
+        $hosts = Host::all();
+
+        $pdf = \PDF::loadView('organizer.exports.hosts_pdf', compact('hosts'));
+        return $pdf->download('hosts_' . now()->format('Ymd_His') . '.pdf');
+    }
 }
+
+

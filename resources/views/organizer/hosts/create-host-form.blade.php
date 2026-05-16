@@ -45,13 +45,13 @@
                     @enderror
                 </div>
 
-                <!-- Phone -->
+                <!-- Contact Number -->
                 <div>
-                    <label for="phone_number" class="block text-sm font-medium text-gray-700">Phone Number</label>
-                    <input id="phone_number" type="text" name="phone_number"
+                    <label for="contact_number" class="block text-sm font-medium text-gray-700">Contact Number</label>
+                    <input id="contact_number" type="text" name="contact_number"
                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                           value="{{ old('phone_number') }}" required>
-                    @error('phone_number')
+                           value="{{ old('contact_number') }}" required>
+                    @error('contact_number')
                         <p class="text-sm text-red-600 mt-1">{{ $message }}</p>
                     @enderror
                 </div>

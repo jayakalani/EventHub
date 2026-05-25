@@ -25,7 +25,7 @@
             </div>
         @endif
 
-        <form method="POST" action="{{ route('organizer.events.store') }}">
+        <form method="POST" action="{{ route('organizer.events.store') }}" enctype="multipart/form-data">
             @csrf
             <div class="border border-dark border-2 rounded-2">
                  <div class="row mb-3 mt-4 ">
@@ -63,124 +63,124 @@
                     </div>
                 </div>
                                 
-                                <div class="row mb-3">
-                                    <label for="category_id" class="col-md-4 col-form-label text-md-end">{{ __('Category: ') }}</label>
+                <div class="row mb-3">
+                    <label for="category_id" class="col-md-4 col-form-label text-md-end">{{ __('Category: ') }}</label>
 
-                                    <div class="col-md-6">
-                                        <div class="dropdown">
-                                            <select class="form-control" id="category_id" name="category_id" required>
-                                                <option value="">Select Category</option>
-                                                @foreach ($event_categories as $event_category)
-                                                <option value="{{ $event_category->id }}">{{ $event_category->name }}</option>
-                                                @endforeach
-                                            </select>
-                                        </div>
+                    <div class="col-md-6">
+                        <div class="dropdown">
+                            <select class="form-control" id="category_id" name="category_id" required>
+                                <option value="">Select Category</option>
+                                @foreach ($event_categories as $event_category)
+                                <option value="{{ $event_category->id }}">{{ $event_category->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
 
-                                        @error('category_id')
-                                        <span class="invalid-feedback" role="alert">
-                                            <strong>{{ $message }}</strong>
-                                        </span>
-                                        @enderror
-                                    </div>
-                                </div>
+                        @error('category_id')
+                        <span class="invalid-feedback" role="alert">
+                            <strong>{{ $message }}</strong>
+                        </span>
+                        @enderror
+                    </div>
+                </div>
 
 
-                                <div class="row mb-3">
-                                    <label for="date" class="col-md-4 col-form-label text-md-end">{{ __('Date & Time: ') }}</label>
+                <div class="row mb-3">
+                    <label for="date" class="col-md-4 col-form-label text-md-end">{{ __('Date & Time: ') }}</label>
 
-                                    <div class="col-md-3">
-                                        <input id="date" type="date" class="form-control @error('date') is-invalid @enderror" name="date" value="{{ old('date') }}" required autocomplete="date" autofocus>
+                    <div class="col-md-3">
+                        <input id="date" type="date" class="form-control @error('date') is-invalid @enderror" name="date" value="{{ old('date') }}" required autocomplete="date" autofocus>
 
-                                        @error('date')
-                                        <span class="invalid-feedback" role="alert">
-                                            <strong>{{ $message }}</strong>
-                                        </span>
-                                        @enderror
-                                    </div>
+                        @error('date')
+                        <span class="invalid-feedback" role="alert">
+                            <strong>{{ $message }}</strong>
+                        </span>
+                        @enderror
+                    </div>
 
-                                    <div class="col-md-3">
-                                        <input id="time" type="time" class="form-control @error('time') is-invalid @enderror" name="time" value="{{ old('time') }}" required autocomplete="time" autofocus>
+                    <div class="col-md-3">
+                        <input id="time" type="time" class="form-control @error('time') is-invalid @enderror" name="time" value="{{ old('time') }}" required autocomplete="time" autofocus>
 
-                                        @error('time')
-                                            <span class="invalid-feedback" role="alert">
-                                                <strong>{{ $message }}</strong>
-                                            </span>
-                                        @enderror
-                                    </div>
-                                </div>                             
+                        @error('time')
+                            <span class="invalid-feedback" role="alert">
+                                <strong>{{ $message }}</strong>
+                            </span>
+                        @enderror
+                    </div>
+                </div>                             
 
-                                <div class="row mb-3">
-                                    <label for="place" class="col-md-4 col-form-label text-md-end">{{ __('Place: ') }}</label>
+                <div class="row mb-3">
+                    <label for="place" class="col-md-4 col-form-label text-md-end">{{ __('Place: ') }}</label>
 
-                                    <div class="col-md-6">
-                                        <input id="place" type="text" class="form-control @error('place') is-invalid @enderror" name="place" value="{{ old('place') }}" required autocomplete="place" autofocus>
+                    <div class="col-md-6">
+                        <input id="place" type="text" class="form-control @error('place') is-invalid @enderror" name="place" value="{{ old('place') }}" required autocomplete="place" autofocus>
 
-                                        @error('place')
-                                        <span class="invalid-feedback" role="alert">
-                                            <strong>{{ $message }}</strong>
-                                        </span>
-                                        @enderror
-                                    </div>
-                                </div>
+                        @error('place')
+                        <span class="invalid-feedback" role="alert">
+                            <strong>{{ $message }}</strong>
+                        </span>
+                        @enderror
+                    </div>
+                </div>
                                 
-                                <div class="row mb-3">
-                                    <label for="no_of_seats" class="col-md-4 col-form-label text-md-end">{{ __('Number Of Seats: ') }}</label>
+                <div class="row mb-3">
+                    <label for="no_of_seats" class="col-md-4 col-form-label text-md-end">{{ __('Number Of Seats: ') }}</label>
 
-                                    <div class="col-md-6">
-                                        <input id="no_of_seats" type="text" class="form-control @error('no_of_seats') is-invalid @enderror" name="no_of_seats" value="{{ old('no_of_seats') }}" required autocomplete="no_of_seats" autofocus>
+                    <div class="col-md-6">
+                        <input id="no_of_seats" type="text" class="form-control @error('no_of_seats') is-invalid @enderror" name="no_of_seats" value="{{ old('no_of_seats') }}" required autocomplete="no_of_seats" autofocus>
 
-                                        @error('no_of_seats')
-                                        <span class="invalid-feedback" role="alert">
-                                            <strong>{{ $message }}</strong>
-                                        </span>
-                                        @enderror
-                                    </div>
-                                </div>
+                        @error('no_of_seats')
+                        <span class="invalid-feedback" role="alert">
+                            <strong>{{ $message }}</strong>
+                        </span>
+                        @enderror
+                    </div>
+                </div>
                                 
-                                <div class="row mb-3">
-                                    <label for="description" class="col-md-4 col-form-label text-md-end">{{ __('Event Description: ') }}</label>
+                <div class="row mb-3">
+                    <label for="description" class="col-md-4 col-form-label text-md-end">{{ __('Event Description: ') }}</label>
 
-                                    <div class="col-md-6">
-                                        <textarea name="description" id="description" placeholder="Enter your event description here" required autofocus style="width: 100%; height: 150px;" autofocus></textarea>
+                    <div class="col-md-6">
+                        <textarea name="description" id="description" placeholder="Enter your event description here" required autofocus style="width: 100%; height: 150px;" autofocus></textarea>
 
-                                        @error('description')
-                                        <span class="invalid-feedback" role="alert">
-                                            <strong>{{ $message }}</strong>
-                                        </span>
-                                        @enderror
-                                    </div>
-                                </div>
+                        @error('description')
+                        <span class="invalid-feedback" role="alert">
+                            <strong>{{ $message }}</strong>
+                        </span>
+                        @enderror
+                    </div>
+                </div>
                                 
-                                <div class="row mb-3">
-                                    <label for="contact_person" class="col-md-4 col-form-label text-md-end">{{ __('Customer Relations Officer: ') }}</label>
+                <div class="row mb-3">
+                    <label for="contact_person" class="col-md-4 col-form-label text-md-end">{{ __('Customer Relations Officer: ') }}</label>
 
-                                    <div class="col-md-6">
-                                        <div class="dropdown">
-                                            <select class="form-control" id="contact_person" name="contact_person" required>
-                                                <option value="">Select Contact Person</option>
-                                                @foreach ($users as $user)
-                                                <option value="{{ $user->id }}">{{ $user->first_name }} {{ $user->last_name }}</option>
-                                                @endforeach
-                                            </select>
-                                        </div>
+                    <div class="col-md-6">
+                        <div class="dropdown">
+                            <select class="form-control" id="contact_person" name="contact_person" required>
+                                <option value="">Select Contact Person</option>
+                                @foreach ($croUsers as $croUser)
+                                <option value="{{ $croUser->id }}">{{ $croUser->first_name }} {{ $croUser->last_name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
 
-                                        @error('contact_person')
-                                        <span class="invalid-feedback" role="alert">
-                                            <strong>{{ $message }}</strong>
-                                        </span>
-                                        @enderror
-                                    </div>
-                                </div>
+                        @error('contact_person')
+                        <span class="invalid-feedback" role="alert">
+                            <strong>{{ $message }}</strong>
+                        </span>
+                        @enderror
+                    </div>
+                </div>
 
-                                <div class="row mb-3">
-                                    <label for="cover" class="col-md-4 col-form-label text-md-end">{{ __('Cover: ') }} </label>
-                                    <div class="col md-6">
+                <div class="row mb-3">
+                    <label for="cover" class="col-md-4 col-form-label text-md-end">{{ __('Cover: ') }} </label>
+                    <div class="col md-6">
                                         
-                                        <input type="file" id ="cover" name= "cover" class="form-control-file col-md-4" accept=".jpg,.jpeg, .png" required>
-                                        <small class="text-muted">Accepted file type: JPG, JPEG, PNG | must be less than 2MB</small>
-                                    </div>
-                                </div>
-                            </div> 
+                        <input type="file" id ="cover" name= "cover" class="form-control-file col-md-4" accept=".jpg,.jpeg, .png" required>
+                        <small class="text-muted">Accepted file type: JPG, JPEG, PNG | must be less than 2MB</small>
+                    </div>
+                </div>
+            </div> 
 
             <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">
                 Save Event

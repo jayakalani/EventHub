@@ -10,7 +10,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\EmployeeController;
-use App\Http\Controllers\OrganizerEventController;
+use App\Http\Controllers\EventController;
 use App\Http\Controllers\HostController;
 use App\Http\Controllers\EventCategoryController;
 
@@ -106,8 +106,15 @@ Route::prefix('admin')->name('admin.')->group(function () {
 */
 Route::prefix('organizer')->name('organizer.')->middleware(['auth', 'verified', 'prevent-back', 'role:'. UserRole::ORGANIZER])->group(function () {
     // Event routes
-    Route::get('/events/create', [OrganizerEventController::class, 'create'])->name('events.create');
-    Route::post('/events', [OrganizerEventController::class, 'store'])->name('events.store');
+    Route::get('/events', [EventController::class, 'index'])->name('events.index');
+    Route::get('/events/create', [EventController::class, 'create'])->name('events.create');
+    Route::post('/events', [EventController::class, 'store'])->name('events.store');
+    Route::get('/events/{event}/edit', [EventController::class, 'edit'])->name('events.edit');
+    Route::put('/events/{event}', [EventController::class, 'update'])->name('events.update');
+    Route::delete('/events/{event}', [EventController::class, 'destroy'])->name('events.destroy');
+    Route::get('/events/export/csv', [EventController::class, 'exportCsv'])->name('events.export.csv');
+    Route::get('/events/export/pdf', [EventController::class, 'exportPdf'])->name('events.export.pdf');
+    Route::patch('/events/{event}/status', [EventController::class, 'updateStatus'])->name('events.updateStatus');
 
     // Host routes
     Route::get('/hosts', [HostController::class, 'index'])->name('hosts');

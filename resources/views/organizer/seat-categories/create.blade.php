@@ -1,0 +1,103 @@
+<x-app-layout>
+    <x-slot name="header">
+        <h2 class="font-semibold text-xl text-gray-800 leading-tight">
+            {{ __('Create New Seat Category') }}
+        </h2>
+    </x-slot>
+
+    <div class="py-6">
+        <div class="max-w-4xl mx-auto sm:px-6 lg:px-8">
+            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
+                <div class="p-6">
+
+                    {{-- Validation Errors --}}
+                    @if ($errors->any())
+                        <div class="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+                            <ul class="list-disc pl-5">
+                                @foreach ($errors->all() as $error)
+                                    <li>{{ $error }}</li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    @endif
+
+                    {{-- Seat Category Form --}}
+                    <form action="{{ route('organizer.seat-categories.store', $event->id) }}" method="POST" class="space-y-6">
+                        @csrf
+
+                        {{-- Event ID --}}
+                        <div>
+                            <label for="event_id" class="block text-sm font-medium text-gray-700">Event</label>
+                            <select name="event_id" id="event_id" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" required>
+                                @foreach($events as $ev)
+                                    <option value="{{ $ev->id }}" {{ $event->id == $ev->id ? 'selected' : '' }}>
+                                        {{ $ev->name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+
+                        {{-- Name --}}
+                        <div>
+                            <label for="name" class="block text-sm font-medium text-gray-700">Category Name</label>
+                            <input type="text" name="name" id="name" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" required>
+                        </div>
+
+                        {{-- Description --}}
+                        <div>
+                            <label for="description" class="block text-sm font-medium text-gray-700">Description</label>
+                            <textarea name="description" id="description" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm"></textarea>
+                        </div>
+
+                        {{-- Total Seats --}}
+                        <div>
+                            <label for="no_of_seats" class="block text-sm font-medium text-gray-700">Total Seats</label>
+                            <input type="number" name="no_of_seats" id="no_of_seats" min="1" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" required>
+                        </div>
+
+                        {{-- Seat Price --}}
+                        <div>
+                            <label for="seat_price" class="block text-sm font-medium text-gray-700">Seat Price</label>
+                            <input type="number" step="0.01" name="seat_price" id="seat_price" min="0" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" required>
+                        </div>
+
+                        {{-- Ticket Color --}}
+                        <div>
+                            <label for="ticket_color" class="block text-sm font-medium text-gray-700">Ticket Color</label>
+                            <input type="text" name="ticket_color" id="ticket_color" placeholder="e.g. red or #FF0000" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" required>
+                        </div>
+
+                        {{-- Active Status --}}
+                        <div>
+                            <label for="is_active" class="block text-sm font-medium text-gray-700">Active</label>
+                            <select name="is_active" id="is_active" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+                                <option value="1" selected>Yes</option>
+                                <option value="0">No</option>
+                            </select>
+                        </div>
+
+                        {{-- Booking Start --}}
+                        <div>
+                            <label for="booking_start" class="block text-sm font-medium text-gray-700">Booking Start</label>
+                            <input type="datetime-local" name="booking_start" id="booking_start" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+                        </div>
+
+                        {{-- Booking End --}}
+                        <div>
+                            <label for="booking_end" class="block text-sm font-medium text-gray-700">Booking End</label>
+                            <input type="datetime-local" name="booking_end" id="booking_end" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+                        </div>
+
+                        {{-- Submit --}}
+                        <div>
+                            <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                                Create Seat Category
+                            </button>
+                        </div>
+                    </form>
+
+                </div>
+            </div>
+        </div>
+    </div>
+</x-app-layout>

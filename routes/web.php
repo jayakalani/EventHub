@@ -13,6 +13,7 @@ use App\Http\Controllers\Admin\EmployeeController;
 use App\Http\Controllers\EventController;
 use App\Http\Controllers\HostController;
 use App\Http\Controllers\EventCategoryController;
+use App\Http\Controllers\SeatCategoryController;
 
 
 
@@ -109,12 +110,21 @@ Route::prefix('organizer')->name('organizer.')->middleware(['auth', 'verified', 
     Route::get('/events', [EventController::class, 'index'])->name('events.index');
     Route::get('/events/create', [EventController::class, 'create'])->name('events.create');
     Route::post('/events', [EventController::class, 'store'])->name('events.store');
+    Route::get('/events/{event}', [EventController::class, 'show'])->name('events.show');
     Route::get('/events/{event}/edit', [EventController::class, 'edit'])->name('events.edit');
     Route::put('/events/{event}', [EventController::class, 'update'])->name('events.update');
     Route::delete('/events/{event}', [EventController::class, 'destroy'])->name('events.destroy');
     Route::get('/events/export/csv', [EventController::class, 'exportCsv'])->name('events.export.csv');
     Route::get('/events/export/pdf', [EventController::class, 'exportPdf'])->name('events.export.pdf');
     Route::patch('/events/{event}/status', [EventController::class, 'updateStatus'])->name('events.updateStatus');
+    Route::get('/events/{event}/export-pdf', [EventController::class, 'exportPdf'])->name('events.exportPdf');
+    
+    //seat category routes
+    Route::get('/events/{event}/seat-categories', [SeatCategoryController::class, 'index'])->name('seat-categories.index');
+    Route::get('/events/{event}/seat-categories/create', [SeatCategoryController::class, 'create'])->name('seat-categories.create');
+    Route::post('/events/{event}/seat-categories', [SeatCategoryController::class, 'store'])->name('seat-categories.store');
+
+
 
     // Host routes
     Route::get('/hosts', [HostController::class, 'index'])->name('hosts');

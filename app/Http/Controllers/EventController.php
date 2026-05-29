@@ -13,6 +13,8 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Facades\Response;
 
 class EventController extends Controller
 {
@@ -235,4 +237,22 @@ class EventController extends Controller
         $pdf = \PDF::loadView('organizer.exports.events_pdf', compact('events'));
         return $pdf->download('events_' . now()->format('Ymd_His') . '.pdf');
     }
+
+    public function show(Event $event)
+    {
+        $seatCategories = $event->seatCategories; // relationship from Event model
+        return view('organizer.events.show', compact('event', 'seatCategories'));
+    }
+
+    
+
+    public function showexportPdf(Event $event)
+    {
+        $seatCategories = $event->seatCategories;
+        $pdf = Pdf::loadView('organizer.events.exports.event_pdf', compact('event','seatCategories'));
+        return $pdf->download($event->name.'_details.pdf');
+    }
+
+
+
 }

@@ -109,6 +109,7 @@
                                     </td>
 
                                     <td class="px-6 py-4 text-sm text-gray-900">
+                                        <a href="{{ route('organizer.events.show', $event->id) }}" class="btn btn-info btn-sm">View</a>
                                         <a href="{{ route('organizer.events.edit', $event->id) }}" class="text-blue-600 hover:text-blue-900 mr-2">Edit</a>
                                         <form action="{{ route('organizer.events.destroy', $event->id) }}" method="POST" class="inline">
                                             @csrf

@@ -23,14 +23,9 @@
             <div class="flex flex-wrap items-center gap-2">
 
                 <!-- Search -->
-                <form method="GET"
-                    action="{{ route('organizer.hosts') }}"
-                    class="flex flex-wrap items-center gap-2">
+                <form method="GET" action="{{ route('organizer.hosts') }}" class="flex flex-wrap items-center gap-2">
 
-                    <input type="text"
-                        name="search"
-                        placeholder="Search..."
-                        value="{{ request('search') }}"
+                    <input type="text" name="search" placeholder="Search..." value="{{ request('search') }}"
                         class="w-44 xl:w-52 px-4 py-2 text-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
 
                     <!-- Status -->
@@ -39,28 +34,22 @@
 
                         <option value="">All</option>
 
-                        <option value="active"
-                            {{ request('status') == 'active' ? 'selected' : '' }}>
+                        <option value="active" {{ request('status') == 'active' ? 'selected' : '' }}>
                             Active
                         </option>
 
-                        <option value="inactive"
-                            {{ request('status') == 'inactive' ? 'selected' : '' }}>
+                        <option value="inactive" {{ request('status') == 'inactive' ? 'selected' : '' }}>
                             Inactive
                         </option>
 
                     </select>
 
                     <!-- From -->
-                    <input type="date"
-                        name="from_date"
-                        value="{{ request('from_date') }}"
+                    <input type="date" name="from_date" value="{{ request('from_date') }}"
                         class="px-3 py-2 text-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
 
                     <!-- To -->
-                    <input type="date"
-                        name="to_date"
-                        value="{{ request('to_date') }}"
+                    <input type="date" name="to_date" value="{{ request('to_date') }}"
                         class="px-3 py-2 text-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
 
                     <!-- Apply -->
@@ -112,7 +101,7 @@
         <div class="max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-8">
 
             <!-- Success -->
-            @if(session('success'))
+            @if (session('success'))
                 <div class="mb-5 px-4 py-3 rounded-xl bg-green-100 border border-green-200 text-green-700 text-sm">
                     {{ session('success') }}
                 </div>
@@ -122,13 +111,13 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-5">
 
                 @forelse($hosts as $host)
-
-                    <div class="group bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition duration-300">
+                    <div
+                        class="group bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition duration-300">
 
                         <!-- Cover -->
                         <div class="relative h-40 overflow-hidden">
 
-                            @if($host->cover)
+                            @if ($host->cover)
                                 <img src="{{ asset('uploads/covers/hosts/' . $host->cover) }}"
                                     alt="{{ $host->name }}"
                                     class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
@@ -144,10 +133,9 @@
                             <!-- Status -->
                             <div class="absolute top-3 right-3">
 
-                                <span class="px-2 py-1 text-[10px] font-semibold rounded-full
-                                    {{ $host->is_active
-                                        ? 'bg-green-500 text-white'
-                                        : 'bg-gray-500 text-white' }}">
+                                <span
+                                    class="px-2 py-1 text-[10px] font-semibold rounded-full
+                                    {{ $host->is_active ? 'bg-green-500 text-white' : 'bg-gray-500 text-white' }}">
 
                                     {{ $host->is_active ? 'Active' : 'Inactive' }}
                                 </span>
@@ -180,7 +168,7 @@
 
                                 <p class="text-xs text-gray-600 truncate">
                                     📞 {{ $host->contact_number }}
-                                </p>                               
+                                </p>
 
                             </div>
 
@@ -188,8 +176,7 @@
                             <div class="grid grid-cols-3 gap-2">
 
                                 <!-- Toggle -->
-                                <form action="{{ route('organizer.hosts.toggleActive', $host->id) }}"
-                                    method="POST"
+                                <form action="{{ route('organizer.hosts.toggleActive', $host->id) }}" method="POST"
                                     class="col-span-3">
                                     @csrf
 
@@ -210,14 +197,12 @@
                                 </a>
 
                                 <!-- Delete -->
-                                <form action="{{ route('organizer.hosts.destroy', $host->id) }}"
-                                    method="POST"
+                                <form action="{{ route('organizer.hosts.destroy', $host->id) }}" method="POST"
                                     class="col-span-2">
                                     @csrf
                                     @method('DELETE')
 
-                                    <button type="submit"
-                                        onclick="return confirm('Delete this host?')"
+                                    <button type="submit" onclick="return confirm('Delete this host?')"
                                         class="w-full px-3 py-2 rounded-xl bg-red-100 text-red-600 text-xs font-medium hover:bg-red-200 transition">
                                         Delete
                                     </button>
@@ -256,7 +241,6 @@
                         </div>
 
                     </div>
-
                 @endforelse
 
             </div>

@@ -51,8 +51,8 @@
                 <label class="block text-gray-700">User Role</label>
                 <select name="role_id" class="w-full px-4 py-2 border rounded">
                     <option value="">-- Select Role --</option>
-                    @foreach($roles as $role)
-                    <option value="{{ $role->id }}">{{ $role->name_en }}</option>
+                    @foreach ($roles as $role)
+                        <option value="{{ $role->id }}">{{ $role->name_en }}</option>
                     @endforeach
                 </select>
             </div>
@@ -64,4 +64,3 @@
         </form>
     </div>
 </x-app-layout>
-

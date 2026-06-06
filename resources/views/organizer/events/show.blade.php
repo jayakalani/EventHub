@@ -6,14 +6,9 @@
                 <div class="rounded-2xl border border-red-200 bg-red-50 p-5 shadow-sm">
                     <div class="flex items-start gap-3">
                         <div class="flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
-                            <svg class="h-5 w-5 text-red-600"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24">
-                                <path stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                    stroke-width="2"
-                                    d="M12 8v4m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4c-.77-1.33-2.69-1.33-3.46 0L3.34 16c-.77 1.33.19 3 1.73 3z"/>
+                            <svg class="h-5 w-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M12 8v4m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4c-.77-1.33-2.69-1.33-3.46 0L3.34 16c-.77 1.33.19 3 1.73 3z" />
                             </svg>
                         </div>
 
@@ -33,27 +28,18 @@
             @endif
 
             {{-- Success Message --}}
-            @if(session('success'))
-                <div
-                    x-data="{ show: true }"
-                    x-init="setTimeout(() => show = false, 5000)"
-                    x-show="show"
-                    x-transition
-                    class="rounded-2xl border border-green-200 bg-green-50 p-5 shadow-sm"
-                >
+            @if (session('success'))
+                <div x-data="{ show: true }" x-init="setTimeout(() => show = false, 5000)" x-show="show" x-transition
+                    class="rounded-2xl border border-green-200 bg-green-50 p-5 shadow-sm">
                     <div class="flex items-center justify-between">
 
                         <div class="flex items-center gap-3">
 
                             <div class="flex h-10 w-10 items-center justify-center rounded-full bg-green-100">
-                                <svg class="h-5 w-5 text-green-600"
-                                    fill="none"
-                                    stroke="currentColor"
+                                <svg class="h-5 w-5 text-green-600" fill="none" stroke="currentColor"
                                     viewBox="0 0 24 24">
-                                    <path stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                        stroke-width="2"
-                                        d="M5 13l4 4L19 7"/>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M5 13l4 4L19 7" />
                                 </svg>
                             </div>
 
@@ -69,8 +55,7 @@
 
                         </div>
 
-                        <button @click="show = false"
-                                class="text-green-600 hover:text-green-800">
+                        <button @click="show = false" class="text-green-600 hover:text-green-800">
                             ✕
                         </button>
 
@@ -81,19 +66,19 @@
                 {{ __('Event Details') }}
             </h2>
 
-            
-                <div class="flex gap-3">
-                    <a href="{{ route('organizer.seat-categories.create', $event->id) }}"
-                       class="px-4 py-2 bg-green-600 text-white rounded-lg shadow hover:bg-green-700 transition">
-                        + Add Seat Category
-                    </a>
 
-                    <a href="{{ route('organizer.events.exportPdf', $event->id) }}"
-                       class="px-4 py-2 bg-red-600 text-white rounded-lg shadow hover:bg-red-700 transition">
-                        Export PDF
-                    </a>
-                </div>
-            
+            <div class="flex gap-3">
+                <a href="{{ route('organizer.seat-categories.create', $event->id) }}"
+                    class="px-4 py-2 bg-green-600 text-white rounded-lg shadow hover:bg-green-700 transition">
+                    + Add Seat Category
+                </a>
+
+                <a href="{{ route('organizer.events.exportPdf', $event->id) }}"
+                    class="px-4 py-2 bg-red-600 text-white rounded-lg shadow hover:bg-red-700 transition">
+                    Export PDF
+                </a>
+            </div>
+
         </div>
     </x-slot>
 
@@ -104,9 +89,8 @@
             <div class="bg-white rounded-xl shadow-md overflow-hidden">
 
                 {{-- Cover --}}
-                @if($event->cover)
-                    <img src="{{ asset('uploads/covers/events/'.$event->cover) }}"
-                         class="w-full h-64 object-cover">
+                @if ($event->cover)
+                    <img src="{{ asset('uploads/covers/events/' . $event->cover) }}" class="w-full h-64 object-cover">
                 @endif
 
                 <div class="p-6 space-y-6">
@@ -123,7 +107,8 @@
                             </p>
                         </div>
 
-                        <span class="px-3 py-1 text-sm rounded-full
+                        <span
+                            class="px-3 py-1 text-sm rounded-full
                             {{ $event->status === 'ongoing' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600' }}">
                             {{ ucfirst($event->status) }}
                         </span>
@@ -163,39 +148,27 @@
 
                     <div class="flex justify-end gap-3 border-t border-slate-200 pt-4">
                         <a href="{{ route('organizer.events.edit', $event->id) }}"
-                           class="inline-flex items-center rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white hover:bg-amber-600 transition">
-                            <svg xmlns="http://www.w3.org/2000/svg"
-                                 class="h-4 w-4 mr-2"
-                                 fill="none"
-                                 viewBox="0 0 24 24"
-                                 stroke="currentColor">
-                                <path stroke-linecap="round"
-                                      stroke-linejoin="round"
-                                      stroke-width="2"
-                                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L12 15l-4 1 1-4 8.586-8.586z" />
+                            class="inline-flex items-center rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white hover:bg-amber-600 transition">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none"
+                                viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L12 15l-4 1 1-4 8.586-8.586z" />
                             </svg>
                             Edit Event
                         </a>
 
-                        <form action="{{ route('organizer.events.destroy', $event->id) }}"
-                              method="POST"
-                              onsubmit="return confirm('Delete this event?')"
-                              class="inline">
+                        <form action="{{ route('organizer.events.destroy', $event->id) }}" method="POST"
+                            onsubmit="return confirm('Delete this event?')" class="inline">
 
                             @csrf
                             @method('DELETE')
 
                             <button type="submit"
-                                    class="inline-flex items-center rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 transition">
-                                <svg xmlns="http://www.w3.org/2000/svg"
-                                     class="h-4 w-4 mr-2"
-                                     fill="none"
-                                     viewBox="0 0 24 24"
-                                     stroke="currentColor">
-                                    <path stroke-linecap="round"
-                                          stroke-linejoin="round"
-                                          stroke-width="2"
-                                          d="M19 7H5m5 4v6m4-6v6m-7-10l1 12a2 2 0 002 2h4a2 2 0 002-2l1-12M10 7V4a1 1 0 011-1h2a1 1 0 011 1v3" />
+                                class="inline-flex items-center rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 transition">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none"
+                                    viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M19 7H5m5 4v6m4-6v6m-7-10l1 12a2 2 0 002 2h4a2 2 0 002-2l1-12M10 7V4a1 1 0 011-1h2a1 1 0 011 1v3" />
                                 </svg>
                                 Delete Event
                             </button>
@@ -224,35 +197,43 @@
                         <thead>
                             <tr class="border-b border-slate-200 bg-slate-50">
 
-                                <th class="text-left px-4 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                                <th
+                                    class="text-left px-4 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">
                                     Category
                                 </th>
 
-                                <th class="text-left px-4 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                                <th
+                                    class="text-left px-4 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">
                                     Seats
                                 </th>
 
-                                <th class="text-left px-4 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                                <th
+                                    class="text-left px-4 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">
                                     Available
                                 </th>
 
-                                <th class="text-left px-4 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                                <th
+                                    class="text-left px-4 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">
                                     Price
                                 </th>
 
-                                <th class="text-left px-4 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                                <th
+                                    class="text-left px-4 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">
                                     Color
                                 </th>
 
-                                <th class="text-left px-4 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                                <th
+                                    class="text-left px-4 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">
                                     Status
                                 </th>
 
-                                <th class="text-left px-4 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                                <th
+                                    class="text-left px-4 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">
                                     Booking Period
                                 </th>
 
-                                <th class="text-center px-4 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                                <th
+                                    class="text-center px-4 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">
                                     Actions
                                 </th>
 
@@ -262,7 +243,6 @@
                         <tbody class="divide-y divide-slate-100">
 
                             @forelse($seatCategories as $category)
-
                                 <tr class="hover:bg-slate-50 transition">
 
                                     {{-- Category --}}
@@ -272,7 +252,7 @@
                                             {{ $category->name }}
                                         </div>
 
-                                        @if($category->description)
+                                        @if ($category->description)
                                             <div class="text-xs text-slate-500 mt-1">
                                                 {{ $category->description }}
                                             </div>
@@ -287,7 +267,8 @@
 
                                     {{-- Available --}}
                                     <td class="px-4 py-4">
-                                        <span class="inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700">
+                                        <span
+                                            class="inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700">
                                             {{ $category->no_of_available_seats }}
                                         </span>
                                     </td>
@@ -317,18 +298,16 @@
                                     {{-- Status --}}
                                     <td class="px-4 py-4">
 
-                                        @if($category->is_active)
-
-                                            <span class="inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
+                                        @if ($category->is_active)
+                                            <span
+                                                class="inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
                                                 Active
                                             </span>
-
                                         @else
-
-                                            <span class="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
+                                            <span
+                                                class="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
                                                 Inactive
                                             </span>
-
                                         @endif
 
                                     </td>
@@ -336,8 +315,7 @@
                                     {{-- Booking Period --}}
                                     <td class="px-4 py-4 text-sm text-slate-600">
 
-                                        @if($category->booking_start && $category->booking_end)
-
+                                        @if ($category->booking_start && $category->booking_end)
                                             <div>
                                                 {{ \Carbon\Carbon::parse($category->booking_start)->format('d M Y') }}
                                             </div>
@@ -349,11 +327,8 @@
                                             <div>
                                                 {{ \Carbon\Carbon::parse($category->booking_end)->format('d M Y') }}
                                             </div>
-
                                         @else
-
                                             -
-
                                         @endif
 
                                     </td>
@@ -365,16 +340,12 @@
 
                                             {{-- Edit --}}
                                             <a href="{{ route('organizer.seat-categories.edit', [$event, $category]) }}"
-                                            class="inline-flex items-center rounded-lg bg-amber-500 px-3 py-2 text-xs font-medium text-white hover:bg-amber-600 transition">
+                                                class="inline-flex items-center rounded-lg bg-amber-500 px-3 py-2 text-xs font-medium text-white hover:bg-amber-600 transition">
 
-                                                <svg xmlns="http://www.w3.org/2000/svg"
-                                                    class="h-4 w-4 mr-1"
-                                                    fill="none"
-                                                    viewBox="0 0 24 24"
-                                                    stroke="currentColor">
+                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1"
+                                                    fill="none" viewBox="0 0 24 24" stroke="currentColor">
 
-                                                    <path stroke-linecap="round"
-                                                        stroke-linejoin="round"
+                                                    <path stroke-linecap="round" stroke-linejoin="round"
                                                         stroke-width="2"
                                                         d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L12 15l-4 1 1-4 8.586-8.586z" />
                                                 </svg>
@@ -384,7 +355,8 @@
                                             </a>
 
                                             {{-- Delete --}}
-                                            <form action="{{ route('organizer.seat-categories.destroy', [$event->id, $category->id]) }}"
+                                            <form
+                                                action="{{ route('organizer.seat-categories.destroy', [$event->id, $category->id]) }}"
                                                 method="POST"
                                                 onsubmit="return confirm('Are you sure you want to delete this seat category?')">
 
@@ -392,18 +364,14 @@
                                                 @method('DELETE')
 
                                                 <button type="submit"
-                                                        class="inline-flex items-center rounded-lg bg-red-600 px-3 py-2 text-xs font-medium text-white hover:bg-red-700 transition">
+                                                    class="inline-flex items-center rounded-lg bg-red-600 px-3 py-2 text-xs font-medium text-white hover:bg-red-700 transition">
 
-                                                    <svg xmlns="http://www.w3.org/2000/svg"
-                                                        class="h-4 w-4 mr-1"
-                                                        fill="none"
-                                                        viewBox="0 0 24 24"
-                                                        stroke="currentColor">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1"
+                                                        fill="none" viewBox="0 0 24 24" stroke="currentColor">
 
-                                                        <path stroke-linecap="round"
-                                                            stroke-linejoin="round"
+                                                        <path stroke-linecap="round" stroke-linejoin="round"
                                                             stroke-width="2"
-                                                            d="M19 7H5m5 4v6m4-6v6m-7-10l1 12a2 2 0 002 2h4a2 2 0 002-2l1-12M10 7V4a1 1 0 011-1h2a1 1 0 011 1v3"/>
+                                                            d="M19 7H5m5 4v6m4-6v6m-7-10l1 12a2 2 0 002 2h4a2 2 0 002-2l1-12M10 7V4a1 1 0 011-1h2a1 1 0 011 1v3" />
                                                     </svg>
 
                                                     Delete
@@ -429,14 +397,13 @@
                                         </div>
 
                                         <a href="{{ route('organizer.seat-categories.create', $event->id) }}"
-                                        class="inline-flex mt-4 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">
+                                            class="inline-flex mt-4 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">
                                             Add First Category
                                         </a>
 
                                     </td>
 
                                 </tr>
-
                             @endforelse
 
                         </tbody>
@@ -446,7 +413,7 @@
                 </div>
 
             </div>
-    
+
         </div>
     </div>
 </x-app-layout>

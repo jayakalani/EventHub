@@ -2,22 +2,14 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
+use App\Models\Event;
 use App\Models\EventCategory;
 use App\Models\EventCategorySubscription;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Validation\Rule;
-use App\Models\User;
-use App\Models\Event;
 use App\Models\SeatCategory;
-use App\Models\Host;
+use App\Models\User;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use View;
-use Carbon\Carbon;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Redirect;
-
 
 class EventCategoryController extends Controller
 {
@@ -36,7 +28,7 @@ class EventCategoryController extends Controller
         if ($request->hasfile('cover')) {
             $file = $request->file('cover');
             $extension = $file->getClientOriginalExtension();
-            $fileName = time() . '.' . $extension;
+            $fileName = time().'.'.$extension;
             $file->move('uploads/covers/event_categories/', $fileName);
         }
 
@@ -44,10 +36,10 @@ class EventCategoryController extends Controller
             'name' => $validatedData['name'],
             'cover' => $fileName,
             'created_by' => Auth::user()->id,
-            'is_active' => true, //default true          
+            'is_active' => true, // default true
         ]);
 
-        return redirect()->route('admin.event-categories.index')->with('success','New Event Category was added successfully.');
+        return redirect()->route('admin.event-categories.index')->with('success', 'New Event Category was added successfully.');
     }
 
     /*public function index(EventCategory $eventCategory)
@@ -61,7 +53,6 @@ class EventCategoryController extends Controller
         ]);
     }*/
 
-
     public function index(Request $request)
     {
         $query = EventCategory::query();
@@ -69,7 +60,7 @@ class EventCategoryController extends Controller
         // Search
         if ($request->filled('search')) {
             $search = $request->search;
-            $query->where(function($q) use ($search) {
+            $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%");
             });
         }
@@ -101,9 +92,6 @@ class EventCategoryController extends Controller
 
     }
 
-
-
-
     public function viewProfile(int $id)
     {
         $event_category = EventCategory::findOrFail($id);
@@ -115,31 +103,37 @@ class EventCategoryController extends Controller
             'event_category' => $event_category,
             'events' => $events,
             'seatCategories' => $seatCategories,
-            'event_category_subscription'=>$event_category_subscription
+            'event_category_subscription' => $event_category_subscription,
         ]);
     }
 
-    public function all() 
+    public function all()
     {
         $eventCategories = EventCategory::all();
+
         return view('event_categories/all', ['eventCategories' => $eventCategories]);
     }
 
-    public function view(int $id){
+    public function view(int $id)
+    {
         $eventCategory = User::findOrFail($id);
-        return view('event_category/view', ['eventCategory'=>$eventCategory]);
+
+        return view('event_category/view', ['eventCategory' => $eventCategory]);
     }
 
-    public function edit(int $id){
+    public function edit(int $id)
+    {
         $eventCategory = EventCategory::findOrFail($id);
-        return view('admin.event-categories.edit', ['eventCategory'=>$eventCategory]);
+
+        return view('admin.event-categories.edit', ['eventCategory' => $eventCategory]);
     }
 
-    public function update(int $id, Request $request) {
+    public function update(int $id, Request $request)
+    {
 
         $validatedData = $request->validate([
-            'name' => ['required', 'string', 'max:255'],            
-            'cover' => 'nullable|image|mimes:jpg,jpeg,png,gif|max:2048',       
+            'name' => ['required', 'string', 'max:255'],
+            'cover' => 'nullable|image|mimes:jpg,jpeg,png,gif|max:2048',
         ]);
         $eventCategory = EventCategory::findorFail($id);
         $default_eventCategory_cover = $eventCategory->cover;
@@ -147,7 +141,7 @@ class EventCategoryController extends Controller
         if ($request->hasfile('cover')) {
             $file = $request->file('cover');
             $extension = $file->getClientOriginalExtension();
-            $fileName = time() . '.' . $extension;
+            $fileName = time().'.'.$extension;
             $file->move('uploads/covers/event_categories/', $fileName);
             $eventCategory->cover = $fileName;
         } else {
@@ -156,10 +150,10 @@ class EventCategoryController extends Controller
         }
 
         $eventCategory->name = $validatedData['name'];
-        
+
         $eventCategory->save();
 
-        return redirect()->route('admin.event-categories.index')->with('success','Event category updated successfully.');
+        return redirect()->route('admin.event-categories.index')->with('success', 'Event category updated successfully.');
     }
 
     public function toggleActive(int $id)
@@ -170,7 +164,6 @@ class EventCategoryController extends Controller
 
         return redirect()->back()->with('success', 'Event category status updated successfully.');
     }
-
 
     public function exportCsv(Request $request)
     {
@@ -186,11 +179,11 @@ class EventCategoryController extends Controller
                 $category->cover ?? 'N/A',
                 $category->is_active ? 'Active' : 'Inactive',
                 $category->created_at->format('Y-m-d H:i'),
-                $category->creator->first_name . ' ' . $category->creator->last_name ?? 'System',
+                $category->creator->first_name.' '.$category->creator->last_name ?? 'System',
             ];
         }
 
-        $filename = "event_categories_" . now()->format('Ymd_His') . ".csv";
+        $filename = 'event_categories_'.now()->format('Ymd_His').'.csv';
         $handle = fopen('php://temp', 'r+');
         foreach ($csvData as $row) {
             fputcsv($handle, $row);
@@ -210,18 +203,17 @@ class EventCategoryController extends Controller
         $categories = EventCategory::all();
 
         $pdf = \PDF::loadView('admin.exports.event_categories_pdf', compact('categories'));
-        return $pdf->download('event_categories_' . now()->format('Ymd_His') . '.pdf');
+
+        return $pdf->download('event_categories_'.now()->format('Ymd_His').'.pdf');
     }
 
     public function destroy(Request $request, $id)
     {
         $EventCategory = EventCategory::findOrFail($id);
-        
+
         $EventCategory->delete();
 
         return redirect()->route('admin.event-categories.index')->with('success', "Event category {$EventCategory->name} has been deleted.");
 
     }
-
-    
 }

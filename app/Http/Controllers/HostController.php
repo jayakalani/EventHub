@@ -2,18 +2,13 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Controllers\Controller;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Validation\Rule;
-use Illuminate\Http\Request;
-use App\Models\User;
 use App\Models\Host;
 use App\Models\HostsSubscription;
-use App\Models\Event;
 use App\Models\SeatCategory;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 use View;
-
 
 class HostController extends Controller
 {
@@ -34,7 +29,7 @@ class HostController extends Controller
         if ($request->hasfile('cover')) {
             $file = $request->file('cover');
             $extension = $file->getClientOriginalExtension();
-            $fileName = time() . '.' . $extension;
+            $fileName = time().'.'.$extension;
             $file->move('uploads/covers/hosts/', $fileName);
         }
 
@@ -43,13 +38,13 @@ class HostController extends Controller
             'email' => $validatedData['email'],
             'contact_number' => $validatedData['contact_number'],
             'cover' => $fileName,
-            'created_by' => Auth::user()->id, //nullable
-            'is_active' => true, //default true
-            
+            'created_by' => Auth::user()->id, // nullable
+            'is_active' => true, // default true
+
         ]);
 
-        return redirect()->route('organizer.host.create')->with('success','New Host was added successfully.');
-    }    
+        return redirect()->route('organizer.host.create')->with('success', 'New Host was added successfully.');
+    }
 
     /*public function index()
     {
@@ -59,14 +54,14 @@ class HostController extends Controller
         //return view('hosts/view-hosts', ['hosts' => $hosts, 'hostSubscription' => $hostSubscription]);
         return view('organizer/hosts/index', ['hosts' => $hosts, ]);
     }*/
-    
+
     public function index(Request $request)
     {
         $query = Host::query();
 
         // Search
         if ($request->filled('search')) {
-            $query->where('name', 'like', '%' . $request->search . '%');
+            $query->where('name', 'like', '%'.$request->search.'%');
         }
 
         // Status Filter
@@ -100,7 +95,7 @@ class HostController extends Controller
             'host' => $host,
             'events' => $events,
             'seatCategories' => $seatCategories,
-            'hostSubscription' => $hostSubscription
+            'hostSubscription' => $hostSubscription,
         ]);
     }
 
@@ -133,14 +128,12 @@ class HostController extends Controller
 
         ]);
 
-        
-
         $default_host_cover = $host->cover;
 
         if ($request->hasfile('cover')) {
             $file = $request->file('cover');
             $extension = $file->getClientOriginalExtension();
-            $fileName = time() . '.' . $extension;
+            $fileName = time().'.'.$extension;
             $file->move('uploads/covers/hosts/', $fileName);
             $host->cover = $fileName;
         } else {
@@ -155,14 +148,14 @@ class HostController extends Controller
         $host->save();
 
         return redirect()->route('organizer.hosts')
-                 ->with('success', 'Host updated successfully.');
+            ->with('success', 'Host updated successfully.');
 
     }
 
     public function destroy(Request $request, $id)
     {
         $host = Host::findOrFail($id);
-        
+
         $host->delete();
 
         return redirect()->route('organizer.hosts')->with('success', "Host {$host->name} has been deleted.");
@@ -190,7 +183,7 @@ class HostController extends Controller
             ];
         }
 
-        $filename = "hosts_" . now()->format('Ymd_His') . ".csv";
+        $filename = 'hosts_'.now()->format('Ymd_His').'.csv';
         $handle = fopen('php://temp', 'r+');
         foreach ($csvData as $row) {
             fputcsv($handle, $row);
@@ -213,8 +206,7 @@ class HostController extends Controller
         $hosts = Host::all();
 
         $pdf = \PDF::loadView('organizer.exports.hosts_pdf', compact('hosts'));
-        return $pdf->download('hosts_' . now()->format('Ymd_His') . '.pdf');
+
+        return $pdf->download('hosts_'.now()->format('Ymd_His').'.pdf');
     }
 }
-
-

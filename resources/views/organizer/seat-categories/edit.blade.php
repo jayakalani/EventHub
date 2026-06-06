@@ -4,8 +4,7 @@
         {{-- Header --}}
         <div class="mb-8">
             <div class="flex items-center gap-3 text-sm text-slate-500 mb-2">
-                <a href="{{ route('organizer.events.show', $event->id) }}"
-                   class="hover:text-indigo-600">
+                <a href="{{ route('organizer.events.show', $event->id) }}" class="hover:text-indigo-600">
                     Event Details
                 </a>
                 <span>/</span>
@@ -36,10 +35,7 @@
             </div>
         @endif
 
-        <form
-            action="{{ route('organizer.seat-categories.update', [$event->id, $seatCategory->id]) }}"
-            method="POST"
-        >
+        <form action="{{ route('organizer.seat-categories.update', [$event->id, $seatCategory->id]) }}" method="POST">
             @csrf
             @method('PUT')
 
@@ -62,13 +58,9 @@
                                     Category Name
                                 </label>
 
-                                <input
-                                    type="text"
-                                    name="name"
-                                    value="{{ old('name', $seatCategory->name) }}"
+                                <input type="text" name="name" value="{{ old('name', $seatCategory->name) }}"
                                     class="w-full rounded-2xl border-slate-300 focus:border-indigo-500 focus:ring-indigo-500"
-                                    required
-                                >
+                                    required>
                             </div>
 
                             <div>
@@ -76,11 +68,8 @@
                                     Description
                                 </label>
 
-                                <textarea
-                                    name="description"
-                                    rows="5"
-                                    class="w-full rounded-2xl border-slate-300 focus:border-indigo-500 focus:ring-indigo-500"
-                                >{{ old('description', $seatCategory->description) }}</textarea>
+                                <textarea name="description" rows="5"
+                                    class="w-full rounded-2xl border-slate-300 focus:border-indigo-500 focus:ring-indigo-500">{{ old('description', $seatCategory->description) }}</textarea>
                             </div>
 
                         </div>
@@ -101,14 +90,9 @@
                                     Total Seats
                                 </label>
 
-                                <input
-                                    type="number"
-                                    min="1"
-                                    name="no_of_seats"
+                                <input type="number" min="1" name="no_of_seats"
                                     value="{{ old('no_of_seats', $seatCategory->no_of_seats) }}"
-                                    class="w-full rounded-2xl border-slate-300"
-                                    required
-                                >
+                                    class="w-full rounded-2xl border-slate-300" required>
                             </div>
 
                             <div>
@@ -116,15 +100,9 @@
                                     Seat Price (LKR)
                                 </label>
 
-                                <input
-                                    type="number"
-                                    step="0"
-                                    min="0"
-                                    name="seat_price"
+                                <input type="number" step="0" min="0" name="seat_price"
                                     value="{{ old('seat_price', $seatCategory->seat_price) }}"
-                                    class="w-full rounded-2xl border-slate-300"
-                                    required
-                                >
+                                    class="w-full rounded-2xl border-slate-300" required>
                             </div>
 
                         </div>
@@ -145,12 +123,9 @@
                                     Booking Start
                                 </label>
 
-                                <input
-                                    type="datetime-local"
-                                    name="booking_start"
+                                <input type="datetime-local" name="booking_start"
                                     value="{{ old('booking_start', optional($seatCategory->booking_start)->format('Y-m-d\TH:i')) }}"
-                                    class="w-full rounded-2xl border-slate-300"
-                                >
+                                    class="w-full rounded-2xl border-slate-300">
                             </div>
 
                             <div>
@@ -158,12 +133,9 @@
                                     Booking End
                                 </label>
 
-                                <input
-                                    type="datetime-local"
-                                    name="booking_end"
+                                <input type="datetime-local" name="booking_end"
                                     value="{{ old('booking_end', optional($seatCategory->booking_end)->format('Y-m-d\TH:i')) }}"
-                                    class="w-full rounded-2xl border-slate-300"
-                                >
+                                    class="w-full rounded-2xl border-slate-300">
                             </div>
 
                         </div>
@@ -227,12 +199,8 @@
                                 Ticket Color
                             </label>
 
-                            <input
-                                type="color"
-                                name="ticket_color"
-                                value="{{ $seatCategory->ticket_color }}"
-                                class="h-14 w-full rounded-xl border border-slate-300"
-                            >
+                            <input type="color" name="ticket_color" value="{{ $seatCategory->ticket_color }}"
+                                class="h-14 w-full rounded-xl border border-slate-300">
                         </div>
 
                     </div>
@@ -244,17 +212,12 @@
                             Status
                         </h2>
 
-                        <select
-                            name="is_active"
-                            class="w-full rounded-2xl border-slate-300"
-                        >
-                            <option value="1"
-                                {{ old('is_active', $seatCategory->is_active) ? 'selected' : '' }}>
+                        <select name="is_active" class="w-full rounded-2xl border-slate-300">
+                            <option value="1" {{ old('is_active', $seatCategory->is_active) ? 'selected' : '' }}>
                                 Active
                             </option>
 
-                            <option value="0"
-                                {{ !old('is_active', $seatCategory->is_active) ? 'selected' : '' }}>
+                            <option value="0" {{ !old('is_active', $seatCategory->is_active) ? 'selected' : '' }}>
                                 Inactive
                             </option>
                         </select>
@@ -264,10 +227,8 @@
                     {{-- Save --}}
                     <div class="bg-white rounded-3xl border border-slate-200 shadow-sm p-6">
 
-                        <button
-                            type="submit"
-                            class="w-full rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 py-4 text-white font-semibold shadow-lg hover:shadow-xl transition"
-                        >
+                        <button type="submit"
+                            class="w-full rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 py-4 text-white font-semibold shadow-lg hover:shadow-xl transition">
                             Update Seat Category
                         </button>
 

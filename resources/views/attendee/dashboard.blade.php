@@ -15,8 +15,7 @@
                     class="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg shadow hover:bg-indigo-700 transition">
                     Settings
                     <svg class="ml-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M19 9l-7 7-7-7"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                     </svg>
                 </button>
 
@@ -50,7 +49,8 @@
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
 
             <!-- HERO -->
-            <div class="relative overflow-hidden rounded-3xl bg-gradient-to-r from-indigo-600 via-blue-600 to-purple-600 p-8 mb-8 text-white shadow">
+            <div
+                class="relative overflow-hidden rounded-3xl bg-gradient-to-r from-indigo-600 via-blue-600 to-purple-600 p-8 mb-8 text-white shadow">
 
                 <div class="max-w-2xl">
 
@@ -66,19 +66,14 @@
 
                         <div class="grid gap-3 md:grid-cols-4">
 
-                            <input type="text"
-                                   name="search"
-                                   value="{{ request('search') }}"
-                                   placeholder="Event Name"
-                                   class="rounded-2xl border-0 px-4 py-3 text-slate-800 shadow">
+                            <input type="text" name="search" value="{{ request('search') }}"
+                                placeholder="Event Name" class="rounded-2xl border-0 px-4 py-3 text-slate-800 shadow">
 
-                            <input type="date"
-                                   name="date"
-                                   value="{{ request('date') }}"
-                                   class="rounded-2xl border-0 px-4 py-3 text-slate-800 shadow">
+                            <input type="date" name="date" value="{{ request('date') }}"
+                                class="rounded-2xl border-0 px-4 py-3 text-slate-800 shadow">
 
                             <button type="submit"
-                                    class="rounded-2xl bg-white px-6 py-3 font-semibold text-indigo-600 shadow hover:bg-slate-100 transition">
+                                class="rounded-2xl bg-white px-6 py-3 font-semibold text-indigo-600 shadow hover:bg-slate-100 transition">
                                 Search
                             </button>
 
@@ -100,24 +95,22 @@
 
                     <!-- ALL -->
                     <a href="{{ route('attendee.dashboard') }}"
-                       class="px-5 py-2.5 rounded-xl text-sm font-semibold transition
+                        class="px-5 py-2.5 rounded-xl text-sm font-semibold transition
                        {{ !$selectedCategory
-                            ? 'bg-gradient-to-r from-indigo-600 via-violet-600 to-purple-600 text-white shadow'
-                            : 'text-slate-600 hover:bg-white hover:text-indigo-600' }}">
+                           ? 'bg-gradient-to-r from-indigo-600 via-violet-600 to-purple-600 text-white shadow'
+                           : 'text-slate-600 hover:bg-white hover:text-indigo-600' }}">
                         All Categories
                     </a>
 
                     <!-- CATEGORY LIST -->
-                    @foreach($eventCategories as $category)
-
+                    @foreach ($eventCategories as $category)
                         <a href="{{ route('attendee.dashboard', ['category' => $category->id]) }}"
-                           class="px-5 py-2.5 rounded-xl text-sm font-medium transition
+                            class="px-5 py-2.5 rounded-xl text-sm font-medium transition
                            {{ $selectedCategory == $category->id
-                                ? 'bg-gradient-to-r from-indigo-600 via-violet-600 to-purple-600 text-white shadow scale-105'
-                                : 'text-slate-600 hover:bg-white hover:text-indigo-600 hover:shadow-sm' }}">
+                               ? 'bg-gradient-to-r from-indigo-600 via-violet-600 to-purple-600 text-white shadow scale-105'
+                               : 'text-slate-600 hover:bg-white hover:text-indigo-600 hover:shadow-sm' }}">
                             {{ $category->name }}
                         </a>
-
                     @endforeach
 
                 </div>
@@ -127,12 +120,12 @@
             <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
 
                 @forelse($events as $event)
+                    <div
+                        class="group rounded-3xl border border-slate-200 bg-white shadow-sm hover:shadow-xl transition overflow-hidden">
 
-                    <div class="group rounded-3xl border border-slate-200 bg-white shadow-sm hover:shadow-xl transition overflow-hidden">
-
-                        @if($event->cover)
-                            <img src="{{ asset('uploads/covers/events/'.$event->cover) }}"
-                                 class="h-52 w-full object-cover group-hover:scale-105 transition duration-300">
+                        @if ($event->cover)
+                            <img src="{{ asset('uploads/covers/events/' . $event->cover) }}"
+                                class="h-52 w-full object-cover group-hover:scale-105 transition duration-300">
                         @else
                             <div class="h-52 bg-slate-100 flex items-center justify-center text-slate-400">
                                 No Image Available
@@ -149,7 +142,7 @@
                             <p class="mt-1 text-sm text-slate-500">📍 {{ $event->place }}</p>
 
                             <a href="{{ route('attendee.events.show', $event->id) }}"
-                               class="block mt-5 text-center rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white hover:bg-indigo-700 transition">
+                                class="block mt-5 text-center rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white hover:bg-indigo-700 transition">
                                 View Details
                             </a>
 
@@ -162,7 +155,6 @@
                     <div class="col-span-full text-center p-10 rounded-3xl border bg-white text-slate-500">
                         No active events available.
                     </div>
-
                 @endforelse
 
             </div>

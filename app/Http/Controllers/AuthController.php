@@ -5,14 +5,18 @@ namespace App\Http\Controllers;
 use App\Http\Middleware\FailedLoginAttempts;
 use App\Models\User;
 use App\Models\UserRole;
+use App\Services\AuthLoginService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Redirect;
-use Illuminate\Support\Facades\Validator;
 
 class AuthController extends Controller
 {
+    public function __construct(
+        protected AuthLoginService $authLogin
+    ) {}
+
     /**
      * Show the login page.
      */
@@ -38,7 +42,7 @@ class AuthController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
-        ]);            
+        ]);
 
         $attendeeRole = UserRole::firstOrCreate([
             'role_name' => UserRole::ATTENDEE,
@@ -67,7 +71,7 @@ class AuthController extends Controller
 
         // Check if user account is locked
         $user = User::where('email', $credentials['email'])->first();
-        
+
         if ($user && $user->is_locked) {
             return back()->with('error', 'Your account is locked due to multiple failed login attempts. Please contact the administrator.');
         }
@@ -75,19 +79,16 @@ class AuthController extends Controller
         if (! Auth::attempt($credentials, $request->boolean('remember'))) {
             // Record failed login attempt
             FailedLoginAttempts::recordFailedAttempt($credentials['email']);
-            
+
             return back()->withErrors([
                 'email' => 'The provided credentials do not match our records.',
             ])->onlyInput('email');
         }
 
-        // Reset failed attempts on successful login
-        FailedLoginAttempts::resetFailedAttempts($credentials['email']);
+        $user = Auth::user();
+        Auth::logout();
 
-        $request->session()->regenerate();
-
-        // Redirect to main dashboard - DashboardController will handle role-based redirect
-        return redirect()->route('dashboard');
+        return $this->authLogin->finalizeLogin($request, $user, $request->boolean('remember'));
     }
 
     /**
@@ -97,6 +98,7 @@ class AuthController extends Controller
     {
         Auth::logout();
 
+        $request->session()->forget(['two_factor_verified', 'login.id', 'login.remember', 'two_factor_setup_secret']);
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 

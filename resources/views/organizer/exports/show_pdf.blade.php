@@ -1,16 +1,42 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <title>{{ $event->name }} Details</title>
     <style>
-        body { font-family: Arial, sans-serif; font-size: 14px; }
-        h2, h3 { margin-bottom: 10px; }
-        p { margin: 4px 0; }
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        th, td { border: 1px solid #000; padding: 6px; text-align: left; }
-        th { background-color: #f2f2f2; }
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+        }
+
+        h2,
+        h3 {
+            margin-bottom: 10px;
+        }
+
+        p {
+            margin: 4px 0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+
+        th,
+        td {
+            border: 1px solid #000;
+            padding: 6px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f2f2f2;
+        }
     </style>
 </head>
+
 <body>
     {{-- Event Details --}}
     <h2>{{ $event->name }}</h2>
@@ -40,7 +66,7 @@
             </tr>
         </thead>
         <tbody>
-            @foreach($seatCategories as $category)
+            @foreach ($seatCategories as $category)
                 <tr>
                     <td>{{ $category->name }}</td>
                     <td>{{ $category->description ?? '-' }}</td>
@@ -56,4 +82,5 @@
         </tbody>
     </table>
 </body>
+
 </html>

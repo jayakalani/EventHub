@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\UserRole;
+use Carbon\Carbon;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -12,7 +13,6 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules;
 use Illuminate\View\View;
-use Carbon\Carbon;
 
 class RegisteredUserController extends Controller
 {
@@ -32,7 +32,7 @@ class RegisteredUserController extends Controller
     public function store(Request $request): RedirectResponse
     {
 
-        $date = new Carbon();
+        $date = new Carbon;
         $before = $date->subYears(16)->format('Y-m-d');
 
         $message = [
@@ -44,14 +44,14 @@ class RegisteredUserController extends Controller
             'last_name' => ['required', 'string', 'max:255'],
             'nic' => ['required', 'string', 'max:16', 'unique:users'],
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class],
-            'date_of_birth' => ['required', 'date', 'before:' . $before],
+            'date_of_birth' => ['required', 'date', 'before:'.$before],
             'contact_number' => ['required', 'string', 'max:20'],
             'address' => ['required', 'string', 'max:255'],
-            'gender' => ['required', 'string',],
+            'gender' => ['required', 'string'],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
         ]);
 
-        $role_id= UserRole::where('name_en', 'attendee')->first()->id;
+        $role_id = UserRole::where('name_en', 'attendee')->first()->id;
 
         $user = User::create([
             'first_name' => $request->first_name,
@@ -66,7 +66,7 @@ class RegisteredUserController extends Controller
             'password' => Hash::make($request->password),
         ]);
 
-        //$user->sendEmailVerificationNotification();
+        // $user->sendEmailVerificationNotification();
         event(new Registered($user));
 
         Auth::login($user);

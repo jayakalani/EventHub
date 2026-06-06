@@ -12,17 +12,17 @@
 
             <div class="flex flex-wrap gap-2">
                 <a href="{{ route('organizer.events.index') }}"
-                   class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-full text-sm font-semibold shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition">
+                    class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-full text-sm font-semibold shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition">
                     All Events
                 </a>
 
                 <a href="{{ route('organizer.host.create') }}"
-                   class="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-full text-sm font-semibold shadow-sm hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition">
+                    class="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-full text-sm font-semibold shadow-sm hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition">
                     Create Host
                 </a>
 
                 <a href="{{ route('organizer.hosts') }}"
-                   class="inline-flex items-center px-4 py-2 bg-slate-800 text-white rounded-full text-sm font-semibold shadow-sm hover:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 transition">
+                    class="inline-flex items-center px-4 py-2 bg-slate-800 text-white rounded-full text-sm font-semibold shadow-sm hover:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 transition">
                     View Hosts
                 </a>
             </div>
@@ -104,7 +104,6 @@
                     <div class="divide-y divide-slate-200">
 
                         @forelse($events ?? [] as $event)
-
                             <div class="flex flex-col gap-2 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
 
                                 <div>
@@ -117,7 +116,8 @@
                                     </p>
                                 </div>
 
-                                <span class="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-blue-700">
+                                <span
+                                    class="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-blue-700">
                                     Event
                                 </span>
 
@@ -131,11 +131,10 @@
                                 </p>
 
                                 <a href="{{ route('organizer.events.create') }}"
-                                   class="inline-flex mt-4 items-center px-4 py-2 bg-blue-600 text-white rounded-full text-sm font-semibold hover:bg-blue-700">
+                                    class="inline-flex mt-4 items-center px-4 py-2 bg-blue-600 text-white rounded-full text-sm font-semibold hover:bg-blue-700">
                                     Create First Event
                                 </a>
                             </div>
-
                         @endforelse
 
                     </div>
@@ -157,22 +156,22 @@
                     <div class="space-y-3 px-6 py-6 sm:px-8">
 
                         <a href="{{ route('organizer.events.index') }}"
-                           class="block rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-900 hover:bg-slate-100 transition">
+                            class="block rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-900 hover:bg-slate-100 transition">
                             Manage Events
                         </a>
 
                         <a href="{{ route('organizer.events.create') }}"
-                           class="block rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-700 hover:bg-blue-100 transition">
+                            class="block rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-700 hover:bg-blue-100 transition">
                             Create Event
                         </a>
 
                         <a href="{{ route('organizer.host.create') }}"
-                           class="block rounded-2xl border border-purple-200 bg-purple-50 px-4 py-3 text-sm font-semibold text-purple-700 hover:bg-purple-100 transition">
+                            class="block rounded-2xl border border-purple-200 bg-purple-50 px-4 py-3 text-sm font-semibold text-purple-700 hover:bg-purple-100 transition">
                             Create Host
                         </a>
 
                         <a href="{{ route('organizer.hosts') }}"
-                           class="block rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-900 hover:bg-slate-100 transition">
+                            class="block rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-900 hover:bg-slate-100 transition">
                             View Hosts
                         </a>
 

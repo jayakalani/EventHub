@@ -1,14 +1,33 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <title>Events Export</title>
     <style>
-        body { font-family: sans-serif; font-size: 12px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        th { background-color: #f4f4f4; }
+        body {
+            font-family: sans-serif;
+            font-size: 12px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th,
+        td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f4f4f4;
+        }
     </style>
 </head>
+
 <body>
     <h2>Events</h2>
     <table>
@@ -27,7 +46,7 @@
             </tr>
         </thead>
         <tbody>
-            @foreach($events as $event)
+            @foreach ($events as $event)
                 <tr>
                     <td>{{ $event->id }}</td>
                     <td>{{ $event->name }}</td>
@@ -44,4 +63,5 @@
         </tbody>
     </table>
 </body>
+
 </html>

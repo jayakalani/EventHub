@@ -11,11 +11,17 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->web(append: [
+            \App\Http\Middleware\EnsureProfileCompleted::class,
+            \App\Http\Middleware\EnsureTwoFactorVerified::class,
+        ]);
+
         $middleware->alias([
             'role' => \App\Http\Middleware\RoleMiddleware::class,
             'prevent-back' => \App\Http\Middleware\PreventBackHistory::class,
             'failed-login' => \App\Http\Middleware\FailedLoginAttempts::class,
             'verified' => \App\Http\Middleware\EnsureEmailIsVerified::class,
+            'two-factor' => \App\Http\Middleware\EnsureTwoFactorVerified::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

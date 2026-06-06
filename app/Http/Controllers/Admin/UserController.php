@@ -20,16 +20,16 @@ class UserController extends Controller
         // Search
         if ($request->filled('search')) {
             $search = $request->search;
-            $query->where(function($q) use ($search) {
+            $query->where(function ($q) use ($search) {
                 $q->whereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$search}%"])
-                ->orWhere('email', 'like', "%{$search}%")
-                ->orWhere('contact_number', 'like', "%{$search}%");
+                    ->orWhere('email', 'like', "%{$search}%")
+                    ->orWhere('contact_number', 'like', "%{$search}%");
             });
         }
 
         // Role filter
         if ($request->filled('role')) {
-            $query->whereHas('userRole', function($q) use ($request) {
+            $query->whereHas('userRole', function ($q) use ($request) {
                 $q->where('name_en', $request->role);
             });
         }
@@ -51,7 +51,6 @@ class UserController extends Controller
                     break;
             }
         }
-
 
         // Email state filter
         if ($request->filled('email_state')) {
@@ -80,6 +79,7 @@ class UserController extends Controller
     {
         $user = User::findOrFail($id);
         $roles = UserRole::all();
+
         return view('admin.users.user-edit', compact('user', 'roles'));
     }
 
@@ -93,7 +93,7 @@ class UserController extends Controller
         $validated = $request->validate([
             'first_name' => ['required', 'string', 'max:255'],
             'last_name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255', 'unique:users,email,' . $id],
+            'email' => ['required', 'email', 'max:255', 'unique:users,email,'.$id],
             'contact_number' => ['nullable', 'string', 'max:20'],
             'role_id' => ['required', 'exists:user_roles,id'],
         ]);
@@ -109,14 +109,15 @@ class UserController extends Controller
     public function toggleLock(Request $request, $id)
     {
         $user = User::findOrFail($id);
-        
+
         $user->update([
-            'is_locked' => !$user->is_locked,
+            'is_locked' => ! $user->is_locked,
             'failed_attempts' => $user->is_locked ? 0 : $user->failed_attempts,
             'locked_until' => null,
         ]);
 
         $status = $user->is_locked ? 'locked' : 'unlocked';
+
         return Redirect::route('admin.users')->with('success', "User {$user->first_name} {$user->last_name} has been {$status}.");
     }
 
@@ -126,12 +127,13 @@ class UserController extends Controller
     public function toggleActive(Request $request, $id)
     {
         $user = User::findOrFail($id);
-        
+
         $user->update([
-            'is_active' => !$user->is_active,
+            'is_active' => ! $user->is_active,
         ]);
 
         $status = $user->is_active ? 'activated' : 'deactivated';
+
         return Redirect::route('admin.users')->with('success', "User {$user->first_name} {$user->last_name} has been {$status}.");
     }
 
@@ -141,7 +143,7 @@ class UserController extends Controller
     public function destroy(Request $request, $id)
     {
         $user = User::findOrFail($id);
-        
+
         $user->delete();
 
         return Redirect::route('admin.users')->with('success', "User {$user->first_name} {$user->last_name} has been deleted.");

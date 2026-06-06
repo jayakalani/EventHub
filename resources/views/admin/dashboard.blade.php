@@ -6,10 +6,13 @@
                 <p class="mt-1 text-sm text-gray-500">Quick overview of system activity and user management.</p>
             </div>
             <div class="flex flex-wrap gap-2">
-                <a href="{{ route('admin.users') }}" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-full text-sm font-semibold shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition">{{ __('All Users') }}</a>
+                <a href="{{ route('admin.users') }}"
+                    class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-full text-sm font-semibold shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition">{{ __('All Users') }}</a>
             </div>
             <div class="flex flex-wrap gap-2">
-                <a href="{{ route('admin.event-categories') }}"class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-full text-sm font-semibold shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition">Event Categories</a>
+                <a
+                    href="{{ route('admin.event-categories') }}"class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-full text-sm font-semibold shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition">Event
+                    Categories</a>
             </div>
         </div>
     </x-slot>
@@ -46,21 +49,25 @@
                                 <p class="font-semibold text-slate-900">New event manager account created</p>
                                 <p class="text-sm text-slate-500">2 minutes ago</p>
                             </div>
-                            <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-600">User</span>
+                            <span
+                                class="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-600">User</span>
                         </div>
                         <div class="flex flex-col gap-1 py-4 sm:flex-row sm:items-center sm:justify-between">
                             <div>
                                 <p class="font-semibold text-slate-900">5 users verified their email</p>
                                 <p class="text-sm text-slate-500">14 minutes ago</p>
                             </div>
-                            <span class="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-700">Verified</span>
+                            <span
+                                class="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-700">Verified</span>
                         </div>
                         <div class="flex flex-col gap-1 py-4 sm:flex-row sm:items-center sm:justify-between">
                             <div>
-                                <p class="font-semibold text-slate-900">Locked 2 accounts after failed login attempts</p>
+                                <p class="font-semibold text-slate-900">Locked 2 accounts after failed login attempts
+                                </p>
                                 <p class="text-sm text-slate-500">37 minutes ago</p>
                             </div>
-                            <span class="rounded-full bg-rose-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-rose-700">Security</span>
+                            <span
+                                class="rounded-full bg-rose-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-rose-700">Security</span>
                         </div>
                     </div>
                 </div>
@@ -71,10 +78,18 @@
                         <p class="mt-1 text-sm text-slate-500">Quick access to management tools.</p>
                     </div>
                     <div class="space-y-3 px-6 py-6 sm:px-8">
-                        <a href="{{ route('admin.users') }}" class="block rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-900 hover:bg-slate-100">Manage users</a>
-                        <button class="w-full rounded-2xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700">View reports</button>
-                        <button class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900 hover:bg-slate-50">Review verifications</button>
-                        <a href="{{ route('admin.audit-logs') }}" class="w-full block rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900 hover:bg-slate-50">Audit Logs</a>
+                        <a href="{{ route('admin.users') }}"
+                            class="block rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-900 hover:bg-slate-100">Manage
+                            users</a>
+                        <button
+                            class="w-full rounded-2xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700">View
+                            reports</button>
+                        <button
+                            class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900 hover:bg-slate-50">Review
+                            verifications</button>
+                        <a href="{{ route('admin.audit-logs') }}"
+                            class="w-full block rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900 hover:bg-slate-50">Audit
+                            Logs</a>
                     </div>
                 </aside>
             </div>

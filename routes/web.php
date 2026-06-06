@@ -15,6 +15,8 @@ use App\Http\Controllers\HostController;
 use App\Http\Controllers\EventCategoryController;
 use App\Http\Controllers\SeatCategoryController;
 use App\Http\Controllers\AuditLogController;
+use App\Http\Controllers\TwoFactorController;
+use App\Http\Controllers\Auth\GoogleAuthController;
 
 
 
@@ -45,6 +47,31 @@ Route::post('/register', [RegisteredUserController::class, 'store'])
 Route::post('/logout', [AuthController::class, 'logout'])
     ->middleware(['auth', 'prevent-back'])
     ->name('logout');
+
+// Two-Factor Authentication Challenge (during login)
+Route::get('/two-factor-challenge', [TwoFactorController::class, 'showChallenge'])
+    ->middleware(['guest', 'prevent-back'])
+    ->name('two-factor.challenge');
+
+Route::post('/two-factor-challenge', [TwoFactorController::class, 'verifyChallenge'])
+    ->middleware(['guest', 'prevent-back'])
+    ->name('two-factor.verify');
+
+// Google Single Sign-On
+Route::get('/auth/google', [GoogleAuthController::class, 'redirect'])
+    ->middleware(['guest', 'prevent-back'])
+    ->name('auth.google');
+
+Route::get('/auth/google/callback', [GoogleAuthController::class, 'callback'])
+    ->middleware(['guest', 'prevent-back'])
+    ->name('auth.google.callback');
+
+Route::middleware('auth')->group(function () {
+    Route::get('/auth/google/complete-profile', [GoogleAuthController::class, 'showCompleteProfile'])
+        ->name('auth.google.complete-profile');
+    Route::post('/auth/google/complete-profile', [GoogleAuthController::class, 'storeCompleteProfile'])
+        ->name('auth.google.complete-profile.store');
+});
 
 
 /*
@@ -194,4 +221,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+
+    // Two-Factor Authentication Management
+    Route::post('/user/two-factor-authentication', [TwoFactorController::class, 'enable'])
+        ->name('two-factor.enable');
+    Route::post('/user/confirmed-two-factor-authentication', [TwoFactorController::class, 'confirm'])
+        ->name('two-factor.confirm');
+    Route::delete('/user/two-factor-authentication', [TwoFactorController::class, 'disable'])
+        ->name('two-factor.disable');
+    Route::post('/user/two-factor-recovery-codes', [TwoFactorController::class, 'regenerateRecoveryCodes'])
+        ->name('two-factor.recovery-codes');
 });

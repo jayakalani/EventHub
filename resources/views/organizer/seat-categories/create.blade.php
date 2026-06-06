@@ -22,14 +22,16 @@
                     @endif
 
                     {{-- Seat Category Form --}}
-                    <form action="{{ route('organizer.seat-categories.store', $event->id) }}" method="POST" class="space-y-6">
+                    <form action="{{ route('organizer.seat-categories.store', $event->id) }}" method="POST"
+                        class="space-y-6">
                         @csrf
 
                         {{-- Event ID --}}
                         <div>
                             <label for="event_id" class="block text-sm font-medium text-gray-700">Event</label>
-                            <select name="event_id" id="event_id" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" required>
-                                @foreach($events as $ev)
+                            <select name="event_id" id="event_id"
+                                class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" required>
+                                @foreach ($events as $ev)
                                     <option value="{{ $ev->id }}" {{ $event->id == $ev->id ? 'selected' : '' }}>
                                         {{ $ev->name }}
                                     </option>
@@ -40,7 +42,8 @@
                         {{-- Name --}}
                         <div>
                             <label for="name" class="block text-sm font-medium text-gray-700">Category Name</label>
-                            <input type="text" name="name" id="name" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" required>
+                            <input type="text" name="name" id="name"
+                                class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" required>
                         </div>
 
                         {{-- Description --}}
@@ -52,25 +55,31 @@
                         {{-- Total Seats --}}
                         <div>
                             <label for="no_of_seats" class="block text-sm font-medium text-gray-700">Total Seats</label>
-                            <input type="number" name="no_of_seats" id="no_of_seats" min="1" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" required>
+                            <input type="number" name="no_of_seats" id="no_of_seats" min="1"
+                                class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" required>
                         </div>
 
                         {{-- Seat Price --}}
                         <div>
                             <label for="seat_price" class="block text-sm font-medium text-gray-700">Seat Price</label>
-                            <input type="number" step="0" name="seat_price" id="seat_price" min="0" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" required>
+                            <input type="number" step="0" name="seat_price" id="seat_price" min="0"
+                                class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" required>
                         </div>
 
                         {{-- Ticket Color --}}
                         <div>
-                            <label for="ticket_color" class="block text-sm font-medium text-gray-700">Ticket Color</label>
-                            <input type="text" name="ticket_color" id="ticket_color" placeholder="e.g. red or #FF0000" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" required>
+                            <label for="ticket_color" class="block text-sm font-medium text-gray-700">Ticket
+                                Color</label>
+                            <input type="text" name="ticket_color" id="ticket_color"
+                                placeholder="e.g. red or #FF0000"
+                                class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" required>
                         </div>
 
                         {{-- Active Status --}}
                         <div>
                             <label for="is_active" class="block text-sm font-medium text-gray-700">Active</label>
-                            <select name="is_active" id="is_active" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+                            <select name="is_active" id="is_active"
+                                class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
                                 <option value="1" selected>Yes</option>
                                 <option value="0">No</option>
                             </select>
@@ -78,14 +87,17 @@
 
                         {{-- Booking Start --}}
                         <div>
-                            <label for="booking_start" class="block text-sm font-medium text-gray-700">Booking Start</label>
-                            <input type="datetime-local" name="booking_start" id="booking_start" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+                            <label for="booking_start" class="block text-sm font-medium text-gray-700">Booking
+                                Start</label>
+                            <input type="datetime-local" name="booking_start" id="booking_start"
+                                class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
                         </div>
 
                         {{-- Booking End --}}
                         <div>
                             <label for="booking_end" class="block text-sm font-medium text-gray-700">Booking End</label>
-                            <input type="datetime-local" name="booking_end" id="booking_end" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+                            <input type="datetime-local" name="booking_end" id="booking_end"
+                                class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
                         </div>
 
                         {{-- Submit --}}

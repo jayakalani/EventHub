@@ -42,6 +42,7 @@ class User extends Authenticatable implements MustVerifyEmailContract
         'created_by',
         'is_active',
         'is_default_password_changed',
+        'profile_completed',
     ];
 
     /**
@@ -52,6 +53,8 @@ class User extends Authenticatable implements MustVerifyEmailContract
     protected $hidden = [
         'password',
         'remember_token',
+        'two_factor_secret',
+        'two_factor_recovery_codes',
     ];
     /**
      * Get the user's full name by concatenating first and last name.
@@ -69,12 +72,21 @@ class User extends Authenticatable implements MustVerifyEmailContract
     {
         return [
             'email_verified_at' => 'datetime',
+            'two_factor_confirmed_at' => 'datetime',
             'password' => 'hashed',
+            'two_factor_secret' => 'encrypted',
+            'two_factor_recovery_codes' => 'encrypted:array',
             'is_locked' => 'boolean',
             'is_active' => 'boolean',
             'is_default_password_changed' => 'boolean',
+            'profile_completed' => 'boolean',
             'gender' => GenderEnum::class,
         ];
+    }
+
+    public function hasTwoFactorEnabled(): bool
+    {
+        return ! is_null($this->two_factor_confirmed_at);
     }
 
     /**

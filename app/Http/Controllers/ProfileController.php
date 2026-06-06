@@ -6,7 +6,6 @@ use App\Http\Requests\ProfileUpdateRequest;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Redirect;
 use Illuminate\View\View;
 
@@ -45,7 +44,7 @@ class ProfileController extends Controller
 
         if ($request->hasFile('profile_photo')) {
             $file = $request->file('profile_photo');
-            $fileName = time() . '.' . $file->getClientOriginalExtension();
+            $fileName = time().'.'.$file->getClientOriginalExtension();
             $file->move(public_path('uploads/users-profile-photos'), $fileName);
             $user->profile_photo = $fileName;
         }

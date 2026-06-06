@@ -2,14 +2,14 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use Illuminate\View\View;
-use App\Models\UserRole;
 use App\Models\Event;
 use App\Models\EventCategory;
 use App\Models\Host;
 use App\Models\User;
+use App\Models\UserRole;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\View\View;
 
 class DashboardController extends Controller
 {
@@ -77,13 +77,12 @@ class DashboardController extends Controller
     /**
      * Attendee Dashboard
      */
-   
     public function attendee(Request $request): View
     {
         $query = Event::query();
 
         if ($request->filled('search')) {
-            $query->where('name', 'like', '%' . $request->search . '%');
+            $query->where('name', 'like', '%'.$request->search.'%');
         }
 
         if ($request->filled('date')) {
@@ -106,5 +105,4 @@ class DashboardController extends Controller
             'selectedCategory'
         ));
     }
-
 }

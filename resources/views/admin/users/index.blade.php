@@ -1,5 +1,5 @@
 <x-app-layout>
-    <x-slot name="header">        
+    <x-slot name="header">
 
         <!-- Action Buttons -->
         <div class="flex flex-col md:flex-row gap-3 w-full md:w-auto justify-between">
@@ -9,17 +9,19 @@
                 </h2>
             </div>
 
-            <div> 
-                <a href="{{ route('admin.employees.create') }}" 
+            <div>
+                <a href="{{ route('admin.employees.create') }}"
                     class="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 mx-2">
                     + Create New Employee
                 </a>
 
-                <a href="{{ route('admin.employees.export.csv') }}" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">Export CSV</a>
-                <a href="{{ route('admin.employees.export.pdf') }}" class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">Export PDF</a>
+                <a href="{{ route('admin.employees.export.csv') }}"
+                    class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">Export CSV</a>
+                <a href="{{ route('admin.employees.export.pdf') }}"
+                    class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">Export PDF</a>
 
-            </div>  
-        </div>  
+            </div>
+        </div>
     </x-slot>
 
     <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
@@ -27,16 +29,17 @@
             <!-- Filters -->
             <div class=" md:w-auto mb-4 md:mb-0">
                 <!-- Mobile toggle -->
-                <button @click="openFilters = !openFilters" 
-                        class="md:hidden px-4 py-2 bg-gray-200 rounded hover:bg-gray-300">
+                <button @click="openFilters = !openFilters"
+                    class="md:hidden px-4 py-2 bg-gray-200 rounded hover:bg-gray-300">
                     Filters
-                </button>   
+                </button>
 
-                <div :class="{'block': openFilters, 'hidden': !openFilters}" class="hidden md:flex flex-wrap gap-4 mt-4 md:mt-3">
+                <div :class="{ 'block': openFilters, 'hidden': !openFilters }"
+                    class="hidden md:flex flex-wrap gap-4 mt-4 md:mt-3">
                     <form method="GET" action="{{ route('admin.users') }}" class="flex flex-wrap gap-4 mt-4 md:mt-0">
-                        <input type="text" name="search" placeholder="Search full_name, email, contact_number, name_en"
-                            value="{{ request('search') }}"
-                            class="px-4 py-2 border rounded w-full md:w-64">
+                        <input type="text" name="search"
+                            placeholder="Search full_name, email, contact_number, name_en"
+                            value="{{ request('search') }}" class="px-4 py-2 border rounded w-full md:w-64">
 
                         <select name="role" class="px-4 py-2 border rounded w-full md:w-auto">
                             <option value="">All Roles</option>
@@ -62,86 +65,116 @@
                         </select>
 
                         <!-- Date range -->
-                        <input type="date" name="from_date" value="{{ request('from_date') }}" class="px-4 py-2 border rounded w-full md:w-auto">
-                        <input type="date" name="to_date" value="{{ request('to_date') }}" class="px-4 py-2 border rounded w-full md:w-auto">
+                        <input type="date" name="from_date" value="{{ request('from_date') }}"
+                            class="px-4 py-2 border rounded w-full md:w-auto">
+                        <input type="date" name="to_date" value="{{ request('to_date') }}"
+                            class="px-4 py-2 border rounded w-full md:w-auto">
 
-                        <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Apply</button>
-                        <a href="{{ route('admin.users') }}" class="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400">Reset</a>
+                        <button type="submit"
+                            class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Apply</button>
+                        <a href="{{ route('admin.users') }}"
+                            class="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400">Reset</a>
                     </form>
-                </div>    
+                </div>
             </div>
         </div>
     </div>
 
-        <div class="w-full py-12">
-            <div class=" mx-auto sm:px-6 lg:px-8">
-                <!-- Success Message -->
-                @if(session('success'))
-                    <div class="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded">
-                        {{ session('success') }}
-                    </div>
-                @endif
+    <div class="w-full py-12">
+        <div class=" mx-auto sm:px-6 lg:px-8">
+            <!-- Success Message -->
+            @if (session('success'))
+                <div class="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded">
+                    {{ session('success') }}
+                </div>
+            @endif
 
-                <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
-                    <div class="p-6">
-                        <table class="min-w-full divide-y divide-gray-200">
-                            <thead class="bg-gray-50">
+            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
+                <div class="p-6">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th
+                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    ID</th>
+                                <th
+                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Name</th>
+                                <th
+                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Email</th>
+                                <th
+                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Contact Number</th>
+                                <th
+                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Role</th>
+                                <th
+                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Status</th>
+                                <th
+                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            @foreach ($users as $user)
                                 <tr>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact Number</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ $user->id }}
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        {{ $user->full_name }}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ $user->email }}
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        {{ $user->contact_number }}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        {{ $user->userRole->name_en ?? 'N/A' }}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                        <!-- Lock/Unlock Toggle Button -->
+                                        <form action="{{ route('admin.user.toggleLock', $user->id) }}" method="POST"
+                                            class="inline">
+                                            @csrf
+                                            <button type="submit"
+                                                class="px-2 py-1 text-xs rounded {{ $user->is_locked ? 'bg-red-500 text-white hover:bg-red-600' : 'bg-green-500 text-white hover:bg-green-600' }}">
+                                                {{ $user->is_locked ? '🔒 Locked' : '🔓 Unlocked' }}
+                                            </button>
+                                        </form>
+
+                                        <!-- Active/Inactive Toggle Button -->
+                                        <form action="{{ route('admin.user.toggleActive', $user->id) }}" method="POST"
+                                            class="inline ml-1">
+                                            @csrf
+                                            <button type="submit"
+                                                class="px-2 py-1 text-xs rounded {{ $user->is_active ? 'bg-green-500 text-white hover:bg-green-600' : 'bg-gray-500 text-white hover:bg-gray-600' }}">
+                                                {{ $user->is_active ? '✅ Active' : '❌ Inactive' }}
+                                            </button>
+                                        </form>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        <!-- Edit Button -->
+                                        <a href="{{ route('admin.user.edit', $user->id) }}"
+                                            class="text-blue-600 hover:text-blue-900 mr-2 inline-block">
+                                            Edit
+                                        </a>
+
+                                        <!-- Delete Button -->
+                                        <form action="{{ route('admin.user.destroy', $user->id) }}" method="POST"
+                                            class="inline">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="submit" class="text-red-600 hover:text-red-900"
+                                                onclick="return confirm('Are you sure you want to delete this user?')">
+                                                Delete
+                                            </button>
+                                        </form>
+                                    </td>
                                 </tr>
-                            </thead>
-                            <tbody class="bg-white divide-y divide-gray-200">
-                                @foreach($users as $user)
-                                    <tr>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ $user->id }}</td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ $user->full_name }}</td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ $user->email }}</td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ $user->contact_number }}</td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ $user->userRole->name_en ?? 'N/A' }}</td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm">
-                                            <!-- Lock/Unlock Toggle Button -->
-                                            <form action="{{ route('admin.user.toggleLock', $user->id) }}" method="POST" class="inline">
-                                                @csrf
-                                                <button type="submit" class="px-2 py-1 text-xs rounded {{ $user->is_locked ? 'bg-red-500 text-white hover:bg-red-600' : 'bg-green-500 text-white hover:bg-green-600' }}">
-                                                    {{ $user->is_locked ? '🔒 Locked' : '🔓 Unlocked' }}
-                                                </button>
-                                            </form>
-                                                
-                                            <!-- Active/Inactive Toggle Button -->
-                                            <form action="{{ route('admin.user.toggleActive', $user->id) }}" method="POST" class="inline ml-1">
-                                                @csrf
-                                                <button type="submit" class="px-2 py-1 text-xs rounded {{ $user->is_active ? 'bg-green-500 text-white hover:bg-green-600' : 'bg-gray-500 text-white hover:bg-gray-600' }}">
-                                                    {{ $user->is_active ? '✅ Active' : '❌ Inactive' }}
-                                                </button>
-                                            </form>
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            <!-- Edit Button -->
-                                            <a href="{{ route('admin.user.edit', $user->id) }}" class="text-blue-600 hover:text-blue-900 mr-2 inline-block">
-                                                Edit
-                                            </a>
-                                                
-                                            <!-- Delete Button -->
-                                            <form action="{{ route('admin.user.destroy', $user->id) }}" method="POST" class="inline">
-                                                @csrf
-                                                @method('DELETE')
-                                                <button type="submit" class="text-red-600 hover:text-red-900" onclick="return confirm('Are you sure you want to delete this user?')">
-                                                    Delete
-                                                </button>
-                                            </form>
-                                        </td>
-                                    </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
-                    </div>
+                            @endforeach
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
+    </div>
 </x-app-layout>

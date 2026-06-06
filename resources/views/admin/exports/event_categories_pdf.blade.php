@@ -1,14 +1,33 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <title>Event Categories Export</title>
     <style>
-        body { font-family: sans-serif; font-size: 12px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        th { background-color: #f4f4f4; }
+        body {
+            font-family: sans-serif;
+            font-size: 12px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th,
+        td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f4f4f4;
+        }
     </style>
 </head>
+
 <body>
     <h2>Event Categories</h2>
     <table>
@@ -18,12 +37,12 @@
                 <th>Name</th>
                 <th>Cover</th>
                 <th>Status</th>
-                <th>Created At</th> 
-                <th>Created By</th> 
+                <th>Created At</th>
+                <th>Created By</th>
             </tr>
         </thead>
         <tbody>
-            @foreach($categories as $category)
+            @foreach ($categories as $category)
                 <tr>
                     <td>{{ $category->id }}</td>
                     <td>{{ $category->name }}</td>
@@ -36,4 +55,5 @@
         </tbody>
     </table>
 </body>
+
 </html>

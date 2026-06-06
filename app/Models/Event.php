@@ -5,10 +5,11 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Notifications\Notifiable;
+use App\Traits\Auditable;
 
 class Event extends Model
 {
-    use HasFactory, Notifiable;
+    use HasFactory, Notifiable, Auditable;
 
     protected $fillable = [
         'name',
@@ -23,8 +24,6 @@ class Event extends Model
         'cover',
         'created_by',
     ];
-
-    
 
     public function host()
     {
@@ -55,8 +54,8 @@ class Event extends Model
     {
         return $this->hasMany(Comment::class);
     }
-  
-    public function Likes()
+
+    public function likes()
     {
         return $this->hasMany(Like::class, 'user_id');
     }
@@ -65,5 +64,4 @@ class Event extends Model
     {
         return $this->hasMany(SeatBooking::class,'event_id');
     }
-
 }

@@ -14,6 +14,7 @@ use App\Http\Controllers\EventController;
 use App\Http\Controllers\HostController;
 use App\Http\Controllers\EventCategoryController;
 use App\Http\Controllers\SeatCategoryController;
+use App\Http\Controllers\AuditLogController;
 
 
 
@@ -93,6 +94,11 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::delete('/event/category/{id}', [EventCategoryController::class, 'destroy'])->name('event.category.destroy');
         Route::get('/admin/event-categories', [EventCategoryController::class, 'index'])->name('event-categories.index');
 
+    //Audit Logs
+        Route::get('/audit-logs', [AuditLogController::class, 'index'])->name('audit-logs');
+        Route::get('/audit-logs/export/csv', [AuditLogController::class, 'exportCsv'])->name('audit-logs.export.csv');
+        Route::get('/audit-logs/export/pdf', [AuditLogController::class, 'exportPdf'])->name('audit-logs.export.pdf');
+
 
 
         
@@ -120,9 +126,11 @@ Route::prefix('organizer')->name('organizer.')->middleware(['auth', 'verified', 
     Route::get('/events/{event}/export-pdf', [EventController::class, 'exportPdf'])->name('events.exportPdf');
     
     //seat category routes
-    Route::get('/events/{event}/seat-categories', [SeatCategoryController::class, 'index'])->name('seat-categories.index');
     Route::get('/events/{event}/seat-categories/create', [SeatCategoryController::class, 'create'])->name('seat-categories.create');
     Route::post('/events/{event}/seat-categories', [SeatCategoryController::class, 'store'])->name('seat-categories.store');
+    Route::get('/events/{event}/seat-categories/{seatCategory}/edit', [SeatCategoryController::class, 'edit'])->name('seat-categories.edit');
+    Route::put('/events/{event}/seat-categories/{seatCategory}', [SeatCategoryController::class, 'update'])->name('seat-categories.update');
+    Route::delete('/events/{event}/seat-categories/{seatCategory}', [SeatCategoryController::class, 'destroy'])->name('seat-categories.destroy');
 
 
 
@@ -156,10 +164,17 @@ Route::prefix('cro')->name('cro.')->group(function () {
 | Attendee Routes
 |--------------------------------------------------------------------------
 */
-Route::prefix('attendee')->name('attendee.')->group(function () {
-        
-    // Add attendee-specific routes here
+
+Route::prefix('attendee')->name('attendee.')->middleware(['auth'])->group(function () {
+    Route::get('/dashboard', [DashboardController::class, 'attendee']) ->name('dashboard');
+    Route::get('/events/{event}', [EventController::class, 'showPublishedEvent'])->name('events.show');
+    Route::get('/categories', [EventController::class, 'categories'])->name('categories.index');
+    Route::get('/bookings', [EventController::class, 'bookings'])->name('bookings.index');
+    
+
 });
+    
+
 
 
 /*

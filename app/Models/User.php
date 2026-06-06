@@ -11,12 +11,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Traits\Auditable;
 use App\Enums\GenderEnum;
 
 class User extends Authenticatable implements MustVerifyEmailContract
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable, SoftDeletes, MustVerifyEmail;
+    use HasFactory, Notifiable, SoftDeletes, MustVerifyEmail, Auditable;
 
     /**
      * The attributes that are mass assignable.

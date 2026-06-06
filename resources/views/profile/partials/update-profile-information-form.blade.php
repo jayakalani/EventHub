@@ -75,7 +75,7 @@
 
         <div>
             <x-input-label for="date_of_birth" :value="__('Date Of Birth')" />
-            <x-text-input id="date_of_birth" name="date_of_birth" type="date" class="mt-1 block w-full" :value="old('date_of_birth', $user->date_of_birth)" required autofocus autocomplete="date_of_birth" />
+            <x-text-input id="date_of_birth" name="date_of_birth" type="date" class="mt-1 block w-full" :value="old('date_of_birth', optional($user->date_of_birth)->format('Y-m-d'))" required autofocus autocomplete="date_of_birth" />
             <x-input-error class="mt-2" :messages="$errors->get('date_of_birth')" />
         </div>
 
@@ -91,9 +91,9 @@
             <select id="gender" name="gender"
                 class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                 required>
-                <option value="" disabled selected>-- Select Gender --</option>
-                <option value="male" {{ old('gender', $user->gender) === 'male' ? 'selected' : '' }}>Male</option>
-                <option value="female" {{ old('gender', $user->gender) === 'female' ? 'selected' : '' }}>Female</option>
+                <option value="" disabled {{ old('gender', $user->gender?->value ?? '') ? '' : 'selected' }}>-- Select Gender --</option>
+                <option value="male" {{ old('gender', $user->gender?->value ?? '') === 'male' ? 'selected' : '' }}>Male</option>
+                <option value="female" {{ old('gender', $user->gender?->value ?? '') === 'female' ? 'selected' : '' }}>Female</option>
             </select>
 
             <x-input-error class="mt-2" :messages="$errors->get('gender')" />

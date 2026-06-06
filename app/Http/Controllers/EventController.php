@@ -162,14 +162,24 @@ class EventController extends Controller
             'cover'         => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
         ]);
 
-        $event->fill($validatedData);
-
-        if ($request->hasFile('cover')) {
-            if ($event->cover && Storage::disk('public')->exists($event->cover)) {
-                Storage::disk('public')->delete($event->cover);
-            }
-            $event->cover = $request->file('cover')->store('uploads/covers/events', 'public');
+        if ($request->hasfile('cover')) {
+            $file = $request->file('cover');
+            $extension = $file->getClientOriginalExtension();
+            $fileName = time() . '.' . $extension;
+            $file->move('uploads/covers/events/', $fileName);
         }
+
+        $event->name           = $validatedData['name'];
+        $event->hosted_by      = $validatedData['hosted_by'];
+        $event->category_id    = $validatedData['category_id'];
+        $event->date           = $validatedData['date'];
+        $event->time           = $validatedData['time'];
+        $event->place          = $validatedData['place'];
+        $event->no_of_seats    = $validatedData['no_of_seats'];
+        $event->description    = $validatedData['description'];
+        $event->contact_person = $validatedData['contact_person'];
+        $event->cover = $fileName ?? $event->cover;
+        //'status'        => 'upcoming',        
 
         $event->save();
 
@@ -253,6 +263,13 @@ class EventController extends Controller
         return $pdf->download($event->name.'_details.pdf');
     }
 
+    public function showPublishedEvent(Event $event)
+    {
+        $event->load(['host', 'eventCategory', 'contactPerson', 'seatCategories']);
 
+        $seatCategories = $event->seatCategories;
+
+        return view('attendee.show', compact('event', 'seatCategories'));
+    }
 
 }

@@ -1,63 +1,191 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Organizer Dashboard - EventHub</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="bg-gray-100">
-    <div class="min-h-screen">
-        <!-- Header -->
-        <header class="bg-white shadow">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-                <h1 class="text-2xl font-bold text-gray-900">Organizer Dashboard</h1>
-                <div class="flex items-center gap-4">
-                    <span class="text-gray-600">{{ Auth::user()->name }}</span>
-                    <form method="POST" action="{{ route('logout') }}">
-                        @csrf
-                        <button type="submit" class="text-red-600 hover:text-red-800">Logout</button>
-                    </form>
-                </div>
-            </div>
-        </header>
-
-        <!-- Main Content -->
-        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <!-- Stats Cards -->
-                <div class="bg-white rounded-lg shadow p-6">
-                    <div class="text-3xl font-bold text-blue-600">0</div>
-                    <div class="text-gray-600 mt-2">Total Events</div>
-                </div>
-                <div class="bg-white rounded-lg shadow p-6">
-                    <div class="text-3xl font-bold text-green-600">0</div>
-                    <div class="text-gray-600 mt-2">Total Attendees</div>
-                </div>
-                <div class="bg-white rounded-lg shadow p-6">
-                    <div class="text-3xl font-bold text-purple-600">0</div>
-                    <div class="text-gray-600 mt-2">Upcoming Events</div>
-                </div>
-                <div class="bg-white rounded-lg shadow p-6">
-                    <div class="text-3xl font-bold text-orange-600">0</div>
-                    <div class="text-gray-600 mt-2">Past Events</div>
-                </div>
+<x-app-layout>
+    <x-slot name="header">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+                <h2 class="font-semibold text-2xl text-gray-900">
+                    Organizer Dashboard
+                </h2>
+                <p class="mt-1 text-sm text-gray-500">
+                    Manage events, attendees, and hosts from one centralized dashboard.
+                </p>
             </div>
 
-            <!-- Quick Actions -->
-            <div class="mt-8">
-                <h2 class="text-xl font-semibold text-gray-900 mb-4">Quick Actions</h2>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <a href="{{ route('organizer.events.index') }}"class="bg-blue-600 text-white rounded-lg p-4 text-center hover:bg-blue-700">All Events</a>
+            <div class="flex flex-wrap gap-2">
+                <a href="{{ route('organizer.events.index') }}"
+                   class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-full text-sm font-semibold shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition">
+                    All Events
+                </a>
 
-                    <a href="#" class="bg-purple-600 text-white rounded-lg p-4 text-center hover:bg-purple-700">Manage Attendees</a>
+                <a href="{{ route('organizer.host.create') }}"
+                   class="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-full text-sm font-semibold shadow-sm hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition">
+                    Create Host
+                </a>
 
-                     <a href="{{ route('organizer.host.create') }}" class="bg-purple-600 text-white rounded-lg p-4 text-center hover:bg-purple-700">Create Host</a>
-
-                     <a href="{{ route('organizer.hosts') }}" class="bg-purple-600 text-white rounded-lg p-4 text-center hover:bg-purple-700">View Host Persons</a>
-                </div>
+                <a href="{{ route('organizer.hosts') }}"
+                   class="inline-flex items-center px-4 py-2 bg-slate-800 text-white rounded-full text-sm font-semibold shadow-sm hover:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 transition">
+                    View Hosts
+                </a>
             </div>
-        </main>
+        </div>
+    </x-slot>
+
+    <div class="py-10">
+        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+
+            <!-- Statistics Cards -->
+            <div class="grid gap-6 lg:grid-cols-4 mb-6">
+
+                <div class="rounded-3xl border border-slate-200 bg-white px-6 py-8 shadow-sm">
+                    <p class="text-sm font-medium text-slate-500">
+                        Total Events
+                    </p>
+                    <h3 class="mt-4 text-3xl font-semibold text-blue-600">
+                        {{ $totalEvents ?? 0 }}
+                    </h3>
+                    <p class="mt-2 text-sm text-slate-500">
+                        Events created so far
+                    </p>
+                </div>
+
+                <div class="rounded-3xl border border-slate-200 bg-white px-6 py-8 shadow-sm">
+                    <p class="text-sm font-medium text-slate-500">
+                        Total Attendees
+                    </p>
+                    <h3 class="mt-4 text-3xl font-semibold text-green-600">
+                        {{ $totalAttendees ?? 0 }}
+                    </h3>
+                    <p class="mt-2 text-sm text-slate-500">
+                        Registered attendees
+                    </p>
+                </div>
+
+                <div class="rounded-3xl border border-slate-200 bg-white px-6 py-8 shadow-sm">
+                    <p class="text-sm font-medium text-slate-500">
+                        Upcoming Events
+                    </p>
+                    <h3 class="mt-4 text-3xl font-semibold text-purple-600">
+                        {{ $upcomingEvents ?? 0 }}
+                    </h3>
+                    <p class="mt-2 text-sm text-slate-500">
+                        Scheduled events
+                    </p>
+                </div>
+
+                <div class="rounded-3xl border border-slate-200 bg-white px-6 py-8 shadow-sm">
+                    <p class="text-sm font-medium text-slate-500">
+                        Total Hosts
+                    </p>
+                    <h3 class="mt-4 text-3xl font-semibold text-orange-600">
+                        {{ $totalHosts ?? 0 }}
+                    </h3>
+                    <p class="mt-2 text-sm text-slate-500">
+                        Host persons registered
+                    </p>
+                </div>
+
+            </div>
+
+            <!-- Main Dashboard Area -->
+            <div class="grid gap-6 xl:grid-cols-3">
+
+                <!-- Recent Events -->
+                <div class="xl:col-span-2 rounded-3xl border border-slate-200 bg-white shadow-sm">
+
+                    <div class="px-6 py-5 border-b border-slate-200 sm:px-8">
+                        <h3 class="text-lg font-semibold text-slate-900">
+                            Recent Events
+                        </h3>
+
+                        <p class="mt-1 text-sm text-slate-500">
+                            Latest events created and managed by you.
+                        </p>
+                    </div>
+
+                    <div class="divide-y divide-slate-200">
+
+                        @forelse($events ?? [] as $event)
+
+                            <div class="flex flex-col gap-2 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
+
+                                <div>
+                                    <p class="font-semibold text-slate-900">
+                                        {{ $event->title }}
+                                    </p>
+
+                                    <p class="text-sm text-slate-500">
+                                        {{ \Carbon\Carbon::parse($event->event_date)->format('M d, Y') }}
+                                    </p>
+                                </div>
+
+                                <span class="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-blue-700">
+                                    Event
+                                </span>
+
+                            </div>
+
+                        @empty
+
+                            <div class="px-6 py-12 text-center">
+                                <p class="text-slate-500">
+                                    No events available yet.
+                                </p>
+
+                                <a href="{{ route('organizer.events.create') }}"
+                                   class="inline-flex mt-4 items-center px-4 py-2 bg-blue-600 text-white rounded-full text-sm font-semibold hover:bg-blue-700">
+                                    Create First Event
+                                </a>
+                            </div>
+
+                        @endforelse
+
+                    </div>
+                </div>
+
+                <!-- Quick Actions -->
+                <aside class="rounded-3xl border border-slate-200 bg-white shadow-sm">
+
+                    <div class="px-6 py-5 border-b border-slate-200 sm:px-8">
+                        <h3 class="text-lg font-semibold text-slate-900">
+                            Quick Actions
+                        </h3>
+
+                        <p class="mt-1 text-sm text-slate-500">
+                            Frequently used organizer tools.
+                        </p>
+                    </div>
+
+                    <div class="space-y-3 px-6 py-6 sm:px-8">
+
+                        <a href="{{ route('organizer.events.index') }}"
+                           class="block rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-900 hover:bg-slate-100 transition">
+                            Manage Events
+                        </a>
+
+                        <a href="{{ route('organizer.events.create') }}"
+                           class="block rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-700 hover:bg-blue-100 transition">
+                            Create Event
+                        </a>
+
+                        <a href="{{ route('organizer.host.create') }}"
+                           class="block rounded-2xl border border-purple-200 bg-purple-50 px-4 py-3 text-sm font-semibold text-purple-700 hover:bg-purple-100 transition">
+                            Create Host
+                        </a>
+
+                        <a href="{{ route('organizer.hosts') }}"
+                           class="block rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-900 hover:bg-slate-100 transition">
+                            View Hosts
+                        </a>
+
+                        <button
+                            class="w-full rounded-2xl bg-green-600 px-4 py-3 text-sm font-semibold text-white hover:bg-green-700 transition">
+                            Manage Attendees
+                        </button>
+
+                    </div>
+                </aside>
+
+            </div>
+
+        </div>
     </div>
-</body>
-</html>
+</x-app-layout>

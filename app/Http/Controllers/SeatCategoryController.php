@@ -30,8 +30,6 @@ class SeatCategoryController extends Controller
         return view('organizer.seat-categories.create', compact('events', 'event'));
     }
 
-
-
     /**
      * Store a newly created seat category.
      */
@@ -49,6 +47,29 @@ class SeatCategoryController extends Controller
             'booking_end'     => ['nullable', 'date', 'after_or_equal:booking_start'],
         ]);
 
+        $event = Event::findOrFail($validatedData['event_id']);
+
+        if (!empty($validatedData['booking_start']) && $validatedData['booking_start'] > $event->date) {
+            return redirect()->back()
+                ->withErrors(['booking_start' => "Booking start date cannot be after the event date ({$event->date})."])
+                ->withInput();
+        }
+
+        if (!empty($validatedData['booking_end']) && $validatedData['booking_end'] > $event->date) {
+            return redirect()->back()
+                ->withErrors(['booking_end' => "Booking end date cannot be after the event date ({$event->date})."])
+                ->withInput();
+        }
+
+        $currentSeatTotal = $event->seatCategories()->sum('no_of_seats');
+        $proposedTotal = $currentSeatTotal + $validatedData['no_of_seats'];
+
+        if ($proposedTotal > $event->no_of_seats) {
+            return redirect()->back()
+                ->withErrors(['no_of_seats' => "Total seats across all categories cannot exceed the event's total of {$event->no_of_seats}."])
+                ->withInput();
+        }
+
         $seatCategory = SeatCategory::create([
             'event_id'              => $validatedData['event_id'],
             'name'                  => $validatedData['name'],
@@ -63,53 +84,95 @@ class SeatCategoryController extends Controller
         ]);
 
         return redirect()
-            ->route('organizer.seat-categories.index', $validatedData['event_id'])
+            ->route('organizer.events.show', $validatedData['event_id'])
             ->with('status', 'New Seat Category was added successfully.');
     }
 
     /**
-     * Update an existing seat category.
+     * Show the form for editing a seat category.
      */
-    public function update(Request $request, SeatCategory $seatCategory)
+    public function edit(Event $event, SeatCategory $seatCategory)
+    {
+        return view('organizer.seat-categories.edit', compact('event', 'seatCategory'));
+    }
+
+    /**
+     * Update the specified seat category.
+     */
+    public function update(Request $request, Event $event, SeatCategory $seatCategory)
     {
         $validatedData = $request->validate([
-            'name'            => ['required', 'string', 'max:255'],
-            'description'     => ['nullable', 'string'],
-            'no_of_seats'     => ['required', 'integer', 'min:1'],
-            'seat_price'      => ['required', 'numeric', 'min:0'],
-            'ticket_color'    => ['required', 'string', 'max:255'],
-            'is_active'       => ['boolean'],
-            'booking_start'   => ['nullable', 'date'],
-            'booking_end'     => ['nullable', 'date', 'after_or_equal:booking_start'],
+            'name'          => ['required', 'string', 'max:255'],
+            'description'   => ['nullable', 'string'],
+            'no_of_seats'   => ['required', 'integer', 'min:1'],
+            'seat_price'    => ['required', 'numeric', 'min:0'],
+            'ticket_color'  => ['required', 'string', 'max:255'],
+            'is_active'     => ['boolean'],
+            'booking_start' => ['nullable', 'date'],
+            'booking_end'   => ['nullable', 'date', 'after_or_equal:booking_start'],
         ]);
 
-        $seatCategory->update([
-            'name'                  => $validatedData['name'],
-            'description'           => $validatedData['description'] ?? null,
-            'no_of_seats'           => $validatedData['no_of_seats'],
-            'no_of_available_seats' => min($seatCategory->no_of_available_seats, $validatedData['no_of_seats']),
-            'seat_price'            => $validatedData['seat_price'],
-            'ticket_color'          => $validatedData['ticket_color'],
-            'is_active'             => $validatedData['is_active'] ?? $seatCategory->is_active,
-            'booking_start'         => $validatedData['booking_start'] ?? null,
-            'booking_end'           => $validatedData['booking_end'] ?? null,
-        ]);
+        if (!empty($validatedData['booking_start']) && $validatedData['booking_start'] > $event->date) {
+            return redirect()->back()
+                ->withErrors(['booking_start' => "Booking start date cannot be after the event date ({$event->date})."])
+                ->withInput();
+        }
+
+        if (!empty($validatedData['booking_end']) && $validatedData['booking_end'] > $event->date) {
+            return redirect()->back()
+                ->withErrors(['booking_end' => "Booking end date cannot be after the event date ({$event->date})."])
+                ->withInput();
+        }
+
+        $existingTotalWithoutCurrent = $event->seatCategories()
+            ->where('id', '!=', $seatCategory->id)
+            ->sum('no_of_seats');
+
+        $proposedTotal = $existingTotalWithoutCurrent + $validatedData['no_of_seats'];
+
+        if ($proposedTotal > $event->no_of_seats) {
+            return redirect()->back()
+                ->withErrors(['no_of_seats' => "Total seats across all categories cannot exceed the event's total of {$event->no_of_seats}."])
+                ->withInput();
+        }
+
+        // Update fields
+        $seatCategory->name        = $validatedData['name'];
+        $seatCategory->description = $validatedData['description'] ?? null;
+        $seatCategory->no_of_seats = $validatedData['no_of_seats'];
+        $seatCategory->seat_price  = $validatedData['seat_price'];
+        $seatCategory->ticket_color = $validatedData['ticket_color'];
+        $seatCategory->is_active   = $validatedData['is_active'] ?? $seatCategory->is_active;
+        $seatCategory->booking_start = $validatedData['booking_start'] ?? null;
+        $seatCategory->booking_end   = $validatedData['booking_end'] ?? null;
+
+        // Adjust available seats if total seats changed
+        if ($seatCategory->isDirty('no_of_seats')) {
+            $difference = $validatedData['no_of_seats'] - $seatCategory->getOriginal('no_of_seats');
+            $seatCategory->no_of_available_seats += $difference;
+            if ($seatCategory->no_of_available_seats < 0) {
+                $seatCategory->no_of_available_seats = 0;
+            }
+        }
+
+        $seatCategory->save();
 
         return redirect()
-            ->route('organizer.seat-categories.index', $seatCategory->event_id)
-            ->with('status', 'Seat Category updated successfully.');
+            ->route('organizer.events.show', $event->id)
+            ->with('success', 'Seat Category updated successfully.');
     }
 
     /**
      * Delete a seat category.
      */
-    public function destroy(SeatCategory $seatCategory)
+    public function destroy(Event $event, SeatCategory $seatCategory)
     {
-        $eventId = $seatCategory->event_id;
         $seatCategory->delete();
 
         return redirect()
-            ->route('organizer.seat-categories.index', $eventId)
-            ->with('status', 'Seat Category deleted successfully.');
+            ->route('organizer.events.show', $event->id)
+            ->with('success', 'Seat Category deleted successfully.');
     }
+
+    
 }

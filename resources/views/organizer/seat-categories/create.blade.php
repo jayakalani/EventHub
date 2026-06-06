@@ -58,7 +58,7 @@
                         {{-- Seat Price --}}
                         <div>
                             <label for="seat_price" class="block text-sm font-medium text-gray-700">Seat Price</label>
-                            <input type="number" step="0.01" name="seat_price" id="seat_price" min="0" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" required>
+                            <input type="number" step="0" name="seat_price" id="seat_price" min="0" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" required>
                         </div>
 
                         {{-- Ticket Color --}}

@@ -1,98 +1,277 @@
 <x-app-layout>
     <x-slot name="header">
-        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-                <h2 class="font-semibold text-2xl text-gray-900">{{ __('Admin Dashboard') }}</h2>
-                <p class="mt-1 text-sm text-gray-500">Quick overview of system activity and user management.</p>
-            </div>
-            <div class="flex flex-wrap gap-2">
-                <a href="{{ route('admin.users') }}"
-                    class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-full text-sm font-semibold shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition">{{ __('All Users') }}</a>
-            </div>
-            <div class="flex flex-wrap gap-2">
-                <a
-                    href="{{ route('admin.event-categories') }}"class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-full text-sm font-semibold shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition">Event
-                    Categories</a>
-            </div>
+        <div class="relative overflow-hidden rounded-3xl bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-500 p-8 shadow-xl">
+
+```
+        <div class="absolute inset-0 opacity-10">
+            <div class="absolute -right-16 -top-16 h-64 w-64 rounded-full bg-white"></div>
+            <div class="absolute bottom-0 left-1/3 h-40 w-40 rounded-full bg-white"></div>
         </div>
-    </x-slot>
 
-    <div class="py-10">
-        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-            <div class="grid gap-6 lg:grid-cols-3 mb-6">
-                <div class="rounded-3xl border border-slate-200 bg-white px-6 py-8 shadow-sm">
-                    <p class="text-sm font-medium text-slate-500">Total Users</p>
-                    <h3 class="mt-4 text-3xl font-semibold text-slate-900">{{ $totalUsers ?? 0 }}</h3>
-                    <p class="mt-2 text-sm text-slate-500">Active accounts this month</p>
-                </div>
-                <div class="rounded-3xl border border-slate-200 bg-white px-6 py-8 shadow-sm">
-                    <p class="text-sm font-medium text-slate-500">Pending Verifications</p>
-                    <h3 class="mt-4 text-3xl font-semibold text-slate-900">{{ $pendingVerifications ?? 0 }}</h3>
-                    <p class="mt-2 text-sm text-slate-500">Emails waiting for confirmation</p>
-                </div>
-                <div class="rounded-3xl border border-slate-200 bg-white px-6 py-8 shadow-sm">
-                    <p class="text-sm font-medium text-slate-500">Locked Accounts</p>
-                    <h3 class="mt-4 text-3xl font-semibold text-slate-900">{{ $lockedAccounts ?? 0 }}</h3>
-                    <p class="mt-2 text-sm text-slate-500">Accounts locked by security policy</p>
-                </div>
+        <div class="relative flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+
+            <div>
+                <h1 class="text-3xl font-bold text-white">
+                    Admin Dashboard
+                </h1>
+
+                <p class="mt-2 text-blue-100">
+                    Welcome back. Monitor users, events, security, and platform activity.
+                </p>
             </div>
 
-            <div class="grid gap-6 xl:grid-cols-3">
-                <div class="xl:col-span-2 rounded-3xl border border-slate-200 bg-white shadow-sm">
-                    <div class="px-6 py-5 border-b border-slate-200 sm:px-8">
-                        <h3 class="text-lg font-semibold text-slate-900">Recent activity</h3>
-                        <p class="mt-1 text-sm text-slate-500">Recent user actions and system notifications.</p>
-                    </div>
-                    <div class="divide-y divide-slate-200 px-6 py-6 sm:px-8">
-                        <div class="flex flex-col gap-1 py-4 sm:flex-row sm:items-center sm:justify-between">
-                            <div>
-                                <p class="font-semibold text-slate-900">New event manager account created</p>
-                                <p class="text-sm text-slate-500">2 minutes ago</p>
-                            </div>
-                            <span
-                                class="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-600">User</span>
-                        </div>
-                        <div class="flex flex-col gap-1 py-4 sm:flex-row sm:items-center sm:justify-between">
-                            <div>
-                                <p class="font-semibold text-slate-900">5 users verified their email</p>
-                                <p class="text-sm text-slate-500">14 minutes ago</p>
-                            </div>
-                            <span
-                                class="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-700">Verified</span>
-                        </div>
-                        <div class="flex flex-col gap-1 py-4 sm:flex-row sm:items-center sm:justify-between">
-                            <div>
-                                <p class="font-semibold text-slate-900">Locked 2 accounts after failed login attempts
-                                </p>
-                                <p class="text-sm text-slate-500">37 minutes ago</p>
-                            </div>
-                            <span
-                                class="rounded-full bg-rose-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-rose-700">Security</span>
-                        </div>
-                    </div>
-                </div>
+            <div class="flex flex-wrap gap-3">
+                <a href="{{ route('admin.users') }}"
+                    class="inline-flex items-center rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-indigo-600 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+                    Manage Users
+                </a>
 
-                <aside class="rounded-3xl border border-slate-200 bg-white shadow-sm">
-                    <div class="px-6 py-5 border-b border-slate-200 sm:px-8">
-                        <h3 class="text-lg font-semibold text-slate-900">Admin actions</h3>
-                        <p class="mt-1 text-sm text-slate-500">Quick access to management tools.</p>
-                    </div>
-                    <div class="space-y-3 px-6 py-6 sm:px-8">
-                        <a href="{{ route('admin.users') }}"
-                            class="block rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-900 hover:bg-slate-100">Manage
-                            users</a>
-                        <button
-                            class="w-full rounded-2xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700">View
-                            reports</button>
-                        <button
-                            class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900 hover:bg-slate-50">Review
-                            verifications</button>
-                        <a href="{{ route('admin.audit-logs') }}"
-                            class="w-full block rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900 hover:bg-slate-50">Audit
-                            Logs</a>
-                    </div>
-                </aside>
+                <a href="{{ route('admin.event-categories') }}"
+                    class="inline-flex items-center rounded-2xl border border-white/30 bg-white/10 backdrop-blur-sm px-5 py-3 text-sm font-semibold text-white hover:bg-white/20 transition-all duration-300">
+                    Event Categories
+                </a>
+
+                <a href="{{ route('admin.audit-logs') }}"
+                    class="inline-flex items-center rounded-2xl border border-white/30 bg-white/10 backdrop-blur-sm px-5 py-3 text-sm font-semibold text-white hover:bg-white/20 transition-all duration-300">
+                    Audit Logs
+                </a>
             </div>
+
         </div>
     </div>
+</x-slot>
+
+<div class="py-8">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+
+        <!-- KPI Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
+
+            <div class="group bg-white rounded-3xl border border-slate-200 p-6 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-slate-500">
+                            Total Users
+                        </p>
+
+                        <h3 class="mt-2 text-4xl font-bold text-slate-900">
+                            {{ $totalUsers ?? 0 }}
+                        </h3>
+
+                        <p class="mt-2 text-xs text-emerald-600 font-medium">
+                            +12% this month
+                        </p>
+                    </div>
+
+                    <div class="h-14 w-14 rounded-2xl bg-blue-100 flex items-center justify-center">
+                        👥
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="group bg-white rounded-3xl border border-slate-200 p-6 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-slate-500">
+                            Pending Verifications
+                        </p>
+
+                        <h3 class="mt-2 text-4xl font-bold text-amber-600">
+                            {{ $pendingVerifications ?? 0 }}
+                        </h3>
+
+                        <p class="mt-2 text-xs text-slate-500">
+                            Awaiting approval
+                        </p>
+                    </div>
+
+                    <div class="h-14 w-14 rounded-2xl bg-amber-100 flex items-center justify-center">
+                        ⏳
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="group bg-white rounded-3xl border border-slate-200 p-6 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-slate-500">
+                            Locked Accounts
+                        </p>
+
+                        <h3 class="mt-2 text-4xl font-bold text-red-600">
+                            {{ $lockedAccounts ?? 0 }}
+                        </h3>
+
+                        <p class="mt-2 text-xs text-slate-500">
+                            Security restrictions
+                        </p>
+                    </div>
+
+                    <div class="h-14 w-14 rounded-2xl bg-red-100 flex items-center justify-center">
+                        🔒
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="group bg-white rounded-3xl border border-slate-200 p-6 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-slate-500">
+                            System Status
+                        </p>
+
+                        <h3 class="mt-2 text-2xl font-bold text-emerald-600">
+                            Healthy
+                        </h3>
+
+                        <p class="mt-2 text-xs text-emerald-600">
+                            All services operational
+                        </p>
+                    </div>
+
+                    <div class="h-14 w-14 rounded-2xl bg-emerald-100 flex items-center justify-center">
+                        ✅
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+
+        <!-- Main Content -->
+        <div class="grid gap-6 xl:grid-cols-3">
+
+            <!-- Recent Activity -->
+            <div class="xl:col-span-2 bg-white rounded-3xl border border-slate-200 shadow-sm">
+
+                <div class="border-b border-slate-100 px-8 py-6">
+                    <h3 class="text-xl font-bold text-slate-900">
+                        Recent Activity
+                    </h3>
+
+                    <p class="text-sm text-slate-500 mt-1">
+                        Latest platform and user actions
+                    </p>
+                </div>
+
+                <div class="p-8">
+
+                    <div class="space-y-6">
+
+                        <div class="flex gap-4">
+                            <div class="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                                👤
+                            </div>
+
+                            <div class="flex-1">
+                                <p class="font-semibold text-slate-900">
+                                    New event organizer account created
+                                </p>
+
+                                <p class="text-sm text-slate-500">
+                                    2 minutes ago
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="flex gap-4">
+                            <div class="h-10 w-10 rounded-full bg-emerald-100 flex items-center justify-center">
+                                ✔
+                            </div>
+
+                            <div class="flex-1">
+                                <p class="font-semibold text-slate-900">
+                                    5 users verified their email addresses
+                                </p>
+
+                                <p class="text-sm text-slate-500">
+                                    14 minutes ago
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="flex gap-4">
+                            <div class="h-10 w-10 rounded-full bg-red-100 flex items-center justify-center">
+                                🔐
+                            </div>
+
+                            <div class="flex-1">
+                                <p class="font-semibold text-slate-900">
+                                    2 suspicious accounts automatically locked
+                                </p>
+
+                                <p class="text-sm text-slate-500">
+                                    37 minutes ago
+                                </p>
+                            </div>
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <!-- Quick Actions -->
+            <aside class="bg-white rounded-3xl border border-slate-200 shadow-sm">
+
+                <div class="border-b border-slate-100 px-8 py-6">
+                    <h3 class="text-xl font-bold text-slate-900">
+                        Quick Actions
+                    </h3>
+
+                    <p class="text-sm text-slate-500 mt-1">
+                        Frequently used admin tools
+                    </p>
+                </div>
+
+                <div class="p-6 space-y-4">
+
+                    <a href="{{ route('admin.users') }}"
+                        class="block rounded-2xl bg-slate-50 border border-slate-200 p-4 hover:bg-slate-100 transition">
+                        <h4 class="font-semibold text-slate-900">
+                            Manage Users
+                        </h4>
+                        <p class="text-sm text-slate-500 mt-1">
+                            Create, edit and monitor accounts
+                        </p>
+                    </a>
+
+                    <a href="{{ route('admin.audit-logs') }}"
+                        class="block rounded-2xl bg-slate-50 border border-slate-200 p-4 hover:bg-slate-100 transition">
+                        <h4 class="font-semibold text-slate-900">
+                            Audit Logs
+                        </h4>
+                        <p class="text-sm text-slate-500 mt-1">
+                            Review system activity history
+                        </p>
+                    </a>
+
+                    <a href="{{ route('admin.event-categories') }}"
+                        class="block rounded-2xl bg-slate-50 border border-slate-200 p-4 hover:bg-slate-100 transition">
+                        <h4 class="font-semibold text-slate-900">
+                            Event Categories
+                        </h4>
+                        <p class="text-sm text-slate-500 mt-1">
+                            Manage platform event categories
+                        </p>
+                    </a>
+
+                </div>
+
+            </aside>
+
+        </div>
+
+    </div>
+</div>
+```
+
 </x-app-layout>

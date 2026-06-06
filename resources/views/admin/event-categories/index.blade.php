@@ -1,147 +1,266 @@
 <x-app-layout>
     <x-slot name="header">
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
 
-        <!-- Action Buttons -->
-        <div class="flex flex-col md:flex-row gap-3 w-full md:w-auto justify-between">
-            <div>
-                <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-                    {{ __('All Event Categories') }}
-                </h2>
-            </div>
-
-            <div>
-                <a href="{{ route('admin.event.category.create') }}"
-                    class="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 mx-2">
-                    + Create New Event Category
-                </a>
-
-                <a href="{{ route('admin.event-categories.export.csv') }}"
-                    class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">Export CSV</a>
-                <a href="{{ route('admin.event-categories.export.pdf') }}"
-                    class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">Export PDF</a>
-
-            </div>
+        <div>
+            <h2 class="text-3xl font-bold text-slate-900">
+                Event Categories
+            </h2>
+            <p class="text-sm text-slate-500 mt-1">
+                Manage all event categories and their availability.
+            </p>
         </div>
-    </x-slot>
 
-    <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-        <div class="flex flex-col md:flex-row justify-between md:w-auto mb-6">
-            <!-- Filters -->
-            <div class=" md:w-auto mb-4 md:mb-0">
-                <!-- Mobile toggle -->
-                <button @click="openFilters = !openFilters"
-                    class="md:hidden px-4 py-2 bg-gray-200 rounded hover:bg-gray-300">
-                    Filters
+        <div class="flex flex-wrap gap-3">
+
+            <a href="{{ route('admin.event.category.create') }}"
+                class="inline-flex items-center px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-semibold shadow hover:bg-indigo-700 transition">
+                + New Category
+            </a>
+
+            <a href="{{ route('admin.event-categories.export.csv') }}"
+                class="inline-flex items-center px-5 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-semibold shadow hover:bg-emerald-700 transition">
+                Export CSV
+            </a>
+
+            <a href="{{ route('admin.event-categories.export.pdf') }}"
+                class="inline-flex items-center px-5 py-2.5 rounded-xl bg-rose-600 text-white text-sm font-semibold shadow hover:bg-rose-700 transition">
+                Export PDF
+            </a>
+
+        </div>
+
+    </div>
+</x-slot>
+
+<div class="py-6">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+
+        {{-- Statistics --}}
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6">
+
+            <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+                <p class="text-sm text-slate-500">Total Categories</p>
+                <h3 class="text-3xl font-bold text-slate-900 mt-2">
+                    {{ $event_categories->total() }}
+                </h3>
+            </div>
+
+            <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+                <p class="text-sm text-slate-500">Active Categories</p>
+                <h3 class="text-3xl font-bold text-emerald-600 mt-2">
+                    {{ $event_categories->where('is_active', true)->count() }}
+                </h3>
+            </div>
+
+            <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+                <p class="text-sm text-slate-500">Inactive Categories</p>
+                <h3 class="text-3xl font-bold text-rose-600 mt-2">
+                    {{ $event_categories->where('is_active', false)->count() }}
+                </h3>
+            </div>
+
+        </div>
+
+        {{-- Filters --}}
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 mb-6">
+
+            <form method="GET"
+                action="{{ route('admin.event-categories.index') }}"
+                class="grid grid-cols-1 md:grid-cols-6 gap-3">
+
+                <input
+                    type="text"
+                    name="search"
+                    value="{{ request('search') }}"
+                    placeholder="Search category..."
+                    class="rounded-xl border-slate-300 focus:border-indigo-500 focus:ring-indigo-500">
+
+                <select
+                    name="status"
+                    class="rounded-xl border-slate-300 focus:border-indigo-500 focus:ring-indigo-500">
+
+                    <option value="">All Status</option>
+                    <option value="active"
+                        {{ request('status') == 'active' ? 'selected' : '' }}>
+                        Active
+                    </option>
+
+                    <option value="inactive"
+                        {{ request('status') == 'inactive' ? 'selected' : '' }}>
+                        Inactive
+                    </option>
+                </select>
+
+                <input
+                    type="date"
+                    name="from_date"
+                    value="{{ request('from_date') }}"
+                    class="rounded-xl border-slate-300">
+
+                <input
+                    type="date"
+                    name="to_date"
+                    value="{{ request('to_date') }}"
+                    class="rounded-xl border-slate-300">
+
+                <button
+                    type="submit"
+                    class="rounded-xl bg-indigo-600 text-white font-medium hover:bg-indigo-700 transition">
+                    Apply
                 </button>
 
-                <div :class="{ 'block': openFilters, 'hidden': !openFilters }"
-                    class="hidden md:flex flex-wrap gap-4 mt-4 md:mt-3">
-                    <form method="GET" action="{{ route('admin.event-categories.index') }}"
-                        class="flex flex-wrap gap-4 mt-4 md:mt-0">
-                        <input type="text" name="search" placeholder="Search event category name"
-                            value="{{ request('search') }}" class="px-4 py-2 border rounded w-full md:w-64">
+                <a href="{{ route('admin.event-categories.index') }}"
+                    class="flex items-center justify-center rounded-xl bg-slate-100 text-slate-700 font-medium hover:bg-slate-200 transition">
+                    Reset
+                </a>
 
+            </form>
 
-                        <select name="status" class="px-10 py-2 border rounded w-full md:w-auto">
-                            <option value="">Status</option>
-                            <option value="active">Active</option>
-                            <option value="inactive">Inactive</option>
-                        </select>
-
-                        <!-- Date range -->
-                        <input type="date" name="from_date" value="{{ request('from_date') }}"
-                            class="px-4 py-2 border rounded w-full md:w-auto">
-                        <input type="date" name="to_date" value="{{ request('to_date') }}"
-                            class="px-4 py-2 border rounded w-full md:w-auto">
-
-                        <button type="submit"
-                            class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Apply</button>
-                        <a href="{{ route('admin.event-categories.index') }}"
-                            class="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400">Reset</a>
-                    </form>
-                </div>
-            </div>
         </div>
-    </div>
 
-    <div class="w-full py-12">
-        <div class=" mx-auto sm:px-6 lg:px-8">
-            <!-- Success Message -->
-            @if (session('success'))
-                <div class="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded">
-                    {{ session('success') }}
-                </div>
-            @endif
+        {{-- Success Message --}}
+        @if(session('success'))
+            <div class="mb-6 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3">
+                {{ session('success') }}
+            </div>
+        @endif
 
-            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
-                <div class="p-6">
-                    <table class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th
-                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    ID</th>
-                                <th
-                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Event Category Name</th>
-                                <th
-                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Created By</th>
-                                <th
-                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Status</th>
-                                <th
-                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody class="bg-white divide-y divide-gray-200">
-                            @foreach ($event_categories as $event_category)
-                                <tr>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        {{ $event_category->id }}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        {{ $event_category->name }}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        {{ $event_category->creator->first_name }}
-                                        {{ $event_category->creator->last_name }}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+        {{-- Table --}}
+        <div class="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
 
-                                        <!-- Active/Inactive Toggle Button -->
-                                        <form
-                                            action="{{ route('admin.event.category.toggleActive', $event_category->id) }}"
-                                            method="POST" class="inline ml-1">
-                                            @csrf
-                                            <button type="submit"
-                                                class="px-2 py-1 text-xs rounded {{ $event_category->is_active ? 'bg-green-500 text-white hover:bg-green-600' : 'bg-gray-500 text-white hover:bg-gray-600' }}">
-                                                {{ $event_category->is_active ? '✅ Active' : '❌ Inactive' }}
-                                            </button>
-                                        </form>
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        <!-- Edit Button -->
-                                        <a href="{{ route('admin.event.category.edit', $event_category->id) }}"
-                                            class="text-blue-600 hover:text-blue-900 mr-2 inline-block">
+            <div class="px-6 py-5 border-b border-slate-100">
+                <h3 class="text-lg font-semibold text-slate-900">
+                    Category Directory
+                </h3>
+            </div>
+
+            <div class="overflow-x-auto">
+
+                <table class="min-w-full">
+
+                    <thead class="bg-slate-50">
+                        <tr>
+
+                            <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                                ID
+                            </th>
+
+                            <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                                Category Name
+                            </th>
+
+                            <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                                Created By
+                            </th>
+
+                            <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                                Status
+                            </th>
+
+                            <th class="px-6 py-4 text-right text-xs font-semibold uppercase tracking-wider text-slate-500">
+                                Actions
+                            </th>
+
+                        </tr>
+                    </thead>
+
+                    <tbody class="divide-y divide-slate-100">
+
+                        @forelse($event_categories as $category)
+
+                            <tr class="hover:bg-slate-50 transition">
+
+                                <td class="px-6 py-4">
+                                    <span class="font-medium text-slate-900">
+                                        #{{ $category->id }}
+                                    </span>
+                                </td>
+
+                                <td class="px-6 py-4">
+                                    <div class="font-semibold text-slate-900">
+                                        {{ $category->name }}
+                                    </div>
+                                </td>
+
+                                <td class="px-6 py-4 text-slate-600">
+                                    {{ $category->creator->first_name }}
+                                    {{ $category->creator->last_name }}
+                                </td>
+
+                                <td class="px-6 py-4">
+
+                                    <form action="{{ route('admin.event.category.toggleActive',$category->id) }}"
+                                        method="POST">
+                                        @csrf
+
+                                        <button
+                                            class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold
+                                            {{ $category->is_active
+                                                ? 'bg-emerald-100 text-emerald-700'
+                                                : 'bg-rose-100 text-rose-700' }}">
+
+                                            {{ $category->is_active
+                                                ? '● Active'
+                                                : '● Inactive' }}
+                                        </button>
+
+                                    </form>
+
+                                </td>
+
+                                <td class="px-6 py-4">
+
+                                    <div class="flex justify-end gap-2">
+
+                                        <a href="{{ route('admin.event.category.edit',$category->id) }}"
+                                            class="px-3 py-2 rounded-xl bg-blue-50 text-blue-600 font-medium hover:bg-blue-100 transition">
                                             Edit
                                         </a>
 
-                                        <!-- Delete Button -->
-                                        <form action="{{ route('admin.event.category.destroy', $event_category->id) }}"
-                                            method="POST" class="inline">
+                                        <form action="{{ route('admin.event.category.destroy',$category->id) }}"
+                                            method="POST">
                                             @csrf
                                             @method('DELETE')
-                                            <button type="submit" class="text-red-600 hover:text-red-900"
-                                                onclick="return confirm('Are you sure you want to delete this event category?')">
+
+                                            <button
+                                                onclick="return confirm('Delete this category?')"
+                                                class="px-3 py-2 rounded-xl bg-rose-50 text-rose-600 font-medium hover:bg-rose-100 transition">
                                                 Delete
                                             </button>
+
                                         </form>
-                                    </td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                </div>
+
+                                    </div>
+
+                                </td>
+
+                            </tr>
+
+                        @empty
+
+                            <tr>
+                                <td colspan="5" class="py-16 text-center text-slate-500">
+                                    No event categories found.
+                                </td>
+                            </tr>
+
+                        @endforelse
+
+                    </tbody>
+
+                </table>
+
             </div>
+
+            <div class="border-t border-slate-100 px-6 py-4 bg-slate-50">
+                {{ $event_categories->links() }}
+            </div>
+
         </div>
+
     </div>
+</div>
+```
+
 </x-app-layout>

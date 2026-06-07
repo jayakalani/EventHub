@@ -2,7 +2,6 @@
     <x-slot name="header">
         <div class="relative overflow-hidden rounded-3xl bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-500 p-8 shadow-xl">
 
-```
         <div class="absolute inset-0 opacity-10">
             <div class="absolute -right-16 -top-16 h-64 w-64 rounded-full bg-white"></div>
             <div class="absolute bottom-0 left-1/3 h-40 w-40 rounded-full bg-white"></div>

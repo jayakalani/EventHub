@@ -52,12 +52,64 @@ class Event extends Model
 
     public function comments()
     {
-        return $this->hasMany(Comment::class);
+        return $this->hasMany(Comment::class, 'event_id');
     }
 
     public function likes()
     {
-        return $this->hasMany(Like::class, 'user_id');
+        return $this->hasMany(Like::class, 'event_id');
+    }
+
+    public function likedByUsers()
+    {
+        return $this->belongsToMany(User::class, 'likes', 'event_id', 'user_id')->withTimestamps();
+    }
+
+    public function isLikedBy(?User $user): bool
+    {
+        if (! $user) {
+            return false;
+        }
+
+        return $this->likes()->where('user_id', $user->id)->exists();
+    }
+
+    public function saves()
+    {
+        return $this->hasMany(SavedEvent::class, 'event_id');
+    }
+
+    public function savedByUsers()
+    {
+        return $this->belongsToMany(User::class, 'saved_events', 'event_id', 'user_id')->withTimestamps();
+    }
+
+    public function isSavedBy(?User $user): bool
+    {
+        if (! $user) {
+            return false;
+        }
+
+        return $this->saves()->where('user_id', $user->id)->exists();
+    }
+
+    public function ratings()
+    {
+        return $this->hasMany(Rating::class, 'event_id');
+    }
+
+    public function ratedByUsers()
+    {
+        return $this->belongsToMany(User::class, 'ratings', 'event_id', 'user_id')->withTimestamps();
+    }
+
+    public function userRating(?User $user): ?int
+    {
+        if (! $user) {
+            return null;
+        }
+
+        return $this->ratings()->where('user_id', $user->id)->value('score');
     }
 
     public function seatBookings()

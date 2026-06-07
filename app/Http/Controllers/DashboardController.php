@@ -93,7 +93,15 @@ class DashboardController extends Controller
             $query->where('category_id', $request->category);
         }
 
-        $events = $query->get();
+        $events = $query
+            ->withCount('likes')
+            ->withExists(['likes as is_liked' => function ($likeQuery) {
+                $likeQuery->where('user_id', Auth::id());
+            }])
+            ->withExists(['saves as is_saved' => function ($saveQuery) {
+                $saveQuery->where('user_id', Auth::id());
+            }])
+            ->get();
 
         $eventCategories = EventCategory::where('is_active', 1)->get();
 

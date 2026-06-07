@@ -246,7 +246,10 @@ class EventController extends Controller
 
     public function show(Event $event)
     {
-        $seatCategories = $event->seatCategories; // relationship from Event model
+        $event->loadCount(['likes', 'saves', 'comments', 'ratings']);
+        $event->load(['comments.user', 'ratings.user']);
+        $event->loadAvg('ratings', 'score');
+        $seatCategories = $event->seatCategories;
 
         return view('organizer.events.show', compact('event', 'seatCategories'));
     }
@@ -261,10 +264,31 @@ class EventController extends Controller
 
     public function showPublishedEvent(Event $event)
     {
-        $event->load(['host', 'eventCategory', 'contactPerson', 'seatCategories']);
+        $event->load(['host', 'eventCategory', 'contactPerson', 'seatCategories', 'comments.user', 'ratings.user']);
+        $event->loadCount(['likes', 'comments', 'ratings']);
+        $event->loadAvg('ratings', 'score');
 
         $seatCategories = $event->seatCategories;
+        $comments = $event->comments->sortByDesc('created_at');
+        $ratings = $event->ratings->sortByDesc('created_at');
+        $isLiked = Auth::user()->hasLiked($event);
+        $likesCount = $event->likes_count;
+        $isSaved = Auth::user()->hasSaved($event);
+        $userRating = Auth::user()->ratingFor($event);
+        $averageRating = $event->ratings_avg_score;
+        $ratingsCount = $event->ratings_count;
 
-        return view('attendee.show', compact('event', 'seatCategories'));
+        return view('attendee.show', compact(
+            'event',
+            'seatCategories',
+            'comments',
+            'ratings',
+            'isLiked',
+            'likesCount',
+            'isSaved',
+            'userRating',
+            'averageRating',
+            'ratingsCount'
+        ));
     }
 }

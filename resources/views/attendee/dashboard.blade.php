@@ -141,6 +141,36 @@
                             <p class="mt-2 text-sm text-slate-500">📅 {{ $event->date }}</p>
                             <p class="mt-1 text-sm text-slate-500">📍 {{ $event->place }}</p>
 
+                            <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
+                                
+
+                                <div class="flex items-center gap-2">
+                                    <form action="{{ route('attendee.events.like', $event) }}" method="POST">
+                                        @csrf
+                                        <button type="submit"
+                                            aria-label="{{ $event->is_liked ? __('Unlike event') : __('Like event') }}"
+                                            title="{{ $event->is_liked ? __('Unlike') : __('Like') }}"
+                                            class="inline-flex items-center justify-center rounded-full p-2.5 text-xl transition
+                                            {{ $event->is_liked ? 'bg-[#1877F2] text-white hover:bg-[#166fe5]' : 'bg-slate-100 text-slate-500 hover:bg-slate-200' }}">
+                                            <i class="bi {{ $event->is_liked ? 'bi-hand-thumbs-up-fill' : 'bi-hand-thumbs-up' }}"
+                                                aria-hidden="true"></i>
+                                        </button>
+                                    </form>
+
+                                    <form action="{{ route('attendee.events.save', $event) }}" method="POST">
+                                        @csrf
+                                        <button type="submit"
+                                            aria-label="{{ $event->is_saved ? __('Unsave event') : __('Save event') }}"
+                                            title="{{ $event->is_saved ? __('Unsave') : __('Save') }}"
+                                            class="inline-flex items-center justify-center rounded-full p-2.5 text-xl transition
+                                            {{ $event->is_saved ? 'bg-amber-100 text-amber-600 hover:bg-amber-200' : 'bg-slate-100 text-slate-500 hover:bg-slate-200' }}">
+                                            <i class="bi {{ $event->is_saved ? 'bi-bookmark-fill' : 'bi-bookmark' }}"
+                                                aria-hidden="true"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+
                             <a href="{{ route('attendee.events.show', $event->id) }}"
                                 class="block mt-5 text-center rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white hover:bg-indigo-700 transition">
                                 View Details
@@ -162,4 +192,4 @@
         </div>
     </div>
 
-</x-app-layout>F
+</x-app-layout>

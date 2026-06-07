@@ -96,4 +96,49 @@ class User extends Authenticatable implements MustVerifyEmailContract
     {
         return $this->belongsTo(UserRole::class, 'role_id');
     }
+
+    public function likes()
+    {
+        return $this->hasMany(Like::class);
+    }
+
+    public function likedEvents()
+    {
+        return $this->belongsToMany(Event::class, 'likes', 'user_id', 'event_id')->withTimestamps();
+    }
+
+    public function hasLiked(Event $event): bool
+    {
+        return $this->likes()->where('event_id', $event->id)->exists();
+    }
+
+    public function savedEvents()
+    {
+        return $this->belongsToMany(Event::class, 'saved_events', 'user_id', 'event_id')->withTimestamps();
+    }
+
+    public function hasSaved(Event $event): bool
+    {
+        return $this->savedEvents()->where('event_id', $event->id)->exists();
+    }
+
+    public function comments()
+    {
+        return $this->hasMany(Comment::class);
+    }
+
+    public function ratings()
+    {
+        return $this->hasMany(Rating::class);
+    }
+
+    public function ratedEvents()
+    {
+        return $this->belongsToMany(Event::class, 'ratings', 'user_id', 'event_id')->withTimestamps();
+    }
+
+    public function ratingFor(Event $event): ?int
+    {
+        return $this->ratings()->where('event_id', $event->id)->value('score');
+    }
 }

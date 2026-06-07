@@ -127,13 +127,44 @@
 
                             </div>
 
-                            <span
-                                class="rounded-full px-5 py-2 text-sm font-semibold
-                            {{ $event->status === 'ongoing' ? 'bg-green-500 text-white' : 'bg-white/20 backdrop-blur text-white' }}">
+                            <div class="flex flex-wrap items-center gap-3">
+                                <span
+                                    class="rounded-full px-5 py-2 text-sm font-semibold
+                                {{ $event->status === 'ongoing' ? 'bg-green-500 text-white' : 'bg-white/20 backdrop-blur text-white' }}">
 
-                                {{ ucfirst($event->status) }}
+                                    {{ ucfirst($event->status) }}
 
-                            </span>
+                                </span>
+
+                                <form action="{{ route('attendee.events.like', $event) }}" method="POST">
+                                    @csrf
+                                    <button type="submit"
+                                        aria-label="{{ $isLiked ? __('Unlike event') : __('Like event') }}"
+                                        title="{{ $isLiked ? __('Unlike') : __('Like') }}"
+                                        class="inline-flex items-center gap-2 transition hover:opacity-90">
+                                        <span
+                                            class="inline-flex items-center justify-center rounded-full p-3 text-2xl
+                                            {{ $isLiked ? 'bg-[#1877F2] text-white' : 'bg-white/20 backdrop-blur text-white' }}">
+                                            <i class="bi {{ $isLiked ? 'bi-hand-thumbs-up-fill' : 'bi-hand-thumbs-up' }}"
+                                                aria-hidden="true"></i>
+                                        </span>
+                                        <span
+                                            class="rounded-full bg-black/30 px-2.5 py-1 text-xs font-semibold text-white">{{ $likesCount }}</span>
+                                    </button>
+                                </form>
+
+                                <form action="{{ route('attendee.events.save', $event) }}" method="POST">
+                                    @csrf
+                                    <button type="submit"
+                                        aria-label="{{ $isSaved ? __('Unsave event') : __('Save event') }}"
+                                        title="{{ $isSaved ? __('Unsave') : __('Save') }}"
+                                        class="inline-flex items-center justify-center rounded-full p-3 text-2xl transition
+                                        {{ $isSaved ? 'bg-amber-500 text-white hover:bg-amber-600' : 'bg-white/20 backdrop-blur text-white hover:bg-white/30' }}">
+                                        <i class="bi {{ $isSaved ? 'bi-bookmark-fill' : 'bi-bookmark' }}"
+                                            aria-hidden="true"></i>
+                                    </button>
+                                </form>
+                            </div>
 
                         </div>
 
@@ -142,7 +173,7 @@
                 </div>
 
                 {{-- STATS --}}
-                <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-5">
+                <div class="grid md:grid-cols-2 lg:grid-cols-6 gap-5">
 
                     <div class="bg-white border rounded-3xl p-6 shadow-sm">
                         <p class="text-sm text-slate-500">Hosted By</p>
@@ -166,6 +197,26 @@
                     </div>
 
                     <div class="bg-white border rounded-3xl p-6 shadow-sm">
+                        <p class="text-sm text-slate-500">Likes</p>
+                        <h3 class="mt-2 inline-flex items-center gap-2 text-lg font-semibold text-[#1877F2]">
+                            <i class="bi bi-hand-thumbs-up-fill text-xl" aria-hidden="true"></i>
+                            {{ number_format($likesCount) }}
+                        </h3>
+                    </div>
+
+                    <div class="bg-white border rounded-3xl p-6 shadow-sm">
+                        <p class="text-sm text-slate-500">{{ __('Rating') }}</p>
+                        <h3 class="mt-2 text-lg font-semibold text-yellow-600">
+                            @if ($ratingsCount > 0)
+                                {{ number_format($averageRating, 1) }} / 5
+                            @else
+                                {{ __('No ratings') }}
+                            @endif
+                        </h3>
+                        <p class="mt-1 text-xs text-slate-500">{{ $ratingsCount }} {{ __('reviews') }}</p>
+                    </div>
+
+                    <div class="bg-white border rounded-3xl p-6 shadow-sm">
                         <p class="text-sm text-slate-500">Status</p>
                         <h3 class="mt-2 text-lg font-semibold">
                             {{ ucfirst($event->status) }}
@@ -185,6 +236,220 @@
                         {{ $event->description }}
                     </p>
 
+                </div>
+
+                {{-- RATINGS --}}
+                <div class="bg-white border rounded-3xl p-8 shadow-sm" x-data="{ hover: 0, selected: {{ $userRating ?? 0 }} }">
+                    <div class="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <h2 class="text-2xl font-bold text-slate-900">
+                                {{ __('Ratings') }}
+                            </h2>
+                            <p class="text-slate-500">
+                                {{ __('Rate this event and see what others think.') }}
+                            </p>
+                        </div>
+                        <span class="inline-flex w-fit items-center rounded-full bg-yellow-50 px-4 py-1.5 text-sm font-semibold text-yellow-700">
+                            @if ($ratingsCount > 0)
+                                {{ number_format($averageRating, 1) }} ★ · {{ $ratingsCount }} {{ __('total') }}
+                            @else
+                                {{ __('No ratings yet') }}
+                            @endif
+                        </span>
+                    </div>
+
+                    <form action="{{ route('attendee.events.ratings.store', $event) }}" method="POST"
+                        class="mb-8 rounded-2xl border border-slate-200 bg-slate-50/60 p-5">
+                        @csrf
+                        <p class="text-sm font-semibold text-slate-700">
+                            {{ $userRating ? __('Update your rating') : __('Rate this event') }}
+                        </p>
+                        <div class="mt-3 flex flex-wrap items-center gap-3">
+                            <div class="flex items-center gap-1">
+                                @for ($star = 1; $star <= 5; $star++)
+                                    <button type="button"
+                                        @click="selected = {{ $star }}"
+                                        @mouseenter="hover = {{ $star }}"
+                                        @mouseleave="hover = 0"
+                                        class="rounded-lg p-1 transition hover:scale-110 focus:outline-none focus:ring-2 focus:ring-yellow-400">
+                                        <svg class="h-8 w-8"
+                                            :class="(hover || selected) >= {{ $star }} ? 'text-yellow-400' : 'text-slate-300'"
+                                            fill="currentColor" viewBox="0 0 24 24">
+                                            <path
+                                                d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                                        </svg>
+                                    </button>
+                                @endfor
+                            </div>
+                            <input type="hidden" name="score" :value="selected" required>
+                            <button type="submit" :disabled="selected < 1"
+                                class="inline-flex items-center rounded-xl bg-yellow-500 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-yellow-600 disabled:cursor-not-allowed disabled:opacity-50">
+                                {{ $userRating ? __('Update Rating') : __('Submit Rating') }}
+                            </button>
+                        </div>
+                        @error('score')
+                            <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                        @enderror
+                        @if ($userRating)
+                            <p class="mt-2 text-sm text-slate-500">
+                                {{ __('Your current rating:') }} {{ $userRating }}/5
+                            </p>
+                        @endif
+                    </form>
+                    @if ($userRating)
+                        <form action="{{ route('attendee.events.ratings.destroy', $event) }}" method="POST"
+                            class="mb-8 -mt-4"
+                            onsubmit="return confirm(@js(__('Remove your rating?')))">
+                            @csrf
+                            @method('DELETE')
+                            <button type="submit"
+                                class="inline-flex items-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50">
+                                {{ __('Remove Rating') }}
+                            </button>
+                        </form>
+                    @endif
+
+                    <div class="space-y-4">
+                        @forelse ($ratings as $rating)
+                            <div class="rounded-2xl border border-slate-200 bg-slate-50/60 p-5">
+                                <div class="flex items-start gap-3">
+                                    <div
+                                        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-yellow-100 text-sm font-bold text-yellow-700">
+                                        {{ strtoupper(substr($rating->user->first_name, 0, 1)) }}{{ strtoupper(substr($rating->user->last_name, 0, 1)) }}
+                                    </div>
+                                    <div class="min-w-0 flex-1">
+                                        <div class="flex flex-wrap items-center gap-2">
+                                            <p class="font-semibold text-slate-900">{{ $rating->user->full_name }}</p>
+                                            <span class="text-xs text-slate-500">{{ $rating->created_at->diffForHumans() }}</span>
+                                        </div>
+                                        <div class="mt-2 flex items-center gap-1">
+                                            @for ($star = 1; $star <= 5; $star++)
+                                                <svg class="h-4 w-4 {{ $star <= $rating->score ? 'text-yellow-400' : 'text-slate-300' }}"
+                                                    fill="currentColor" viewBox="0 0 24 24">
+                                                    <path
+                                                        d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                                                </svg>
+                                            @endfor
+                                            <span class="ml-1 text-sm font-semibold text-slate-700">{{ $rating->score }}/5</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        @empty
+                            <div class="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-10 text-center text-slate-500">
+                                {{ __('No ratings yet. Be the first to rate this event!') }}
+                            </div>
+                        @endforelse
+                    </div>
+                </div>
+
+                {{-- COMMENTS --}}
+                <div class="bg-white border rounded-3xl p-8 shadow-sm" x-data="{ editingId: null }">
+                    <div class="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <h2 class="text-2xl font-bold text-slate-900">
+                                {{ __('Comments') }}
+                            </h2>
+                            <p class="text-slate-500">
+                                {{ __('Share your thoughts about this event.') }}
+                            </p>
+                        </div>
+                        <span class="inline-flex w-fit items-center rounded-full bg-indigo-50 px-4 py-1.5 text-sm font-semibold text-indigo-700">
+                            {{ $comments->count() }} {{ __('total') }}
+                        </span>
+                    </div>
+
+                    <form action="{{ route('attendee.events.comments.store', $event) }}" method="POST" class="mb-8">
+                        @csrf
+                        <label for="comment-body" class="sr-only">{{ __('Add a comment') }}</label>
+                        <textarea id="comment-body" name="body" rows="4" required maxlength="1000"
+                            placeholder="{{ __('Write your comment here...') }}"
+                            class="w-full rounded-2xl border border-slate-200 px-4 py-3 text-slate-800 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">{{ old('body') }}</textarea>
+                        @error('body')
+                            <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                        @enderror
+                        <div class="mt-4 flex justify-end">
+                            <button type="submit"
+                                class="inline-flex items-center rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700">
+                                {{ __('Add Comment') }}
+                            </button>
+                        </div>
+                    </form>
+
+                    <div class="space-y-4">
+                        @forelse ($comments as $comment)
+                            <div class="rounded-2xl border border-slate-200 bg-slate-50/60 p-5">
+                                <div class="flex items-start justify-between gap-4">
+                                    <div class="flex items-start gap-3">
+                                        <div
+                                            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-sm font-bold text-indigo-700">
+                                            {{ strtoupper(substr($comment->user->first_name, 0, 1)) }}{{ strtoupper(substr($comment->user->last_name, 0, 1)) }}
+                                        </div>
+                                        <div class="min-w-0 flex-1">
+                                            <div class="flex flex-wrap items-center gap-2">
+                                                <p class="font-semibold text-slate-900">{{ $comment->user->full_name }}</p>
+                                                <span class="text-xs text-slate-500">
+                                                    {{ $comment->created_at->diffForHumans() }}
+                                                    @if ($comment->updated_at->gt($comment->created_at))
+                                                        · {{ __('edited') }}
+                                                    @endif
+                                                </span>
+                                            </div>
+
+                                            <div x-show="editingId !== {{ $comment->id }}" class="mt-2 text-slate-700 whitespace-pre-wrap">
+                                                {{ $comment->body }}
+                                            </div>
+
+                                            @if ($comment->user_id === Auth::id())
+                                                <form x-show="editingId === {{ $comment->id }}" x-cloak
+                                                    action="{{ route('attendee.events.comments.update', [$event, $comment]) }}"
+                                                    method="POST" class="mt-3 space-y-3">
+                                                    @csrf
+                                                    @method('PUT')
+                                                    <textarea name="body" rows="3" required maxlength="1000"
+                                                        class="w-full rounded-xl border border-slate-200 px-3 py-2 text-slate-800 focus:border-indigo-500 focus:ring-indigo-500">{{ $comment->body }}</textarea>
+                                                    <div class="flex gap-2">
+                                                        <button type="submit"
+                                                            class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">
+                                                            {{ __('Save') }}
+                                                        </button>
+                                                        <button type="button" @click="editingId = null"
+                                                            class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50">
+                                                            {{ __('Cancel') }}
+                                                        </button>
+                                                    </div>
+                                                </form>
+                                            @endif
+                                        </div>
+                                    </div>
+
+                                    @if ($comment->user_id === Auth::id())
+                                        <div class="flex shrink-0 items-center gap-2">
+                                            <button type="button" x-show="editingId !== {{ $comment->id }}"
+                                                @click="editingId = {{ $comment->id }}"
+                                                class="rounded-lg px-3 py-1.5 text-xs font-semibold text-indigo-600 hover:bg-indigo-50">
+                                                {{ __('Edit') }}
+                                            </button>
+                                            <form action="{{ route('attendee.events.comments.destroy', [$event, $comment]) }}"
+                                                method="POST"
+                                                onsubmit="return confirm(@js(__('Delete this comment?')))">
+                                                @csrf
+                                                @method('DELETE')
+                                                <button type="submit"
+                                                    class="rounded-lg px-3 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50">
+                                                    {{ __('Delete') }}
+                                                </button>
+                                            </form>
+                                        </div>
+                                    @endif
+                                </div>
+                            </div>
+                        @empty
+                            <div class="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-10 text-center text-slate-500">
+                                {{ __('No comments yet. Be the first to share your thoughts!') }}
+                            </div>
+                        @endforelse
+                    </div>
                 </div>
 
                 {{-- SEAT CATEGORIES --}}

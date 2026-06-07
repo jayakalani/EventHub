@@ -1,116 +1,203 @@
 <x-app-layout>
     <x-slot name="header">
-        <!-- Action Buttons -->
-        <div class="flex flex-col md:flex-row gap-3 w-full md:w-auto justify-between">
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div>
-                <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-                    {{ __('All Events') }}
+                <h2 class="text-3xl font-bold text-slate-900">
+                    Events
                 </h2>
+                <p class="text-sm text-slate-500 mt-1">
+                    Manage all events, schedules, and publication status.
+                </p>
             </div>
 
-            <div>
+            <div class="flex flex-wrap gap-3">
                 <a href="{{ route('organizer.events.create') }}"
-                    class="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 mx-2">
-                    + Create New Event
+                    class="inline-flex items-center px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-semibold shadow hover:bg-indigo-700 transition">
+                    + New Event
                 </a>
 
                 <a href="{{ route('organizer.events.export.csv') }}"
-                    class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">Export CSV</a>
+                    class="inline-flex items-center px-5 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-semibold shadow hover:bg-emerald-700 transition">
+                    Export CSV
+                </a>
+
                 <a href="{{ route('organizer.events.export.pdf') }}"
-                    class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">Export PDF</a>
+                    class="inline-flex items-center px-5 py-2.5 rounded-xl bg-rose-600 text-white text-sm font-semibold shadow hover:bg-rose-700 transition">
+                    Export PDF
+                </a>
             </div>
         </div>
     </x-slot>
 
-    <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-        <!-- Filters -->
-        <div class="flex flex-col md:flex-row justify-between md:w-auto mb-6">
-            <div class="md:w-auto mb-4 md:mb-0">
-                <button @click="openFilters = !openFilters"
-                    class="md:hidden px-4 py-2 bg-gray-200 rounded hover:bg-gray-300">
-                    Filters
-                </button>
+    <div class="py-6">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
-                <div :class="{ 'block': openFilters, 'hidden': !openFilters }"
-                    class="hidden md:flex flex-wrap gap-4 mt-4 md:mt-3">
-                    <form method="GET" action="{{ route('organizer.events.index') }}"
-                        class="flex flex-wrap gap-4 mt-4 md:mt-0">
-                        <input type="text" name="search" placeholder="Search name, place, host"
-                            value="{{ request('search') }}" class="px-4 py-2 border rounded w-full md:w-64">
+            {{-- Statistics --}}
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6">
+                <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+                    <p class="text-sm text-slate-500">Total Events</p>
+                    <h3 class="text-3xl font-bold text-slate-900 mt-2">
+                        {{ $events->total() }}
+                    </h3>
+                </div>
 
-                        <select name="status" class="px-8 py-2 border rounded w-full md:w-auto">
-                            <option value="">All Statuses</option>
-                            <option value="upcoming">Upcoming</option>
-                            <option value="ongoing">Ongoing</option>
-                            <option value="completed">Completed</option>
-                            <option value="cancelled">Cancelled</option>
-                        </select>
+                <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+                    <p class="text-sm text-slate-500">Upcoming</p>
+                    <h3 class="text-3xl font-bold text-emerald-600 mt-2">
+                        {{ $events->where('status', 'upcoming')->count() }}
+                    </h3>
+                </div>
 
-                        <!-- Date range -->
-                        <input type="date" name="from_date" value="{{ request('from_date') }}"
-                            class="px-4 py-2 border rounded w-full md:w-auto">
-                        <input type="date" name="to_date" value="{{ request('to_date') }}"
-                            class="px-4 py-2 border rounded w-full md:w-auto">
-
-                        <button type="submit"
-                            class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Apply</button>
-                        <a href="{{ route('organizer.events.index') }}"
-                            class="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400">Reset</a>
-                    </form>
+                <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+                    <p class="text-sm text-slate-500">Cancelled</p>
+                    <h3 class="text-3xl font-bold text-rose-600 mt-2">
+                        {{ $events->where('status', 'cancelled')->count() }}
+                    </h3>
                 </div>
             </div>
-        </div>
-    </div>
 
-    <div class="w-full py-12">
-        <div class="mx-auto sm:px-6 lg:px-8">
-            <!-- Success Message -->
+            {{-- Filters --}}
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 mb-6">
+                <form method="GET" action="{{ route('organizer.events.index') }}"
+                    class="grid grid-cols-1 md:grid-cols-6 gap-3">
+                    <input type="text" name="search" value="{{ request('search') }}" placeholder="Search event..."
+                        class="rounded-xl border-slate-300 focus:border-indigo-500 focus:ring-indigo-500">
+
+                    <select name="status"
+                        class="rounded-xl border-slate-300 focus:border-indigo-500 focus:ring-indigo-500">
+                        <option value="">All Status</option>
+                        <option value="upcoming" {{ request('status') == 'upcoming' ? 'selected' : '' }}>Upcoming
+                        </option>
+                        <option value="ongoing" {{ request('status') == 'ongoing' ? 'selected' : '' }}>Ongoing
+                        </option>
+                        <option value="completed" {{ request('status') == 'completed' ? 'selected' : '' }}>Completed
+                        </option>
+                        <option value="cancelled" {{ request('status') == 'cancelled' ? 'selected' : '' }}>Cancelled
+                        </option>
+                    </select>
+
+                    <input type="date" name="from_date" value="{{ request('from_date') }}"
+                        class="rounded-xl border-slate-300">
+
+                    <input type="date" name="to_date" value="{{ request('to_date') }}"
+                        class="rounded-xl border-slate-300">
+
+                    <button type="submit"
+                        class="rounded-xl bg-indigo-600 text-white font-medium hover:bg-indigo-700 transition">
+                        Apply
+                    </button>
+
+                    <a href="{{ route('organizer.events.index') }}"
+                        class="flex items-center justify-center rounded-xl bg-slate-100 text-slate-700 font-medium hover:bg-slate-200 transition">
+                        Reset
+                    </a>
+                </form>
+            </div>
+
+            {{-- Success Message --}}
             @if (session('success'))
-                <div class="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded">
+                <div class="mb-6 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3">
                     {{ session('success') }}
                 </div>
             @endif
 
-            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
-                <div class="p-6">
-                    <table class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-gray-50">
+            {{-- Table --}}
+            <div class="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+                <div class="px-6 py-5 border-b border-slate-100">
+                    <h3 class="text-lg font-semibold text-slate-900">
+                        Event Directory
+                    </h3>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="min-w-full">
+                        <thead class="bg-slate-50">
                             <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Event Name
+                                <th
+                                    class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                                    ID
                                 </th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Hosted By
+                                <th
+                                    class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                                    Event Name
                                 </th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category
+                                <th
+                                    class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                                    Host
                                 </th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Time</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Place</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Seats</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                                <th
+                                    class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                                    Category
+                                </th>
+                                <th
+                                    class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                                    Date
+                                </th>
+                                <th
+                                    class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                                    Place
+                                </th>
+                                <th
+                                    class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                                    Seats
+                                </th>
+                                <th
+                                    class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                                    Status
+                                </th>
+                                <th
+                                    class="px-6 py-4 text-right text-xs font-semibold uppercase tracking-wider text-slate-500">
+                                    Actions
+                                </th>
                             </tr>
                         </thead>
-                        <tbody class="bg-white divide-y divide-gray-200">
-                            @foreach ($events as $event)
-                                <tr>
-                                    <td class="px-6 py-4 text-sm text-gray-900">{{ $event->id }}</td>
-                                    <td class="px-6 py-4 text-sm text-gray-900">{{ $event->name }}</td>
-                                    <td class="px-6 py-4 text-sm text-gray-900">{{ $event->host->name ?? 'N/A' }}</td>
-                                    <td class="px-6 py-4 text-sm text-gray-900">
-                                        {{ $event->eventCategory->name ?? 'N/A' }}</td>
-                                    <td class="px-6 py-4 text-sm text-gray-900">{{ $event->date }}</td>
-                                    <td class="px-6 py-4 text-sm text-gray-900">{{ $event->time }}</td>
-                                    <td class="px-6 py-4 text-sm text-gray-900">{{ $event->place }}</td>
-                                    <td class="px-6 py-4 text-sm text-gray-900">{{ $event->no_of_seats }}</td>
-                                    <td class="px-6 py-4 text-sm text-gray-900">{{ ucfirst($event->status) }}</td>
-                                    <td>
+
+                        <tbody class="divide-y divide-slate-100">
+                            @forelse ($events as $event)
+                                <tr class="hover:bg-slate-50 transition">
+                                    <td class="px-6 py-4">
+                                        <span class="font-medium text-slate-900">
+                                            #{{ $event->id }}
+                                        </span>
+                                    </td>
+
+                                    <td class="px-6 py-4">
+                                        <div class="font-semibold text-slate-900">
+                                            {{ $event->name }}
+                                        </div>
+                                        <div class="text-xs text-slate-500 mt-1">
+                                            {{ $event->time }}
+                                        </div>
+                                    </td>
+
+                                    <td class="px-6 py-4 text-slate-600">
+                                        {{ $event->host->name ?? 'N/A' }}
+                                    </td>
+
+                                    <td class="px-6 py-4 text-slate-600">
+                                        {{ $event->eventCategory->name ?? 'N/A' }}
+                                    </td>
+
+                                    <td class="px-6 py-4 text-slate-600">
+                                        {{ $event->date }}
+                                    </td>
+
+                                    <td class="px-6 py-4 text-slate-600">
+                                        {{ $event->place }}
+                                    </td>
+
+                                    <td class="px-6 py-4 text-slate-600">
+                                        {{ $event->no_of_seats }}
+                                    </td>
+
+                                    <td class="px-6 py-4">
                                         <form action="{{ route('organizer.events.updateStatus', $event->id) }}"
                                             method="POST">
                                             @csrf
                                             @method('PATCH')
+
                                             <select name="status" onchange="this.form.submit()"
-                                                class="border rounded px-6 py-1">
+                                                class="rounded-xl border-slate-300 text-xs focus:border-indigo-500 focus:ring-indigo-500">
                                                 <option value="upcoming"
                                                     {{ $event->status == 'upcoming' ? 'selected' : '' }}>Upcoming
                                                 </option>
@@ -127,28 +214,44 @@
                                         </form>
                                     </td>
 
-                                    <td class="px-6 py-4 text-sm text-gray-900">
-                                        <a href="{{ route('organizer.events.show', $event->id) }}"
-                                            class="btn btn-info btn-sm">View</a>
-                                        <a href="{{ route('organizer.events.edit', $event->id) }}"
-                                            class="text-blue-600 hover:text-blue-900 mr-2">Edit</a>
-                                        <form action="{{ route('organizer.events.destroy', $event->id) }}"
-                                            method="POST" class="inline">
-                                            @csrf
-                                            @method('DELETE')
-                                            <button type="submit" class="text-red-600 hover:text-red-900"
-                                                onclick="return confirm('Delete this event?')">Delete</button>
-                                        </form>
+                                    <td class="px-6 py-4">
+                                        <div class="flex justify-end gap-2">
+                                            <a href="{{ route('organizer.events.show', $event->id) }}"
+                                                class="px-3 py-2 rounded-xl bg-slate-100 text-slate-700 font-medium hover:bg-slate-200 transition">
+                                                View
+                                            </a>
+
+                                            <a href="{{ route('organizer.events.edit', $event->id) }}"
+                                                class="px-3 py-2 rounded-xl bg-blue-50 text-blue-600 font-medium hover:bg-blue-100 transition">
+                                                Edit
+                                            </a>
+
+                                            <form action="{{ route('organizer.events.destroy', $event->id) }}"
+                                                method="POST">
+                                                @csrf
+                                                @method('DELETE')
+
+                                                <button onclick="return confirm('Delete this event?')"
+                                                    class="px-3 py-2 rounded-xl bg-rose-50 text-rose-600 font-medium hover:bg-rose-100 transition">
+                                                    Delete
+                                                </button>
+                                            </form>
+                                        </div>
                                     </td>
                                 </tr>
-                            @endforeach
+                            @empty
+                                <tr>
+                                    <td colspan="9" class="py-16 text-center text-slate-500">
+                                        No events found.
+                                    </td>
+                                </tr>
+                            @endforelse
                         </tbody>
                     </table>
+                </div>
 
-                    <!-- Pagination -->
-                    <div class="mt-4">
-                        {{ $events->links() }}
-                    </div>
+                <div class="border-t border-slate-100 px-6 py-4 bg-slate-50">
+                    {{ $events->links() }}
                 </div>
             </div>
         </div>

@@ -17,6 +17,10 @@ use App\Http\Controllers\SeatCategoryController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\TwoFactorController;
 use App\Http\Controllers\Auth\GoogleAuthController;
+use App\Http\Controllers\EventCommentController;
+use App\Http\Controllers\EventLikeController;
+use App\Http\Controllers\EventSaveController;
+use App\Http\Controllers\EventRatingController;
 
 
 
@@ -195,10 +199,15 @@ Route::prefix('cro')->name('cro.')->group(function () {
 Route::prefix('attendee')->name('attendee.')->middleware(['auth'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'attendee']) ->name('dashboard');
     Route::get('/events/{event}', [EventController::class, 'showPublishedEvent'])->name('events.show');
+    Route::post('/events/{event}/like', [EventLikeController::class, 'toggle'])->name('events.like');
+    Route::post('/events/{event}/save', [EventSaveController::class, 'toggle'])->name('events.save');
+    Route::post('/events/{event}/comments', [EventCommentController::class, 'store'])->name('events.comments.store');
+    Route::put('/events/{event}/comments/{comment}', [EventCommentController::class, 'update'])->name('events.comments.update');
+    Route::delete('/events/{event}/comments/{comment}', [EventCommentController::class, 'destroy'])->name('events.comments.destroy');
+    Route::post('/events/{event}/ratings', [EventRatingController::class, 'store'])->name('events.ratings.store');
+    Route::delete('/events/{event}/ratings', [EventRatingController::class, 'destroy'])->name('events.ratings.destroy');
     Route::get('/categories', [EventController::class, 'categories'])->name('categories.index');
     Route::get('/bookings', [EventController::class, 'bookings'])->name('bookings.index');
-    
-
 });
     
 

@@ -1,178 +1,265 @@
 <x-app-layout>
     <x-slot name="header">
-
-        <!-- Action Buttons -->
-        <div class="flex flex-col md:flex-row gap-3 w-full md:w-auto justify-between">
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div>
-                <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-                    {{ __('All Users') }}
+                <h2 class="text-3xl font-bold text-slate-900">
+                    Users
                 </h2>
+                <p class="text-sm text-slate-500 mt-1">
+                    Manage all system users, roles, and account availability.
+                </p>
             </div>
 
-            <div>
+            <div class="flex flex-wrap gap-3">
                 <a href="{{ route('admin.employees.create') }}"
-                    class="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 mx-2">
-                    + Create New Employee
+                    class="inline-flex items-center px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-semibold shadow hover:bg-indigo-700 transition">
+                    + New Employee
                 </a>
 
                 <a href="{{ route('admin.employees.export.csv') }}"
-                    class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">Export CSV</a>
-                <a href="{{ route('admin.employees.export.pdf') }}"
-                    class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">Export PDF</a>
+                    class="inline-flex items-center px-5 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-semibold shadow hover:bg-emerald-700 transition">
+                    Export CSV
+                </a>
 
+                <a href="{{ route('admin.employees.export.pdf') }}"
+                    class="inline-flex items-center px-5 py-2.5 rounded-xl bg-rose-600 text-white text-sm font-semibold shadow hover:bg-rose-700 transition">
+                    Export PDF
+                </a>
             </div>
         </div>
     </x-slot>
 
-    <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-        <div class="flex flex-col md:flex-row justify-between md:w-auto mb-6">
-            <!-- Filters -->
-            <div class=" md:w-auto mb-4 md:mb-0">
-                <!-- Mobile toggle -->
-                <button @click="openFilters = !openFilters"
-                    class="md:hidden px-4 py-2 bg-gray-200 rounded hover:bg-gray-300">
-                    Filters
-                </button>
+    <div class="py-6">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
-                <div :class="{ 'block': openFilters, 'hidden': !openFilters }"
-                    class="hidden md:flex flex-wrap gap-4 mt-4 md:mt-3">
-                    <form method="GET" action="{{ route('admin.users') }}" class="flex flex-wrap gap-4 mt-4 md:mt-0">
-                        <input type="text" name="search"
-                            placeholder="Search full_name, email, contact_number, name_en"
-                            value="{{ request('search') }}" class="px-4 py-2 border rounded w-full md:w-64">
+            {{-- Statistics --}}
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6">
+                <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+                    <p class="text-sm text-slate-500">Total Users</p>
+                    <h3 class="text-3xl font-bold text-slate-900 mt-2">
+                        {{ $users->total() }}
+                    </h3>
+                </div>
 
-                        <select name="role" class="px-4 py-2 border rounded w-full md:w-auto">
-                            <option value="">All Roles</option>
-                            <option value="admin">ADMIN</option>
-                            <option value="event organizer">ORGANIZER</option>
-                            <option value="customer relations officer">CRO</option>
-                            <option value="attendee">ATTENDEE</option>
-                        </select>
+                <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+                    <p class="text-sm text-slate-500">Active Users</p>
+                    <h3 class="text-3xl font-bold text-emerald-600 mt-2">
+                        {{ $users->where('is_active', true)->count() }}
+                    </h3>
+                </div>
 
-                        <select name="status" class="px-10 py-2 border rounded w-full md:w-auto">
-                            <option value="">Status</option>
-                            <option value="active">Active</option>
-                            <option value="inactive">Inactive</option>
-                            <option value="lock">Locked</option>
-                            <option value="unlocked">Unlocked</option>
-                        </select>
-
-
-                        <select name="email_state" class="px-10 py-2 border rounded w-full md:w-auto">
-                            <option value="">All Email States</option>
-                            <option value="yes">Yes</option>
-                            <option value="no">No</option>
-                        </select>
-
-                        <!-- Date range -->
-                        <input type="date" name="from_date" value="{{ request('from_date') }}"
-                            class="px-4 py-2 border rounded w-full md:w-auto">
-                        <input type="date" name="to_date" value="{{ request('to_date') }}"
-                            class="px-4 py-2 border rounded w-full md:w-auto">
-
-                        <button type="submit"
-                            class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Apply</button>
-                        <a href="{{ route('admin.users') }}"
-                            class="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400">Reset</a>
-                    </form>
+                <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+                    <p class="text-sm text-slate-500">Inactive Users</p>
+                    <h3 class="text-3xl font-bold text-rose-600 mt-2">
+                        {{ $users->where('is_active', false)->count() }}
+                    </h3>
                 </div>
             </div>
-        </div>
-    </div>
 
-    <div class="w-full py-12">
-        <div class=" mx-auto sm:px-6 lg:px-8">
-            <!-- Success Message -->
+            {{-- Filters --}}
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 mb-6">
+                <form method="GET" action="{{ route('admin.users') }}" class="grid grid-cols-1 md:grid-cols-8 gap-3">
+                    <input type="text" name="search" value="{{ request('search') }}" placeholder="Search users..."
+                        class="rounded-xl border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 md:col-span-2">
+
+                    <select name="role"
+                        class="rounded-xl border-slate-300 focus:border-indigo-500 focus:ring-indigo-500">
+                        <option value="">All Roles</option>
+                        <option value="admin" {{ request('role') == 'admin' ? 'selected' : '' }}>Admin</option>
+                        <option value="event organizer" {{ request('role') == 'event organizer' ? 'selected' : '' }}>
+                            Organizer
+                        </option>
+                        <option value="customer relations officer"
+                            {{ request('role') == 'customer relations officer' ? 'selected' : '' }}>
+                            CRO
+                        </option>
+                        <option value="attendee" {{ request('role') == 'attendee' ? 'selected' : '' }}>Attendee
+                        </option>
+                    </select>
+
+                    <select name="status"
+                        class="rounded-xl border-slate-300 focus:border-indigo-500 focus:ring-indigo-500">
+                        <option value="">All Status</option>
+                        <option value="active" {{ request('status') == 'active' ? 'selected' : '' }}>Active</option>
+                        <option value="inactive" {{ request('status') == 'inactive' ? 'selected' : '' }}>Inactive
+                        </option>
+                        <option value="lock" {{ request('status') == 'lock' ? 'selected' : '' }}>Locked</option>
+                        <option value="unlocked" {{ request('status') == 'unlocked' ? 'selected' : '' }}>Unlocked
+                        </option>
+                    </select>
+
+                    <select name="email_state"
+                        class="rounded-xl border-slate-300 focus:border-indigo-500 focus:ring-indigo-500">
+                        <option value="">All Email</option>
+                        <option value="yes" {{ request('email_state') == 'yes' ? 'selected' : '' }}>Verified
+                        </option>
+                        <option value="no" {{ request('email_state') == 'no' ? 'selected' : '' }}>Not Verified
+                        </option>
+                    </select>
+
+                    <input type="date" name="from_date" value="{{ request('from_date') }}"
+                        class="rounded-xl border-slate-300">
+
+                    <input type="date" name="to_date" value="{{ request('to_date') }}"
+                        class="rounded-xl border-slate-300">
+
+                    <div class="grid grid-cols-2 gap-3 md:col-span-8 lg:col-span-1 lg:grid-cols-1">
+                        <button type="submit"
+                            class="rounded-xl bg-indigo-600 text-white font-medium hover:bg-indigo-700 transition">
+                            Apply
+                        </button>
+
+                        <a href="{{ route('admin.users') }}"
+                            class="flex items-center justify-center rounded-xl bg-slate-100 text-slate-700 font-medium hover:bg-slate-200 transition">
+                            Reset
+                        </a>
+                    </div>
+                </form>
+            </div>
+
+            {{-- Success Message --}}
             @if (session('success'))
-                <div class="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded">
+                <div class="mb-6 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3">
                     {{ session('success') }}
                 </div>
             @endif
 
-            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
-                <div class="p-6">
-                    <table class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-gray-50">
+            {{-- Table --}}
+            <div class="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+                <div class="px-6 py-5 border-b border-slate-100">
+                    <h3 class="text-lg font-semibold text-slate-900">
+                        User Directory
+                    </h3>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="min-w-full">
+                        <thead class="bg-slate-50">
                             <tr>
                                 <th
-                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    ID</th>
+                                    class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                                    ID
+                                </th>
+
                                 <th
-                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Name</th>
+                                    class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                                    Name
+                                </th>
+
                                 <th
-                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Email</th>
+                                    class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                                    Email
+                                </th>
+
                                 <th
-                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Contact Number</th>
+                                    class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                                    Contact
+                                </th>
+
                                 <th
-                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Role</th>
+                                    class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                                    Role
+                                </th>
+
                                 <th
-                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Status</th>
+                                    class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                                    Status
+                                </th>
+
                                 <th
-                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Actions</th>
+                                    class="px-6 py-4 text-right text-xs font-semibold uppercase tracking-wider text-slate-500">
+                                    Actions
+                                </th>
                             </tr>
                         </thead>
-                        <tbody class="bg-white divide-y divide-gray-200">
-                            @foreach ($users as $user)
-                                <tr>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ $user->id }}
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        {{ $user->full_name }}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ $user->email }}
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        {{ $user->contact_number }}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        {{ $user->userRole->name_en ?? 'N/A' }}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm">
-                                        <!-- Lock/Unlock Toggle Button -->
-                                        <form action="{{ route('admin.user.toggleLock', $user->id) }}" method="POST"
-                                            class="inline">
-                                            @csrf
-                                            <button type="submit"
-                                                class="px-2 py-1 text-xs rounded {{ $user->is_locked ? 'bg-red-500 text-white hover:bg-red-600' : 'bg-green-500 text-white hover:bg-green-600' }}">
-                                                {{ $user->is_locked ? '🔒 Locked' : '🔓 Unlocked' }}
-                                            </button>
-                                        </form>
 
-                                        <!-- Active/Inactive Toggle Button -->
-                                        <form action="{{ route('admin.user.toggleActive', $user->id) }}" method="POST"
-                                            class="inline ml-1">
-                                            @csrf
-                                            <button type="submit"
-                                                class="px-2 py-1 text-xs rounded {{ $user->is_active ? 'bg-green-500 text-white hover:bg-green-600' : 'bg-gray-500 text-white hover:bg-gray-600' }}">
-                                                {{ $user->is_active ? '✅ Active' : '❌ Inactive' }}
-                                            </button>
-                                        </form>
+                        <tbody class="divide-y divide-slate-100">
+                            @forelse ($users as $user)
+                                <tr class="hover:bg-slate-50 transition">
+                                    <td class="px-6 py-4">
+                                        <span class="font-medium text-slate-900">
+                                            #{{ $user->id }}
+                                        </span>
                                     </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        <!-- Edit Button -->
-                                        <a href="{{ route('admin.user.edit', $user->id) }}"
-                                            class="text-blue-600 hover:text-blue-900 mr-2 inline-block">
-                                            Edit
-                                        </a>
 
-                                        <!-- Delete Button -->
-                                        <form action="{{ route('admin.user.destroy', $user->id) }}" method="POST"
-                                            class="inline">
-                                            @csrf
-                                            @method('DELETE')
-                                            <button type="submit" class="text-red-600 hover:text-red-900"
-                                                onclick="return confirm('Are you sure you want to delete this user?')">
-                                                Delete
-                                            </button>
-                                        </form>
+                                    <td class="px-6 py-4">
+                                        <div class="font-semibold text-slate-900">
+                                            {{ $user->full_name }}
+                                        </div>
+                                    </td>
+
+                                    <td class="px-6 py-4 text-slate-600">
+                                        {{ $user->email }}
+                                    </td>
+
+                                    <td class="px-6 py-4 text-slate-600">
+                                        {{ $user->contact_number ?? 'N/A' }}
+                                    </td>
+
+                                    <td class="px-6 py-4 text-slate-600">
+                                        {{ $user->userRole->name_en ?? 'N/A' }}
+                                    </td>
+
+                                    <td class="px-6 py-4">
+                                        <div class="flex flex-wrap gap-2">
+                                            <form action="{{ route('admin.user.toggleLock', $user->id) }}"
+                                                method="POST">
+                                                @csrf
+
+                                                <button
+                                                    class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold
+                                                    {{ $user->is_locked ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700' }}">
+                                                    {{ $user->is_locked ? '● Locked' : '● Unlocked' }}
+                                                </button>
+                                            </form>
+
+                                            <form action="{{ route('admin.user.toggleActive', $user->id) }}"
+                                                method="POST">
+                                                @csrf
+
+                                                <button
+                                                    class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold
+                                                    {{ $user->is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700' }}">
+                                                    {{ $user->is_active ? '● Active' : '● Inactive' }}
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </td>
+
+                                    <td class="px-6 py-4">
+                                        <div class="flex justify-end gap-2">
+                                            <a href="{{ route('admin.user.edit', $user->id) }}"
+                                                class="px-3 py-2 rounded-xl bg-blue-50 text-blue-600 font-medium hover:bg-blue-100 transition">
+                                                Edit
+                                            </a>
+
+                                            <form action="{{ route('admin.user.destroy', $user->id) }}"
+                                                method="POST">
+                                                @csrf
+                                                @method('DELETE')
+
+                                                <button
+                                                    onclick="return confirm('Are you sure you want to delete this user?')"
+                                                    class="px-3 py-2 rounded-xl bg-rose-50 text-rose-600 font-medium hover:bg-rose-100 transition">
+                                                    Delete
+                                                </button>
+                                            </form>
+                                        </div>
                                     </td>
                                 </tr>
-                            @endforeach
+                            @empty
+                                <tr>
+                                    <td colspan="7" class="py-16 text-center text-slate-500">
+                                        No users found.
+                                    </td>
+                                </tr>
+                            @endforelse
                         </tbody>
                     </table>
+                </div>
+
+                <div class="border-t border-slate-100 px-6 py-4 bg-slate-50">
+                    {{ $users->links() }}
                 </div>
             </div>
         </div>

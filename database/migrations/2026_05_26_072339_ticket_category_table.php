@@ -11,17 +11,17 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('seat_categories', function (Blueprint $table) {
+        Schema::create('ticket_categories', function (Blueprint $table) {
             $table->id();
             $table->foreignId('event_id')
                   ->constrained('events')
-                  ->onDelete('cascade'); // delete seat categories if event is deleted
+                  ->onDelete('cascade'); // delete ticket categories if event is deleted
 
             $table->string('name');
             $table->text('description')->nullable();
-            $table->integer('no_of_seats');
-            $table->integer('no_of_available_seats');
-            $table->decimal('seat_price', 10, 2);
+            $table->integer('no_of_tickets');
+            $table->integer('no_of_available_tickets');
+            $table->decimal('ticket_price', 10, 2);
             $table->string('ticket_color')->nullable();
             $table->boolean('is_active')->default(true);
             $table->dateTime('booking_start')->nullable();
@@ -36,7 +36,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('seat_categories');
+        Schema::dropIfExists('ticket_categories');
     }
 };
 

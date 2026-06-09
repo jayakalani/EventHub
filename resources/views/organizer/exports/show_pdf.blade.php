@@ -44,20 +44,20 @@
     <p><strong>Category:</strong> {{ $event->eventCategory->name ?? 'N/A' }}</p>
     <p><strong>Date:</strong> {{ $event->date }} {{ $event->time }}</p>
     <p><strong>Place:</strong> {{ $event->place }}</p>
-    <p><strong>Total Seats:</strong> {{ $event->no_of_seats }}</p>
+    <p><strong>Total tickets:</strong> {{ $event->no_of_tickets }}</p>
     <p><strong>Status:</strong> {{ ucfirst($event->status) }}</p>
     <p><strong>Contact Person:</strong> {{ $event->contactPerson->name ?? 'N/A' }}</p>
     <p><strong>Description:</strong> {{ $event->description }}</p>
 
-    {{-- Seat Categories --}}
-    <h3>Seat Categories</h3>
+    {{-- ticket Categories --}}
+    <h3>ticket Categories</h3>
     <table>
         <thead>
             <tr>
                 <th>Name</th>
                 <th>Description</th>
-                <th>Total Seats</th>
-                <th>Available Seats</th>
+                <th>Total tickets</th>
+                <th>Available tickets</th>
                 <th>Price</th>
                 <th>Ticket Color</th>
                 <th>Active</th>
@@ -66,13 +66,13 @@
             </tr>
         </thead>
         <tbody>
-            @foreach ($seatCategories as $category)
+            @foreach ($ticketCategories as $category)
                 <tr>
                     <td>{{ $category->name }}</td>
                     <td>{{ $category->description ?? '-' }}</td>
-                    <td>{{ $category->no_of_seats }}</td>
-                    <td>{{ $category->no_of_available_seats }}</td>
-                    <td>{{ number_format($category->seat_price, 2) }}</td>
+                    <td>{{ $category->no_of_tickets }}</td>
+                    <td>{{ $category->no_of_available_tickets }}</td>
+                    <td>{{ number_format($category->ticket_price, 2) }}</td>
                     <td>{{ $category->ticket_color }}</td>
                     <td>{{ $category->is_active ? 'Yes' : 'No' }}</td>
                     <td>{{ $category->booking_start ?? '-' }}</td>

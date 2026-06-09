@@ -58,7 +58,7 @@
                     </h1>
 
                     <p class="text-lg text-gray-600 dark:text-gray-300 mb-8 max-w-xl">
-                        Smart event management system for ticketing, seat allocation, and seamless organization of
+                        Smart event management system for ticketing, ticket allocation, and seamless organization of
                         concerts, theatre shows, and large-scale events.
                     </p>
 
@@ -97,8 +97,8 @@
                     <div
                         class="backdrop-blur-lg bg-white/60 dark:bg-gray-800/60 p-6 rounded-xl shadow-md hover:scale-105 transition">
                         <div class="text-3xl mb-3">💺</div>
-                        <h3 class="font-semibold text-lg">Seat Allocation</h3>
-                        <p class="text-sm text-gray-600 dark:text-gray-300">Assign seats efficiently.</p>
+                        <h3 class="font-semibold text-lg">ticket Allocation</h3>
+                        <p class="text-sm text-gray-600 dark:text-gray-300">Assign tickets efficiently.</p>
                     </div>
 
                     <div

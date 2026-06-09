@@ -102,13 +102,13 @@
                 @enderror
             </div>
 
-            {{-- Number of Seats --}}
+            {{-- Number of tickets --}}
             <div>
-                <label for="no_of_seats" class="block text-sm font-medium text-gray-700">Number of Seats</label>
-                <input id="no_of_seats" type="number" name="no_of_seats" value="{{ old('no_of_seats') }}"
+                <label for="no_of_tickets" class="block text-sm font-medium text-gray-700">Number of tickets</label>
+                <input id="no_of_tickets" type="number" name="no_of_tickets" value="{{ old('no_of_tickets') }}"
                     class="mt-2 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                     required>
-                @error('no_of_seats')
+                @error('no_of_tickets')
                     <p class="text-sm text-red-600 mt-1">{{ $message }}</p>
                 @enderror
             </div>

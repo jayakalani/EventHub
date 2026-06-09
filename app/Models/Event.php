@@ -18,7 +18,7 @@ class Event extends Model
         'date',
         'time',
         'place',
-        'no_of_seats',
+        'no_of_tickets',
         'description',
         'contact_person',
         'cover',
@@ -45,9 +45,19 @@ class Event extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 
-    public function seatCategories()
+    public function scopeCreatedByOrganizer($query, int $organizerId)
     {
-        return $this->hasMany(SeatCategory::class,'event_id');
+        return $query->where('created_by', $organizerId);
+    }
+
+    public function isOwnedByOrganizer(?int $organizerId): bool
+    {
+        return $organizerId !== null && (int) $this->created_by === (int) $organizerId;
+    }
+
+    public function ticketCategories()
+    {
+        return $this->hasMany(ticketCategory::class,'event_id');
     }
 
     public function comments()
@@ -112,8 +122,24 @@ class Event extends Model
         return $this->ratings()->where('user_id', $user->id)->value('score');
     }
 
-    public function seatBookings()
+    public function ticketBookings()
     {
-        return $this->hasMany(SeatBooking::class,'event_id');
+        return $this->hasMany(ticketBooking::class,'event_id');
     }
-}
+
+    public function cartItems()
+    {
+        return $this->hasMany(CartItem::class, 'event_id');
+    }
+    
+    public function getTotalTicketsAttribute()
+    {
+        if ($this->ticketCategories()->exists()) {
+            return $this->ticketCategories()->sum('no_of_tickets');
+        }
+
+        return $this->no_of_tickets;
+    }
+
+
+} 

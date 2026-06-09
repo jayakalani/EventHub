@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\CartItem;
 use App\Models\Event;
 use App\Models\EventCategory;
 use App\Models\Host;
@@ -15,11 +16,29 @@ use Illuminate\Support\Facades\Storage;
 class EventController extends Controller
 {
     /**
+     * Base query scoped to the logged-in organizer's events.
+     */
+    private function organizerEventsQuery()
+    {
+        return Event::createdByOrganizer(Auth::id());
+    }
+
+    /**
+     * Ensure the event belongs to the logged-in organizer.
+     */
+    private function authorizeOrganizerEvent(Event $event): void
+    {
+        if (! $event->isOwnedByOrganizer(Auth::id())) {
+            abort(403, 'Unauthorized action.');
+        }
+    }
+
+    /**
      * Display a listing of events with filters.
      */
     public function index(Request $request)
     {
-        $query = Event::query();
+        $query = $this->organizerEventsQuery();
 
         // Search
         if ($request->filled('search')) {
@@ -50,7 +69,10 @@ class EventController extends Controller
             $query->whereDate('date', '<=', $request->to_date);
         }
 
-        $events = $query->paginate(10)->appends($request->all());
+        $events = $query
+            ->withSum('ticketCategories', 'no_of_tickets')
+            ->paginate(10)
+            ->appends($request->all());
 
         return view('organizer.events.index', compact('events'));
     }
@@ -82,7 +104,7 @@ class EventController extends Controller
             'date' => 'required|date',
             'time' => 'required',
             'place' => 'required|string|max:255',
-            'no_of_seats' => 'required|integer|min:1',
+            'no_of_tickets' => 'required|integer|min:1',
             'description' => 'required|string',
             'contact_person' => 'required|exists:users,id',
             'cover' => 'required|image|mimes:jpg,jpeg,png|max:2048',
@@ -102,7 +124,7 @@ class EventController extends Controller
             'date' => $validatedData['date'],
             'time' => $validatedData['time'],
             'place' => $validatedData['place'],
-            'no_of_seats' => $validatedData['no_of_seats'],
+            'no_of_tickets' => $validatedData['no_of_tickets'],
             'description' => $validatedData['description'],
             'contact_person' => $validatedData['contact_person'],
             'cover' => $fileName,
@@ -115,6 +137,8 @@ class EventController extends Controller
 
     public function updateStatus(Request $request, Event $event)
     {
+        $this->authorizeOrganizerEvent($event);
+
         $request->validate([
             'status' => 'required|in:upcoming,ongoing,completed,cancelled',
         ]);
@@ -130,6 +154,8 @@ class EventController extends Controller
      */
     public function edit(Event $event)
     {
+        $this->authorizeOrganizerEvent($event);
+
         $hosts = Host::all();
         $event_categories = EventCategory::all();
         $croUsers = User::whereHas('userRole', function ($q) {
@@ -144,6 +170,8 @@ class EventController extends Controller
      */
     public function update(Request $request, Event $event)
     {
+        $this->authorizeOrganizerEvent($event);
+
         $validatedData = $request->validate([
             'name' => 'required|string|max:255',
             'hosted_by' => 'required|exists:users,id',
@@ -151,7 +179,7 @@ class EventController extends Controller
             'date' => 'required|date',
             'time' => 'required',
             'place' => 'required|string|max:255',
-            'no_of_seats' => 'required|integer|min:1',
+            'no_of_tickets' => 'required|integer|min:1',
             'description' => 'required|string',
             'contact_person' => 'required|exists:users,id',
             'cover' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
@@ -170,7 +198,7 @@ class EventController extends Controller
         $event->date = $validatedData['date'];
         $event->time = $validatedData['time'];
         $event->place = $validatedData['place'];
-        $event->no_of_seats = $validatedData['no_of_seats'];
+        $event->no_of_tickets = $validatedData['no_of_tickets'];
         $event->description = $validatedData['description'];
         $event->contact_person = $validatedData['contact_person'];
         $event->cover = $fileName ?? $event->cover;
@@ -186,6 +214,8 @@ class EventController extends Controller
      */
     public function destroy(Event $event)
     {
+        $this->authorizeOrganizerEvent($event);
+
         if ($event->cover && Storage::disk('public')->exists($event->cover)) {
             Storage::disk('public')->delete($event->cover);
         }
@@ -200,10 +230,10 @@ class EventController extends Controller
      */
     public function exportCsv()
     {
-        $events = Event::all();
+        $events = $this->organizerEventsQuery()->get();
 
         $csvData = [];
-        $csvData[] = ['ID', 'Name', 'Place', 'Date', 'Time', 'Seats', 'Status', 'Created At'];
+        $csvData[] = ['ID', 'Name', 'Place', 'Date', 'Time', 'tickets', 'Status', 'Created At'];
 
         foreach ($events as $event) {
             $csvData[] = [
@@ -212,7 +242,7 @@ class EventController extends Controller
                 $event->place,
                 $event->date,
                 $event->time,
-                $event->no_of_seats,
+                $event->no_of_tickets,
                 $event->status,
                 $event->created_at->format('Y-m-d H:i'),
             ];
@@ -238,7 +268,7 @@ class EventController extends Controller
      */
     public function exportPdf()
     {
-        $events = Event::all();
+        $events = $this->organizerEventsQuery()->get();
         $pdf = \PDF::loadView('organizer.exports.events_pdf', compact('events'));
 
         return $pdf->download('events_'.now()->format('Ymd_His').'.pdf');
@@ -246,29 +276,33 @@ class EventController extends Controller
 
     public function show(Event $event)
     {
+        $this->authorizeOrganizerEvent($event);
+
         $event->loadCount(['likes', 'saves', 'comments', 'ratings']);
         $event->load(['comments.user', 'ratings.user']);
         $event->loadAvg('ratings', 'score');
-        $seatCategories = $event->seatCategories;
+        $ticketCategories = $event->ticketCategories;
 
-        return view('organizer.events.show', compact('event', 'seatCategories'));
+        return view('organizer.events.show', compact('event', 'ticketCategories'));
     }
 
     public function showexportPdf(Event $event)
     {
-        $seatCategories = $event->seatCategories;
-        $pdf = Pdf::loadView('organizer.events.exports.event_pdf', compact('event', 'seatCategories'));
+        $this->authorizeOrganizerEvent($event);
+
+        $ticketCategories = $event->ticketCategories;
+        $pdf = Pdf::loadView('organizer.events.exports.event_pdf', compact('event', 'ticketCategories'));
 
         return $pdf->download($event->name.'_details.pdf');
     }
 
     public function showPublishedEvent(Event $event)
     {
-        $event->load(['host', 'eventCategory', 'contactPerson', 'seatCategories', 'comments.user', 'ratings.user']);
+        $event->load(['host', 'eventCategory', 'contactPerson', 'ticketCategories', 'comments.user', 'ratings.user']);
         $event->loadCount(['likes', 'comments', 'ratings']);
         $event->loadAvg('ratings', 'score');
 
-        $seatCategories = $event->seatCategories;
+        $ticketCategories = $event->ticketCategories;
         $comments = $event->comments->sortByDesc('created_at');
         $ratings = $event->ratings->sortByDesc('created_at');
         $isLiked = Auth::user()->hasLiked($event);
@@ -278,9 +312,18 @@ class EventController extends Controller
         $averageRating = $event->ratings_avg_score;
         $ratingsCount = $event->ratings_count;
 
+        $eventCartItems = CartItem::query()
+            ->where('user_id', Auth::id())
+            ->where('event_id', $event->id)
+            ->with('ticketCategory')
+            ->latest()
+            ->get();
+
+        $eventCartTotal = $eventCartItems->sum(fn (CartItem $item) => $item->line_total);
+
         return view('attendee.show', compact(
             'event',
-            'seatCategories',
+            'ticketCategories',
             'comments',
             'ratings',
             'isLiked',
@@ -288,7 +331,9 @@ class EventController extends Controller
             'isSaved',
             'userRating',
             'averageRating',
-            'ratingsCount'
+            'ratingsCount',
+            'eventCartItems',
+            'eventCartTotal'
         ));
     }
 }

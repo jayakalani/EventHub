@@ -16,14 +16,9 @@
                     All Events
                 </a>
 
-                <a href="{{ route('organizer.host.create') }}"
-                    class="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-full text-sm font-semibold shadow-sm hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition">
-                    Create Host
-                </a>
-
                 <a href="{{ route('organizer.hosts') }}"
                     class="inline-flex items-center px-4 py-2 bg-slate-800 text-white rounded-full text-sm font-semibold shadow-sm hover:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 transition">
-                    View Hosts
+                    All Hosts
                 </a>
             </div>
         </div>
@@ -37,13 +32,13 @@
 
                 <div class="rounded-3xl border border-slate-200 bg-white px-6 py-8 shadow-sm">
                     <p class="text-sm font-medium text-slate-500">
-                        Total Events
+                        My Events
                     </p>
                     <h3 class="mt-4 text-3xl font-semibold text-blue-600">
                         {{ $totalEvents ?? 0 }}
                     </h3>
                     <p class="mt-2 text-sm text-slate-500">
-                        Events created so far
+                        Events you have created
                     </p>
                 </div>
 
@@ -70,19 +65,6 @@
                         Scheduled events
                     </p>
                 </div>
-
-                <div class="rounded-3xl border border-slate-200 bg-white px-6 py-8 shadow-sm">
-                    <p class="text-sm font-medium text-slate-500">
-                        Total Hosts
-                    </p>
-                    <h3 class="mt-4 text-3xl font-semibold text-orange-600">
-                        {{ $totalHosts ?? 0 }}
-                    </h3>
-                    <p class="mt-2 text-sm text-slate-500">
-                        Host persons registered
-                    </p>
-                </div>
-
             </div>
 
             <!-- Main Dashboard Area -->
@@ -108,11 +90,11 @@
 
                                 <div>
                                     <p class="font-semibold text-slate-900">
-                                        {{ $event->title }}
+                                        {{ $event->name }}
                                     </p>
 
                                     <p class="text-sm text-slate-500">
-                                        {{ \Carbon\Carbon::parse($event->event_date)->format('M d, Y') }}
+                                        {{ \Carbon\Carbon::parse($event->date)->format('M d, Y') }}
                                     </p>
                                 </div>
 
@@ -165,14 +147,9 @@
                             Create Event
                         </a>
 
-                        <a href="{{ route('organizer.host.create') }}"
-                            class="block rounded-2xl border border-purple-200 bg-purple-50 px-4 py-3 text-sm font-semibold text-purple-700 hover:bg-purple-100 transition">
-                            Create Host
-                        </a>
-
                         <a href="{{ route('organizer.hosts') }}"
                             class="block rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-900 hover:bg-slate-100 transition">
-                            View Hosts
+                            All Hosts
                         </a>
 
                         <button

@@ -13,7 +13,7 @@ use App\Http\Controllers\Admin\EmployeeController;
 use App\Http\Controllers\EventController;
 use App\Http\Controllers\HostController;
 use App\Http\Controllers\EventCategoryController;
-use App\Http\Controllers\SeatCategoryController;
+use App\Http\Controllers\ticketCategoryController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\TwoFactorController;
 use App\Http\Controllers\Auth\GoogleAuthController;
@@ -21,6 +21,9 @@ use App\Http\Controllers\EventCommentController;
 use App\Http\Controllers\EventLikeController;
 use App\Http\Controllers\EventSaveController;
 use App\Http\Controllers\EventRatingController;
+use App\Http\Controllers\HostLikeController;
+use App\Http\Controllers\CartController;
+use App\Http\Controllers\TicketBookingController;
 
 
 
@@ -156,12 +159,12 @@ Route::prefix('organizer')->name('organizer.')->middleware(['auth', 'verified', 
     Route::patch('/events/{event}/status', [EventController::class, 'updateStatus'])->name('events.updateStatus');
     Route::get('/events/{event}/export-pdf', [EventController::class, 'exportPdf'])->name('events.exportPdf');
     
-    //seat category routes
-    Route::get('/events/{event}/seat-categories/create', [SeatCategoryController::class, 'create'])->name('seat-categories.create');
-    Route::post('/events/{event}/seat-categories', [SeatCategoryController::class, 'store'])->name('seat-categories.store');
-    Route::get('/events/{event}/seat-categories/{seatCategory}/edit', [SeatCategoryController::class, 'edit'])->name('seat-categories.edit');
-    Route::put('/events/{event}/seat-categories/{seatCategory}', [SeatCategoryController::class, 'update'])->name('seat-categories.update');
-    Route::delete('/events/{event}/seat-categories/{seatCategory}', [SeatCategoryController::class, 'destroy'])->name('seat-categories.destroy');
+    //ticket category routes
+    Route::get('/events/{event}/ticket-categories/create', [ticketCategoryController::class, 'create'])->name('ticket-categories.create');
+    Route::post('/events/{event}/ticket-categories', [ticketCategoryController::class, 'store'])->name('ticket-categories.store');
+    Route::get('/events/{event}/ticket-categories/{ticketCategory}/edit', [ticketCategoryController::class, 'edit'])->name('ticket-categories.edit');
+    Route::put('/events/{event}/ticket-categories/{ticketCategory}', [ticketCategoryController::class, 'update'])->name('ticket-categories.update');
+    Route::delete('/events/{event}/ticket-categories/{ticketCategory}', [ticketCategoryController::class, 'destroy'])->name('ticket-categories.destroy');
 
 
 
@@ -198,6 +201,14 @@ Route::prefix('cro')->name('cro.')->group(function () {
 
 Route::prefix('attendee')->name('attendee.')->middleware(['auth'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'attendee']) ->name('dashboard');
+    Route::get('/hosts', [HostController::class, 'attendeeIndex'])->name('hosts.index');
+    Route::get('/hosts/{host}', [HostController::class, 'attendeeShow'])->name('hosts.show');
+    Route::post('/hosts/{host}/like', [HostLikeController::class, 'toggle'])->name('hosts.like');
+    Route::get('/cart', [CartController::class, 'index'])->name('cart.index');
+    Route::post('/events/{event}/cart', [CartController::class, 'store'])->name('cart.store');
+    Route::put('/cart/items/{cartItem}', [CartController::class, 'update'])->name('cart.update');
+    Route::delete('/cart/items/{cartItem}', [CartController::class, 'destroy'])->name('cart.destroy');
+    Route::post('/cart/checkout', [CartController::class, 'checkout'])->name('cart.checkout');
     Route::get('/events/{event}', [EventController::class, 'showPublishedEvent'])->name('events.show');
     Route::post('/events/{event}/like', [EventLikeController::class, 'toggle'])->name('events.like');
     Route::post('/events/{event}/save', [EventSaveController::class, 'toggle'])->name('events.save');
@@ -207,7 +218,7 @@ Route::prefix('attendee')->name('attendee.')->middleware(['auth'])->group(functi
     Route::post('/events/{event}/ratings', [EventRatingController::class, 'store'])->name('events.ratings.store');
     Route::delete('/events/{event}/ratings', [EventRatingController::class, 'destroy'])->name('events.ratings.destroy');
     Route::get('/categories', [EventController::class, 'categories'])->name('categories.index');
-    Route::get('/bookings', [EventController::class, 'bookings'])->name('bookings.index');
+    Route::get('/bookings', [TicketBookingController::class, 'index'])->name('bookings.index');
 });
     
 

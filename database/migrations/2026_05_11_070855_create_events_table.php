@@ -20,7 +20,7 @@ return new class extends Migration
             $table->date('date'); // event date
             $table->time('time'); // event time
             $table->string('place'); // venue/place
-            $table->integer('no_of_seats')->nullable(); // optional seat count
+            $table->integer('no_of_tickets')->nullable(); // optional ticket count
             $table->text('description')->nullable(); // event description
             $table->foreignId('contact_person')->constrained('users')->onDelete('cascade'); // contact person
             $table->string('cover')->nullable(); // cover image

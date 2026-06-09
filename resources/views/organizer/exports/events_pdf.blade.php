@@ -40,7 +40,7 @@
                 <th>Date</th>
                 <th>Time</th>
                 <th>Place</th>
-                <th>Seats</th>
+                <th>tickets</th>
                 <th>Status</th>
                 <th>Created At</th>
             </tr>
@@ -55,7 +55,7 @@
                     <td>{{ $event->date }}</td>
                     <td>{{ $event->time }}</td>
                     <td>{{ $event->place }}</td>
-                    <td>{{ $event->no_of_seats }}</td>
+                    <td>{{ $event->no_of_tickets }}</td>
                     <td>{{ ucfirst($event->status) }}</td>
                     <td>{{ $event->created_at->format('Y-m-d H:i') }}</td>
                 </tr>

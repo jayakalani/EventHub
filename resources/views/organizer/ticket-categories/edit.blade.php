@@ -3,10 +3,10 @@
         <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
                 <p class="text-sm font-medium uppercase tracking-wide text-indigo-600">
-                    {{ __('Seat Categories') }}
+                    {{ __('ticket Categories') }}
                 </p>
                 <h2 class="text-2xl font-bold tracking-tight text-gray-900">
-                    {{ __('Edit Seat Category') }}
+                    {{ __('Edit ticket Category') }}
                 </h2>
             </div>
 
@@ -47,7 +47,7 @@
                     <div class="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
                         <div class="flex items-center gap-4">
                             <div class="flex h-16 w-16 items-center justify-center rounded-2xl shadow-inner ring-1 ring-white/25"
-                                style="background-color: {{ $seatCategory->ticket_color ?? '#6366f1' }}">
+                                style="background-color: {{ $ticketCategory->ticket_color ?? '#6366f1' }}">
                                 <svg class="h-8 w-8 text-white/90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
                                         d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
@@ -55,7 +55,7 @@
                             </div>
                             <div>
                                 <h3 class="text-2xl font-bold tracking-tight">
-                                    {{ $seatCategory->name }}
+                                    {{ $ticketCategory->name }}
                                 </h3>
                                 <p class="mt-1 text-sm text-indigo-50">
                                     {{ $event->name }}
@@ -65,16 +65,16 @@
 
                         <div class="flex flex-wrap gap-2">
                             <span
-                                class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ring-1 {{ $seatCategory->is_active ? 'bg-emerald-400/20 text-white ring-emerald-100/40' : 'bg-rose-400/20 text-white ring-rose-100/40' }}">
-                                {{ $seatCategory->is_active ? __('Active') : __('Inactive') }}
+                                class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ring-1 {{ $ticketCategory->is_active ? 'bg-emerald-400/20 text-white ring-emerald-100/40' : 'bg-rose-400/20 text-white ring-rose-100/40' }}">
+                                {{ $ticketCategory->is_active ? __('Active') : __('Inactive') }}
                             </span>
                             <span
                                 class="inline-flex items-center rounded-full bg-white/15 px-3 py-1 text-xs font-semibold text-white ring-1 ring-white/25">
-                                LKR {{ number_format($seatCategory->seat_price) }}
+                                LKR {{ number_format($ticketCategory->ticket_price) }}
                             </span>
                             <span
                                 class="inline-flex items-center rounded-full bg-white/15 px-3 py-1 text-xs font-semibold text-white ring-1 ring-white/25">
-                                {{ $seatCategory->no_of_seats }} {{ __('Seats') }}
+                                {{ $ticketCategory->no_of_tickets }} {{ __('tickets') }}
                             </span>
                         </div>
                     </div>
@@ -82,7 +82,7 @@
 
                 <div class="grid gap-8 p-6 lg:grid-cols-[1fr_320px] lg:p-8">
                     <form
-                        action="{{ route('organizer.seat-categories.update', [$event->id, $seatCategory->id]) }}"
+                        action="{{ route('organizer.ticket-categories.update', [$event->id, $ticketCategory->id]) }}"
                         method="POST" class="space-y-8">
                         @csrf
                         @method('PUT')
@@ -93,7 +93,7 @@
                                     {{ __('Category Details') }}
                                 </h3>
                                 <p class="mt-1 text-sm text-gray-500">
-                                    {{ __('Update seating information, pricing and booking availability.') }}
+                                    {{ __('Update ticketing information, pricing and booking availability.') }}
                                 </p>
                             </div>
 
@@ -103,7 +103,7 @@
                                     <x-input-label for="name" :value="__('Category Name')" />
                                     <x-text-input id="name"
                                         class="mt-2 block w-full rounded-xl border-gray-200 bg-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                        type="text" name="name" :value="old('name', $seatCategory->name)" required />
+                                        type="text" name="name" :value="old('name', $ticketCategory->name)" required />
                                     <x-input-error :messages="$errors->get('name')" class="mt-2" />
                                 </div>
 
@@ -111,28 +111,28 @@
                                     class="rounded-2xl border border-gray-100 bg-gray-50/70 p-4 transition focus-within:border-indigo-200 focus-within:bg-white focus-within:shadow-sm md:col-span-2">
                                     <x-input-label for="description" :value="__('Description')" />
                                     <textarea id="description" name="description" rows="4"
-                                        class="mt-2 block w-full rounded-xl border-gray-200 bg-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500">{{ old('description', $seatCategory->description) }}</textarea>
+                                        class="mt-2 block w-full rounded-xl border-gray-200 bg-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500">{{ old('description', $ticketCategory->description) }}</textarea>
                                     <x-input-error :messages="$errors->get('description')" class="mt-2" />
                                 </div>
 
                                 <div
                                     class="rounded-2xl border border-gray-100 bg-gray-50/70 p-4 transition focus-within:border-indigo-200 focus-within:bg-white focus-within:shadow-sm">
-                                    <x-input-label for="no_of_seats" :value="__('Total Seats')" />
-                                    <x-text-input id="no_of_seats"
+                                    <x-input-label for="no_of_tickets" :value="__('Total tickets')" />
+                                    <x-text-input id="no_of_tickets"
                                         class="mt-2 block w-full rounded-xl border-gray-200 bg-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                        type="number" name="no_of_seats" min="1"
-                                        :value="old('no_of_seats', $seatCategory->no_of_seats)" required />
-                                    <x-input-error :messages="$errors->get('no_of_seats')" class="mt-2" />
+                                        type="number" name="no_of_tickets" min="1"
+                                        :value="old('no_of_tickets', $ticketCategory->no_of_tickets)" required />
+                                    <x-input-error :messages="$errors->get('no_of_tickets')" class="mt-2" />
                                 </div>
 
                                 <div
                                     class="rounded-2xl border border-gray-100 bg-gray-50/70 p-4 transition focus-within:border-indigo-200 focus-within:bg-white focus-within:shadow-sm">
-                                    <x-input-label for="seat_price" :value="__('Seat Price (LKR)')" />
-                                    <x-text-input id="seat_price"
+                                    <x-input-label for="ticket_price" :value="__('ticket Price (LKR)')" />
+                                    <x-text-input id="ticket_price"
                                         class="mt-2 block w-full rounded-xl border-gray-200 bg-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                        type="number" name="seat_price" min="0" step="1"
-                                        :value="old('seat_price', $seatCategory->seat_price)" required />
-                                    <x-input-error :messages="$errors->get('seat_price')" class="mt-2" />
+                                        type="number" name="ticket_price" min="0" step="1"
+                                        :value="old('ticket_price', $ticketCategory->ticket_price)" required />
+                                    <x-input-error :messages="$errors->get('ticket_price')" class="mt-2" />
                                 </div>
 
                                 <div
@@ -141,7 +141,7 @@
                                     <x-text-input id="booking_start"
                                         class="mt-2 block w-full rounded-xl border-gray-200 bg-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                                         type="datetime-local" name="booking_start"
-                                        :value="old('booking_start', optional($seatCategory->booking_start)->format('Y-m-d\TH:i'))" />
+                                        :value="old('booking_start', optional($ticketCategory->booking_start)->format('Y-m-d\TH:i'))" />
                                     <x-input-error :messages="$errors->get('booking_start')" class="mt-2" />
                                 </div>
 
@@ -151,7 +151,7 @@
                                     <x-text-input id="booking_end"
                                         class="mt-2 block w-full rounded-xl border-gray-200 bg-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                                         type="datetime-local" name="booking_end"
-                                        :value="old('booking_end', optional($seatCategory->booking_end)->format('Y-m-d\TH:i'))" />
+                                        :value="old('booking_end', optional($ticketCategory->booking_end)->format('Y-m-d\TH:i'))" />
                                     <x-input-error :messages="$errors->get('booking_end')" class="mt-2" />
                                 </div>
 
@@ -159,7 +159,7 @@
                                     class="rounded-2xl border border-gray-100 bg-gray-50/70 p-4 transition focus-within:border-indigo-200 focus-within:bg-white focus-within:shadow-sm">
                                     <x-input-label for="ticket_color" :value="__('Ticket Color')" />
                                     <input id="ticket_color" type="color" name="ticket_color"
-                                        value="{{ old('ticket_color', $seatCategory->ticket_color) }}"
+                                        value="{{ old('ticket_color', $ticketCategory->ticket_color) }}"
                                         class="mt-2 h-12 w-full cursor-pointer rounded-xl border border-gray-200 bg-white shadow-sm">
                                     <x-input-error :messages="$errors->get('ticket_color')" class="mt-2" />
                                 </div>
@@ -170,11 +170,11 @@
                                     <select id="is_active" name="is_active"
                                         class="mt-2 block w-full rounded-xl border-gray-200 bg-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
                                         <option value="1"
-                                            {{ old('is_active', $seatCategory->is_active) ? 'selected' : '' }}>
+                                            {{ old('is_active', $ticketCategory->is_active) ? 'selected' : '' }}>
                                             {{ __('Active') }}
                                         </option>
                                         <option value="0"
-                                            {{ !old('is_active', $seatCategory->is_active) ? 'selected' : '' }}>
+                                            {{ !old('is_active', $ticketCategory->is_active) ? 'selected' : '' }}>
                                             {{ __('Inactive') }}
                                         </option>
                                     </select>
@@ -191,7 +191,7 @@
                             </a>
                             <x-primary-button
                                 class="justify-center rounded-xl bg-indigo-600 px-6 py-3 text-sm font-semibold shadow-lg shadow-indigo-200 transition hover:bg-indigo-700 focus:ring-indigo-500">
-                                {{ __('Update Seat Category') }}
+                                {{ __('Update ticket Category') }}
                             </x-primary-button>
                         </div>
                     </form>
@@ -223,18 +223,18 @@
                             </h4>
                             <dl class="mt-4 space-y-4 text-sm">
                                 <div class="flex items-center justify-between gap-4">
-                                    <dt class="text-gray-500">{{ __('Available Seats') }}</dt>
-                                    <dd class="font-semibold text-gray-900">{{ $seatCategory->no_of_available_seats }}</dd>
+                                    <dt class="text-gray-500">{{ __('Available tickets') }}</dt>
+                                    <dd class="font-semibold text-gray-900">{{ $ticketCategory->no_of_available_tickets }}</dd>
                                 </div>
                                 <div class="flex items-center justify-between gap-4">
                                     <dt class="text-gray-500">{{ __('Price') }}</dt>
-                                    <dd class="font-semibold text-gray-900">LKR {{ number_format($seatCategory->seat_price) }}</dd>
+                                    <dd class="font-semibold text-gray-900">LKR {{ number_format($ticketCategory->ticket_price) }}</dd>
                                 </div>
                                 <div class="flex items-center gap-3">
                                     <dt class="text-gray-500">{{ __('Ticket Color') }}</dt>
                                     <dd class="ml-auto flex items-center gap-2">
                                         <span class="inline-block h-5 w-5 rounded-full ring-1 ring-gray-200"
-                                            style="background-color: {{ $seatCategory->ticket_color }}"></span>
+                                            style="background-color: {{ $ticketCategory->ticket_color }}"></span>
                                     </dd>
                                 </div>
                             </dl>
@@ -252,7 +252,7 @@
                                 <div>
                                     <h4 class="font-semibold text-indigo-950">{{ __('Review before updating') }}</h4>
                                     <p class="mt-1 text-sm leading-6 text-indigo-800">
-                                        {{ __('Reducing total seats below existing bookings may cause availability conflicts.') }}
+                                        {{ __('Reducing total tickets below existing bookings may cause availability conflicts.') }}
                                     </p>
                                 </div>
                             </div>

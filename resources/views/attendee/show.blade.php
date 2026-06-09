@@ -183,9 +183,9 @@
                     </div>
 
                     <div class="bg-white border rounded-3xl p-6 shadow-sm">
-                        <p class="text-sm text-slate-500">Total Seats</p>
+                        <p class="text-sm text-slate-500">Total tickets</p>
                         <h3 class="mt-2 text-lg font-semibold">
-                            {{ number_format($event->no_of_seats) }}
+                            {{ number_format($event->total_tickets) }}
                         </h3>
                     </div>
 
@@ -452,24 +452,24 @@
                     </div>
                 </div>
 
-                {{-- SEAT CATEGORIES --}}
+                {{-- ticket CATEGORIES --}}
                 <div>
 
                     <div class="mb-6">
 
                         <h2 class="text-2xl font-bold text-slate-900">
-                            Seat Categories
+                            ticket Categories
                         </h2>
 
                         <p class="text-slate-500">
-                            Choose your preferred seating category.
+                            Choose your preferred ticketing category.
                         </p>
 
                     </div>
 
                     <div class="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
 
-                        @forelse($seatCategories as $category)
+                        @forelse($ticketCategories as $category)
                             <div
                                 class="bg-white border rounded-[28px] overflow-hidden shadow-sm hover:shadow-xl transition duration-300">
 
@@ -500,7 +500,7 @@
                                     <div class="mt-6">
 
                                         <div class="text-4xl font-bold text-indigo-600">
-                                            Rs {{ number_format($category->seat_price) }}
+                                            Rs {{ number_format($category->ticket_price) }}
                                         </div>
 
                                         <div class="text-sm text-slate-500">
@@ -512,23 +512,23 @@
                                     <div class="mt-6 space-y-3">
 
                                         <div class="flex justify-between">
-                                            <span>Total Seats</span>
+                                            <span>Total tickets</span>
                                             <span class="font-semibold">
-                                                {{ $category->no_of_seats }}
+                                                {{ number_format($category->no_of_tickets ?? 0) }}
                                             </span>
                                         </div>
 
                                         <div class="flex justify-between">
                                             <span>Available</span>
                                             <span class="font-semibold text-green-600">
-                                                {{ $category->no_of_available_seats }}
+                                                {{ number_format($category->no_of_available_tickets ?? 0) }}
                                             </span>
                                         </div>
 
                                     </div>
 
                                     <button type="button"
-                                        @click="selected = { id: {{ $category->id }}, name: {{ json_encode($category->name) }}, price: {{ $category->seat_price }}, available: {{ $category->no_of_available_seats }}, color: {{ json_encode($category->ticket_color) }} }; qty = 1; amount = (selected.price * 1).toFixed(2); showModal = true"
+                                        @click="selected = { id: {{ $category->id }}, name: {{ json_encode($category->name) }}, price: {{ $category->ticket_price }}, available: {{ $category->no_of_available_tickets }}, color: {{ json_encode($category->ticket_color) }} }; qty = 1; amount = (selected.price * 1).toFixed(2); showModal = true"
                                         class="mt-6 w-full rounded-2xl bg-indigo-600 py-3 font-semibold text-white hover:bg-indigo-700 transition">
 
                                         Book Now
@@ -545,7 +545,7 @@
                                 class="col-span-full rounded-3xl border border-dashed border-slate-300 bg-white p-12 text-center">
 
                                 <p class="text-slate-500">
-                                    No seat categories available yet.
+                                    No ticket categories available yet.
                                 </p>
 
                             </div>
@@ -555,6 +555,69 @@
 
                 </div>
 
+                {{-- RESERVED TICKETS FOR THIS EVENT --}}
+                @if ($eventCartItems->isNotEmpty())
+                    <div class="bg-white border rounded-[28px] p-6 shadow-sm">
+                        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+                            <div>
+                                <h2 class="text-2xl font-bold text-slate-900">Your Reserved Tickets</h2>
+                                <p class="text-slate-500 mt-1">Tickets you reserved for this event.</p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-sm text-slate-500">Event subtotal</p>
+                                <p class="text-2xl font-bold text-indigo-600">Rs {{ number_format($eventCartTotal, 2) }}</p>
+                            </div>
+                        </div>
+
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-slate-100">
+                                <thead>
+                                    <tr class="text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                                        <th class="px-4 py-3">Category</th>
+                                        <th class="px-4 py-3">Price</th>
+                                        <th class="px-4 py-3">Qty</th>
+                                        <th class="px-4 py-3">Total</th>
+                                        <th class="px-4 py-3 text-right">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100">
+                                    @foreach ($eventCartItems as $item)
+                                        <tr>
+                                            <td class="px-4 py-4">
+                                                <div class="flex items-center gap-3">
+                                                    <span class="h-3 w-3 rounded-full"
+                                                        style="background-color: {{ $item->ticketCategory->ticket_color }}"></span>
+                                                    <span class="font-semibold text-slate-900">{{ $item->ticketCategory->name }}</span>
+                                                </div>
+                                            </td>
+                                            <td class="px-4 py-4 text-slate-600">Rs {{ number_format($item->unit_price, 2) }}</td>
+                                            <td class="px-4 py-4 text-slate-900 font-semibold">{{ $item->quantity }}</td>
+                                            <td class="px-4 py-4 font-semibold text-indigo-600">Rs {{ number_format($item->line_total, 2) }}</td>
+                                            <td class="px-4 py-4 text-right">
+                                                <form action="{{ route('attendee.cart.destroy', $item) }}" method="POST"
+                                                    onsubmit="return confirm('Remove this reserved ticket?')">
+                                                    @csrf
+                                                    @method('DELETE')
+                                                    <button type="submit"
+                                                        class="text-sm font-medium text-red-600 hover:text-red-700">Remove</button>
+                                                </form>
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="mt-6 flex justify-end">
+                            <a href="{{ route('attendee.cart.index') }}"
+                                class="inline-flex items-center gap-2 rounded-2xl bg-indigo-600 px-6 py-3 font-semibold text-white hover:bg-indigo-700 transition">
+                                <span>Go To Cart</span>
+                                <span>🛒</span>
+                            </a>
+                        </div>
+                    </div>
+                @endif
+
                 <!-- Booking Modal -->
                 <div x-show="showModal" x-cloak style="display:none;" @keydown.escape.window="showModal = false"
                     class="fixed inset-0 z-50 flex items-center justify-center">
@@ -562,7 +625,7 @@
 
                     <!-- Modal box -->
                     <div class="relative w-full max-w-md mx-auto bg-white rounded-2xl shadow-xl overflow-hidden z-50">
-                        <form action="/attendee/bookings" method="POST" class="p-6">
+                        <form action="{{ route('attendee.cart.store', $event) }}" method="POST" class="p-6">
                             @csrf
 
                             <div class="flex items-center justify-between">
@@ -572,8 +635,7 @@
                             </div>
 
                             <div class="mt-4 space-y-3">
-                                <input type="hidden" name="event_id" value="{{ $event->id }}">
-                                <input type="hidden" name="seat_category_id" :value="selected.id">
+                                <input type="hidden" name="ticket_category_id" :value="selected.id">
 
                                 <div>
                                     <label class="text-sm text-slate-500">Category</label>

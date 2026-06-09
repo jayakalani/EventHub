@@ -1,7 +1,7 @@
 <x-app-layout>
     <x-slot name="header">
         <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-            {{ __('Create New Seat Category') }}
+            {{ __('Create New ticket Category') }}
         </h2>
     </x-slot>
 
@@ -21,8 +21,8 @@
                         </div>
                     @endif
 
-                    {{-- Seat Category Form --}}
-                    <form action="{{ route('organizer.seat-categories.store', $event->id) }}" method="POST"
+                    {{-- ticket Category Form --}}
+                    <form action="{{ route('organizer.ticket-categories.store', $event->id) }}" method="POST"
                         class="space-y-6">
                         @csrf
 
@@ -52,17 +52,17 @@
                             <textarea name="description" id="description" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm"></textarea>
                         </div>
 
-                        {{-- Total Seats --}}
+                        {{-- Total tickets --}}
                         <div>
-                            <label for="no_of_seats" class="block text-sm font-medium text-gray-700">Total Seats</label>
-                            <input type="number" name="no_of_seats" id="no_of_seats" min="1"
+                            <label for="no_of_tickets" class="block text-sm font-medium text-gray-700">Total tickets</label>
+                            <input type="number" name="no_of_tickets" id="no_of_tickets" min="1"
                                 class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" required>
                         </div>
 
-                        {{-- Seat Price --}}
+                        {{-- ticket Price --}}
                         <div>
-                            <label for="seat_price" class="block text-sm font-medium text-gray-700">Seat Price</label>
-                            <input type="number" step="0" name="seat_price" id="seat_price" min="0"
+                            <label for="ticket_price" class="block text-sm font-medium text-gray-700">ticket Price</label>
+                            <input type="number" step="0" name="ticket_price" id="ticket_price" min="0"
                                 class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" required>
                         </div>
 
@@ -103,7 +103,7 @@
                         {{-- Submit --}}
                         <div>
                             <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
-                                Create Seat Category
+                                Create ticket Category
                             </button>
                         </div>
                     </form>

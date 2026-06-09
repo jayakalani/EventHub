@@ -6,7 +6,7 @@
                     Events
                 </h2>
                 <p class="text-sm text-slate-500 mt-1">
-                    Manage all events, schedules, and publication status.
+                    Manage your events, schedules, and publication status.
                 </p>
             </div>
 
@@ -139,7 +139,7 @@
                                 </th>
                                 <th
                                     class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
-                                    Seats
+                                    Tickets
                                 </th>
                                 <th
                                     class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
@@ -187,7 +187,7 @@
                                     </td>
 
                                     <td class="px-6 py-4 text-slate-600">
-                                        {{ $event->no_of_seats }}
+                                        {{ number_format($event->total_tickets) }}
                                     </td>
 
                                     <td class="px-6 py-4">

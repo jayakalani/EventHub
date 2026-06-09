@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Host;
 use App\Models\HostsSubscription;
-use App\Models\SeatCategory;
+use App\Models\ticketCategory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
@@ -84,17 +84,74 @@ class HostController extends Controller
         return view('organizer.hosts.index', compact('hosts'));
     }
 
+    /**
+     * Display a read-only listing of hosts for attendees.
+     */
+    public function attendeeIndex(Request $request)
+    {
+        $query = Host::query()
+            ->where('is_active', true)
+            ->withCount(['events', 'hostLikes'])
+            ->withExists(['hostLikes as is_liked' => function ($likeQuery) {
+                $likeQuery->where('user_id', Auth::id());
+            }]);
+
+        if ($request->filled('search')) {
+            $query->where('name', 'like', '%'.$request->search.'%');
+        }
+
+        if ($request->filled('from_date')) {
+            $query->whereDate('created_at', '>=', $request->from_date);
+        }
+
+        if ($request->filled('to_date')) {
+            $query->whereDate('created_at', '<=', $request->to_date);
+        }
+
+        $hosts = $query->latest()->paginate(20)->withQueryString();
+
+        return view('attendee.hosts.index', compact('hosts'));
+    }
+
+    /**
+     * Display read-only host details and events for attendees.
+     */
+    public function attendeeShow(Host $host)
+    {
+        if (! $host->is_active) {
+            abort(404);
+        }
+
+        $host->loadCount('hostLikes');
+        $host->loadExists(['hostLikes as is_liked' => function ($likeQuery) {
+            $likeQuery->where('user_id', Auth::id());
+        }]);
+
+        $events = $host->events()
+            ->withCount('likes')
+            ->withExists(['likes as is_liked' => function ($likeQuery) {
+                $likeQuery->where('user_id', Auth::id());
+            }])
+            ->withExists(['saves as is_saved' => function ($saveQuery) {
+                $saveQuery->where('user_id', Auth::id());
+            }])
+            ->latest()
+            ->get();
+
+        return view('attendee.hosts.show', compact('host', 'events'));
+    }
+
     public function viewProfile(int $id)
     {
         $host = Host::findOrFail($id);
         $events = $host->events;
-        $seatCategories = SeatCategory::all();
+        $ticketCategories = ticketCategory::all();
         $hostSubscription = HostsSubscription::all();
 
         return view('hosts/view-host-profile', [
             'host' => $host,
             'events' => $events,
-            'seatCategories' => $seatCategories,
+            'ticketCategories' => $ticketCategories,
             'hostSubscription' => $hostSubscription,
         ]);
     }

@@ -51,18 +51,26 @@ class DashboardController extends Controller
      */
     public function organizer(): View
     {
-        $totalEvents = Event::count();
-        $totalHosts = Host::count();
+        $organizerId = Auth::id();
+
+        $totalEvents = Event::where('created_by', $organizerId)->count();
         $totalAttendees = User::whereHas('userRole', function ($query) {
             $query->where('name_en', UserRole::ATTENDEE);
         })->count();
-        $upcomingEvents = Event::whereDate('date', '>', now())->count();
+        $upcomingEvents = Event::where('created_by', $organizerId)
+            ->whereDate('date', '>', now())
+            ->count();
+
+        $events = Event::where('created_by', $organizerId)
+            ->latest()
+            ->limit(5)
+            ->get();
 
         return view('organizer.dashboard', compact(
             'totalEvents',
-            'totalHosts',
             'totalAttendees',
-            'upcomingEvents'
+            'upcomingEvents',
+            'events'
         ));
     }
 
@@ -93,6 +101,10 @@ class DashboardController extends Controller
             $query->where('category_id', $request->category);
         }
 
+        if ($request->filled('host')) {
+            $query->where('hosted_by', $request->host);
+        }
+
         $events = $query
             ->withCount('likes')
             ->withExists(['likes as is_liked' => function ($likeQuery) {
@@ -107,10 +119,15 @@ class DashboardController extends Controller
 
         $selectedCategory = $request->category ?? null;
 
+        $selectedHost = $request->filled('host')
+            ? Host::query()->where('is_active', true)->find($request->host)
+            : null;
+
         return view('attendee.dashboard', compact(
             'events',
             'eventCategories',
-            'selectedCategory'
+            'selectedCategory',
+            'selectedHost'
         ));
     }
 }

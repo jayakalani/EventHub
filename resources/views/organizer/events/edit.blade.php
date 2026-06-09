@@ -45,7 +45,7 @@
                         <div class="flex flex-wrap gap-2">
                             <span
                                 class="inline-flex items-center rounded-full bg-white/15 px-3 py-1 text-xs font-semibold text-white ring-1 ring-white/25">
-                                {{ $event->no_of_seats }} {{ __('Seats') }}
+                                {{ $event->no_of_tickets }} {{ __('tickets') }}
                             </span>
                             @if ($event->eventCategory)
                                 <span
@@ -146,12 +146,12 @@
 
                                 <div
                                     class="rounded-2xl border border-gray-100 bg-gray-50/70 p-4 transition focus-within:border-indigo-200 focus-within:bg-white focus-within:shadow-sm">
-                                    <x-input-label for="no_of_seats" :value="__('Number of Seats')" />
-                                    <x-text-input id="no_of_seats"
+                                    <x-input-label for="no_of_tickets" :value="__('Number of tickets')" />
+                                    <x-text-input id="no_of_tickets"
                                         class="mt-2 block w-full rounded-xl border-gray-200 bg-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                        type="number" name="no_of_seats" min="1"
-                                        :value="old('no_of_seats', $event->no_of_seats)" required />
-                                    <x-input-error :messages="$errors->get('no_of_seats')" class="mt-2" />
+                                        type="number" name="no_of_tickets" min="1"
+                                        :value="old('no_of_tickets', $event->no_of_tickets)" required />
+                                    <x-input-error :messages="$errors->get('no_of_tickets')" class="mt-2" />
                                 </div>
 
                                 <div
@@ -271,7 +271,7 @@
                                 <div>
                                     <h4 class="font-semibold text-indigo-950">{{ __('Review before updating') }}</h4>
                                     <p class="mt-1 text-sm leading-6 text-indigo-800">
-                                        {{ __('Changing the date, venue, or seat count may affect existing bookings and seat categories.') }}
+                                        {{ __('Changing the date, venue, or ticket count may affect existing bookings and ticket categories.') }}
                                     </p>
                                 </div>
                             </div>

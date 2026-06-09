@@ -112,6 +112,21 @@ class User extends Authenticatable implements MustVerifyEmailContract
         return $this->likes()->where('event_id', $event->id)->exists();
     }
 
+    public function hostLikes()
+    {
+        return $this->hasMany(HostLike::class);
+    }
+
+    public function likedHosts()
+    {
+        return $this->belongsToMany(Host::class, 'host_likes', 'user_id', 'host_id')->withTimestamps();
+    }
+
+    public function hasLikedHost(Host $host): bool
+    {
+        return $this->hostLikes()->where('host_id', $host->id)->exists();
+    }
+
     public function savedEvents()
     {
         return $this->belongsToMany(Event::class, 'saved_events', 'user_id', 'event_id')->withTimestamps();
@@ -140,5 +155,15 @@ class User extends Authenticatable implements MustVerifyEmailContract
     public function ratingFor(Event $event): ?int
     {
         return $this->ratings()->where('event_id', $event->id)->value('score');
+    }
+
+    public function cartItems()
+    {
+        return $this->hasMany(CartItem::class);
+    }
+
+    public function ticketBookings()
+    {
+        return $this->hasMany(ticketBooking::class);
     }
 }

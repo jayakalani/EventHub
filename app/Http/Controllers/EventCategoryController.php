@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Event;
 use App\Models\EventCategory;
 use App\Models\EventCategorySubscription;
-use App\Models\SeatCategory;
+use App\Models\ticketCategory;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -96,13 +96,13 @@ class EventCategoryController extends Controller
     {
         $event_category = EventCategory::findOrFail($id);
         $events = $event_category->events;
-        $seatCategories = SeatCategory::all();
+        $ticketCategories = ticketCategory::all();
         $event_category_subscription = EventCategorySubscription::all();
 
         return view('event_categories/view-event-category-profile', [
             'event_category' => $event_category,
             'events' => $events,
-            'seatCategories' => $seatCategories,
+            'ticketCategories' => $ticketCategories,
             'event_category_subscription' => $event_category_subscription,
         ]);
     }

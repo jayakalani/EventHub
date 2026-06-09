@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Notifications\Notifiable;
 use App\Traits\Auditable;
 
-class SeatCategory extends Model
+class ticketCategory extends Model
 {
     use HasFactory, Notifiable, Auditable;
 
@@ -21,9 +21,9 @@ class SeatCategory extends Model
         'event_id',
         'name',
         'description',
-        'no_of_seats',
-        'no_of_available_seats',
-        'seat_price',
+        'no_of_tickets',
+        'no_of_available_tickets',
+        'ticket_price',
         'ticket_color',
         'is_active',
         'booking_start',
@@ -47,8 +47,13 @@ class SeatCategory extends Model
         return $this->belongsTo(Event::class, 'event_id');
     }
 
-    public function seatBookings()
+    public function ticketBookings()
     {
-        return $this->hasMany(SeatBooking::class, 'seat_category_id');
+        return $this->hasMany(ticketBooking::class, 'ticket_category_id');
+    }
+
+    public function cartItems()
+    {
+        return $this->hasMany(CartItem::class, 'ticket_category_id');
     }
 }

@@ -114,7 +114,7 @@
                             class="inline-flex rounded-full bg-indigo-100 px-3 py-1 text-xs font-semibold text-indigo-700">Music</span>
                         <h4 class="mt-5 text-xl font-semibold text-slate-900">Live Concert Night</h4>
                         <p class="mt-3 text-sm leading-6 text-slate-600">An immersive evening with local artists, great
-                            food, and premium seating.</p>
+                            food, and premium ticketing.</p>
                         <div class="mt-6 flex flex-wrap gap-3 text-sm text-slate-500">
                             <span>📅 May 10, 2026</span>
                             <span>🕒 6:00 PM</span>

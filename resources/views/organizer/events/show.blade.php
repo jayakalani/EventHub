@@ -1,7 +1,7 @@
 @php
-    $totalCategorySeats = $seatCategories->sum('no_of_seats');
-    $totalAvailable = $seatCategories->sum('no_of_available_seats');
-    $totalBooked = max(0, $totalCategorySeats - $totalAvailable);
+    $totalCategorytickets = $event->total_tickets;
+    $totalAvailable = $ticketCategories->sum('no_of_available_tickets');
+    $totalBooked = max(0, $totalCategorytickets - $totalAvailable);
 
     $statusStyles = [
         'upcoming' => 'bg-indigo-400/20 text-white ring-indigo-100/40',
@@ -33,12 +33,12 @@
                     {{ __('Back to Events') }}
                 </a>
 
-                <a href="{{ route('organizer.seat-categories.create', $event->id) }}"
+                <a href="{{ route('organizer.ticket-categories.create', $event->id) }}"
                     class="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2">
                     <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                     </svg>
-                    {{ __('Add Seat Category') }}
+                    {{ __('Add ticket Category') }}
                 </a>
 
                 <a href="{{ route('organizer.events.exportPdf', $event->id) }}"
@@ -196,12 +196,12 @@
                 {{-- Stats Row --}}
                 <div class="grid grid-cols-2 gap-px bg-gray-100 sm:grid-cols-8">
                     <div class="bg-white px-5 py-5">
-                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ __('Total Seats') }}</p>
-                        <p class="mt-1 text-2xl font-bold text-gray-900">{{ $event->no_of_seats }}</p>
+                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ __('Total tickets') }}</p>
+                        <p class="mt-1 text-2xl font-bold text-gray-900">{{ number_format($event->total_tickets) }}</p>
                     </div>
                     <div class="bg-white px-5 py-5">
                         <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ __('Categories') }}</p>
-                        <p class="mt-1 text-2xl font-bold text-indigo-600">{{ $seatCategories->count() }}</p>
+                        <p class="mt-1 text-2xl font-bold text-indigo-600">{{ $ticketCategories->count() }}</p>
                     </div>
                     <div class="bg-white px-5 py-5">
                         <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ __('Available') }}</p>
@@ -325,7 +325,7 @@
                                             {{ __('Capacity') }}
                                         </p>
                                         <p class="mt-1 font-semibold text-gray-900">
-                                            {{ $event->no_of_seats }} {{ __('seats') }}
+                                            {{ number_format($event->total_tickets) }} {{ __('tickets') }}
                                         </p>
                                     </div>
                                 </div>
@@ -447,17 +447,17 @@
                         </div>
                     </div>
 
-                    {{-- Seat Categories --}}
+                    {{-- ticket Categories --}}
                     <div
                         class="overflow-hidden rounded-3xl border border-white/70 bg-white/90 shadow-lg shadow-indigo-100/30 backdrop-blur">
                         <div class="flex flex-col gap-4 border-b border-gray-100 px-6 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-8">
                             <div>
-                                <h3 class="text-lg font-semibold text-gray-900">{{ __('Seat Categories') }}</h3>
+                                <h3 class="text-lg font-semibold text-gray-900">{{ __('ticket Categories') }}</h3>
                                 <p class="mt-1 text-sm text-gray-500">
                                     {{ __('Manage ticket categories, pricing and availability.') }}
                                 </p>
                             </div>
-                            <a href="{{ route('organizer.seat-categories.create', $event->id) }}"
+                            <a href="{{ route('organizer.ticket-categories.create', $event->id) }}"
                                 class="inline-flex items-center justify-center rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700">
                                 <svg class="mr-1.5 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -477,7 +477,7 @@
                                         </th>
                                         <th
                                             class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
-                                            {{ __('Seats') }}
+                                            {{ __('tickets') }}
                                         </th>
                                         <th
                                             class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
@@ -502,7 +502,7 @@
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-gray-100">
-                                    @forelse ($seatCategories as $category)
+                                    @forelse ($ticketCategories as $category)
                                         <tr class="transition hover:bg-indigo-50/30">
                                             <td class="px-6 py-4">
                                                 <div class="flex items-center gap-3">
@@ -519,16 +519,16 @@
                                                 </div>
                                             </td>
                                             <td class="px-6 py-4 text-sm text-gray-700">
-                                                {{ $category->no_of_seats }}
+                                                {{ $category->no_of_tickets }}
                                             </td>
                                             <td class="px-6 py-4">
                                                 <span
                                                     class="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-100">
-                                                    {{ $category->no_of_available_seats }}
+                                                    {{ $category->no_of_available_tickets }}
                                                 </span>
                                             </td>
                                             <td class="px-6 py-4 text-sm font-semibold text-gray-900">
-                                                LKR {{ number_format($category->seat_price, 0) }}
+                                                LKR {{ number_format($category->ticket_price, 0) }}
                                             </td>
                                             <td class="px-6 py-4">
                                                 @if ($category->is_active)
@@ -556,14 +556,14 @@
                                             </td>
                                             <td class="px-6 py-4">
                                                 <div class="flex items-center justify-end gap-2">
-                                                    <a href="{{ route('organizer.seat-categories.edit', [$event, $category]) }}"
+                                                    <a href="{{ route('organizer.ticket-categories.edit', [$event, $category]) }}"
                                                         class="inline-flex items-center rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 shadow-sm transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700">
                                                         {{ __('Edit') }}
                                                     </a>
                                                     <form
-                                                        action="{{ route('organizer.seat-categories.destroy', [$event->id, $category->id]) }}"
+                                                        action="{{ route('organizer.ticket-categories.destroy', [$event->id, $category->id]) }}"
                                                         method="POST"
-                                                        onsubmit="return confirm('{{ __('Are you sure you want to delete this seat category?') }}')">
+                                                        onsubmit="return confirm('{{ __('Are you sure you want to delete this ticket category?') }}')">
                                                         @csrf
                                                         @method('DELETE')
                                                         <button type="submit"
@@ -587,12 +587,12 @@
                                                     </svg>
                                                 </div>
                                                 <p class="mt-4 font-semibold text-gray-900">
-                                                    {{ __('No seat categories yet') }}
+                                                    {{ __('No ticket categories yet') }}
                                                 </p>
                                                 <p class="mt-1 text-sm text-gray-500">
-                                                    {{ __('Create your first ticket tier to start selling seats.') }}
+                                                    {{ __('Create your first ticket tier to start selling tickets.') }}
                                                 </p>
-                                                <a href="{{ route('organizer.seat-categories.create', $event->id) }}"
+                                                <a href="{{ route('organizer.ticket-categories.create', $event->id) }}"
                                                     class="mt-5 inline-flex items-center rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700">
                                                     {{ __('Add First Category') }}
                                                 </a>
@@ -709,7 +709,7 @@
                                 </svg>
                             </div>
                             <div>
-                                <h4 class="font-semibold text-indigo-950">{{ __('Seat category tip') }}</h4>
+                                <h4 class="font-semibold text-indigo-950">{{ __('ticket category tip') }}</h4>
                                 <p class="mt-1 text-sm leading-6 text-indigo-800">
                                     {{ __('Each category can have its own price, color, and booking window for flexible ticketing.') }}
                                 </p>

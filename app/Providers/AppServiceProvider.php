@@ -38,7 +38,7 @@ class AppServiceProvider extends ServiceProvider
             $view->with([
                 'cartItemCount' => CartItem::where('user_id', $userId)->sum('quantity'),
                 'reservedTicketCount' => CartItem::where('user_id', $userId)->sum('quantity'),
-                'confirmedTicketCount' => ticketBooking::where('user_id', $userId)->sum('quantity'),
+                'confirmedTicketCount' => ticketBooking::where('user_id', $userId)->count(),
             ]);
         });
     }

@@ -17,7 +17,6 @@ return new class extends Migration
             $table->foreignId('event_id')->constrained()->cascadeOnDelete();
             $table->foreignId('ticket_category_id')->constrained('ticket_categories')->cascadeOnDelete();
             $table->unsignedInteger('quantity');
-            $table->decimal('unit_price', 10, 2);
             $table->timestamps();
 
             $table->unique(['user_id', 'ticket_category_id']);

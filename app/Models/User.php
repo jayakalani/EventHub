@@ -3,21 +3,20 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
-use App\Models\UserRole;
+use App\Enums\GenderEnum;
+use App\Traits\Auditable;
 use Illuminate\Auth\MustVerifyEmail;
 use Illuminate\Contracts\Auth\MustVerifyEmail as MustVerifyEmailContract;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Illuminate\Database\Eloquent\SoftDeletes;
-use App\Traits\Auditable;
-use App\Enums\GenderEnum;
 
 class User extends Authenticatable implements MustVerifyEmailContract
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable, SoftDeletes, MustVerifyEmail, Auditable;
+    use Auditable, HasFactory, MustVerifyEmail, Notifiable, SoftDeletes;
 
     /**
      * The attributes that are mass assignable.
@@ -56,6 +55,7 @@ class User extends Authenticatable implements MustVerifyEmailContract
         'two_factor_secret',
         'two_factor_recovery_codes',
     ];
+
     /**
      * Get the user's full name by concatenating first and last name.
      */
@@ -63,6 +63,7 @@ class User extends Authenticatable implements MustVerifyEmailContract
     {
         return "{$this->first_name} {$this->last_name}";
     }
+
     /**
      * Get the attributes that should be cast.
      *
@@ -165,5 +166,10 @@ class User extends Authenticatable implements MustVerifyEmailContract
     public function ticketBookings()
     {
         return $this->hasMany(ticketBooking::class);
+    }
+
+    public function payments()
+    {
+        return $this->hasMany(Payment::class);
     }
 }

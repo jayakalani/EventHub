@@ -1,32 +1,29 @@
 <?php
 
-use App\Models\UserRole;
-use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Auth;
-
-use App\Http\Controllers\AuthController;
-use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\Auth\RegisteredUserController;
-use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\EmployeeController;
-use App\Http\Controllers\EventController;
-use App\Http\Controllers\HostController;
-use App\Http\Controllers\EventCategoryController;
-use App\Http\Controllers\ticketCategoryController;
+use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\AuditLogController;
-use App\Http\Controllers\TwoFactorController;
 use App\Http\Controllers\Auth\GoogleAuthController;
-use App\Http\Controllers\EventCommentController;
-use App\Http\Controllers\EventLikeController;
-use App\Http\Controllers\EventSaveController;
-use App\Http\Controllers\EventRatingController;
-use App\Http\Controllers\HostLikeController;
+use App\Http\Controllers\Auth\RegisteredUserController;
+use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CartController;
+use App\Http\Controllers\CheckoutController;
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\EventCategoryController;
+use App\Http\Controllers\EventCommentController;
+use App\Http\Controllers\EventController;
+use App\Http\Controllers\EventLikeController;
+use App\Http\Controllers\EventRatingController;
+use App\Http\Controllers\EventSaveController;
+use App\Http\Controllers\HostController;
+use App\Http\Controllers\HostLikeController;
+use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\TicketBookingController;
-
-
-
+use App\Http\Controllers\ticketCategoryController;
+use App\Http\Controllers\TwoFactorController;
+use App\Models\UserRole;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
@@ -80,7 +77,6 @@ Route::middleware('auth')->group(function () {
         ->name('auth.google.complete-profile.store');
 });
 
-
 /*
 |--------------------------------------------------------------------------
 | Main Dashboard (All Authenticated Users)
@@ -90,17 +86,16 @@ Route::get('/dashboard', [DashboardController::class, 'index'])
     ->middleware(['auth', 'verified', 'prevent-back'])
     ->name('dashboard');
 
-
 /*
 |--------------------------------------------------------------------------
 | Admin Routes
 |--------------------------------------------------------------------------
 */
 Route::prefix('admin')->name('admin.')->group(function () {
-    
-    Route::middleware(['auth', 'verified', 'prevent-back', 'role:' . UserRole::ADMIN])->group(function () {
 
-    // Users Management
+    Route::middleware(['auth', 'verified', 'prevent-back', 'role:'.UserRole::ADMIN])->group(function () {
+
+        // Users Management
         Route::get('/users', [UserController::class, 'index'])->name('users');
         Route::get('/user/{id}/edit', [UserController::class, 'edit'])->name('user.edit');
         Route::put('/user/{id}', [UserController::class, 'update'])->name('user.update');
@@ -108,14 +103,14 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('/user/{id}/toggle-active', [UserController::class, 'toggleActive'])->name('user.toggleActive');
         Route::delete('/user/{id}', [UserController::class, 'destroy'])->name('user.destroy');
 
-    // Employee Management
+        // Employee Management
         Route::get('/employees/create', [EmployeeController::class, 'create'])->name('employees.create');
         Route::post('/employees', [EmployeeController::class, 'store'])->name('employee.store');
         Route::get('/admin/employees', [EmployeeController::class, 'index'])->name('employees.index');
         Route::get('/admin/employees/export/csv', [EmployeeController::class, 'exportCsv'])->name('employees.export.csv');
         Route::get('/admin/employees/export/pdf', [EmployeeController::class, 'exportPdf'])->name('employees.export.pdf');
 
-    // Event category Management
+        // Event category Management
         Route::get('/event-categories', [EventCategoryController::class, 'index'])->name('event-categories');
         Route::get('/event/category/form', [EventCategoryController::class, 'createEventCategory'])->name('event.category.create');
         Route::post('/event/category/store', [EventCategoryController::class, 'storeEventCategory'])->name('event.category.store');
@@ -128,24 +123,20 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::delete('/event/category/{id}', [EventCategoryController::class, 'destroy'])->name('event.category.destroy');
         Route::get('/admin/event-categories', [EventCategoryController::class, 'index'])->name('event-categories.index');
 
-    //Audit Logs
+        // Audit Logs
         Route::get('/audit-logs', [AuditLogController::class, 'index'])->name('audit-logs');
         Route::get('/audit-logs/export/csv', [AuditLogController::class, 'exportCsv'])->name('audit-logs.export.csv');
         Route::get('/audit-logs/export/pdf', [AuditLogController::class, 'exportPdf'])->name('audit-logs.export.pdf');
 
-
-
-        
     });
 });
-
 
 /*
 |--------------------------------------------------------------------------
 | Organizer Routes
 |--------------------------------------------------------------------------
 */
-Route::prefix('organizer')->name('organizer.')->middleware(['auth', 'verified', 'prevent-back', 'role:'. UserRole::ORGANIZER])->group(function () {
+Route::prefix('organizer')->name('organizer.')->middleware(['auth', 'verified', 'prevent-back', 'role:'.UserRole::ORGANIZER])->group(function () {
     // Event routes
     Route::get('/events', [EventController::class, 'index'])->name('events.index');
     Route::get('/events/create', [EventController::class, 'create'])->name('events.create');
@@ -158,15 +149,13 @@ Route::prefix('organizer')->name('organizer.')->middleware(['auth', 'verified', 
     Route::get('/events/export/pdf', [EventController::class, 'exportPdf'])->name('events.export.pdf');
     Route::patch('/events/{event}/status', [EventController::class, 'updateStatus'])->name('events.updateStatus');
     Route::get('/events/{event}/export-pdf', [EventController::class, 'exportPdf'])->name('events.exportPdf');
-    
-    //ticket category routes
+
+    // ticket category routes
     Route::get('/events/{event}/ticket-categories/create', [ticketCategoryController::class, 'create'])->name('ticket-categories.create');
     Route::post('/events/{event}/ticket-categories', [ticketCategoryController::class, 'store'])->name('ticket-categories.store');
     Route::get('/events/{event}/ticket-categories/{ticketCategory}/edit', [ticketCategoryController::class, 'edit'])->name('ticket-categories.edit');
     Route::put('/events/{event}/ticket-categories/{ticketCategory}', [ticketCategoryController::class, 'update'])->name('ticket-categories.update');
     Route::delete('/events/{event}/ticket-categories/{ticketCategory}', [ticketCategoryController::class, 'destroy'])->name('ticket-categories.destroy');
-
-
 
     // Host routes
     Route::get('/hosts', [HostController::class, 'index'])->name('hosts');
@@ -180,18 +169,22 @@ Route::prefix('organizer')->name('organizer.')->middleware(['auth', 'verified', 
     Route::delete('hosts/{id}', [HostController::class, 'destroy'])->name('hosts.destroy');
 });
 
-
-
 /*
 |--------------------------------------------------------------------------
 | CRO (Customer Relations Officer) Routes
 |--------------------------------------------------------------------------
 */
 Route::prefix('cro')->name('cro.')->group(function () {
-       
+
     // Add CRO-specific routes here
 });
 
+/*
+|--------------------------------------------------------------------------
+| Stripe Webhook (no auth)
+|--------------------------------------------------------------------------
+*/
+Route::post('/stripe/webhook', [CheckoutController::class, 'webhook'])->name('stripe.webhook');
 
 /*
 |--------------------------------------------------------------------------
@@ -200,7 +193,7 @@ Route::prefix('cro')->name('cro.')->group(function () {
 */
 
 Route::prefix('attendee')->name('attendee.')->middleware(['auth'])->group(function () {
-    Route::get('/dashboard', [DashboardController::class, 'attendee']) ->name('dashboard');
+    Route::get('/dashboard', [DashboardController::class, 'attendee'])->name('dashboard');
     Route::get('/hosts', [HostController::class, 'attendeeIndex'])->name('hosts.index');
     Route::get('/hosts/{host}', [HostController::class, 'attendeeShow'])->name('hosts.show');
     Route::post('/hosts/{host}/like', [HostLikeController::class, 'toggle'])->name('hosts.like');
@@ -209,6 +202,8 @@ Route::prefix('attendee')->name('attendee.')->middleware(['auth'])->group(functi
     Route::put('/cart/items/{cartItem}', [CartController::class, 'update'])->name('cart.update');
     Route::delete('/cart/items/{cartItem}', [CartController::class, 'destroy'])->name('cart.destroy');
     Route::post('/cart/checkout', [CartController::class, 'checkout'])->name('cart.checkout');
+    Route::get('/checkout/success', [CheckoutController::class, 'success'])->name('checkout.success');
+    Route::get('/checkout/cancel', [CheckoutController::class, 'cancel'])->name('checkout.cancel');
     Route::get('/events/{event}', [EventController::class, 'showPublishedEvent'])->name('events.show');
     Route::post('/events/{event}/like', [EventLikeController::class, 'toggle'])->name('events.like');
     Route::post('/events/{event}/save', [EventSaveController::class, 'toggle'])->name('events.save');
@@ -219,10 +214,8 @@ Route::prefix('attendee')->name('attendee.')->middleware(['auth'])->group(functi
     Route::delete('/events/{event}/ratings', [EventRatingController::class, 'destroy'])->name('events.ratings.destroy');
     Route::get('/categories', [EventController::class, 'categories'])->name('categories.index');
     Route::get('/bookings', [TicketBookingController::class, 'index'])->name('bookings.index');
+    Route::get('/bookings/{ticketBooking}/download', [TicketBookingController::class, 'download'])->name('bookings.download');
 });
-    
-
-
 
 /*
 |--------------------------------------------------------------------------
@@ -230,7 +223,6 @@ Route::prefix('attendee')->name('attendee.')->middleware(['auth'])->group(functi
 |--------------------------------------------------------------------------
 */
 require __DIR__.'/auth.php';
-
 
 /*
 |--------------------------------------------------------------------------

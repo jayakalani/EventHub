@@ -12,14 +12,12 @@ class CartItem extends Model
         'event_id',
         'ticket_category_id',
         'quantity',
-        'unit_price',
     ];
 
     protected function casts(): array
     {
         return [
             'quantity' => 'integer',
-            'unit_price' => 'decimal:2',
         ];
     }
 
@@ -38,8 +36,13 @@ class CartItem extends Model
         return $this->belongsTo(ticketCategory::class, 'ticket_category_id');
     }
 
+    public function getUnitPriceAttribute(): float
+    {
+        return (float) $this->ticketCategory->ticket_price;
+    }
+
     public function getLineTotalAttribute(): float
     {
-        return (float) $this->unit_price * $this->quantity;
+        return $this->unit_price * $this->quantity;
     }
 }

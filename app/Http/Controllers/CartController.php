@@ -4,17 +4,19 @@ namespace App\Http\Controllers;
 
 use App\Models\CartItem;
 use App\Models\Event;
-use App\Models\ticketBooking;
 use App\Models\ticketCategory;
+use App\Services\StripeCheckoutService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 class CartController extends Controller
 {
+    public function __construct(
+        protected StripeCheckoutService $stripeCheckoutService
+    ) {}
+
     private function validateTicketCategoryForBooking(ticketCategory $category, int $quantity): ?string
     {
         if (! $category->is_active) {
@@ -64,17 +66,13 @@ class CartController extends Controller
         }
 
         if ($existingItem) {
-            $existingItem->update([
-                'quantity' => $proposedQuantity,
-                'unit_price' => $category->ticket_price,
-            ]);
+            $existingItem->update(['quantity' => $proposedQuantity]);
         } else {
             CartItem::create([
                 'user_id' => Auth::id(),
                 'event_id' => $event->id,
                 'ticket_category_id' => $category->id,
                 'quantity' => $validated['quantity'],
-                'unit_price' => $category->ticket_price,
             ]);
         }
 
@@ -95,6 +93,7 @@ class CartController extends Controller
 
         $cartTotal = CartItem::query()
             ->where('user_id', Auth::id())
+            ->with('ticketCategory')
             ->get()
             ->sum(fn (CartItem $item) => $item->line_total);
 
@@ -118,10 +117,7 @@ class CartController extends Controller
             return back()->withErrors(['quantity' => $error]);
         }
 
-        $cartItem->update([
-            'quantity' => $validated['quantity'],
-            'unit_price' => $category->ticket_price,
-        ]);
+        $cartItem->update(['quantity' => $validated['quantity']]);
 
         return back()->with('success', 'Cart updated successfully.');
     }
@@ -139,7 +135,7 @@ class CartController extends Controller
     }
 
     /**
-     * Pay for selected cart items (bulk checkout).
+     * Start Stripe Checkout for selected cart items.
      */
     public function checkout(Request $request): RedirectResponse
     {
@@ -158,39 +154,25 @@ class CartController extends Controller
             return back()->withErrors(['cart_item_ids' => 'No valid cart items selected.']);
         }
 
-        try {
-            DB::transaction(function () use ($cartItems) {
-                foreach ($cartItems as $cartItem) {
-                    $category = ticketCategory::query()
-                        ->lockForUpdate()
-                        ->findOrFail($cartItem->ticket_category_id);
-
-                    if ($error = $this->validateTicketCategoryForBooking($category, $cartItem->quantity)) {
-                        throw new \RuntimeException($error);
-                    }
-
-                    ticketBooking::create([
-                        'user_id' => Auth::id(),
-                        'event_id' => $cartItem->event_id,
-                        'ticket_category_id' => $cartItem->ticket_category_id,
-                        'quantity' => $cartItem->quantity,
-                        'unit_price' => $cartItem->unit_price,
-                        'total_amount' => $cartItem->line_total,
-                        'status' => 'confirmed',
-                        'reference' => 'BK-'.strtoupper(Str::random(10)),
-                    ]);
-
-                    $category->decrement('no_of_available_tickets', $cartItem->quantity);
-                    $cartItem->delete();
-                }
-            });
-        } catch (\RuntimeException $e) {
-            return back()->withErrors(['checkout' => $e->getMessage()]);
+        foreach ($cartItems as $cartItem) {
+            if ($error = $this->validateTicketCategoryForBooking($cartItem->ticketCategory, $cartItem->quantity)) {
+                return back()->withErrors(['checkout' => $error]);
+            }
         }
 
-        return redirect()
-            ->route('attendee.bookings.index')
-            ->with('success', 'Payment successful! Your tickets have been confirmed.');
+        if (! config('services.stripe.secret')) {
+            return back()->withErrors(['checkout' => 'Payment is not configured. Please contact support.']);
+        }
+
+        try {
+            $session = $this->stripeCheckoutService->createCheckoutSession($cartItems, (int) Auth::id());
+        } catch (\Throwable $e) {
+            report($e);
+
+            return back()->withErrors(['checkout' => 'Unable to start checkout. Please try again.']);
+        }
+
+        return redirect()->away($session->url);
     }
 
     private function authorizeCartItem(CartItem $cartItem): void

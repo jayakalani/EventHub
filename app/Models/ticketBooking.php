@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\BookingStatusEnum;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -11,19 +12,17 @@ class ticketBooking extends Model
         'user_id',
         'event_id',
         'ticket_category_id',
-        'quantity',
-        'unit_price',
-        'total_amount',
+        'payment_id',
+        'ticket_number',
+        'ticket_price',
         'status',
-        'reference',
     ];
 
     protected function casts(): array
     {
         return [
-            'quantity' => 'integer',
-            'unit_price' => 'decimal:2',
-            'total_amount' => 'decimal:2',
+            'ticket_price' => 'decimal:2',
+            'status' => BookingStatusEnum::class,
         ];
     }
 
@@ -40,5 +39,10 @@ class ticketBooking extends Model
     public function ticketCategory(): BelongsTo
     {
         return $this->belongsTo(ticketCategory::class, 'ticket_category_id');
+    }
+
+    public function payment(): BelongsTo
+    {
+        return $this->belongsTo(Payment::class);
     }
 }

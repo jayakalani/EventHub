@@ -289,9 +289,32 @@
 
                         </div>
 
+                        <input type="hidden" name="payment_method" id="payment_method" value="stripe">
+
+                        <div class="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm">
+                            <p class="font-semibold text-slate-700">Wallet Balance</p>
+                            <p class="mt-1 text-lg font-bold text-indigo-600">
+                                Rs {{ number_format($walletBalance, 2) }}
+                            </p>
+                            <a href="{{ route('attendee.wallet.index') }}" class="mt-2 inline-block text-xs font-medium text-indigo-600 hover:text-indigo-800">
+                                Manage wallet →
+                            </a>
+                        </div>
+
+                        @if($canPayWithWallet)
+                            <button
+                                type="submit"
+                                onclick="document.getElementById('payment_method').value='wallet'"
+                                class="mt-4 w-full rounded-2xl bg-gradient-to-r from-violet-600 to-indigo-600 px-6 py-4 font-bold text-white shadow-lg hover:scale-[1.02] transition"
+                            >
+                                Pay by Wallet
+                            </button>
+                        @endif
+
                         <button
                             type="submit"
-                            class="mt-6 w-full rounded-2xl bg-gradient-to-r from-emerald-600 to-green-500 px-6 py-4 font-bold text-white shadow-lg hover:scale-[1.02] transition"
+                            onclick="document.getElementById('payment_method').value='stripe'"
+                            class="mt-3 w-full rounded-2xl bg-gradient-to-r from-emerald-600 to-green-500 px-6 py-4 font-bold text-white shadow-lg hover:scale-[1.02] transition"
                         >
                             Pay Securely with Stripe
                         </button>

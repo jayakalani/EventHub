@@ -6,6 +6,7 @@ use App\Models\CartItem;
 use App\Models\Event;
 use App\Models\ticketCategory;
 use App\Services\StripeCheckoutService;
+use App\Services\WalletService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -14,7 +15,8 @@ use Illuminate\View\View;
 class CartController extends Controller
 {
     public function __construct(
-        protected StripeCheckoutService $stripeCheckoutService
+        protected StripeCheckoutService $stripeCheckoutService,
+        protected WalletService $walletService,
     ) {}
 
     private function validateTicketCategoryForBooking(ticketCategory $category, int $quantity): ?string
@@ -97,7 +99,11 @@ class CartController extends Controller
             ->get()
             ->sum(fn (CartItem $item) => $item->line_total);
 
-        return view('attendee.cart.index', compact('cartItems', 'cartTotal'));
+        $wallet = $this->walletService->getOrCreateWallet(Auth::user());
+        $walletBalance = (float) $wallet->balance;
+        $canPayWithWallet = $walletBalance >= $cartTotal && $cartTotal > 0;
+
+        return view('attendee.cart.index', compact('cartItems', 'cartTotal', 'walletBalance', 'canPayWithWallet'));
     }
 
     /**
@@ -142,6 +148,7 @@ class CartController extends Controller
         $validated = $request->validate([
             'cart_item_ids' => ['required', 'array', 'min:1'],
             'cart_item_ids.*' => ['integer', 'exists:cart_items,id'],
+            'payment_method' => ['required', 'in:stripe,wallet'],
         ]);
 
         $cartItems = CartItem::query()
@@ -158,6 +165,28 @@ class CartController extends Controller
             if ($error = $this->validateTicketCategoryForBooking($cartItem->ticketCategory, $cartItem->quantity)) {
                 return back()->withErrors(['checkout' => $error]);
             }
+        }
+
+        $cartTotal = $cartItems->sum(fn (CartItem $item) => $item->line_total);
+
+        if ($validated['payment_method'] === 'wallet') {
+            $wallet = $this->walletService->getOrCreateWallet(Auth::user());
+
+            if ((float) $wallet->balance < $cartTotal) {
+                return back()->withErrors(['checkout' => 'Insufficient wallet balance for this purchase.']);
+            }
+
+            try {
+                $this->stripeCheckoutService->payWithWallet($cartItems, Auth::user());
+            } catch (\Throwable $e) {
+                report($e);
+
+                return back()->withErrors(['checkout' => $e->getMessage() ?: 'Unable to complete wallet payment.']);
+            }
+
+            return redirect()
+                ->route('attendee.bookings.index')
+                ->with('success', 'Payment successful using your wallet! Your tickets are ready.');
         }
 
         if (! config('services.stripe.secret')) {

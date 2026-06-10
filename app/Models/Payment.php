@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\PaymentMethodEnum;
 use App\Enums\PaymentStatusEnum;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -17,6 +18,8 @@ class Payment extends Model
         'amount',
         'currency',
         'status',
+        'payment_method',
+        'purpose',
         'cart_item_ids',
     ];
 
@@ -25,6 +28,7 @@ class Payment extends Model
         return [
             'amount' => 'decimal:2',
             'status' => PaymentStatusEnum::class,
+            'payment_method' => PaymentMethodEnum::class,
             'cart_item_ids' => 'array',
         ];
     }

@@ -3,8 +3,10 @@
 namespace App\Models;
 
 use App\Enums\BookingStatusEnum;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class ticketBooking extends Model
 {
@@ -44,5 +46,24 @@ class ticketBooking extends Model
     public function payment(): BelongsTo
     {
         return $this->belongsTo(Payment::class);
+    }
+
+    public function refundRequest(): HasOne
+    {
+        return $this->hasOne(RefundRequest::class, 'ticket_booking_id');
+    }
+
+    public function isExpired(): bool
+    {
+        $this->loadMissing('event');
+
+        return now()->gt(Carbon::parse($this->event->date)->endOfDay());
+    }
+
+    public function isCancellable(): bool
+    {
+        return $this->status === BookingStatusEnum::Confirmed
+            && $this->refundRequest === null
+            && ! $this->isExpired();
     }
 }

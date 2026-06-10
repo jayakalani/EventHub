@@ -18,8 +18,11 @@ use App\Http\Controllers\EventSaveController;
 use App\Http\Controllers\HostController;
 use App\Http\Controllers\HostLikeController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\Cro\RefundRequestController as CroRefundRequestController;
+use App\Http\Controllers\RefundRequestController;
 use App\Http\Controllers\TicketBookingController;
 use App\Http\Controllers\ticketCategoryController;
+use App\Http\Controllers\WalletController;
 use App\Http\Controllers\TwoFactorController;
 use App\Models\UserRole;
 use Illuminate\Support\Facades\Auth;
@@ -174,9 +177,11 @@ Route::prefix('organizer')->name('organizer.')->middleware(['auth', 'verified', 
 | CRO (Customer Relations Officer) Routes
 |--------------------------------------------------------------------------
 */
-Route::prefix('cro')->name('cro.')->group(function () {
-
-    // Add CRO-specific routes here
+Route::prefix('cro')->name('cro.')->middleware(['auth', 'verified', 'prevent-back', 'role:'.UserRole::CRO])->group(function () {
+    Route::get('/dashboard', [DashboardController::class, 'cro'])->name('dashboard');
+    Route::get('/refund-requests', [CroRefundRequestController::class, 'index'])->name('refund-requests.index');
+    Route::post('/refund-requests/{refundRequest}/approve', [CroRefundRequestController::class, 'approve'])->name('refund-requests.approve');
+    Route::post('/refund-requests/{refundRequest}/decline', [CroRefundRequestController::class, 'decline'])->name('refund-requests.decline');
 });
 
 /*
@@ -215,6 +220,11 @@ Route::prefix('attendee')->name('attendee.')->middleware(['auth'])->group(functi
     Route::get('/categories', [EventController::class, 'categories'])->name('categories.index');
     Route::get('/bookings', [TicketBookingController::class, 'index'])->name('bookings.index');
     Route::get('/bookings/{ticketBooking}/download', [TicketBookingController::class, 'download'])->name('bookings.download');
+    Route::get('/bookings/{ticketBooking}/refund', [RefundRequestController::class, 'create'])->name('bookings.refund.create');
+    Route::post('/bookings/{ticketBooking}/refund', [RefundRequestController::class, 'store'])->name('bookings.refund.store');
+    Route::get('/wallet', [WalletController::class, 'index'])->name('wallet.index');
+    Route::post('/wallet/topup', [WalletController::class, 'topup'])->name('wallet.topup');
+    Route::get('/wallet/topup/success', [WalletController::class, 'topupSuccess'])->name('wallet.topup.success');
 });
 
 /*

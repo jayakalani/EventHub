@@ -64,6 +64,14 @@
                             Tickets
                         </a>
 
+                        <a href="{{ route('attendee.wallet.index') }}"
+                            class="px-4 py-2 rounded-xl text-sm font-medium transition
+                            {{ request()->routeIs('attendee.wallet.*')
+                                ? 'bg-indigo-50 text-indigo-600'
+                                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900' }}">
+                            Wallet
+                        </a>
+
                         <a href="{{ route('dashboard') }}"
                             class="px-4 py-2 rounded-xl text-sm font-medium transition
                             {{ request()->routeIs('dashboard')
@@ -259,6 +267,11 @@
                             {{ $cartItemCount }}
                         </span>
                     @endif
+                </a>
+
+                <a href="{{ route('attendee.wallet.index') }}"
+                    class="block px-4 py-3 rounded-xl hover:bg-slate-100">
+                    Wallet
                 </a>
 
             @endif

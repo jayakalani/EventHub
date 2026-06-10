@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\RefundRequestStatusEnum;
 use App\Models\Event;
 use App\Models\EventCategory;
 use App\Models\Host;
+use App\Models\RefundRequest;
 use App\Models\User;
 use App\Models\UserRole;
 use Illuminate\Http\Request;
@@ -79,7 +81,18 @@ class DashboardController extends Controller
      */
     public function cro(): View
     {
-        return view('cro.dashboard');
+        $pendingRefundCount = RefundRequest::query()
+            ->where('status', RefundRequestStatusEnum::Pending)
+            ->count();
+
+        $processedRefundCount = RefundRequest::query()
+            ->whereIn('status', [
+                RefundRequestStatusEnum::Approved,
+                RefundRequestStatusEnum::Declined,
+            ])
+            ->count();
+
+        return view('cro.dashboard', compact('pendingRefundCount', 'processedRefundCount'));
     }
 
     /**

@@ -23,7 +23,7 @@ class TicketBookingController extends Controller
     {
         $bookings = ticketBooking::query()
             ->where('user_id', Auth::id())
-            ->with(['event.host', 'event.eventCategory', 'ticketCategory', 'payment'])
+            ->with(['event.host', 'event.eventCategory', 'ticketCategory', 'payment', 'refundRequest'])
             ->latest()
             ->get()
             ->each(fn (ticketBooking $booking) => $booking->setAttribute(

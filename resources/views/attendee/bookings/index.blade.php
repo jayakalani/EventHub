@@ -228,13 +228,43 @@
 
                                     </div>
 
-                                    {{-- Download --}}
-                                    <a href="{{ route('attendee.bookings.download', $booking) }}"
-                                        class="mt-6 inline-flex w-full items-center justify-center rounded-2xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white hover:bg-indigo-700 transition">
+                                    {{-- Actions --}}
+                                    <div class="mt-6 space-y-3">
+                                        <a href="{{ route('attendee.bookings.download', $booking) }}"
+                                            class="inline-flex w-full items-center justify-center rounded-2xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white hover:bg-indigo-700 transition">
 
-                                        Download Ticket PDF
+                                            Download Ticket PDF
 
-                                    </a>
+                                        </a>
+
+                                        @if($booking->isCancellable())
+                                            <a href="{{ route('attendee.bookings.refund.create', $booking) }}"
+                                                class="inline-flex w-full items-center justify-center rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 hover:bg-red-100 transition">
+
+                                                Cancel Booking
+
+                                            </a>
+                                        @elseif($booking->refundRequest)
+                                            <div class="rounded-2xl bg-slate-100 px-4 py-3 text-center text-xs font-medium text-slate-600">
+                                                Refund request: {{ ucfirst(str_replace('_', ' ', $booking->refundRequest->status->value)) }}
+                                            </div>
+                                        @elseif($booking->isExpired())
+                                            <div class="rounded-2xl bg-slate-200 px-4 py-3 text-center text-sm font-semibold text-slate-600">
+                                                Ticket Expired
+                                            </div>
+                                        @endif
+                                    </div>
+
+                                    @if($booking->refundRequest?->status === \App\Enums\RefundRequestStatusEnum::Declined && $booking->refundRequest->cro_notes)
+                                        <div class="mt-4 rounded-2xl border border-red-100 bg-red-50 px-4 py-3">
+                                            <p class="text-xs font-semibold uppercase tracking-wide text-red-600">
+                                                Refund Declined
+                                            </p>
+                                            <p class="mt-2 text-sm leading-relaxed text-red-800">
+                                                {{ $booking->refundRequest->cro_notes }}
+                                            </p>
+                                        </div>
+                                    @endif
 
                                 </div>
 

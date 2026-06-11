@@ -8,6 +8,7 @@
 
     <!-- Fonts -->
     <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
 
     <!-- Alpine.js (for dark mode toggle) -->
     <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
@@ -15,7 +16,16 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 
-<body class="bg-gray-50 dark:bg-[#0a0a0a] text-gray-800 dark:text-gray-200 min-h-screen">
+<body class="bg-gray-50 dark:bg-[#0a0a0a] text-gray-800 dark:text-gray-200 min-h-screen"
+    x-data="{
+        showLoginModal: false,
+        promptLogin() {
+            this.showLoginModal = true;
+            setTimeout(() => {
+                window.location.href = '{{ route('login') }}';
+            }, 2500);
+        }
+    }">
 
     <!-- 🌐 NAVBAR -->
     {{--
@@ -88,69 +98,46 @@
                 </div>
             </section>
 
-            <section class="mt-12 rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-                <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                        <p class="text-sm font-semibold uppercase tracking-[0.24em] text-slate-500">Explore events</p>
-                        <h3 class="mt-2 text-2xl font-semibold text-slate-900">Featured event categories</h3>
-                    </div>
-                    <div class="flex flex-col gap-3 sm:flex-row">
-                        <button
-                            class="rounded-full border border-slate-200 bg-slate-100 px-5 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-200">All</button>
-                        <select
-                            class="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-800 shadow-sm outline-none focus:border-blue-500"
-                            aria-label="Event category">
-                            <option>Music</option>
-                            <option>Sports</option>
-                            <option>Workshops</option>
-                            <option>Networking</option>
-                        </select>
-                    </div>
+            <section class="mt-12 pb-12">
+                <div class="mb-6">
+                    <p class="text-sm font-semibold uppercase tracking-[0.24em] text-slate-500">Explore events</p>
+                    <h3 class="mt-2 text-2xl font-semibold text-slate-900">Browse upcoming events</h3>
+                    <p class="mt-2 text-slate-600">Filter by category and discover your next experience.</p>
                 </div>
-                <div class="mt-6 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-                    <div
-                        class="overflow-hidden rounded-3xl border border-slate-200 bg-slate-50 p-6 transition hover:-translate-y-1 hover:shadow-lg">
-                        <span
-                            class="inline-flex rounded-full bg-indigo-100 px-3 py-1 text-xs font-semibold text-indigo-700">Music</span>
-                        <h4 class="mt-5 text-xl font-semibold text-slate-900">Live Concert Night</h4>
-                        <p class="mt-3 text-sm leading-6 text-slate-600">An immersive evening with local artists, great
-                            food, and premium ticketing.</p>
-                        <div class="mt-6 flex flex-wrap gap-3 text-sm text-slate-500">
-                            <span>📅 May 10, 2026</span>
-                            <span>🕒 6:00 PM</span>
-                            <span>📍 Colombo Hall</span>
-                        </div>
-                    </div>
 
-                    <div
-                        class="overflow-hidden rounded-3xl border border-slate-200 bg-slate-50 p-6 transition hover:-translate-y-1 hover:shadow-lg">
-                        <span
-                            class="inline-flex rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">Workshops</span>
-                        <h4 class="mt-5 text-xl font-semibold text-slate-900">Digital Marketing Bootcamp</h4>
-                        <p class="mt-3 text-sm leading-6 text-slate-600">Hands-on workshop designed to help event
-                            organizers grow their audience.</p>
-                        <div class="mt-6 flex flex-wrap gap-3 text-sm text-slate-500">
-                            <span>📅 May 15, 2026</span>
-                            <span>🕒 4:00 PM</span>
-                            <span>📍 Nawala Grounds</span>
-                        </div>
-                    </div>
-
-                    <div
-                        class="overflow-hidden rounded-3xl border border-slate-200 bg-slate-50 p-6 transition hover:-translate-y-1 hover:shadow-lg">
-                        <span
-                            class="inline-flex rounded-full bg-pink-100 px-3 py-1 text-xs font-semibold text-pink-700">Sports</span>
-                        <h4 class="mt-5 text-xl font-semibold text-slate-900">Charity Run Meetup</h4>
-                        <p class="mt-3 text-sm leading-6 text-slate-600">Support local communities with a scenic run and
-                            post-event networking.</p>
-                        <div class="mt-6 flex flex-wrap gap-3 text-sm text-slate-500">
-                            <span>📅 May 22, 2026</span>
-                            <span>🕒 7:00 AM</span>
-                            <span>📍 Galle Face Green</span>
-                        </div>
-                    </div>
-                </div>
+                @include('partials.events-browse', ['browseRouteName' => 'welcome'])
             </section>
+        </div>
+    </div>
+
+    {{-- Login required modal --}}
+    <div x-show="showLoginModal"
+        x-cloak
+        x-transition:enter="transition ease-out duration-200"
+        x-transition:enter-start="opacity-0"
+        x-transition:enter-end="opacity-100"
+        class="fixed inset-0 z-50 flex items-center justify-center p-4"
+        style="display: none;">
+        <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm"></div>
+
+        <div class="relative w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl">
+            <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-indigo-100 text-indigo-600">
+                <i class="bi bi-lock-fill text-2xl" aria-hidden="true"></i>
+            </div>
+
+            <h3 class="mt-4 text-center text-xl font-bold text-slate-900">Login Required</h3>
+            <p class="mt-2 text-center text-sm leading-relaxed text-slate-600">
+                Please login first to perform this action.
+            </p>
+
+            <p class="mt-4 text-center text-xs text-slate-500">
+                Redirecting you to the login page...
+            </p>
+
+            <a href="{{ route('login') }}"
+                class="mt-6 inline-flex w-full items-center justify-center rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-indigo-700">
+                Go to Login
+            </a>
         </div>
     </div>
 

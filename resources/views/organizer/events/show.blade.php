@@ -4,6 +4,7 @@
     $totalBooked = max(0, $totalCategorytickets - $totalAvailable);
 
     $statusStyles = [
+        'unpublished' => 'bg-amber-400/20 text-white ring-amber-100/40',
         'upcoming' => 'bg-indigo-400/20 text-white ring-indigo-100/40',
         'ongoing' => 'bg-emerald-400/20 text-white ring-emerald-100/40',
         'completed' => 'bg-white/15 text-white ring-white/25',
@@ -53,7 +54,28 @@
         </div>
     </x-slot>
 
-    <div class="bg-gradient-to-br from-slate-50 via-white to-indigo-50/40 py-10">
+    <div class="bg-gradient-to-br from-slate-50 via-white to-indigo-50/40 py-10" x-data="{
+        cancelModal: {
+            open: {{ $errors->has('cancellation_reason') ? 'true' : 'false' }},
+            eventId: {{ $event->id }},
+            action: @js(route('organizer.events.cancel', $event->id)),
+            name: @js($event->name),
+            date: @js($event->date),
+            time: @js($event->time),
+            place: @js($event->place),
+        },
+        handleStatusChange(select, eventId, eventName, eventDate, eventTime, eventPlace, currentStatus) {
+            if (select.value === 'cancelled' && currentStatus !== 'cancelled') {
+                select.value = currentStatus;
+                this.cancelModal.open = true;
+                return;
+            }
+
+            if (currentStatus !== 'cancelled') {
+                select.form.submit();
+            }
+        }
+    }">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-6">
 
             @if ($errors->any())
@@ -72,6 +94,23 @@
                                     <li>{{ $error }}</li>
                                 @endforeach
                             </ul>
+                        </div>
+                    </div>
+                </div>
+            @endif
+
+            @if (session('error'))
+                <div class="overflow-hidden rounded-2xl border border-red-200 bg-red-50 px-5 py-4 shadow-sm">
+                    <div class="flex items-center gap-3">
+                        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-100">
+                            <svg class="h-5 w-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M12 8v4m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4c-.77-1.33-2.69-1.33-3.46 0L3.34 16c-.77 1.33.19 3 1.73 3z" />
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 class="font-semibold text-red-800">{{ __('Error') }}</h3>
+                            <p class="text-sm text-red-700">{{ session('error') }}</p>
                         </div>
                     </div>
                 </div>
@@ -236,6 +275,81 @@
                     </div>
                 </div>
             </div>
+
+            @if ($event->isCompleted() && $postEventAnalytics)
+                <div class="overflow-hidden rounded-3xl border border-emerald-200 bg-white shadow-lg shadow-emerald-100/40">
+                    <div class="border-b border-emerald-100 bg-gradient-to-r from-emerald-600 to-teal-600 px-6 py-5 sm:px-8">
+                        <h3 class="text-lg font-semibold text-white">{{ __('Post-Event Report') }}</h3>
+                        <p class="mt-1 text-sm text-emerald-50">
+                            {{ __('Analytics unlocked now that this event is completed.') }}
+                        </p>
+                    </div>
+
+                    <div class="grid gap-px bg-emerald-100 sm:grid-cols-2 lg:grid-cols-5">
+                        <div class="bg-white px-5 py-5">
+                            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ __('Revenue') }}</p>
+                            <p class="mt-1 text-2xl font-bold text-emerald-600">
+                                LKR {{ number_format($postEventAnalytics['revenue'], 0) }}
+                            </p>
+                            <p class="mt-1 text-xs text-gray-500">{{ __('Total ticket sales collected') }}</p>
+                        </div>
+                        <div class="bg-white px-5 py-5">
+                            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ __('Likes') }}</p>
+                            <p class="mt-1 text-2xl font-bold text-rose-600">{{ number_format($postEventAnalytics['likes']) }}</p>
+                            <p class="mt-1 text-xs text-gray-500">{{ __('Attendee likes received') }}</p>
+                        </div>
+                        <div class="bg-white px-5 py-5">
+                            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ __('Comments') }}</p>
+                            <p class="mt-1 text-2xl font-bold text-indigo-600">{{ number_format($postEventAnalytics['comments']) }}</p>
+                            <p class="mt-1 text-xs text-gray-500">{{ __('Feedback submitted') }}</p>
+                        </div>
+                        <div class="bg-white px-5 py-5">
+                            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ __('Ratings') }}</p>
+                            <p class="mt-1 text-2xl font-bold text-yellow-600">
+                                @if ($postEventAnalytics['ratings_count'] > 0)
+                                    {{ number_format($postEventAnalytics['average_rating'], 1) }}/5
+                                @else
+                                    —
+                                @endif
+                            </p>
+                            <p class="mt-1 text-xs text-gray-500">{{ $postEventAnalytics['ratings_count'] }} {{ __('reviews') }}</p>
+                        </div>
+                        <div class="bg-white px-5 py-5 sm:col-span-2 lg:col-span-1">
+                            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ __('Tickets Sold') }}</p>
+                            <p class="mt-1 text-2xl font-bold text-amber-600">{{ number_format($totalBooked) }}</p>
+                            <p class="mt-1 text-xs text-gray-500">{{ __('Across all categories') }}</p>
+                        </div>
+                    </div>
+
+                    <div class="border-t border-emerald-100 px-6 py-5 sm:px-8">
+                        <h4 class="text-sm font-semibold uppercase tracking-wide text-gray-500">{{ __('Ticket Sales by Category') }}</h4>
+                        <div class="mt-4 overflow-x-auto">
+                            <table class="min-w-full">
+                                <thead>
+                                    <tr class="border-b border-gray-100">
+                                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">{{ __('Category') }}</th>
+                                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">{{ __('Sold') }}</th>
+                                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">{{ __('Revenue') }}</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-100">
+                                    @forelse ($postEventAnalytics['ticket_sales'] as $sale)
+                                        <tr>
+                                            <td class="px-4 py-3 text-sm font-semibold text-gray-900">{{ $sale['name'] }}</td>
+                                            <td class="px-4 py-3 text-sm text-gray-700">{{ number_format($sale['sold']) }}</td>
+                                            <td class="px-4 py-3 text-sm font-semibold text-emerald-700">LKR {{ number_format($sale['revenue'], 0) }}</td>
+                                        </tr>
+                                    @empty
+                                        <tr>
+                                            <td colspan="3" class="px-4 py-6 text-center text-sm text-gray-500">{{ __('No ticket sales recorded.') }}</td>
+                                        </tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            @endif
 
             <div class="grid gap-6 lg:grid-cols-[1fr_320px]">
                 {{-- Main Content --}}
@@ -560,17 +674,25 @@
                                                         class="inline-flex items-center rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 shadow-sm transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700">
                                                         {{ __('Edit') }}
                                                     </a>
-                                                    <form
-                                                        action="{{ route('organizer.ticket-categories.destroy', [$event->id, $category->id]) }}"
-                                                        method="POST"
-                                                        onsubmit="return confirm('{{ __('Are you sure you want to delete this ticket category?') }}')">
-                                                        @csrf
-                                                        @method('DELETE')
-                                                        <button type="submit"
-                                                            class="inline-flex items-center rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-600 shadow-sm transition hover:bg-red-50">
+                                                    @if ($category->ticket_bookings_count > 0)
+                                                        <span
+                                                            title="{{ __('Tickets have been sold from this category and it cannot be deleted.') }}"
+                                                            class="inline-flex items-center rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-semibold text-gray-400 cursor-not-allowed">
                                                             {{ __('Delete') }}
-                                                        </button>
-                                                    </form>
+                                                        </span>
+                                                    @else
+                                                        <form
+                                                            action="{{ route('organizer.ticket-categories.destroy', [$event->id, $category->id]) }}"
+                                                            method="POST"
+                                                            onsubmit="return confirm('{{ __('Are you sure you want to delete this ticket category?') }}')">
+                                                            @csrf
+                                                            @method('DELETE')
+                                                            <button type="submit"
+                                                                class="inline-flex items-center rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-600 shadow-sm transition hover:bg-red-50">
+                                                                {{ __('Delete') }}
+                                                            </button>
+                                                        </form>
+                                                    @endif
                                                 </div>
                                             </td>
                                         </tr>
@@ -648,29 +770,60 @@
                         <h4 class="text-sm font-semibold uppercase tracking-wide text-gray-500">
                             {{ __('Event Status') }}
                         </h4>
-                        <form action="{{ route('organizer.events.updateStatus', $event->id) }}" method="POST"
-                            class="mt-4">
-                            @csrf
-                            @method('PATCH')
-                            <select name="status" onchange="this.form.submit()"
-                                class="block w-full rounded-xl border-gray-200 bg-white text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                                <option value="upcoming" {{ ($event->status ?? '') == 'upcoming' ? 'selected' : '' }}>
-                                    {{ __('Upcoming') }}
-                                </option>
-                                <option value="ongoing" {{ ($event->status ?? '') == 'ongoing' ? 'selected' : '' }}>
-                                    {{ __('Ongoing') }}
-                                </option>
-                                <option value="completed" {{ ($event->status ?? '') == 'completed' ? 'selected' : '' }}>
-                                    {{ __('Completed') }}
-                                </option>
-                                <option value="cancelled" {{ ($event->status ?? '') == 'cancelled' ? 'selected' : '' }}>
-                                    {{ __('Cancelled') }}
-                                </option>
-                            </select>
-                            <p class="mt-2 text-xs text-gray-500">
-                                {{ __('Changes apply immediately across the event directory.') }}
+                        @if ($errors->has('status'))
+                            <p class="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+                                {{ $errors->first('status') }}
                             </p>
-                        </form>
+                        @endif
+
+                        @if ($event->isCancelled())
+                            <div class="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3">
+                                <p class="text-sm font-semibold text-rose-800">{{ __('Event Cancelled') }}</p>
+                                @if ($event->cancellation_reason)
+                                    <p class="mt-2 text-sm leading-relaxed text-rose-700">{{ $event->cancellation_reason }}</p>
+                                @endif
+                                @if ($event->cancelled_at)
+                                    <p class="mt-2 text-xs text-rose-600">
+                                        {{ __('Cancelled on') }} {{ $event->cancelled_at->format('M j, Y g:i A') }}
+                                    </p>
+                                @endif
+                            </div>
+                        @elseif ($event->isCompleted())
+                            <div class="mt-4 rounded-xl border border-slate-200 bg-slate-100 px-4 py-3">
+                                <p class="text-sm font-semibold text-slate-800">{{ __('Event Completed') }}</p>
+                                <p class="mt-2 text-sm leading-relaxed text-slate-600">
+                                    {{ __('This event has ended. Status, cancellation, and publication settings are locked. Post-event analytics are available above.') }}
+                                </p>
+                            </div>
+                        @else
+                            <form action="{{ route('organizer.events.updateStatus', $event->id) }}" method="POST"
+                                class="mt-4">
+                                @csrf
+                                @method('PATCH')
+                                <select name="status"
+                                    @change="handleStatusChange($event.target, {{ $event->id }}, @js($event->name), @js($event->date), @js($event->time), @js($event->place), @js($event->status))"
+                                    class="block w-full rounded-xl border-gray-200 bg-white text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                    <option value="unpublished" {{ ($event->status ?? '') == 'unpublished' ? 'selected' : '' }}
+                                        @if ($event->ticket_bookings_count > 0) disabled title="{{ __('Cannot unpublish: tickets have been sold') }}" @endif>
+                                        {{ __('Unpublished') }}
+                                    </option>
+                                    <option value="upcoming" {{ ($event->status ?? '') == 'upcoming' ? 'selected' : '' }}>
+                                        {{ __('Upcoming') }}
+                                    </option>
+                                    <option value="ongoing" {{ ($event->status ?? '') == 'ongoing' ? 'selected' : '' }}>
+                                        {{ __('Ongoing') }}
+                                    </option>
+                                    <option value="cancelled">{{ __('Cancel Event') }}</option>
+                                </select>
+                                <p class="mt-2 text-xs text-gray-500">
+                                    @if ($event->ticket_bookings_count > 0)
+                                        {{ __('This event has sold tickets and cannot be unpublished.') }}
+                                    @else
+                                        {{ __('Unpublished events are hidden from attendees. Set to Upcoming to publish.') }}
+                                    @endif
+                                </p>
+                            </form>
+                        @endif
                     </div>
 
                     <div class="rounded-2xl border border-gray-100 bg-gray-50 p-5">
@@ -719,5 +872,7 @@
                 </aside>
             </div>
         </div>
+
+        @include('organizer.events.partials.cancel-event-modal')
     </div>
 </x-app-layout>

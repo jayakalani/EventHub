@@ -14,6 +14,8 @@ class EventLikeController extends Controller
      */
     public function toggle(Event $event): RedirectResponse
     {
+        $event->ensureInteractive();
+
         $user = Auth::user();
 
         $like = Like::query()

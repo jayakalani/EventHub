@@ -9,12 +9,17 @@ use App\Models\Host;
 use App\Models\RefundRequest;
 use App\Models\User;
 use App\Models\UserRole;
+use App\Services\EventCompletionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
 
 class DashboardController extends Controller
 {
+    public function __construct(
+        protected EventCompletionService $eventCompletionService,
+    ) {}
+
     /**
      * Redirect authenticated users to their role-specific dashboard.
      */
@@ -60,7 +65,7 @@ class DashboardController extends Controller
             $query->where('name_en', UserRole::ATTENDEE);
         })->count();
         $upcomingEvents = Event::where('created_by', $organizerId)
-            ->whereDate('date', '>', now())
+            ->whereIn('status', [Event::STATUS_UPCOMING, Event::STATUS_ONGOING])
             ->count();
 
         $events = Event::where('created_by', $organizerId)
@@ -96,11 +101,72 @@ class DashboardController extends Controller
     }
 
     /**
+     * Public welcome page with browsable events.
+     */
+    public function welcome(Request $request): View
+    {
+        $this->eventCompletionService->completePastEvents();
+
+        $events = $this->withUserEventFlags($this->filteredEventsQuery($request))->get();
+        $eventCategories = EventCategory::where('is_active', 1)->get();
+        $selectedCategory = $request->category ?? null;
+
+        return view('welcome', compact(
+            'events',
+            'eventCategories',
+            'selectedCategory'
+        ));
+    }
+
+    /**
      * Attendee Dashboard
      */
     public function attendee(Request $request): View
     {
-        $query = Event::query();
+        $this->eventCompletionService->completePastEvents();
+
+        $events = $this->withUserEventFlags($this->filteredEventsQuery($request))->get();
+        $pastEvents = $this->withUserEventFlags($this->pastEventsQuery($request))->get();
+
+        $eventCategories = EventCategory::where('is_active', 1)->get();
+
+        $selectedCategory = $request->category ?? null;
+
+        $selectedHost = $request->filled('host')
+            ? Host::query()->where('is_active', true)->find($request->host)
+            : null;
+
+        return view('attendee.dashboard', compact(
+            'events',
+            'pastEvents',
+            'eventCategories',
+            'selectedCategory',
+            'selectedHost'
+        ));
+    }
+
+    private function pastEventsQuery(Request $request)
+    {
+        $query = Event::query()->pastForAttendees()->latest('date');
+
+        if ($request->filled('search')) {
+            $query->where('name', 'like', '%'.$request->search.'%');
+        }
+
+        if ($request->filled('category')) {
+            $query->where('category_id', $request->category);
+        }
+
+        if ($request->filled('host')) {
+            $query->where('hosted_by', $request->host);
+        }
+
+        return $query->withCount('likes');
+    }
+
+    private function filteredEventsQuery(Request $request)
+    {
+        $query = Event::query()->activeForAttendees();
 
         if ($request->filled('search')) {
             $query->where('name', 'like', '%'.$request->search.'%');
@@ -118,29 +184,21 @@ class DashboardController extends Controller
             $query->where('hosted_by', $request->host);
         }
 
-        $events = $query
-            ->withCount('likes')
+        return $query->withCount('likes');
+    }
+
+    private function withUserEventFlags($query)
+    {
+        if (! Auth::check()) {
+            return $query;
+        }
+
+        return $query
             ->withExists(['likes as is_liked' => function ($likeQuery) {
                 $likeQuery->where('user_id', Auth::id());
             }])
             ->withExists(['saves as is_saved' => function ($saveQuery) {
                 $saveQuery->where('user_id', Auth::id());
-            }])
-            ->get();
-
-        $eventCategories = EventCategory::where('is_active', 1)->get();
-
-        $selectedCategory = $request->category ?? null;
-
-        $selectedHost = $request->filled('host')
-            ? Host::query()->where('is_active', true)->find($request->host)
-            : null;
-
-        return view('attendee.dashboard', compact(
-            'events',
-            'eventCategories',
-            'selectedCategory',
-            'selectedHost'
-        ));
+            }]);
     }
 }

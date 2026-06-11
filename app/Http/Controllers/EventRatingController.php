@@ -15,6 +15,8 @@ class EventRatingController extends Controller
      */
     public function store(Request $request, Event $event): RedirectResponse
     {
+        $event->ensureFeedbackAllowed();
+
         $validated = $request->validate([
             'score' => 'required|integer|min:1|max:5',
         ]);
@@ -37,6 +39,8 @@ class EventRatingController extends Controller
      */
     public function destroy(Event $event): RedirectResponse
     {
+        $event->ensureFeedbackAllowed();
+
         Rating::query()
             ->where('user_id', Auth::id())
             ->where('event_id', $event->id)

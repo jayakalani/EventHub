@@ -15,6 +15,8 @@ class EventCommentController extends Controller
      */
     public function store(Request $request, Event $event): RedirectResponse
     {
+        $event->ensureFeedbackAllowed();
+
         $validated = $request->validate([
             'body' => 'required|string|min:1|max:1000',
         ]);
@@ -60,6 +62,8 @@ class EventCommentController extends Controller
 
     protected function authorizeComment(Event $event, Comment $comment): void
     {
+        $event->ensureFeedbackAllowed();
+
         if ($comment->event_id !== $event->id) {
             abort(404);
         }

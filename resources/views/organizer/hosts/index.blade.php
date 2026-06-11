@@ -175,6 +175,12 @@
                             <!-- Actions -->
                             <div class="grid grid-cols-3 gap-2">
 
+                                <!-- View -->
+                                <a href="{{ route('organizer.hosts.show', $host) }}"
+                                    class="col-span-3 text-center px-3 py-2 rounded-xl bg-indigo-600 text-white text-xs font-medium hover:bg-indigo-700 transition">
+                                    View
+                                </a>
+
                                 <!-- Toggle -->
                                 <form action="{{ route('organizer.hosts.toggleActive', $host->id) }}" method="POST"
                                     class="col-span-3">

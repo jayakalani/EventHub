@@ -180,6 +180,16 @@ class ticketCategoryController extends Controller
     {
         $this->authorizeOrganizerEvent($event);
 
+        if ($ticketCategory->event_id !== $event->id) {
+            abort(404);
+        }
+
+        if ($ticketCategory->hasSoldTickets()) {
+            return redirect()
+                ->route('organizer.events.show', $event->id)
+                ->with('error', 'This ticket category cannot be deleted because tickets have already been sold.');
+        }
+
         $ticketCategory->delete();
 
         return redirect()

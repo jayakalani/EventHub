@@ -14,6 +14,8 @@ class EventSaveController extends Controller
      */
     public function toggle(Event $event): RedirectResponse
     {
+        $event->ensureInteractive();
+
         $user = Auth::user();
 
         $savedEvent = SavedEvent::query()

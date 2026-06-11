@@ -47,6 +47,8 @@ class CartController extends Controller
      */
     public function store(Request $request, Event $event): RedirectResponse
     {
+        $event->ensureBookable();
+
         $validated = $request->validate([
             'ticket_category_id' => ['required', 'exists:ticket_categories,id'],
             'quantity' => ['required', 'integer', 'min:1'],
@@ -162,6 +164,10 @@ class CartController extends Controller
         }
 
         foreach ($cartItems as $cartItem) {
+            if ($cartItem->event->isCancelled()) {
+                return back()->withErrors(['checkout' => 'One or more events in your cart have been cancelled.']);
+            }
+
             if ($error = $this->validateTicketCategoryForBooking($cartItem->ticketCategory, $cartItem->quantity)) {
                 return back()->withErrors(['checkout' => $error]);
             }

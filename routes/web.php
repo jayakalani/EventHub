@@ -33,9 +33,9 @@ use Illuminate\Support\Facades\Route;
 | Guest Routes (Public Access)
 |--------------------------------------------------------------------------
 */
-Route::get('/', function () {
-    return view('welcome');
-})->middleware('prevent-back');
+Route::get('/', [DashboardController::class, 'welcome'])
+    ->middleware('prevent-back')
+    ->name('welcome');
 
 // Custom Auth Routes using AuthController
 Route::get('/login', [AuthController::class, 'showLoginForm'])
@@ -151,6 +151,7 @@ Route::prefix('organizer')->name('organizer.')->middleware(['auth', 'verified', 
     Route::get('/events/export/csv', [EventController::class, 'exportCsv'])->name('events.export.csv');
     Route::get('/events/export/pdf', [EventController::class, 'exportPdf'])->name('events.export.pdf');
     Route::patch('/events/{event}/status', [EventController::class, 'updateStatus'])->name('events.updateStatus');
+    Route::post('/events/{event}/cancel', [EventController::class, 'cancel'])->name('events.cancel');
     Route::get('/events/{event}/export-pdf', [EventController::class, 'exportPdf'])->name('events.exportPdf');
 
     // ticket category routes
@@ -162,6 +163,7 @@ Route::prefix('organizer')->name('organizer.')->middleware(['auth', 'verified', 
 
     // Host routes
     Route::get('/hosts', [HostController::class, 'index'])->name('hosts');
+    Route::get('/hosts/{host}', [HostController::class, 'organizerShow'])->name('hosts.show');
     Route::get('/host/form', [HostController::class, 'create'])->name('host.create');
     Route::post('/host/store', [HostController::class, 'store'])->name('host.store');
     Route::get('/organizer/hosts/export/csv', [HostController::class, 'exportCsv'])->name('hosts.export.csv');

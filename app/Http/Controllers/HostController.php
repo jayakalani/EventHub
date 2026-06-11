@@ -85,27 +85,34 @@ class HostController extends Controller
     }
 
     /**
+     * Display host details and events for organizers.
+     */
+    public function organizerShow(Host $host)
+    {
+        $events = $host->events()
+            ->with('eventCategory')
+            ->latest()
+            ->get();
+
+        return view('organizer.hosts.show', compact('host', 'events'));
+    }
+
+    /**
      * Display a read-only listing of hosts for attendees.
      */
     public function attendeeIndex(Request $request)
     {
         $query = Host::query()
             ->where('is_active', true)
-            ->withCount(['events', 'hostLikes'])
+            ->withCount(['events' => function ($eventQuery) {
+                $eventQuery->visibleToAttendees();
+            }, 'hostLikes'])
             ->withExists(['hostLikes as is_liked' => function ($likeQuery) {
                 $likeQuery->where('user_id', Auth::id());
             }]);
 
         if ($request->filled('search')) {
             $query->where('name', 'like', '%'.$request->search.'%');
-        }
-
-        if ($request->filled('from_date')) {
-            $query->whereDate('created_at', '>=', $request->from_date);
-        }
-
-        if ($request->filled('to_date')) {
-            $query->whereDate('created_at', '<=', $request->to_date);
         }
 
         $hosts = $query->latest()->paginate(20)->withQueryString();
@@ -128,6 +135,7 @@ class HostController extends Controller
         }]);
 
         $events = $host->events()
+            ->visibleToAttendees()
             ->withCount('likes')
             ->withExists(['likes as is_liked' => function ($likeQuery) {
                 $likeQuery->where('user_id', Auth::id());

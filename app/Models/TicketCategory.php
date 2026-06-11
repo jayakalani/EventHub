@@ -56,4 +56,9 @@ class ticketCategory extends Model
     {
         return $this->hasMany(CartItem::class, 'ticket_category_id');
     }
+
+    public function hasSoldTickets(): bool
+    {
+        return $this->ticketBookings()->exists();
+    }
 }

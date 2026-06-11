@@ -14,14 +14,14 @@ class TicketPdfService
 
     public function generate(ticketBooking $booking): string
     {
-        $booking->loadMissing(['event.host', 'ticketCategory', 'payment', 'user']);
+        $booking->loadMissing(['event.host', 'event.contactPerson', 'ticketCategory', 'payment', 'user']);
 
         $qrCode = $this->ticketQrService->getQrCodeForPdf($booking->ticket_number);
 
         return Pdf::loadView('attendee.bookings.ticket_pdf', [
             'booking' => $booking,
             'qrCode' => $qrCode,
-        ])->setPaper('a5', 'portrait')->output();
+        ])->setPaper('a4', 'landscape')->output();
     }
 
     public function downloadResponse(ticketBooking $booking): Response

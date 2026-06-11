@@ -64,30 +64,14 @@
                             Tickets
                         </a>
 
-                        <a href="{{ route('attendee.wallet.index') }}"
-                            class="px-4 py-2 rounded-xl text-sm font-medium transition
-                            {{ request()->routeIs('attendee.wallet.*')
-                                ? 'bg-indigo-50 text-indigo-600'
-                                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900' }}">
-                            Wallet
-                        </a>
-
-                        <a href="{{ route('dashboard') }}"
-                            class="px-4 py-2 rounded-xl text-sm font-medium transition
-                            {{ request()->routeIs('dashboard')
-                                ? 'bg-indigo-50 text-indigo-600'
-                                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900' }}">
-                            Dashboard
-                        </a>
-
                     @else
 
-                        <a href="{{ route('dashboard') }}"
+                        <a href="{{ route('attendee.dashboard') }}"
                             class="px-4 py-2 rounded-xl text-sm font-medium transition
-                            {{ request()->routeIs('dashboard')
+                            {{ request()->routeIs('attendee.dashboard','attendee.events.*')
                                 ? 'bg-indigo-50 text-indigo-600'
                                 : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900' }}">
-                            Dashboard
+                            Events
                         </a>
 
                     @endif
@@ -101,6 +85,29 @@
 
                 {{-- Cart --}}
                 @if($isAttendee)
+
+                    <a href="{{ route('attendee.wallet.index') }}"
+                        title="Wallet"
+                        aria-label="Wallet"
+                        class="relative hidden sm:flex items-center justify-center h-10 w-10 rounded-xl transition
+                        {{ request()->routeIs('attendee.wallet.*')
+                            ? 'bg-indigo-50 text-indigo-600'
+                            : 'bg-slate-100 hover:bg-slate-200 text-slate-700' }}">
+
+                        <svg xmlns="http://www.w3.org/2000/svg"
+                            class="h-5 w-5"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor">
+
+                            <path stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
+
+                        </svg>
+
+                    </a>
 
                     <a href="{{ route('attendee.cart.index') }}"
                         class="relative hidden sm:flex items-center justify-center h-10 w-10 rounded-xl bg-slate-100 hover:bg-slate-200 transition">

@@ -57,6 +57,10 @@ class ticketBooking extends Model
     {
         $this->loadMissing('event');
 
+        if ($this->event->isCompleted()) {
+            return false;
+        }
+
         return now()->gt(Carbon::parse($this->event->date)->endOfDay());
     }
 
@@ -64,6 +68,37 @@ class ticketBooking extends Model
     {
         return $this->status === BookingStatusEnum::Confirmed
             && $this->refundRequest === null
-            && ! $this->isExpired();
+            && ! $this->isExpired()
+            && ! $this->event->isCompleted();
+    }
+
+    public function displayStatusLabel(): string
+    {
+        $this->loadMissing('event');
+
+        if ($this->status === BookingStatusEnum::Confirmed && $this->event->isCompleted()) {
+            return 'Completed';
+        }
+
+        return ucfirst(str_replace('_', ' ', $this->status->value));
+    }
+
+    public function displayStatusBadgeClasses(): string
+    {
+        $this->loadMissing('event');
+
+        if ($this->status === BookingStatusEnum::Confirmed && $this->event->isCompleted()) {
+            return 'bg-slate-200 text-slate-700';
+        }
+
+        if ($this->status === BookingStatusEnum::Confirmed) {
+            return 'bg-emerald-100 text-emerald-700';
+        }
+
+        if ($this->status === BookingStatusEnum::EventCancelled) {
+            return 'bg-rose-100 text-rose-700';
+        }
+
+        return 'bg-slate-100 text-slate-700';
     }
 }

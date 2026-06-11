@@ -101,110 +101,23 @@
                 </div>
             </div>
 
-            <!-- CATEGORIES -->
-            <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm mb-8">
+            @include('partials.events-browse')
 
-                <h3 class="text-lg font-semibold text-slate-900 mb-3">
-                    Event Categories
-                </h3>
+            @if ($pastEvents->isNotEmpty())
+                <div class="mt-12">
+                    <div class="mb-6">
+                        <h2 class="text-2xl font-bold text-slate-900">Past Events</h2>
+                        <p class="mt-1 text-sm text-slate-500">
+                            Completed events you can still revisit for details, tickets, and feedback.
+                        </p>
+                    </div>
 
-                <div class="flex flex-wrap gap-2 bg-slate-100 p-2 rounded-2xl">
-
-                    <!-- ALL -->
-                    <a href="{{ route('attendee.dashboard', request()->only('host')) }}"
-                        class="px-5 py-2.5 rounded-xl text-sm font-semibold transition
-                       {{ !$selectedCategory
-                           ? 'bg-gradient-to-r from-indigo-600 via-violet-600 to-purple-600 text-white shadow'
-                           : 'text-slate-600 hover:bg-white hover:text-indigo-600' }}">
-                        All Categories
-                    </a>
-
-                    <!-- CATEGORY LIST -->
-                    @foreach ($eventCategories as $category)
-                        <a href="{{ route('attendee.dashboard', array_filter(['category' => $category->id, 'host' => request('host')])) }}"
-                            class="px-5 py-2.5 rounded-xl text-sm font-medium transition
-                           {{ $selectedCategory == $category->id
-                               ? 'bg-gradient-to-r from-indigo-600 via-violet-600 to-purple-600 text-white shadow scale-105'
-                               : 'text-slate-600 hover:bg-white hover:text-indigo-600 hover:shadow-sm' }}">
-                            {{ $category->name }}
-                        </a>
-                    @endforeach
-
+                    @include('partials.events-browse', [
+                        'events' => $pastEvents,
+                        'browseSection' => 'past',
+                    ])
                 </div>
-            </div>
-
-            <!-- EVENTS -->
-            <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-
-                @forelse($events as $event)
-                    <div
-                        class="group rounded-3xl border border-slate-200 bg-white shadow-sm hover:shadow-xl transition overflow-hidden">
-
-                        @if ($event->cover)
-                            <img src="{{ asset('uploads/covers/events/' . $event->cover) }}"
-                                class="h-52 w-full object-cover group-hover:scale-105 transition duration-300">
-                        @else
-                            <div class="h-52 bg-slate-100 flex items-center justify-center text-slate-400">
-                                No Image Available
-                            </div>
-                        @endif
-
-                        <div class="p-5">
-
-                            <h3 class="font-semibold text-lg text-slate-900 line-clamp-1">
-                                {{ $event->name }}
-                            </h3>
-
-                            <p class="mt-2 text-sm text-slate-500">📅 {{ $event->date }}</p>
-                            <p class="mt-1 text-sm text-slate-500">📍 {{ $event->place }}</p>
-
-                            <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
-                                
-
-                                <div class="flex items-center gap-2">
-                                    <form action="{{ route('attendee.events.like', $event) }}" method="POST">
-                                        @csrf
-                                        <button type="submit"
-                                            aria-label="{{ $event->is_liked ? __('Unlike event') : __('Like event') }}"
-                                            title="{{ $event->is_liked ? __('Unlike') : __('Like') }}"
-                                            class="inline-flex items-center justify-center rounded-full p-2.5 text-xl transition
-                                            {{ $event->is_liked ? 'bg-[#1877F2] text-white hover:bg-[#166fe5]' : 'bg-slate-100 text-slate-500 hover:bg-slate-200' }}">
-                                            <i class="bi {{ $event->is_liked ? 'bi-hand-thumbs-up-fill' : 'bi-hand-thumbs-up' }}"
-                                                aria-hidden="true"></i>
-                                        </button>
-                                    </form>
-
-                                    <form action="{{ route('attendee.events.save', $event) }}" method="POST">
-                                        @csrf
-                                        <button type="submit"
-                                            aria-label="{{ $event->is_saved ? __('Unsave event') : __('Save event') }}"
-                                            title="{{ $event->is_saved ? __('Unsave') : __('Save') }}"
-                                            class="inline-flex items-center justify-center rounded-full p-2.5 text-xl transition
-                                            {{ $event->is_saved ? 'bg-amber-100 text-amber-600 hover:bg-amber-200' : 'bg-slate-100 text-slate-500 hover:bg-slate-200' }}">
-                                            <i class="bi {{ $event->is_saved ? 'bi-bookmark-fill' : 'bi-bookmark' }}"
-                                                aria-hidden="true"></i>
-                                        </button>
-                                    </form>
-                                </div>
-                            </div>
-
-                            <a href="{{ route('attendee.events.show', $event->id) }}"
-                                class="block mt-5 text-center rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white hover:bg-indigo-700 transition">
-                                View Details
-                            </a>
-
-                        </div>
-
-                    </div>
-
-                @empty
-
-                    <div class="col-span-full text-center p-10 rounded-3xl border bg-white text-slate-500">
-                        No active events available.
-                    </div>
-                @endforelse
-
-            </div>
+            @endif
 
         </div>
     </div>

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\EmployeeController;
+use App\Http\Controllers\Admin\SupportReportController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\Auth\GoogleAuthController;
@@ -18,8 +19,13 @@ use App\Http\Controllers\EventSaveController;
 use App\Http\Controllers\HostController;
 use App\Http\Controllers\HostLikeController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ComplaintController;
+use App\Http\Controllers\Cro\ComplaintController as CroComplaintController;
+use App\Http\Controllers\Cro\InquiryController as CroInquiryController;
 use App\Http\Controllers\Cro\RefundRequestController as CroRefundRequestController;
+use App\Http\Controllers\InquiryController;
 use App\Http\Controllers\RefundRequestController;
+use App\Http\Controllers\SupportController;
 use App\Http\Controllers\TicketBookingController;
 use App\Http\Controllers\ticketCategoryController;
 use App\Http\Controllers\WalletController;
@@ -131,6 +137,11 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/audit-logs/export/csv', [AuditLogController::class, 'exportCsv'])->name('audit-logs.export.csv');
         Route::get('/audit-logs/export/pdf', [AuditLogController::class, 'exportPdf'])->name('audit-logs.export.pdf');
 
+        // Support Reports
+        Route::get('/support-reports', [SupportReportController::class, 'index'])->name('support-reports');
+        Route::get('/support-reports/export/csv', [SupportReportController::class, 'exportCsv'])->name('support-reports.export.csv');
+        Route::get('/support-reports/export/pdf', [SupportReportController::class, 'exportPdf'])->name('support-reports.export.pdf');
+
     });
 });
 
@@ -184,6 +195,13 @@ Route::prefix('cro')->name('cro.')->middleware(['auth', 'verified', 'prevent-bac
     Route::get('/refund-requests', [CroRefundRequestController::class, 'index'])->name('refund-requests.index');
     Route::post('/refund-requests/{refundRequest}/approve', [CroRefundRequestController::class, 'approve'])->name('refund-requests.approve');
     Route::post('/refund-requests/{refundRequest}/decline', [CroRefundRequestController::class, 'decline'])->name('refund-requests.decline');
+    Route::get('/inquiries', [CroInquiryController::class, 'index'])->name('inquiries.index');
+    Route::post('/inquiries/{inquiry}/reply', [CroInquiryController::class, 'reply'])->name('inquiries.reply');
+    Route::patch('/inquiries/{inquiry}/status', [CroInquiryController::class, 'updateStatus'])->name('inquiries.update-status');
+    Route::get('/complaints', [CroComplaintController::class, 'index'])->name('complaints.index');
+    Route::post('/complaints/{complaint}/reply', [CroComplaintController::class, 'reply'])->name('complaints.reply');
+    Route::patch('/complaints/{complaint}/status', [CroComplaintController::class, 'updateStatus'])->name('complaints.update-status');
+    Route::get('/complaints/{complaint}/attachments/{attachment}', [CroComplaintController::class, 'downloadAttachment'])->name('complaints.attachments.download');
 });
 
 /*
@@ -227,6 +245,10 @@ Route::prefix('attendee')->name('attendee.')->middleware(['auth'])->group(functi
     Route::get('/wallet', [WalletController::class, 'index'])->name('wallet.index');
     Route::post('/wallet/topup', [WalletController::class, 'topup'])->name('wallet.topup');
     Route::get('/wallet/topup/success', [WalletController::class, 'topupSuccess'])->name('wallet.topup.success');
+    Route::post('/events/{event}/inquiries', [InquiryController::class, 'store'])->name('events.inquiries.store');
+    Route::post('/complaints', [ComplaintController::class, 'store'])->name('complaints.store');
+    Route::get('/support', [SupportController::class, 'index'])->name('support.index');
+    Route::get('/complaints/{complaint}/attachments/{attachment}', [ComplaintController::class, 'downloadAttachment'])->name('complaints.attachments.download');
 });
 
 /*

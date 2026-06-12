@@ -475,6 +475,55 @@
                             </div>
                         </section>
                         @endunless
+
+                        {{-- Submit Inquiry --}}
+                        <section class="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+                            <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                                <div class="flex items-center gap-3">
+                                    <div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
+                                        <i class="bi bi-question-circle" aria-hidden="true"></i>
+                                    </div>
+                                    <div>
+                                        <h2 class="text-xl font-bold text-slate-900">{{ __('Submit Inquiry') }}</h2>
+                                        <p class="text-sm text-slate-500">{{ __('Have a question about this event? Our team will get back to you.') }}</p>
+                                    </div>
+                                </div>
+                                <a href="{{ route('attendee.support.index', ['tab' => 'inquiries']) }}"
+                                    class="inline-flex items-center gap-1.5 text-sm font-semibold text-indigo-600 hover:text-indigo-800">
+                                    {{ __('View my inquiries') }}
+                                    <i class="bi bi-arrow-right"></i>
+                                </a>
+                            </div>
+
+                            <form action="{{ route('attendee.events.inquiries.store', $event) }}" method="POST" class="space-y-4">
+                                @csrf
+                                <div>
+                                    <label for="inquiry-subject" class="block text-sm font-semibold text-slate-700 mb-1">{{ __('Subject') }}</label>
+                                    <input type="text" id="inquiry-subject" name="subject" value="{{ old('subject') }}" required maxlength="255"
+                                        placeholder="{{ __('What is your question about?') }}"
+                                        class="w-full rounded-xl border border-slate-200 px-4 py-3 focus:border-indigo-500 focus:ring-indigo-500">
+                                    @error('subject')
+                                        <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                                    @enderror
+                                </div>
+                                <div>
+                                    <label for="inquiry-message" class="block text-sm font-semibold text-slate-700 mb-1">{{ __('Message') }}</label>
+                                    <textarea id="inquiry-message" name="message" rows="4" required minlength="10" maxlength="2000"
+                                        placeholder="{{ __('Provide details about your inquiry...') }}"
+                                        class="w-full rounded-xl border border-slate-200 px-4 py-3 focus:border-indigo-500 focus:ring-indigo-500">{{ old('message') }}</textarea>
+                                    @error('message')
+                                        <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                                    @enderror
+                                </div>
+                                <div class="flex justify-end">
+                                    <button type="submit"
+                                        class="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700">
+                                        <i class="bi bi-send" aria-hidden="true"></i>
+                                        {{ __('Submit Inquiry') }}
+                                    </button>
+                                </div>
+                            </form>
+                        </section>
                     </div>
 
                     {{-- Sidebar: tickets --}}

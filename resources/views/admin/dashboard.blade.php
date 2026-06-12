@@ -34,6 +34,11 @@
                     class="inline-flex items-center rounded-2xl border border-white/30 bg-white/10 backdrop-blur-sm px-5 py-3 text-sm font-semibold text-white hover:bg-white/20 transition-all duration-300">
                     Audit Logs
                 </a>
+
+                <a href="{{ route('admin.support-reports') }}"
+                    class="inline-flex items-center rounded-2xl border border-white/30 bg-white/10 backdrop-blur-sm px-5 py-3 text-sm font-semibold text-white hover:bg-white/20 transition-all duration-300">
+                    Support Reports
+                </a>
             </div>
 
         </div>
@@ -123,20 +128,20 @@
                 <div class="flex items-center justify-between">
                     <div>
                         <p class="text-sm text-slate-500">
-                            System Status
+                            Support — Pending
                         </p>
 
-                        <h3 class="mt-2 text-2xl font-bold text-emerald-600">
-                            Healthy
+                        <h3 class="mt-2 text-4xl font-bold text-amber-600">
+                            {{ $pendingSupportCount ?? 0 }}
                         </h3>
 
-                        <p class="mt-2 text-xs text-emerald-600">
-                            All services operational
+                        <p class="mt-2 text-xs text-slate-500">
+                            {{ $totalInquiries ?? 0 }} inquiries · {{ $totalComplaints ?? 0 }} complaints
                         </p>
                     </div>
 
-                    <div class="h-14 w-14 rounded-2xl bg-emerald-100 flex items-center justify-center">
-                        ✅
+                    <div class="h-14 w-14 rounded-2xl bg-amber-100 flex items-center justify-center">
+                        📋
                     </div>
                 </div>
 
@@ -250,6 +255,16 @@
                         </h4>
                         <p class="text-sm text-slate-500 mt-1">
                             Review system activity history
+                        </p>
+                    </a>
+
+                    <a href="{{ route('admin.support-reports') }}"
+                        class="block rounded-2xl bg-slate-50 border border-slate-200 p-4 hover:bg-slate-100 transition">
+                        <h4 class="font-semibold text-slate-900">
+                            Support Reports
+                        </h4>
+                        <p class="text-sm text-slate-500 mt-1">
+                            {{ $resolvedSupportCount ?? 0 }} resolved · export performance data
                         </p>
                     </a>
 

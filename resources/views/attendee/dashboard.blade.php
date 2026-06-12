@@ -103,6 +103,72 @@
 
             @include('partials.events-browse')
 
+            {{-- Submit Complaint --}}
+            <section class="mt-12 rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+                <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-rose-50 text-rose-600">
+                            <i class="bi bi-exclamation-circle" aria-hidden="true"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-xl font-bold text-slate-900">Submit a Complaint</h2>
+                            <p class="text-sm text-slate-500">Report an issue with your experience. Attach screenshots or PDFs if helpful.</p>
+                        </div>
+                    </div>
+                    <a href="{{ route('attendee.support.index', ['tab' => 'complaints']) }}"
+                        class="inline-flex items-center gap-1.5 text-sm font-semibold text-indigo-600 hover:text-indigo-800">
+                        View my complaints
+                        <i class="bi bi-arrow-right"></i>
+                    </a>
+                </div>
+
+                @if(session('success'))
+                    <div class="mb-6 rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-emerald-800">
+                        {{ session('success') }}
+                    </div>
+                @endif
+
+                @if($errors->any())
+                    <div class="mb-6 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-red-800">
+                        <ul class="list-disc pl-5 space-y-1 text-sm">
+                            @foreach($errors->all() as $error)
+                                <li>{{ $error }}</li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
+
+                <form action="{{ route('attendee.complaints.store') }}" method="POST" enctype="multipart/form-data" class="space-y-4">
+                    @csrf
+                    <div>
+                        <label for="complaint-subject" class="block text-sm font-semibold text-slate-700 mb-1">Subject</label>
+                        <input type="text" id="complaint-subject" name="subject" value="{{ old('subject') }}" required maxlength="255"
+                            placeholder="Brief summary of your complaint"
+                            class="w-full rounded-xl border border-slate-200 px-4 py-3 focus:border-indigo-500 focus:ring-indigo-500">
+                    </div>
+                    <div>
+                        <label for="complaint-message" class="block text-sm font-semibold text-slate-700 mb-1">Message</label>
+                        <textarea id="complaint-message" name="message" rows="4" required minlength="10" maxlength="2000"
+                            placeholder="Describe your complaint in detail..."
+                            class="w-full rounded-xl border border-slate-200 px-4 py-3 focus:border-indigo-500 focus:ring-indigo-500">{{ old('message') }}</textarea>
+                    </div>
+                    <div>
+                        <label for="complaint-attachments" class="block text-sm font-semibold text-slate-700 mb-1">
+                            Attachments <span class="font-normal text-slate-500">(optional — JPG, PNG, PDF, max 5 MB each, up to 5 files)</span>
+                        </label>
+                        <input type="file" id="complaint-attachments" name="attachments[]" multiple accept=".jpg,.jpeg,.png,.pdf"
+                            class="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm file:mr-4 file:rounded-lg file:border-0 file:bg-indigo-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-indigo-700">
+                    </div>
+                    <div class="flex justify-end">
+                        <button type="submit"
+                            class="inline-flex items-center gap-2 rounded-xl bg-rose-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-rose-700">
+                            <i class="bi bi-send" aria-hidden="true"></i>
+                            Submit Complaint
+                        </button>
+                    </div>
+                </form>
+            </section>
+
             @if ($pastEvents->isNotEmpty())
                 <div class="mt-12">
                     <div class="mb-6">

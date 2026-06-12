@@ -3,9 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Enums\RefundRequestStatusEnum;
+use App\Enums\SupportTicketStatusEnum;
+use App\Models\Complaint;
 use App\Models\Event;
 use App\Models\EventCategory;
 use App\Models\Host;
+use App\Models\Inquiry;
 use App\Models\RefundRequest;
 use App\Models\User;
 use App\Models\UserRole;
@@ -45,11 +48,21 @@ class DashboardController extends Controller
         $totalUsers = User::count();
         $pendingVerifications = User::whereNull('email_verified_at')->count();
         $lockedAccounts = User::where('is_locked', 1)->count();
+        $totalInquiries = Inquiry::count();
+        $totalComplaints = Complaint::count();
+        $pendingSupportCount = Inquiry::whereIn('status', [SupportTicketStatusEnum::Open, SupportTicketStatusEnum::InProgress])->count()
+            + Complaint::whereIn('status', [SupportTicketStatusEnum::Open, SupportTicketStatusEnum::InProgress])->count();
+        $resolvedSupportCount = Inquiry::where('status', SupportTicketStatusEnum::Resolved)->count()
+            + Complaint::where('status', SupportTicketStatusEnum::Resolved)->count();
 
         return view('admin.dashboard', compact(
             'totalUsers',
             'pendingVerifications',
-            'lockedAccounts'
+            'lockedAccounts',
+            'totalInquiries',
+            'totalComplaints',
+            'pendingSupportCount',
+            'resolvedSupportCount',
         ));
     }
 
@@ -97,7 +110,18 @@ class DashboardController extends Controller
             ])
             ->count();
 
-        return view('cro.dashboard', compact('pendingRefundCount', 'processedRefundCount'));
+        $openInquiryCount = Inquiry::where('status', SupportTicketStatusEnum::Open)->count();
+        $openComplaintCount = Complaint::where('status', SupportTicketStatusEnum::Open)->count();
+        $inProgressCount = Inquiry::where('status', SupportTicketStatusEnum::InProgress)->count()
+            + Complaint::where('status', SupportTicketStatusEnum::InProgress)->count();
+
+        return view('cro.dashboard', compact(
+            'pendingRefundCount',
+            'processedRefundCount',
+            'openInquiryCount',
+            'openComplaintCount',
+            'inProgressCount',
+        ));
     }
 
     /**

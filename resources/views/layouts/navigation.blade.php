@@ -64,6 +64,14 @@
                             Tickets
                         </a>
 
+                        <a href="{{ route('attendee.support.index') }}"
+                            class="px-4 py-2 rounded-xl text-sm font-medium transition
+                            {{ request()->routeIs('attendee.support.*')
+                                ? 'bg-indigo-50 text-indigo-600'
+                                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900' }}">
+                            Support
+                        </a>
+
                     @else
 
                         <a href="{{ route('attendee.dashboard') }}"
@@ -264,6 +272,11 @@
                             {{ $reservedTicketCount }}
                         </span>
                     @endif
+                </a>
+
+                <a href="{{ route('attendee.support.index') }}"
+                    class="block px-4 py-3 rounded-xl hover:bg-slate-100">
+                    Support
                 </a>
 
                 <a href="{{ route('attendee.cart.index') }}"

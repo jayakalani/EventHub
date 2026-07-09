@@ -20,8 +20,13 @@
             </div>
 
             <div class="flex flex-wrap gap-3">
-                <a href="{{ route('admin.users') }}"
+                <a href="{{ route('admin.reports') }}"
                     class="inline-flex items-center rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-indigo-600 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+                    Reports
+                </a>
+
+                <a href="{{ route('admin.users') }}"
+                    class="inline-flex items-center rounded-2xl border border-white/30 bg-white/10 backdrop-blur-sm px-5 py-3 text-sm font-semibold text-white hover:bg-white/20 transition-all duration-300">
                     Manage Users
                 </a>
 
@@ -237,6 +242,16 @@
                 </div>
 
                 <div class="p-6 space-y-4">
+
+                    <a href="{{ route('admin.reports') }}"
+                        class="block rounded-2xl bg-slate-50 border border-slate-200 p-4 hover:bg-slate-100 transition">
+                        <h4 class="font-semibold text-slate-900">
+                            Reports & Analytics
+                        </h4>
+                        <p class="text-sm text-slate-500 mt-1">
+                            Visual insights across users, payments, and system activity
+                        </p>
+                    </a>
 
                     <a href="{{ route('admin.users') }}"
                         class="block rounded-2xl bg-slate-50 border border-slate-200 p-4 hover:bg-slate-100 transition">

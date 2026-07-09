@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Models\UserRole;
 use App\Services\EventCancellationService;
 use App\Services\EventCompletionService;
+use App\Services\EventNotificationService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -21,6 +22,7 @@ class EventController extends Controller
     public function __construct(
         protected EventCancellationService $eventCancellationService,
         protected EventCompletionService $eventCompletionService,
+        protected EventNotificationService $eventNotificationService,
     ) {}
 
     /**
@@ -184,8 +186,15 @@ class EventController extends Controller
             ]);
         }
 
-        $event->status = $request->status;
+        $wasUnpublished = $event->status === Event::STATUS_UNPUBLISHED;
+        $newStatus = $request->status;
+
+        $event->status = $newStatus;
         $event->save();
+
+        if ($wasUnpublished && in_array($newStatus, [Event::STATUS_UPCOMING, Event::STATUS_ONGOING], true)) {
+            $this->eventNotificationService->notifyNewEventPublished($event);
+        }
 
         return back()->with('success', 'Event status updated successfully.');
     }
@@ -258,6 +267,8 @@ class EventController extends Controller
             $file->move('uploads/covers/events/', $fileName);
         }
 
+        $original = $event->only(EventNotificationService::UPDATABLE_FIELDS);
+
         $event->name = $validatedData['name'];
         $event->hosted_by = $validatedData['hosted_by'];
         $event->category_id = $validatedData['category_id'];
@@ -268,9 +279,14 @@ class EventController extends Controller
         $event->description = $validatedData['description'];
         $event->contact_person = $validatedData['contact_person'];
         $event->cover = $fileName ?? $event->cover;
-        // 'status'        => 'upcoming',
 
         $event->save();
+
+        $changes = EventNotificationService::buildChangesFromEvent($event, $original);
+
+        if ($changes !== []) {
+            $this->eventNotificationService->notifyEventUpdated($event, $changes);
+        }
 
         return redirect()->route('organizer.events.index')->with('success', 'Event updated successfully.');
     }

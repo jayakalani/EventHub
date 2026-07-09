@@ -1,12 +1,14 @@
 <?php
 
 use App\Http\Controllers\Admin\EmployeeController;
+use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\SupportReportController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\Auth\GoogleAuthController;
 use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\CalendarController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\DashboardController;
@@ -22,7 +24,10 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ComplaintController;
 use App\Http\Controllers\Cro\ComplaintController as CroComplaintController;
 use App\Http\Controllers\Cro\InquiryController as CroInquiryController;
+use App\Http\Controllers\Cro\ReportController as CroReportController;
 use App\Http\Controllers\Cro\RefundRequestController as CroRefundRequestController;
+use App\Http\Controllers\Organizer\ReportController as OrganizerReportController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\InquiryController;
 use App\Http\Controllers\RefundRequestController;
 use App\Http\Controllers\SupportController;
@@ -142,6 +147,11 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/support-reports/export/csv', [SupportReportController::class, 'exportCsv'])->name('support-reports.export.csv');
         Route::get('/support-reports/export/pdf', [SupportReportController::class, 'exportPdf'])->name('support-reports.export.pdf');
 
+        // Reports & Analytics
+        Route::get('/reports', [ReportController::class, 'index'])->name('reports');
+        Route::get('/reports/export/excel', [ReportController::class, 'exportExcel'])->name('reports.export.excel');
+        Route::get('/reports/export/pdf', [ReportController::class, 'exportPdf'])->name('reports.export.pdf');
+
     });
 });
 
@@ -183,6 +193,11 @@ Route::prefix('organizer')->name('organizer.')->middleware(['auth', 'verified', 
     Route::get('hosts/{id}/edit', [HostController::class, 'edit'])->name('hosts.edit');
     Route::put('hosts/{id}', [HostController::class, 'update'])->name('hosts.update');
     Route::delete('hosts/{id}', [HostController::class, 'destroy'])->name('hosts.destroy');
+
+    // Reports & Analytics
+    Route::get('/reports', [OrganizerReportController::class, 'index'])->name('reports');
+    Route::get('/reports/export/excel', [OrganizerReportController::class, 'exportExcel'])->name('reports.export.excel');
+    Route::get('/reports/export/pdf', [OrganizerReportController::class, 'exportPdf'])->name('reports.export.pdf');
 });
 
 /*
@@ -202,6 +217,11 @@ Route::prefix('cro')->name('cro.')->middleware(['auth', 'verified', 'prevent-bac
     Route::post('/complaints/{complaint}/reply', [CroComplaintController::class, 'reply'])->name('complaints.reply');
     Route::patch('/complaints/{complaint}/status', [CroComplaintController::class, 'updateStatus'])->name('complaints.update-status');
     Route::get('/complaints/{complaint}/attachments/{attachment}', [CroComplaintController::class, 'downloadAttachment'])->name('complaints.attachments.download');
+
+    // Reports & Analytics
+    Route::get('/reports', [CroReportController::class, 'index'])->name('reports');
+    Route::get('/reports/export/excel', [CroReportController::class, 'exportExcel'])->name('reports.export.excel');
+    Route::get('/reports/export/pdf', [CroReportController::class, 'exportPdf'])->name('reports.export.pdf');
 });
 
 /*
@@ -222,6 +242,7 @@ Route::prefix('attendee')->name('attendee.')->middleware(['auth'])->group(functi
     Route::get('/hosts', [HostController::class, 'attendeeIndex'])->name('hosts.index');
     Route::get('/hosts/{host}', [HostController::class, 'attendeeShow'])->name('hosts.show');
     Route::post('/hosts/{host}/like', [HostLikeController::class, 'toggle'])->name('hosts.like');
+    Route::get('/calendar', [CalendarController::class, 'index'])->name('calendar.index');
     Route::get('/cart', [CartController::class, 'index'])->name('cart.index');
     Route::post('/events/{event}/cart', [CartController::class, 'store'])->name('cart.store');
     Route::put('/cart/items/{cartItem}', [CartController::class, 'update'])->name('cart.update');
@@ -267,6 +288,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+
+    Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
+    Route::get('/notifications/{id}/read', [NotificationController::class, 'markAsRead'])->name('notifications.read');
+    Route::post('/notifications/{id}/unread', [NotificationController::class, 'markAsUnread'])->name('notifications.unread');
+    Route::post('/notifications/read-all', [NotificationController::class, 'markAllAsRead'])->name('notifications.read-all');
 
     // Two-Factor Authentication Management
     Route::post('/user/two-factor-authentication', [TwoFactorController::class, 'enable'])

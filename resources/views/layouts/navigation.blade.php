@@ -64,6 +64,14 @@
                             Tickets
                         </a>
 
+                        <a href="{{ route('attendee.calendar.index') }}"
+                            class="px-4 py-2 rounded-xl text-sm font-medium transition
+                            {{ request()->routeIs('attendee.calendar.*')
+                                ? 'bg-indigo-50 text-indigo-600'
+                                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900' }}">
+                            Calendar
+                        </a>
+
                         <a href="{{ route('attendee.support.index') }}"
                             class="px-4 py-2 rounded-xl text-sm font-medium transition
                             {{ request()->routeIs('attendee.support.*')
@@ -143,6 +151,76 @@
                     </a>
 
                 @endif
+
+                {{-- Notifications --}}
+                <div class="hidden sm:block">
+                    <x-dropdown align="right" width="w-80">
+                        <x-slot name="trigger">
+                            <button type="button"
+                                title="Notifications"
+                                aria-label="Notifications"
+                                class="relative flex items-center justify-center h-10 w-10 rounded-xl transition
+                                {{ request()->routeIs('notifications.*')
+                                    ? 'bg-indigo-50 text-indigo-600'
+                                    : 'bg-slate-100 hover:bg-slate-200 text-slate-700' }}">
+
+                                <svg xmlns="http://www.w3.org/2000/svg"
+                                    class="h-5 w-5"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor">
+                                    <path stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        stroke-width="2"
+                                        d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+                                </svg>
+
+                                @if(($unreadNotificationCount ?? 0) > 0)
+                                    <span class="absolute -top-1 -right-1 h-5 min-w-5 rounded-full bg-red-500 px-1 text-white text-xs flex items-center justify-center font-bold">
+                                        {{ $unreadNotificationCount > 9 ? '9+' : $unreadNotificationCount }}
+                                    </span>
+                                @endif
+                            </button>
+                        </x-slot>
+
+                        <x-slot name="content">
+                            <div class="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+                                <p class="font-semibold text-slate-900">Notifications</p>
+                                @if(($unreadNotificationCount ?? 0) > 0)
+                                    <form method="POST" action="{{ route('notifications.read-all') }}">
+                                        @csrf
+                                        <button type="submit" class="text-xs font-semibold text-indigo-600 hover:text-indigo-700">
+                                            Mark all read
+                                        </button>
+                                    </form>
+                                @endif
+                            </div>
+
+                            @forelse($recentNotifications ?? [] as $notification)
+                                @php
+                                    $data = $notification->data;
+                                    $isUnread = is_null($notification->read_at);
+                                @endphp
+                                <a href="{{ $isUnread ? route('notifications.read', $notification->id) : ($data['url'] ?? route('notifications.index')) }}"
+                                    class="block px-4 py-3 border-b border-slate-50 hover:bg-slate-50 transition {{ $isUnread ? 'bg-indigo-50/50' : '' }}">
+                                    <p class="text-sm font-medium text-slate-900 line-clamp-2">{{ $data['message'] ?? 'Notification' }}</p>
+                                    <p class="mt-1 text-xs text-slate-500">{{ $notification->created_at->diffForHumans() }}</p>
+                                </a>
+                            @empty
+                                <div class="px-4 py-6 text-center text-sm text-slate-500">
+                                    No notifications yet.
+                                </div>
+                            @endforelse
+
+                            <div class="px-4 py-3">
+                                <a href="{{ route('notifications.index') }}"
+                                    class="block text-center text-sm font-semibold text-indigo-600 hover:text-indigo-700">
+                                    View all notifications
+                                </a>
+                            </div>
+                        </x-slot>
+                    </x-dropdown>
+                </div>
 
                 {{-- Profile Dropdown --}}
                 <div class="hidden sm:block">
@@ -252,6 +330,16 @@
 
         <div class="px-4 py-4 space-y-2">
 
+            <a href="{{ route('notifications.index') }}"
+                class="flex items-center justify-between px-4 py-3 rounded-xl hover:bg-slate-100">
+                <span>Notifications</span>
+                @if(($unreadNotificationCount ?? 0) > 0)
+                    <span class="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-xs font-bold text-white">
+                        {{ $unreadNotificationCount > 9 ? '9+' : $unreadNotificationCount }}
+                    </span>
+                @endif
+            </a>
+
             @if($isAttendee)
 
                 <a href="{{ route('attendee.dashboard') }}"
@@ -272,6 +360,11 @@
                             {{ $reservedTicketCount }}
                         </span>
                     @endif
+                </a>
+
+                <a href="{{ route('attendee.calendar.index') }}"
+                    class="block px-4 py-3 rounded-xl hover:bg-slate-100">
+                    Calendar
                 </a>
 
                 <a href="{{ route('attendee.support.index') }}"

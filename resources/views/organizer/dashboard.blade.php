@@ -11,6 +11,11 @@
             </div>
 
             <div class="flex flex-wrap gap-2">
+                <a href="{{ route('organizer.reports') }}"
+                    class="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-full text-sm font-semibold shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition">
+                    Reports
+                </a>
+
                 <a href="{{ route('organizer.events.index') }}"
                     class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-full text-sm font-semibold shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition">
                     All Events
@@ -137,6 +142,11 @@
 
                     <div class="space-y-3 px-6 py-6 sm:px-8">
 
+                        <a href="{{ route('organizer.reports') }}"
+                            class="block rounded-2xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm font-semibold text-indigo-700 hover:bg-indigo-100 transition">
+                            Reports & Analytics
+                        </a>
+
                         <a href="{{ route('organizer.events.index') }}"
                             class="block rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-900 hover:bg-slate-100 transition">
                             Manage Events
@@ -152,10 +162,10 @@
                             All Hosts
                         </a>
 
-                        <button
-                            class="w-full rounded-2xl bg-green-600 px-4 py-3 text-sm font-semibold text-white hover:bg-green-700 transition">
-                            Manage Attendees
-                        </button>
+                        <a href="{{ route('organizer.reports', ['tab' => 'attendees']) }}"
+                            class="block rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-900 hover:bg-slate-100 transition">
+                            View Attendees
+                        </a>
 
                     </div>
                 </aside>

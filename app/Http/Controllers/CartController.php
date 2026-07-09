@@ -70,13 +70,17 @@ class CartController extends Controller
         }
 
         if ($existingItem) {
-            $existingItem->update(['quantity' => $proposedQuantity]);
+            $existingItem->update([
+                'quantity' => $proposedQuantity,
+                'reserved_until' => now()->addMinutes((int) config('cart.reservation_minutes', 30)),
+            ]);
         } else {
             CartItem::create([
                 'user_id' => Auth::id(),
                 'event_id' => $event->id,
                 'ticket_category_id' => $category->id,
                 'quantity' => $validated['quantity'],
+                'reserved_until' => now()->addMinutes((int) config('cart.reservation_minutes', 30)),
             ]);
         }
 
@@ -125,7 +129,10 @@ class CartController extends Controller
             return back()->withErrors(['quantity' => $error]);
         }
 
-        $cartItem->update(['quantity' => $validated['quantity']]);
+        $cartItem->update([
+            'quantity' => $validated['quantity'],
+            'reserved_until' => now()->addMinutes((int) config('cart.reservation_minutes', 30)),
+        ]);
 
         return back()->with('success', 'Cart updated successfully.');
     }

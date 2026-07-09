@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\BookingStatusEnum;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -78,6 +79,11 @@ class Event extends Model
         return now()->gt(Carbon::parse($this->date)->endOfDay());
     }
 
+    public function startsAt(): Carbon
+    {
+        return Carbon::parse($this->date.' '.$this->time);
+    }
+
     public function isLocked(): bool
     {
         return $this->isCompleted() || $this->isCancelled();
@@ -95,6 +101,36 @@ class Event extends Model
         return $query
             ->visibleToAttendees()
             ->where('status', self::STATUS_COMPLETED);
+    }
+
+    public function scopeBookedByUser($query, int $userId)
+    {
+        return $query->whereHas('ticketBookings', function ($bookingQuery) use ($userId) {
+            $bookingQuery
+                ->where('user_id', $userId)
+                ->where('status', BookingStatusEnum::Confirmed);
+        });
+    }
+
+    public function calendarDisplayStatus(): string
+    {
+        if ($this->isCancelled()) {
+            return 'cancelled';
+        }
+
+        if ($this->isCompleted()) {
+            return 'completed';
+        }
+
+        if ($this->status === self::STATUS_ONGOING) {
+            return 'ongoing';
+        }
+
+        if ($this->status === self::STATUS_UPCOMING && $this->startsAt()->isToday()) {
+            return 'ongoing';
+        }
+
+        return 'upcoming';
     }
 
     public function ensureViewable(): void

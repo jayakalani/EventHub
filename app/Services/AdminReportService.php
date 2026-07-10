@@ -2,9 +2,12 @@
 
 namespace App\Services;
 
+use App\Enums\BookingStatusEnum;
 use App\Enums\PaymentStatusEnum;
 use App\Enums\RefundRequestStatusEnum;
+use App\Enums\SupportTicketStatusEnum;
 use App\Models\AuditLog;
+use App\Models\CartItem;
 use App\Models\Complaint;
 use App\Models\Event;
 use App\Models\EventCategory;
@@ -20,6 +23,80 @@ use Illuminate\Support\Facades\DB;
 
 class AdminReportService
 {
+    /**
+     * @return array<string, mixed>
+     */
+    public function getDashboardData(): array
+    {
+        $users = $this->getUserReports();
+        $payments = $this->getPaymentReports();
+        $admin = $this->getAdminReports();
+        $chartLabels = $this->lastSixMonthLabels();
+
+        $eventsByStatus = collect($admin['eventsByStatus'])->keyBy('label');
+        $statusCount = fn (string $label): int => (int) ($eventsByStatus->get(ucfirst($label))['count'] ?? 0);
+
+        $currentMonthUsers = (int) ($users['registrationTrend'][count($users['registrationTrend']) - 1] ?? 0);
+        $previousMonthUsers = (int) ($users['registrationTrend'][count($users['registrationTrend']) - 2] ?? 0);
+        $userGrowthPercent = $previousMonthUsers > 0
+            ? round((($currentMonthUsers - $previousMonthUsers) / $previousMonthUsers) * 100, 1)
+            : ($currentMonthUsers > 0 ? 100.0 : 0.0);
+
+        $ticketSalesByCategory = $this->ticketSalesByCategory();
+        $monthlyRevenue = collect($chartLabels)
+            ->zip($payments['revenueTrend'])
+            ->map(fn ($pair) => ['month' => $pair[0], 'amount' => $pair[1]])
+            ->all();
+
+        return [
+            'chartLabels' => $chartLabels,
+            'userGrowthPercent' => $userGrowthPercent,
+            'users' => [
+                'total' => $users['totalUsers'],
+                'active' => $users['activeUsers'],
+                'inactive' => $users['inactiveUsers'],
+                'verified' => $users['verifiedUsers'],
+                'newThisMonth' => $users['newUsersThisMonth'],
+                'byRole' => $users['usersByRole'],
+                'registrationTrend' => $users['registrationTrend'],
+            ],
+            'events' => [
+                'total' => $admin['totalEvents'],
+                'categories' => $admin['totalCategories'],
+                'ongoing' => $statusCount('ongoing'),
+                'completed' => $statusCount('completed'),
+                'upcoming' => $statusCount('upcoming'),
+                'cancelled' => $statusCount('cancelled'),
+                'unpublished' => $statusCount('unpublished'),
+                'byStatus' => $admin['eventsByStatus'],
+            ],
+            'tickets' => $this->getTicketReports(),
+            'revenue' => [
+                'gross' => $payments['totalRevenue'],
+                'net' => $payments['netRevenue'],
+                'refunded' => $payments['totalRefunded'],
+                'monthly' => $monthlyRevenue,
+                'trend' => $payments['revenueTrend'],
+            ],
+            'payments' => [
+                'completed' => $this->paymentCountByStatus(PaymentStatusEnum::Completed),
+                'pending' => $payments['pendingPayments'],
+                'failed' => $payments['failedPayments'],
+                'cancelled' => $payments['cancelledPayments'],
+                'refunded' => RefundRequest::where('status', RefundRequestStatusEnum::Approved)->count(),
+                'pendingAmount' => $payments['pendingAmount'],
+                'byStatus' => $payments['paymentsByStatus'],
+            ],
+            'support' => $this->getSupportDashboardStats(),
+            'charts' => [
+                'userGrowth' => $users['registrationTrend'],
+                'revenue' => $payments['revenueTrend'],
+                'ticketSalesByCategory' => $ticketSalesByCategory,
+            ],
+            'recentActivity' => $this->getSystemReports()['recentAuditLogs'],
+        ];
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -290,6 +367,106 @@ class AdminReportService
             ])
             ->values()
             ->all();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function getTicketReports(): array
+    {
+        $reservationMinutes = (int) config('cart.reservation_minutes', 30);
+
+        $reservedTickets = (int) CartItem::query()
+            ->where(function ($query) use ($reservationMinutes) {
+                $query->where('reserved_until', '>', now())
+                    ->orWhere(function ($inner) use ($reservationMinutes) {
+                        $inner->whereNull('reserved_until')
+                            ->where('updated_at', '>=', now()->subMinutes($reservationMinutes));
+                    });
+            })
+            ->sum('quantity');
+
+        return [
+            'sold' => ticketBooking::where('status', BookingStatusEnum::Confirmed)->count(),
+            'cancelled' => ticketBooking::whereIn('status', [
+                BookingStatusEnum::BookingCancelled,
+                BookingStatusEnum::EventCancelled,
+            ])->count(),
+            'refunded' => ticketBooking::where('status', BookingStatusEnum::Refunded)->count(),
+            'reserved' => $reservedTickets,
+            'total' => ticketBooking::count(),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function getSupportDashboardStats(): array
+    {
+        $openStatuses = [SupportTicketStatusEnum::Open, SupportTicketStatusEnum::InProgress];
+        $handledStatuses = [SupportTicketStatusEnum::Resolved, SupportTicketStatusEnum::Closed];
+
+        $totalInquiries = Inquiry::count();
+        $totalComplaints = Complaint::count();
+        $pendingCount = Inquiry::whereIn('status', $openStatuses)->count()
+            + Complaint::whereIn('status', $openStatuses)->count();
+        $resolvedCount = Inquiry::whereIn('status', $handledStatuses)->count()
+            + Complaint::whereIn('status', $handledStatuses)->count();
+
+        $croRoleId = UserRole::query()->where('name_en', UserRole::CRO)->value('id');
+
+        $croPerformance = User::query()
+            ->where('role_id', $croRoleId)
+            ->get()
+            ->map(function (User $cro) use ($openStatuses, $handledStatuses) {
+                $assignedInquiries = Inquiry::where('assigned_to', $cro->id);
+                $assignedComplaints = Complaint::where('assigned_to', $cro->id);
+
+                return [
+                    'name' => $cro->full_name,
+                    'totalAssigned' => (clone $assignedInquiries)->count() + (clone $assignedComplaints)->count(),
+                    'handled' => (clone $assignedInquiries)->whereIn('status', $handledStatuses)->count()
+                        + (clone $assignedComplaints)->whereIn('status', $handledStatuses)->count(),
+                    'active' => (clone $assignedInquiries)->whereIn('status', $openStatuses)->count()
+                        + (clone $assignedComplaints)->whereIn('status', $openStatuses)->count(),
+                ];
+            })
+            ->sortByDesc('handled')
+            ->values()
+            ->all();
+
+        return [
+            'totalRequests' => $totalInquiries + $totalComplaints,
+            'inquiries' => $totalInquiries,
+            'complaints' => $totalComplaints,
+            'pending' => $pendingCount,
+            'resolved' => $resolvedCount,
+            'croPerformance' => $croPerformance,
+        ];
+    }
+
+    /**
+     * @return list<array{label: string, count: int}>
+     */
+    private function ticketSalesByCategory(): array
+    {
+        return ticketBooking::query()
+            ->join('events', 'ticket_bookings.event_id', '=', 'events.id')
+            ->join('event_categories', 'events.category_id', '=', 'event_categories.id')
+            ->where('ticket_bookings.status', BookingStatusEnum::Confirmed)
+            ->select('event_categories.name as label', DB::raw('COUNT(*) as count'))
+            ->groupBy('event_categories.name')
+            ->orderByDesc('count')
+            ->limit(8)
+            ->get()
+            ->map(fn ($row) => ['label' => $row->label, 'count' => (int) $row->count])
+            ->values()
+            ->all();
+    }
+
+    private function paymentCountByStatus(PaymentStatusEnum $status): int
+    {
+        return Payment::where('status', $status)->count();
     }
 
     /**

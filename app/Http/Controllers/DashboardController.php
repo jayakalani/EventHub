@@ -12,6 +12,7 @@ use App\Models\Inquiry;
 use App\Models\RefundRequest;
 use App\Models\User;
 use App\Models\UserRole;
+use App\Services\AdminReportService;
 use App\Services\EventCompletionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -21,6 +22,7 @@ class DashboardController extends Controller
 {
     public function __construct(
         protected EventCompletionService $eventCompletionService,
+        protected AdminReportService $adminReportService,
     ) {}
 
     /**
@@ -45,25 +47,9 @@ class DashboardController extends Controller
      */
     public function admin(): View
     {
-        $totalUsers = User::count();
-        $pendingVerifications = User::whereNull('email_verified_at')->count();
-        $lockedAccounts = User::where('is_locked', 1)->count();
-        $totalInquiries = Inquiry::count();
-        $totalComplaints = Complaint::count();
-        $pendingSupportCount = Inquiry::whereIn('status', [SupportTicketStatusEnum::Open, SupportTicketStatusEnum::InProgress])->count()
-            + Complaint::whereIn('status', [SupportTicketStatusEnum::Open, SupportTicketStatusEnum::InProgress])->count();
-        $resolvedSupportCount = Inquiry::where('status', SupportTicketStatusEnum::Resolved)->count()
-            + Complaint::where('status', SupportTicketStatusEnum::Resolved)->count();
+        $dashboard = $this->adminReportService->getDashboardData();
 
-        return view('admin.dashboard', compact(
-            'totalUsers',
-            'pendingVerifications',
-            'lockedAccounts',
-            'totalInquiries',
-            'totalComplaints',
-            'pendingSupportCount',
-            'resolvedSupportCount',
-        ));
+        return view('admin.dashboard', compact('dashboard'));
     }
 
     /**

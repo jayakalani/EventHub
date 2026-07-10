@@ -8,6 +8,7 @@ export default defineConfig({
                 'resources/css/app.css',
                 'resources/js/app.js',
                 'resources/js/admin-reports.js',
+                'resources/js/admin-dashboard.js',
                 'resources/js/organizer-reports.js',
                 'resources/js/cro-reports.js',
             ],

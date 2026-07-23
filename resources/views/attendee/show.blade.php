@@ -20,13 +20,13 @@
                 <a href="{{ route('attendee.dashboard') }}"
                     class="inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 transition hover:text-indigo-600">
                     <i class="bi bi-arrow-left" aria-hidden="true"></i>
-                    Back to events
+                    {{ t(['en' => 'Back to events', 'si' => 'ප්‍රසංගය වෙත ආපසු']) }}
                 </a>
                 <h2 class="mt-2 text-3xl font-bold tracking-tight text-slate-900">
                     {{ $event->name }}
                 </h2>
                 <p class="mt-1 text-slate-500">
-                    View details, reserve tickets, and join the conversation.
+                    {{ t(['en' => 'View details, reserve tickets, and join the conversation.', 'si' => 'විස්තර බලන්න, ටිකට් වෙන්කරවා ගෙන සාකච්ඡාවට එකතු වන්න.']) }}
                 </p>
             </div>
 
@@ -35,7 +35,7 @@
                 <form action="{{ route('attendee.events.like', $event) }}" method="POST">
                     @csrf
                     <button type="submit"
-                        aria-label="{{ $isLiked ? __('Unlike event') : __('Like event') }}"
+                        aria-label="{{ $isLiked ? t(['en' => 'Unlike event', 'si' => 'කැමති ඉවත් කරන්න']) : t(['en' => 'Like event', 'si' => 'කැමති වන්න']) }}"
                         class="inline-flex items-center gap-2 rounded-2xl border px-4 py-2.5 text-sm font-semibold transition
                         {{ $isLiked ? 'border-[#1877F2] bg-[#1877F2] text-white' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300' }}">
                         <i class="bi {{ $isLiked ? 'bi-hand-thumbs-up-fill' : 'bi-hand-thumbs-up' }}" aria-hidden="true"></i>
@@ -46,11 +46,11 @@
                 <form action="{{ route('attendee.events.save', $event) }}" method="POST">
                     @csrf
                     <button type="submit"
-                        aria-label="{{ $isSaved ? __('Unsave event') : __('Save event') }}"
+                        aria-label="{{ $isSaved ? t(['en' => 'Unsave event', 'si' => 'සුරැකීම ඉවත් කරන්න']) : t(['en' => 'Save event', 'si' => 'ප්‍රසංගය සුරකින්න']) }}"
                         class="inline-flex items-center gap-2 rounded-2xl border px-4 py-2.5 text-sm font-semibold transition
                         {{ $isSaved ? 'border-amber-500 bg-amber-500 text-white' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300' }}">
                         <i class="bi {{ $isSaved ? 'bi-bookmark-fill' : 'bi-bookmark' }}" aria-hidden="true"></i>
-                        {{ $isSaved ? __('Saved') : __('Save') }}
+                        {{ $isSaved ? t(['en' => 'Saved', 'si' => 'සුරකින ලදී']) : t(['en' => 'Save', 'si' => 'සුරකින්න']) }}
                     </button>
                 </form>
                 @endunless
@@ -69,7 +69,7 @@
                                 <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
                             </div>
                             <div>
-                                <h3 class="font-semibold text-red-800">Something went wrong</h3>
+                                <h3 class="font-semibold text-red-800">{{ t(['en' => 'Something went wrong', 'si' => 'යමක් වැරදී ඇත']) }}</h3>
                                 <ul class="mt-2 space-y-1 text-sm text-red-700">
                                     @foreach ($errors->all() as $error)
                                         <li>{{ $error }}</li>
@@ -89,11 +89,11 @@
                                     <i class="bi bi-check-circle-fill" aria-hidden="true"></i>
                                 </div>
                                 <div>
-                                    <h3 class="font-semibold text-emerald-800">Success</h3>
+                                    <h3 class="font-semibold text-emerald-800">{{ t(['en' => 'Success', 'si' => 'සාර්ථකයි']) }}</h3>
                                     <p class="mt-1 text-sm text-emerald-700">{{ session('success') }}</p>
                                 </div>
                             </div>
-                            <button @click="show=false" class="text-emerald-600 hover:text-emerald-800" aria-label="Dismiss">
+                            <button @click="show=false" class="text-emerald-600 hover:text-emerald-800" aria-label="{{ t(['en' => 'Dismiss', 'si' => 'ඉවතලන්න']) }}">
                                 <i class="bi bi-x-lg" aria-hidden="true"></i>
                             </button>
                         </div>
@@ -107,12 +107,12 @@
                                 <i class="bi bi-x-circle-fill" aria-hidden="true"></i>
                             </div>
                             <div>
-                                <h3 class="font-semibold text-rose-900">Event Cancelled</h3>
+                                <h3 class="font-semibold text-rose-900">{{ t(['en' => 'Event Cancelled', 'si' => 'ප්‍රසංගය අවලංගුයි']) }}</h3>
                                 @if ($event->cancellation_reason)
                                     <p class="mt-2 text-sm leading-relaxed text-rose-800">{{ $event->cancellation_reason }}</p>
                                 @endif
                                 <p class="mt-3 text-sm text-rose-700">
-                                    This event is no longer available for booking or interaction. If you purchased tickets, refunds have been processed to your wallet.
+                                    {{ t(['en' => 'This event is no longer available for booking or interaction. If you purchased tickets, refunds have been processed to your wallet.', 'si' => 'මෙම ප්‍රසංගය තවදුරටත් වෙන්කිරීම හෝ අන්තර්ක්‍රියා සඳහා ලබා ගත නොහැක. ඔබ ටිකට් මිලදී ගෙන තිබේ නම්, ආපසු ගෙවීම් ඔබේ මුදල් පසුම්බියට ලැබී ඇත.']) }}
                                 </p>
                             </div>
                         </div>
@@ -124,9 +124,9 @@
                                 <i class="bi bi-check-circle-fill" aria-hidden="true"></i>
                             </div>
                             <div>
-                                <h3 class="font-semibold text-slate-900">Event Completed</h3>
+                                <h3 class="font-semibold text-slate-900">{{ t(['en' => 'Event Completed', 'si' => 'ප්‍රසංගය අවසන්']) }}</h3>
                                 <p class="mt-2 text-sm leading-relaxed text-slate-700">
-                                    This event has ended. You can still review event details, your ticket history, and any comments, likes, or ratings you submitted.
+                                    {{ t(['en' => 'This event has ended. You can still review event details, your ticket history, and any comments, likes, or ratings you submitted.', 'si' => 'මෙම ප්‍රසංගය අවසන් වී ඇත. ඔබට තවමත් ප්‍රසංගය් විස්තර, ටිකට් ඉතිහාසය සහ ඔබ ඉදිරිපත් කළ අදහස්, කැමති හෝ ශ්‍රේණිගත කිරීම් සමාලෝචනය කළ හැක.']) }}
                                 </p>
                             </div>
                         </div>
@@ -149,10 +149,10 @@
                         <div class="absolute inset-x-0 bottom-0 p-6 sm:p-8">
                             <div class="flex flex-wrap items-center gap-2">
                                 <span class="rounded-full border border-white/20 bg-white/15 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white backdrop-blur">
-                                    {{ $event->eventCategory->name ?? 'Event' }}
+                                    {{ $event->eventCategory->name ?? t(['en' => 'Event', 'si' => 'ප්‍රසංගය']) }}
                                 </span>
                                 <span class="rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide backdrop-blur {{ $statusClass }}">
-                                    {{ $isCancelled ? 'Event Cancelled' : ($isCompleted ? 'Completed' : ucfirst($eventStatus)) }}
+                                    {{ $isCancelled ? t(['en' => 'Event Cancelled', 'si' => 'ප්‍රසංගය අවලංගුයි']) : ($isCompleted ? t(['en' => 'Completed', 'si' => 'අවසන්']) : ucfirst($eventStatus)) }}
                                 </span>
                             </div>
 
@@ -186,8 +186,8 @@
                                 <i class="bi bi-person-badge text-lg" aria-hidden="true"></i>
                             </div>
                             <div>
-                                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Host</p>
-                                <p class="mt-0.5 font-semibold text-slate-900">{{ $event->host->name ?? 'N/A' }}</p>
+                                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ t(['en' => 'Host', 'si' => 'සත්කාරකයා']) }}</p>
+                                <p class="mt-0.5 font-semibold text-slate-900">{{ $event->host->name ?? t(['en' => 'N/A', 'si' => 'නැත']) }}</p>
                             </div>
                         </div>
 
@@ -196,8 +196,8 @@
                                 <i class="bi bi-ticket-perforated text-lg" aria-hidden="true"></i>
                             </div>
                             <div>
-                                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Capacity</p>
-                                <p class="mt-0.5 font-semibold text-slate-900">{{ number_format($event->total_tickets) }} tickets</p>
+                                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ t(['en' => 'Capacity', 'si' => 'ධාරිතාව']) }}</p>
+                                <p class="mt-0.5 font-semibold text-slate-900">{{ number_format($event->total_tickets) }} {{ t(['en' => 'tickets', 'si' => 'ටිකට්']) }}</p>
                             </div>
                         </div>
 
@@ -206,8 +206,8 @@
                                 <i class="bi bi-headset text-lg" aria-hidden="true"></i>
                             </div>
                             <div>
-                                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Contact</p>
-                                <p class="mt-0.5 font-semibold text-slate-900">{{ $event->contactPerson->full_name ?? 'N/A' }}</p>
+                                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ t(['en' => 'Contact', 'si' => 'සම්බන්ධතාව']) }}</p>
+                                <p class="mt-0.5 font-semibold text-slate-900">{{ $event->contactPerson->full_name ?? t(['en' => 'N/A', 'si' => 'නැත']) }}</p>
                             </div>
                         </div>
 
@@ -216,12 +216,12 @@
                                 <i class="bi bi-star-fill text-lg" aria-hidden="true"></i>
                             </div>
                             <div>
-                                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Rating</p>
+                                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ t(['en' => 'Rating', 'si' => 'ශ්‍රේණිගත කිරීම']) }}</p>
                                 <p class="mt-0.5 font-semibold text-slate-900">
                                     @if ($ratingsCount > 0)
-                                        {{ number_format($averageRating, 1) }}/5 · {{ $ratingsCount }} {{ __('reviews') }}
+                                        {{ number_format($averageRating, 1) }}/5 · {{ $ratingsCount }} {{ t(['en' => 'reviews', 'si' => 'සමාලෝචන']) }}
                                     @else
-                                        {{ __('No ratings yet') }}
+                                        {{ t(['en' => 'No ratings yet', 'si' => 'තවම ශ්‍රේණිගත කිරීම් නැත']) }}
                                     @endif
                                 </p>
                             </div>
@@ -232,7 +232,7 @@
                                 <i class="bi bi-hand-thumbs-up-fill text-lg" aria-hidden="true"></i>
                             </div>
                             <div>
-                                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Likes</p>
+                                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ t(['en' => 'Likes', 'si' => 'කැමති']) }}</p>
                                 <p class="mt-0.5 font-semibold text-slate-900">{{ number_format($likesCount) }}</p>
                             </div>
                         </div>
@@ -250,12 +250,12 @@
                                     <i class="bi bi-info-circle" aria-hidden="true"></i>
                                 </div>
                                 <div>
-                                    <h2 class="text-xl font-bold text-slate-900">About This Event</h2>
-                                    <p class="text-sm text-slate-500">Everything you need to know before you book.</p>
+                                    <h2 class="text-xl font-bold text-slate-900">{{ t(['en' => 'About This Event', 'si' => 'මෙම ප්‍රසංගය පිළිබඳ']) }}</h2>
+                                    <p class="text-sm text-slate-500">{{ t(['en' => 'Everything you need to know before you book.', 'si' => 'වෙන්කරවා ගැනීමට පෙර ඔබ දැනගත යුතු සියල්ල.']) }}</p>
                                 </div>
                             </div>
                             <div class="prose prose-slate max-w-none text-slate-600">
-                                <p class="leading-relaxed whitespace-pre-line">{{ $event->description ?: 'No description provided for this event yet.' }}</p>
+                                <p class="leading-relaxed whitespace-pre-line">{{ $event->description ?: t(['en' => 'No description provided for this event yet.', 'si' => 'මෙම ප්‍රසංගය සඳහා තවම විස්තරයක් ලබා දී නැත.']) }}</p>
                             </div>
                         </section>
 
@@ -268,15 +268,15 @@
                                         <i class="bi bi-star" aria-hidden="true"></i>
                                     </div>
                                     <div>
-                                        <h2 class="text-xl font-bold text-slate-900">{{ __('Ratings') }}</h2>
-                                        <p class="text-sm text-slate-500">{{ __('Rate this event and see what others think.') }}</p>
+                                        <h2 class="text-xl font-bold text-slate-900">{{ t(['en' => 'Ratings', 'si' => 'ශ්‍රේණිගත කිරීම්']) }}</h2>
+                                        <p class="text-sm text-slate-500">{{ t(['en' => 'Rate this event and see what others think.', 'si' => 'මෙම ප්‍රසංගය ශ්‍රේණිගත කර අනෙක් අය සිතන දේ බලන්න.']) }}</p>
                                     </div>
                                 </div>
                                 <span class="inline-flex w-fit items-center rounded-full bg-amber-50 px-4 py-1.5 text-sm font-semibold text-amber-700">
                                     @if ($ratingsCount > 0)
-                                        {{ number_format($averageRating, 1) }} ★ · {{ $ratingsCount }} {{ __('total') }}
+                                        {{ number_format($averageRating, 1) }} ★ · {{ $ratingsCount }} {{ t(['en' => 'total', 'si' => 'මුළු']) }}
                                     @else
-                                        {{ __('No ratings yet') }}
+                                        {{ t(['en' => 'No ratings yet', 'si' => 'තවම ශ්‍රේණිගත කිරීම් නැත']) }}
                                     @endif
                                 </span>
                             </div>
@@ -285,7 +285,7 @@
                                 class="mb-6 rounded-2xl border border-slate-200 bg-slate-50/70 p-5">
                                 @csrf
                                 <p class="text-sm font-semibold text-slate-700">
-                                    {{ $userRating ? __('Update your rating') : __('Rate this event') }}
+                                    {{ $userRating ? t(['en' => 'Update your rating', 'si' => 'ඔබේ ශ්‍රේණිගත කිරීම යාවත්කාලීන කරන්න']) : t(['en' => 'Rate this event', 'si' => 'මෙම ප්‍රසංගය ශ්‍රේණිගත කරන්න']) }}
                                 </p>
                                 <div class="mt-3 flex flex-wrap items-center gap-3">
                                     <div class="flex items-center gap-1">
@@ -306,26 +306,26 @@
                                     <input type="hidden" name="score" :value="selected" required>
                                     <button type="submit" :disabled="selected < 1"
                                         class="inline-flex items-center rounded-xl bg-amber-500 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-50">
-                                        {{ $userRating ? __('Update Rating') : __('Submit Rating') }}
+                                        {{ $userRating ? t(['en' => 'Update Rating', 'si' => 'ශ්‍රේණිගත කිරීම යාවත්කාලීන කරන්න']) : t(['en' => 'Submit Rating', 'si' => 'ශ්‍රේණිගත කිරීම ඉදිරිපත් කරන්න']) }}
                                     </button>
                                 </div>
                                 @error('score')
                                     <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
                                 @enderror
                                 @if ($userRating)
-                                    <p class="mt-2 text-sm text-slate-500">{{ __('Your current rating:') }} {{ $userRating }}/5</p>
+                                    <p class="mt-2 text-sm text-slate-500">{{ t(['en' => 'Your current rating:', 'si' => 'ඔබේ වත්මන් ශ්‍රේණිගත කිරීම:']) }} {{ $userRating }}/5</p>
                                 @endif
                             </form>
 
                             @if ($userRating)
                                 <form action="{{ route('attendee.events.ratings.destroy', $event) }}" method="POST"
                                     class="mb-6 -mt-2"
-                                    onsubmit="return confirm(@js(__('Remove your rating?')))">
+                                    onsubmit="return confirm(@js(t(['en' => 'Remove your rating?', 'si' => 'ඔබේ ශ්‍රේණිගත කිරීම ඉවත් කරන්නද?'])))">
                                     @csrf
                                     @method('DELETE')
                                     <button type="submit"
                                         class="inline-flex items-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50">
-                                        {{ __('Remove Rating') }}
+                                        {{ t(['en' => 'Remove Rating', 'si' => 'ශ්‍රේණිගත කිරීම ඉවත් කරන්න']) }}
                                     </button>
                                 </form>
                             @endif
@@ -356,7 +356,7 @@
                                     </div>
                                 @empty
                                     <div class="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-10 text-center text-slate-500">
-                                        {{ __('No ratings yet. Be the first to rate this event!') }}
+                                        {{ t(['en' => 'No ratings yet. Be the first to rate this event!', 'si' => 'තවම ශ්‍රේණිගත කිරීම් නැත. මෙම ප්‍රසංගය ශ්‍රේණිගත කරන පළමු අයා වන්න!']) }}
                                     </div>
                                 @endforelse
                             </div>
@@ -372,20 +372,20 @@
                                         <i class="bi bi-chat-left-text" aria-hidden="true"></i>
                                     </div>
                                     <div>
-                                        <h2 class="text-xl font-bold text-slate-900">{{ __('Comments') }}</h2>
-                                        <p class="text-sm text-slate-500">{{ __('Share your thoughts about this event.') }}</p>
+                                        <h2 class="text-xl font-bold text-slate-900">{{ t(['en' => 'Comments', 'si' => 'අදහස්']) }}</h2>
+                                        <p class="text-sm text-slate-500">{{ t(['en' => 'Share your thoughts about this event.', 'si' => 'මෙම ප්‍රසංගය පිළිබඳ ඔබේ අදහස් බෙදා ගන්න.']) }}</p>
                                     </div>
                                 </div>
                                 <span class="inline-flex w-fit items-center rounded-full bg-indigo-50 px-4 py-1.5 text-sm font-semibold text-indigo-700">
-                                    {{ $comments->count() }} {{ __('total') }}
+                                    {{ $comments->count() }} {{ t(['en' => 'total', 'si' => 'මුළු']) }}
                                 </span>
                             </div>
 
                             <form action="{{ route('attendee.events.comments.store', $event) }}" method="POST" class="mb-6">
                                 @csrf
-                                <label for="comment-body" class="sr-only">{{ __('Add a comment') }}</label>
+                                <label for="comment-body" class="sr-only">{{ t(['en' => 'Add a comment', 'si' => 'අදහසක් එකතු කරන්න']) }}</label>
                                 <textarea id="comment-body" name="body" rows="4" required maxlength="1000"
-                                    placeholder="{{ __('Write your comment here...') }}"
+                                    placeholder="{{ t(['en' => 'Write your comment here...', 'si' => 'ඔබේ අදහස මෙහි ලියන්න...']) }}"
                                     class="w-full rounded-2xl border border-slate-200 px-4 py-3 text-slate-800 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">{{ old('body') }}</textarea>
                                 @error('body')
                                     <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
@@ -394,7 +394,7 @@
                                     <button type="submit"
                                         class="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700">
                                         <i class="bi bi-send" aria-hidden="true"></i>
-                                        {{ __('Add Comment') }}
+                                        {{ t(['en' => 'Add Comment', 'si' => 'අදහස එකතු කරන්න']) }}
                                     </button>
                                 </div>
                             </form>
@@ -413,7 +413,7 @@
                                                         <span class="text-xs text-slate-400">
                                                             {{ $comment->created_at->diffForHumans() }}
                                                             @if ($comment->updated_at->gt($comment->created_at))
-                                                                · {{ __('edited') }}
+                                                                · {{ t(['en' => 'edited', 'si' => 'සංස්කරණය කළා']) }}
                                                             @endif
                                                         </span>
                                                     </div>
@@ -434,11 +434,11 @@
                                                             <div class="flex gap-2">
                                                                 <button type="submit"
                                                                     class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">
-                                                                    {{ __('Save') }}
+                                                                    {{ t(['en' => 'Save', 'si' => 'සුරකින්න']) }}
                                                                 </button>
                                                                 <button type="button" @click="editingId = null"
                                                                     class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50">
-                                                                    {{ __('Cancel') }}
+                                                                    {{ t(['en' => 'Cancel', 'si' => 'අවලංගු කරන්න']) }}
                                                                 </button>
                                                             </div>
                                                         </form>
@@ -451,16 +451,16 @@
                                                     <button type="button" x-show="editingId !== {{ $comment->id }}"
                                                         @click="editingId = {{ $comment->id }}"
                                                         class="rounded-lg px-3 py-1.5 text-xs font-semibold text-indigo-600 hover:bg-indigo-50">
-                                                        {{ __('Edit') }}
+                                                        {{ t(['en' => 'Edit', 'si' => 'සංස්කරණය']) }}
                                                     </button>
                                                     <form action="{{ route('attendee.events.comments.destroy', [$event, $comment]) }}"
                                                         method="POST"
-                                                        onsubmit="return confirm(@js(__('Delete this comment?')))">
+                                                        onsubmit="return confirm(@js(t(['en' => 'Delete this comment?', 'si' => 'මෙම අදහස මකන්නද?'])))">
                                                         @csrf
                                                         @method('DELETE')
                                                         <button type="submit"
                                                             class="rounded-lg px-3 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50">
-                                                            {{ __('Delete') }}
+                                                            {{ t(['en' => 'Delete', 'si' => 'මකන්න']) }}
                                                         </button>
                                                     </form>
                                                 </div>
@@ -469,7 +469,7 @@
                                     </div>
                                 @empty
                                     <div class="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-10 text-center text-slate-500">
-                                        {{ __('No comments yet. Be the first to share your thoughts!') }}
+                                        {{ t(['en' => 'No comments yet. Be the first to share your thoughts!', 'si' => 'තවම අදහස් නැත. ඔබේ අදහස් බෙදා ගන්නා පළමු අයා වන්න!']) }}
                                     </div>
                                 @endforelse
                             </div>
@@ -484,13 +484,13 @@
                                         <i class="bi bi-question-circle" aria-hidden="true"></i>
                                     </div>
                                     <div>
-                                        <h2 class="text-xl font-bold text-slate-900">{{ __('Submit Inquiry') }}</h2>
-                                        <p class="text-sm text-slate-500">{{ __('Have a question about this event? Our team will get back to you.') }}</p>
+                                        <h2 class="text-xl font-bold text-slate-900">{{ t(['en' => 'Submit Inquiry', 'si' => 'විමසුමක් ඉදිරිපත් කරන්න']) }}</h2>
+                                        <p class="text-sm text-slate-500">{{ t(['en' => 'Have a question about this event? Our team will get back to you.', 'si' => 'මෙම ප්‍රසංගය පිළිබඳ ප්‍රශ්නයක් තිබේද? අපගේ කණ්ඩායම ඔබ වෙත ආපසු පැමිණෙනු ඇත.']) }}</p>
                                     </div>
                                 </div>
                                 <a href="{{ route('attendee.support.index', ['tab' => 'inquiries']) }}"
                                     class="inline-flex items-center gap-1.5 text-sm font-semibold text-indigo-600 hover:text-indigo-800">
-                                    {{ __('View my inquiries') }}
+                                    {{ t(['en' => 'View my inquiries', 'si' => 'මගේ විමසුම් බලන්න']) }}
                                     <i class="bi bi-arrow-right"></i>
                                 </a>
                             </div>
@@ -498,18 +498,18 @@
                             <form action="{{ route('attendee.events.inquiries.store', $event) }}" method="POST" class="space-y-4">
                                 @csrf
                                 <div>
-                                    <label for="inquiry-subject" class="block text-sm font-semibold text-slate-700 mb-1">{{ __('Subject') }}</label>
+                                    <label for="inquiry-subject" class="block text-sm font-semibold text-slate-700 mb-1">{{ t(['en' => 'Subject', 'si' => 'මාතෘකාව']) }}</label>
                                     <input type="text" id="inquiry-subject" name="subject" value="{{ old('subject') }}" required maxlength="255"
-                                        placeholder="{{ __('What is your question about?') }}"
+                                        placeholder="{{ t(['en' => 'What is your question about?', 'si' => 'ඔබේ ප්‍රශ්නය කුමක් පිළිබඳද?']) }}"
                                         class="w-full rounded-xl border border-slate-200 px-4 py-3 focus:border-indigo-500 focus:ring-indigo-500">
                                     @error('subject')
                                         <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                                     @enderror
                                 </div>
                                 <div>
-                                    <label for="inquiry-message" class="block text-sm font-semibold text-slate-700 mb-1">{{ __('Message') }}</label>
+                                    <label for="inquiry-message" class="block text-sm font-semibold text-slate-700 mb-1">{{ t(['en' => 'Message', 'si' => 'පණිවිඩය']) }}</label>
                                     <textarea id="inquiry-message" name="message" rows="4" required minlength="10" maxlength="2000"
-                                        placeholder="{{ __('Provide details about your inquiry...') }}"
+                                        placeholder="{{ t(['en' => 'Provide details about your inquiry...', 'si' => 'ඔබේ විමසුම පිළිබඳ විස්තර ලබා දෙන්න...']) }}"
                                         class="w-full rounded-xl border border-slate-200 px-4 py-3 focus:border-indigo-500 focus:ring-indigo-500">{{ old('message') }}</textarea>
                                     @error('message')
                                         <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
@@ -519,7 +519,7 @@
                                     <button type="submit"
                                         class="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700">
                                         <i class="bi bi-send" aria-hidden="true"></i>
-                                        {{ __('Submit Inquiry') }}
+                                        {{ t(['en' => 'Submit Inquiry', 'si' => 'විමසුමක් ඉදිරිපත් කරන්න']) }}
                                     </button>
                                 </div>
                             </form>
@@ -530,23 +530,23 @@
                     <aside class="space-y-6 xl:sticky xl:top-24 xl:self-start">
                         <section class="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
                             <div class="border-b border-slate-100 bg-gradient-to-r from-indigo-600 to-violet-600 px-6 py-5 text-white">
-                                <h2 class="text-lg font-bold">Ticket Categories</h2>
-                                <p class="mt-1 text-sm text-indigo-100">Select a category and reserve your seats.</p>
+                                <h2 class="text-lg font-bold">{{ t(['en' => 'Ticket Categories', 'si' => 'ටිකට් ප්‍රවර්ග']) }}</h2>
+                                <p class="mt-1 text-sm text-indigo-100">{{ t(['en' => 'Select a category and reserve your seats.', 'si' => 'වර්ගයක් තෝරා ඔබේ ආසන වෙන්කරවා ගන්න.']) }}</p>
                             </div>
 
                             <div class="space-y-4 p-5">
                                 @if ($isCancelled)
                                     <div class="rounded-2xl border border-rose-200 bg-rose-50 px-5 py-8 text-center">
-                                        <p class="text-sm font-semibold text-rose-800">Booking unavailable</p>
-                                        <p class="mt-2 text-sm text-rose-700">This event has been cancelled by the organizer.</p>
+                                        <p class="text-sm font-semibold text-rose-800">{{ t(['en' => 'Booking unavailable', 'si' => 'වෙන්කිරීම ලබා ගත නොහැක']) }}</p>
+                                        <p class="mt-2 text-sm text-rose-700">{{ t(['en' => 'This event has been cancelled by the organizer.', 'si' => 'මෙම ප්‍රසංගය සංවිධායකයා විසින් අවලංගු කර ඇත.']) }}</p>
                                     </div>
                                 @elseif ($isCompleted)
                                     <div class="rounded-2xl border border-slate-200 bg-slate-50 px-5 py-8 text-center">
-                                        <p class="text-sm font-semibold text-slate-800">Booking closed</p>
-                                        <p class="mt-2 text-sm text-slate-600">This event has ended. View your tickets in My Tickets.</p>
+                                        <p class="text-sm font-semibold text-slate-800">{{ t(['en' => 'Booking closed', 'si' => 'වෙන්කිරීම වසා ඇත']) }}</p>
+                                        <p class="mt-2 text-sm text-slate-600">{{ t(['en' => 'This event has ended. View your tickets in My Tickets.', 'si' => 'මෙම ප්‍රසංගය අවසන් වී ඇත. මගේ ටිකට් තුළ ඔබේ ටිකට් බලන්න.']) }}</p>
                                         <a href="{{ route('attendee.bookings.index') }}"
                                             class="mt-4 inline-flex rounded-xl bg-slate-700 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800">
-                                            View My Tickets
+                                            {{ t(['en' => 'View My Tickets', 'si' => 'මගේ ටිකට් බලන්න']) }}
                                         </a>
                                     </div>
                                 @else
@@ -567,7 +567,7 @@
                                                     <div class="flex flex-wrap items-center gap-2">
                                                         <h3 class="font-bold text-slate-900">{{ $category->name }}</h3>
                                                         @if ($isSoldOut)
-                                                            <span class="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-rose-700">Sold out</span>
+                                                            <span class="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-rose-700">{{ t(['en' => 'Sold out', 'si' => 'විකුණා අවසන්']) }}</span>
                                                         @endif
                                                     </div>
                                                     @if ($category->description)
@@ -581,10 +581,10 @@
                                             <div class="mt-4 flex items-end justify-between gap-3">
                                                 <div>
                                                     <p class="text-2xl font-bold text-indigo-600">Rs {{ number_format($category->ticket_price) }}</p>
-                                                    <p class="text-xs text-slate-500">per ticket</p>
+                                                    <p class="text-xs text-slate-500">{{ t(['en' => 'per ticket', 'si' => 'ටිකට් එකකට']) }}</p>
                                                 </div>
                                                 <div class="text-right text-xs text-slate-500">
-                                                    <span class="font-semibold text-emerald-600">{{ number_format($available) }}</span> left
+                                                    <span class="font-semibold text-emerald-600">{{ number_format($available) }}</span> {{ t(['en' => 'left', 'si' => 'ඉතිරි']) }}
                                                 </div>
                                             </div>
 
@@ -593,7 +593,7 @@
                                                     <div class="h-full rounded-full transition-all"
                                                         style="width: {{ $soldPercent }}%; background-color: {{ $category->ticket_color }}"></div>
                                                 </div>
-                                                <p class="mt-1 text-[11px] text-slate-500">{{ number_format($available) }} of {{ number_format($category->no_of_tickets ?? 0) }} available</p>
+                                                <p class="mt-1 text-[11px] text-slate-500">{{ number_format($available) }} {{ t(['en' => 'of', 'si' => 'න්']) }} {{ number_format($category->no_of_tickets ?? 0) }} {{ t(['en' => 'available', 'si' => 'ලබා ගත හැකි']) }}</p>
                                             </div>
 
                                             <button type="button"
@@ -604,13 +604,13 @@
                                                 class="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold transition
                                                 {{ $isSoldOut ? 'cursor-not-allowed bg-slate-200 text-slate-500' : 'bg-indigo-600 text-white hover:bg-indigo-700' }}">
                                                 <i class="bi bi-cart-plus" aria-hidden="true"></i>
-                                                {{ $isSoldOut ? 'Unavailable' : 'Reserve Tickets' }}
+                                                {{ $isSoldOut ? t(['en' => 'Unavailable', 'si' => 'ලබා ගත නොහැක']) : t(['en' => 'Reserve Tickets', 'si' => 'ටිකට් වෙන්කරවා ගන්න']) }}
                                             </button>
                                         </div>
                                     </div>
                                 @empty
                                     <div class="rounded-2xl border border-dashed border-slate-300 bg-white px-5 py-10 text-center text-sm text-slate-500">
-                                        No ticket categories available yet.
+                                        {{ t(['en' => 'No ticket categories available yet.', 'si' => 'තවම ටිකට් වර්ගය ලබා ගත නොහැක.']) }}
                                     </div>
                                 @endforelse
                                 @endif
@@ -620,8 +620,8 @@
                         @if ($eventCartItems->isNotEmpty())
                             <section class="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
                                 <div class="border-b border-slate-100 px-6 py-5">
-                                    <h2 class="text-lg font-bold text-slate-900">Your Reserved Tickets</h2>
-                                    <p class="mt-1 text-sm text-slate-500">Tickets held for this event.</p>
+                                    <h2 class="text-lg font-bold text-slate-900">{{ t(['en' => 'Your Reserved Tickets', 'si' => 'ඔබේ වෙන්කර ගත් ටිකට්']) }}</h2>
+                                    <p class="mt-1 text-sm text-slate-500">{{ t(['en' => 'Tickets held for this event.', 'si' => 'මෙම ප්‍රසංගය සඳහා රඳවා ඇති ටිකට්.']) }}</p>
                                 </div>
 
                                 <div class="divide-y divide-slate-100">
@@ -640,11 +640,11 @@
                                             <div class="text-right">
                                                 <p class="font-bold text-indigo-600">Rs {{ number_format($item->line_total, 2) }}</p>
                                                 <form action="{{ route('attendee.cart.destroy', $item) }}" method="POST" class="mt-1"
-                                                    onsubmit="return confirm('Remove this reserved ticket?')">
+                                                    onsubmit="return confirm(@js(t(['en' => 'Remove this reserved ticket?', 'si' => 'මෙම වෙන්කර ගත් ටිකට් ඉවත් කරන්නද?'])))">
                                                     @csrf
                                                     @method('DELETE')
                                                     <button type="submit" class="text-xs font-semibold text-rose-600 hover:text-rose-700">
-                                                        Remove
+                                                        {{ t(['en' => 'Remove', 'si' => 'ඉවත් කරන්න']) }}
                                                     </button>
                                                 </form>
                                             </div>
@@ -654,13 +654,13 @@
 
                                 <div class="border-t border-slate-100 bg-slate-50 px-5 py-4">
                                     <div class="flex items-center justify-between">
-                                        <span class="text-sm font-medium text-slate-500">Event subtotal</span>
+                                        <span class="text-sm font-medium text-slate-500">{{ t(['en' => 'Event subtotal', 'si' => 'ප්‍රසංගයේ සම්පූර්ණ එකතුව']) }}</span>
                                         <span class="text-xl font-bold text-indigo-600">Rs {{ number_format($eventCartTotal, 2) }}</span>
                                     </div>
                                     <a href="{{ route('attendee.cart.index') }}"
                                         class="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-indigo-700">
                                         <i class="bi bi-bag-check" aria-hidden="true"></i>
-                                        Go to Cart
+                                        {{ t(['en' => 'Go to Cart', 'si' => 'කාර්ට් එකට යන්න']) }}
                                     </a>
                                 </div>
                             </section>
@@ -681,22 +681,22 @@
 
                             <div class="flex items-start justify-between gap-4">
                                 <div>
-                                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Reserve tickets</p>
+                                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ t(['en' => 'Reserve tickets', 'si' => 'ටිකට් වෙන්කරවා ගන්න']) }}</p>
                                     <h3 class="mt-1 text-xl font-bold text-slate-900" x-text="selected.name"></h3>
                                 </div>
                                 <button type="button" class="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
-                                    @click="showModal = false" aria-label="Close">
+                                    @click="showModal = false" aria-label="{{ t(['en' => 'Close', 'si' => 'වසන්න']) }}">
                                     <i class="bi bi-x-lg" aria-hidden="true"></i>
                                 </button>
                             </div>
 
                             <div class="mt-6 grid grid-cols-2 gap-4 rounded-2xl bg-slate-50 p-4">
                                 <div>
-                                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Price</p>
+                                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ t(['en' => 'Price', 'si' => 'මිල']) }}</p>
                                     <p class="mt-1 text-lg font-bold text-slate-900">Rs <span x-text="Number(selected.price).toFixed(2)"></span></p>
                                 </div>
                                 <div>
-                                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Available</p>
+                                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ t(['en' => 'Available', 'si' => 'ලබා ගත හැකි']) }}</p>
                                     <p class="mt-1 text-lg font-bold text-emerald-600" x-text="selected.available"></p>
                                 </div>
                             </div>
@@ -704,7 +704,7 @@
                             <input type="hidden" name="ticket_category_id" :value="selected.id">
 
                             <div class="mt-5">
-                                <label class="text-sm font-semibold text-slate-700">Number of tickets</label>
+                                <label class="text-sm font-semibold text-slate-700">{{ t(['en' => 'Number of tickets', 'si' => 'ටිකට් ගණන']) }}</label>
                                 <input type="number" name="quantity" x-model.number="qty" min="1"
                                     :max="selected.available"
                                     class="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 focus:border-indigo-500 focus:ring-indigo-500"
@@ -712,7 +712,7 @@
                             </div>
 
                             <div class="mt-5 flex items-center justify-between rounded-2xl border border-indigo-100 bg-indigo-50 px-4 py-3">
-                                <span class="text-sm font-medium text-indigo-900">Total amount</span>
+                                <span class="text-sm font-medium text-indigo-900">{{ t(['en' => 'Total amount', 'si' => 'මුළු මුදල']) }}</span>
                                 <span class="text-xl font-bold text-indigo-700">Rs <span x-text="amount"></span></span>
                             </div>
 
@@ -720,11 +720,11 @@
                                 <button type="button"
                                     class="rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
                                     @click="showModal = false">
-                                    Cancel
+                                    {{ t(['en' => 'Cancel', 'si' => 'අවලංගු කරන්න']) }}
                                 </button>
                                 <button type="submit"
                                     class="rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-indigo-700">
-                                    Reserve Tickets
+                                    {{ t(['en' => 'Reserve Tickets', 'si' => 'ටිකට් වෙන්කරවා ගන්න']) }}
                                 </button>
                             </div>
                         </form>

@@ -8,11 +8,11 @@
 
                 <div>
                     <h1 class="text-4xl font-black tracking-tight">
-                        My Cart
+                        {{ t(['en' => 'My Cart', 'si' => 'කාර්ට්']) }}
                     </h1>
 
                     <p class="mt-2 text-indigo-100">
-                        Review your reserved tickets and complete checkout securely.
+                        {{ t(['en' => 'Review your reserved tickets and complete checkout securely.', 'si' => 'ඔබේ වෙන්කර ගත් ටිකට් සමාලෝචනය කර ආරක්ෂිතව ගෙවීම සම්පූර්ණ කරන්න.']) }}
                     </p>
                 </div>
 
@@ -20,7 +20,7 @@
 
                     <div class="rounded-2xl bg-white/10 backdrop-blur px-5 py-4">
                         <div class="text-xs uppercase tracking-wider text-indigo-100">
-                            Events
+                            {{ t(['en' => 'Events', 'si' => 'ප්‍රසංග']) }}
                         </div>
                         <div class="text-2xl font-bold">
                             {{ $cartItems->count() }}
@@ -29,7 +29,7 @@
 
                     <div class="rounded-2xl bg-white/10 backdrop-blur px-5 py-4">
                         <div class="text-xs uppercase tracking-wider text-indigo-100">
-                            Tickets
+                            {{ t(['en' => 'Tickets', 'si' => 'ටිකට්']) }}
                         </div>
                         <div class="text-2xl font-bold">
                             {{ $cartItems->flatten()->sum('quantity') }}
@@ -60,13 +60,13 @@
                     >
 
                     <span class="font-semibold text-slate-700">
-                        Select All Tickets
+                        {{ t(['en' => 'Select All Tickets', 'si' => 'සියලු ටිකට් තෝරන්න']) }}
                     </span>
 
                 </label>
 
                 <div class="text-sm text-slate-500">
-                    Cart Value
+                    {{ t(['en' => 'Cart Value', 'si' => 'මුළු එකතුව']) }}
                     <span class="font-bold text-slate-900 ml-2">
                         Rs {{ number_format($cartTotal,2) }}
                     </span>
@@ -119,7 +119,7 @@
                                 </div>
 
                                 <span class="inline-flex items-center rounded-full bg-indigo-50 px-4 py-2 text-xs font-bold text-indigo-700">
-                                    {{ $items->count() }} Item(s)
+                                    {{ $items->count() }} {{ t(['en' => 'Item(s)', 'si' => 'අයිතම']) }}
                                 </span>
 
                             </div>
@@ -160,7 +160,7 @@
                                             </h4>
 
                                             <p class="text-sm text-slate-500">
-                                                Rs {{ number_format($item->unit_price,2) }} per ticket
+                                                Rs {{ number_format($item->unit_price,2) }} {{ t(['en' => 'per ticket', 'si' => 'ටිකට් එකකට']) }}
                                             </p>
 
                                         </div>
@@ -188,7 +188,7 @@
                                             type="submit"
                                             class="rounded-xl bg-slate-100 px-4 py-2 text-xs font-semibold hover:bg-slate-200"
                                         >
-                                            Update
+                                            {{ t(['en' => 'Update', 'si' => 'යාවත්කාලීන කරන්න']) }}
                                         </button>
 
                                     </form>
@@ -212,7 +212,7 @@
                                             type="submit"
                                             class="text-red-600 font-medium hover:text-red-700"
                                         >
-                                            Remove
+                                            {{ t(['en' => 'Remove', 'si' => 'ඉවත් කරන්න']) }}
                                         </button>
 
                                     </form>
@@ -246,14 +246,14 @@
                     <div class="rounded-3xl bg-white border border-slate-200 shadow-xl p-6">
 
                         <h3 class="text-xl font-bold text-slate-900">
-                            Order Summary
+                            {{ t(['en' => 'Order Summary', 'si' => 'ඇණවුම් සාරාංශය']) }}
                         </h3>
 
                         <div class="mt-6 space-y-4">
 
                             <div class="flex justify-between">
                                 <span class="text-slate-500">
-                                    Reserved Lines
+                                    {{ t(['en' => 'Reserved Lines', 'si' => 'වෙන්කර ගත් අයිතම']) }}
                                 </span>
 
                                 <span class="font-semibold">
@@ -263,7 +263,7 @@
 
                             <div class="flex justify-between">
                                 <span class="text-slate-500">
-                                    Tickets
+                                    {{ t(['en' => 'Tickets', 'si' => 'ටිකට්']) }}
                                 </span>
 
                                 <span class="font-semibold">
@@ -276,7 +276,7 @@
                                 <div class="flex justify-between items-center">
 
                                     <span class="font-semibold text-slate-700">
-                                        Total
+                                        {{ t(['en' => 'Total', 'si' => 'මුළු එකතුව']) }}
                                     </span>
 
                                     <span class="text-2xl font-black text-indigo-600">
@@ -292,12 +292,12 @@
                         <input type="hidden" name="payment_method" id="payment_method" value="stripe">
 
                         <div class="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm">
-                            <p class="font-semibold text-slate-700">Wallet Balance</p>
+                            <p class="font-semibold text-slate-700">{{ t(['en' => 'Wallet Balance', 'si' => 'පසුම්බි ශේෂය']) }}</p>
                             <p class="mt-1 text-lg font-bold text-indigo-600">
                                 Rs {{ number_format($walletBalance, 2) }}
                             </p>
                             <a href="{{ route('attendee.wallet.index') }}" class="mt-2 inline-block text-xs font-medium text-indigo-600 hover:text-indigo-800">
-                                Manage wallet →
+                                {{ t(['en' => 'Manage wallet →', 'si' => 'පසුම්බිය කළමනාකරණය කරන්න →']) }}
                             </a>
                         </div>
 
@@ -307,7 +307,7 @@
                                 onclick="document.getElementById('payment_method').value='wallet'"
                                 class="mt-4 w-full rounded-2xl bg-gradient-to-r from-violet-600 to-indigo-600 px-6 py-4 font-bold text-white shadow-lg hover:scale-[1.02] transition"
                             >
-                                Pay by Wallet
+                                {{ t(['en' => 'Pay by Wallet', 'si' => 'පසුම්බියෙන් ගෙවන්න']) }}
                             </button>
                         @endif
 
@@ -316,11 +316,11 @@
                             onclick="document.getElementById('payment_method').value='stripe'"
                             class="mt-3 w-full rounded-2xl bg-gradient-to-r from-emerald-600 to-green-500 px-6 py-4 font-bold text-white shadow-lg hover:scale-[1.02] transition"
                         >
-                            Pay Securely with Stripe
+                            {{ t(['en' => 'Pay Securely with Stripe', 'si' => 'Stripe සමඟ ආරක්ෂිතව ගෙවන්න']) }}
                         </button>
 
                         <p class="mt-4 text-center text-xs text-slate-500">
-                            Secure payment powered by Stripe
+                            {{ t(['en' => 'Secure payment powered by Stripe', 'si' => 'Stripe මගින් බල ගැන්වෙන ආරක්ෂිත ගෙවීම']) }}
                         </p>
 
                     </div>

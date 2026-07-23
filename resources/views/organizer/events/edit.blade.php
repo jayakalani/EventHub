@@ -3,10 +3,10 @@
         <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
                 <p class="text-sm font-medium uppercase tracking-wide text-indigo-600">
-                    {{ __('Event Management') }}
+                    {{ t(['en' => 'Event Management', 'si' => 'ප්‍රසංගය් කළමනාකරණය']) }}
                 </p>
                 <h2 class="text-2xl font-bold tracking-tight text-gray-900">
-                    {{ __('Edit Event') }}
+                    {{ t(['en' => 'Edit Event', 'si' => 'ප්‍රසංගය සංස්කරණය']) }}
                 </h2>
             </div>
 
@@ -15,7 +15,7 @@
                 <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 19l-7-7 7-7" />
                 </svg>
-                {{ __('Back to Events') }}
+                {{ t(['en' => 'Back to Events', 'si' => 'ප්‍රසංගය් වෙත ආපසු']) }}
             </a>
         </div>
     </x-slot>
@@ -45,7 +45,7 @@
                         <div class="flex flex-wrap gap-2">
                             <span
                                 class="inline-flex items-center rounded-full bg-white/15 px-3 py-1 text-xs font-semibold text-white ring-1 ring-white/25">
-                                {{ $event->no_of_tickets }} {{ __('tickets') }}
+                                {{ $event->no_of_tickets }} {{ t(['en' => 'tickets', 'si' => 'ටිකට්']) }}
                             </span>
                             @if ($event->eventCategory)
                                 <span
@@ -66,17 +66,17 @@
                         <div>
                             <div class="mb-6">
                                 <h3 class="text-lg font-semibold text-gray-900">
-                                    {{ __('Event Details') }}
+                                    {{ t(['en' => 'Event Details', 'si' => 'ප්‍රසංගය් විස්තර']) }}
                                 </h3>
                                 <p class="mt-1 text-sm text-gray-500">
-                                    {{ __('Update event information, schedule, and cover image.') }}
+                                    {{ t(['en' => 'Update event information, schedule, and cover image.', 'si' => 'ප්‍රසංගය් තොරතුරු, කාලසටහන සහ කවර රූපය යාවත්කාලීන කරන්න.']) }}
                                 </p>
                             </div>
 
                             <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
                                 <div
                                     class="rounded-2xl border border-gray-100 bg-gray-50/70 p-4 transition focus-within:border-indigo-200 focus-within:bg-white focus-within:shadow-sm md:col-span-2">
-                                    <x-input-label for="name" :value="__('Event Name')" />
+                                    <x-input-label for="name" :value="t(['en' => 'Event Name', 'si' => 'ප්‍රසංගයේ නම'])" />
                                     <x-text-input id="name"
                                         class="mt-2 block w-full rounded-xl border-gray-200 bg-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                                         type="text" name="name" :value="old('name', $event->name)" required />
@@ -85,11 +85,11 @@
 
                                 <div
                                     class="rounded-2xl border border-gray-100 bg-gray-50/70 p-4 transition focus-within:border-indigo-200 focus-within:bg-white focus-within:shadow-sm">
-                                    <x-input-label for="hosted_by" :value="__('Hosted By')" />
+                                    <x-input-label for="hosted_by" :value="t(['en' => 'Hosted By', 'si' => 'සත්කාරකයා'])" />
                                     <select id="hosted_by" name="hosted_by"
                                         class="mt-2 block w-full rounded-xl border-gray-200 bg-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                                         required>
-                                        <option value="">{{ __('Select Host Person') }}</option>
+                                        <option value="">{{ t(['en' => 'Select Host Person', 'si' => 'සත්කාරකයා තෝරන්න']) }}</option>
                                         @foreach ($hosts as $host)
                                             <option value="{{ $host->id }}"
                                                 {{ old('hosted_by', $event->hosted_by) == $host->id ? 'selected' : '' }}>
@@ -102,11 +102,11 @@
 
                                 <div
                                     class="rounded-2xl border border-gray-100 bg-gray-50/70 p-4 transition focus-within:border-indigo-200 focus-within:bg-white focus-within:shadow-sm">
-                                    <x-input-label for="category_id" :value="__('Category')" />
+                                    <x-input-label for="category_id" :value="t(['en' => 'Category', 'si' => 'ප්‍රවර්ගය'])" />
                                     <select id="category_id" name="category_id"
                                         class="mt-2 block w-full rounded-xl border-gray-200 bg-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                                         required>
-                                        <option value="">{{ __('Select Category') }}</option>
+                                        <option value="">{{ t(['en' => 'Select Category', 'si' => 'ප්‍රවර්ගය තෝරන්න']) }}</option>
                                         @foreach ($event_categories as $event_category)
                                             <option value="{{ $event_category->id }}"
                                                 {{ old('category_id', $event->category_id) == $event_category->id ? 'selected' : '' }}>
@@ -119,7 +119,7 @@
 
                                 <div
                                     class="rounded-2xl border border-gray-100 bg-gray-50/70 p-4 transition focus-within:border-indigo-200 focus-within:bg-white focus-within:shadow-sm">
-                                    <x-input-label for="date" :value="__('Date')" />
+                                    <x-input-label for="date" :value="t(['en' => 'Date', 'si' => 'දිනය'])" />
                                     <x-text-input id="date"
                                         class="mt-2 block w-full rounded-xl border-gray-200 bg-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                                         type="date" name="date" :value="old('date', $event->date)" required />
@@ -128,7 +128,7 @@
 
                                 <div
                                     class="rounded-2xl border border-gray-100 bg-gray-50/70 p-4 transition focus-within:border-indigo-200 focus-within:bg-white focus-within:shadow-sm">
-                                    <x-input-label for="time" :value="__('Time')" />
+                                    <x-input-label for="time" :value="t(['en' => 'Time', 'si' => 'වේලාව'])" />
                                     <x-text-input id="time"
                                         class="mt-2 block w-full rounded-xl border-gray-200 bg-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                                         type="time" name="time" :value="old('time', $event->time)" required />
@@ -137,7 +137,7 @@
 
                                 <div
                                     class="rounded-2xl border border-gray-100 bg-gray-50/70 p-4 transition focus-within:border-indigo-200 focus-within:bg-white focus-within:shadow-sm md:col-span-2">
-                                    <x-input-label for="place" :value="__('Place / Venue')" />
+                                    <x-input-label for="place" :value="t(['en' => 'Place / Venue', 'si' => 'ස්ථානය'])" />
                                     <x-text-input id="place"
                                         class="mt-2 block w-full rounded-xl border-gray-200 bg-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                                         type="text" name="place" :value="old('place', $event->place)" required />
@@ -146,7 +146,7 @@
 
                                 <div
                                     class="rounded-2xl border border-gray-100 bg-gray-50/70 p-4 transition focus-within:border-indigo-200 focus-within:bg-white focus-within:shadow-sm">
-                                    <x-input-label for="no_of_tickets" :value="__('Number of tickets')" />
+                                    <x-input-label for="no_of_tickets" :value="t(['en' => 'Number of tickets', 'si' => 'ටිකට් ගණන'])" />
                                     <x-text-input id="no_of_tickets"
                                         class="mt-2 block w-full rounded-xl border-gray-200 bg-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                                         type="number" name="no_of_tickets" min="1"
@@ -156,11 +156,11 @@
 
                                 <div
                                     class="rounded-2xl border border-gray-100 bg-gray-50/70 p-4 transition focus-within:border-indigo-200 focus-within:bg-white focus-within:shadow-sm">
-                                    <x-input-label for="contact_person" :value="__('Customer Relations Officer')" />
+                                    <x-input-label for="contact_person" :value="t(['en' => 'Customer Relations Officer', 'si' => 'පාරිභෝගික සබඳතා නිලධාරී'])" />
                                     <select id="contact_person" name="contact_person"
                                         class="mt-2 block w-full rounded-xl border-gray-200 bg-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                                         required>
-                                        <option value="">{{ __('Select Contact Person') }}</option>
+                                        <option value="">{{ t(['en' => 'Select Contact Person', 'si' => 'සම්බන්ධතා පුද්ගලයා තෝරන්න']) }}</option>
                                         @foreach ($croUsers as $user)
                                             <option value="{{ $user->id }}"
                                                 {{ old('contact_person', $event->contact_person) == $user->id ? 'selected' : '' }}>
@@ -173,7 +173,7 @@
 
                                 <div
                                     class="rounded-2xl border border-gray-100 bg-gray-50/70 p-4 transition focus-within:border-indigo-200 focus-within:bg-white focus-within:shadow-sm md:col-span-2">
-                                    <x-input-label for="description" :value="__('Event Description')" />
+                                    <x-input-label for="description" :value="t(['en' => 'Event Description', 'si' => 'ප්‍රසංගය් විස්තරය'])" />
                                     <textarea id="description" name="description" rows="5" required
                                         class="mt-2 block w-full rounded-xl border-gray-200 bg-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500">{{ old('description', $event->description) }}</textarea>
                                     <x-input-error :messages="$errors->get('description')" class="mt-2" />
@@ -181,12 +181,12 @@
 
                                 <div
                                     class="rounded-2xl border border-gray-100 bg-gray-50/70 p-4 transition focus-within:border-indigo-200 focus-within:bg-white focus-within:shadow-sm md:col-span-2">
-                                    <x-input-label for="cover" :value="__('Cover Image')" />
+                                    <x-input-label for="cover" :value="t(['en' => 'Cover Image', 'si' => 'කවර රූපය'])" />
 
                                     @if ($event->cover)
                                         <div class="mt-3 mb-4">
-                                            <p class="text-sm font-medium text-gray-700 mb-2">{{ __('Current Cover') }}</p>
-                                            <img src="{{ asset('storage/' . $event->cover) }}" alt="{{ __('Current Cover') }}"
+                                            <p class="text-sm font-medium text-gray-700 mb-2">{{ t(['en' => 'Current Cover', 'si' => 'වත්මන් කවරය']) }}</p>
+                                            <img src="{{ asset('storage/' . $event->cover) }}" alt="{{ t(['en' => 'Current Cover', 'si' => 'වත්මන් කවරය']) }}"
                                                 class="h-32 w-48 rounded-xl object-cover shadow-sm ring-1 ring-gray-200">
                                         </div>
                                     @endif
@@ -201,12 +201,12 @@
                                         <div class="mt-3">
                                             <label for="cover"
                                                 class="cursor-pointer text-sm font-semibold text-indigo-600 hover:text-indigo-700">
-                                                {{ __('Upload New Cover') }}
+                                                {{ t(['en' => 'Upload New Cover', 'si' => 'නව කවරයක් උඩුගත කරන්න']) }}
                                             </label>
                                             <input id="cover" type="file" name="cover" accept=".jpg,.jpeg,.png"
                                                 class="hidden">
                                             <p class="mt-1 text-xs text-gray-500">
-                                                {{ __('JPG, JPEG or PNG up to 2MB') }}
+                                                {{ t(['en' => 'JPG, JPEG or PNG up to 2MB', 'si' => 'JPG, JPEG හෝ PNG, උපරිම 2MB']) }}
                                             </p>
                                         </div>
                                     </div>
@@ -219,11 +219,11 @@
                             class="flex flex-col-reverse gap-3 border-t border-gray-100 pt-6 sm:flex-row sm:items-center sm:justify-end">
                             <a href="{{ route('organizer.events.index') }}"
                                 class="inline-flex items-center justify-center rounded-xl border border-gray-200 bg-white px-5 py-3 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
-                                {{ __('Cancel') }}
+                                {{ t(['en' => 'Cancel', 'si' => 'අවලංගු කරන්න']) }}
                             </a>
                             <x-primary-button
                                 class="justify-center rounded-xl bg-indigo-600 px-6 py-3 text-sm font-semibold shadow-lg shadow-indigo-200 transition hover:bg-indigo-700 focus:ring-indigo-500">
-                                {{ __('Update Event') }}
+                                {{ t(['en' => 'Update Event', 'si' => 'ප්‍රසංගය යාවත්කාලීන කරන්න']) }}
                             </x-primary-button>
                         </div>
                     </form>
@@ -231,27 +231,27 @@
                     <aside class="space-y-4">
                         <div class="rounded-2xl border border-gray-100 bg-gray-50 p-5">
                             <h4 class="text-sm font-semibold uppercase tracking-wide text-gray-500">
-                                {{ __('Event Summary') }}
+                                {{ t(['en' => 'Event Summary', 'si' => 'ප්‍රසංගය් සාරාංශය']) }}
                             </h4>
                             <dl class="mt-4 space-y-4 text-sm">
                                 <div class="flex items-center justify-between gap-4">
-                                    <dt class="text-gray-500">{{ __('Event ID') }}</dt>
+                                    <dt class="text-gray-500">{{ t(['en' => 'Event ID', 'si' => 'ප්‍රසංගය් අංකය']) }}</dt>
                                     <dd class="font-semibold text-gray-900">#{{ $event->id }}</dd>
                                 </div>
                                 <div class="flex items-center justify-between gap-4">
-                                    <dt class="text-gray-500">{{ __('Host') }}</dt>
+                                    <dt class="text-gray-500">{{ t(['en' => 'Host', 'si' => 'සත්කාරකයා']) }}</dt>
                                     <dd class="font-semibold text-gray-900 text-right">
-                                        {{ $event->host?->name ?? __('Not assigned') }}
+                                        {{ $event->host?->name ?? t(['en' => 'Not assigned', 'si' => 'පවරා නැත']) }}
                                     </dd>
                                 </div>
                                 <div class="flex items-center justify-between gap-4">
-                                    <dt class="text-gray-500">{{ __('Category') }}</dt>
+                                    <dt class="text-gray-500">{{ t(['en' => 'Category', 'si' => 'ප්‍රවර්ගය']) }}</dt>
                                     <dd class="font-semibold text-gray-900 text-right">
-                                        {{ $event->eventCategory?->name ?? __('Not assigned') }}
+                                        {{ $event->eventCategory?->name ?? t(['en' => 'Not assigned', 'si' => 'පවරා නැත']) }}
                                     </dd>
                                 </div>
                                 <div class="flex items-center justify-between gap-4">
-                                    <dt class="text-gray-500">{{ __('Created') }}</dt>
+                                    <dt class="text-gray-500">{{ t(['en' => 'Created', 'si' => 'නිර්මාණය කළ දිනය']) }}</dt>
                                     <dd class="font-semibold text-gray-900">
                                         {{ $event->created_at?->format('M d, Y') }}
                                     </dd>
@@ -269,9 +269,9 @@
                                     </svg>
                                 </div>
                                 <div>
-                                    <h4 class="font-semibold text-indigo-950">{{ __('Review before updating') }}</h4>
+                                    <h4 class="font-semibold text-indigo-950">{{ t(['en' => 'Review before updating', 'si' => 'යාවත්කාලීන කිරීමට පෙර සමාලෝචනය කරන්න']) }}</h4>
                                     <p class="mt-1 text-sm leading-6 text-indigo-800">
-                                        {{ __('Changing the date, venue, or ticket count may affect existing bookings and ticket categories.') }}
+                                        {{ t(['en' => 'Changing the date, venue, or ticket count may affect existing bookings and ticket categories.', 'si' => 'දිනය, ස්ථානය හෝ ටිකට් ගණන වෙනස් කිරීම පවතින වෙන්කිරීම් සහ ටිකට් ප්‍රවර්ගවලට බලපෑ හැක.']) }}
                                     </p>
                                 </div>
                             </div>

@@ -99,6 +99,24 @@
             {{-- Right Section --}}
             <div class="flex items-center gap-3">
 
+                @php
+                    $currentLocale = \App\Support\Locale::current();
+                @endphp
+                <div class="inline-flex items-center rounded-xl border border-slate-200 bg-white p-0.5 text-xs font-semibold"
+                    role="group"
+                    aria-label="{{ t(['en' => 'Language', 'si' => 'භාෂාව']) }}">
+                    @foreach (\App\Support\Locale::SUPPORTED as $locale)
+                        <a href="{{ route('locale.switch', $locale) }}"
+                            class="rounded-lg px-2.5 py-1.5 transition {{ $currentLocale === $locale
+                                ? 'bg-indigo-600 text-white shadow-sm'
+                                : 'text-slate-600 hover:bg-slate-50' }}"
+                            hreflang="{{ $locale }}"
+                            lang="{{ $locale }}">
+                            {{ $locale === 'en' ? 'EN' : 'සිං' }}
+                        </a>
+                    @endforeach
+                </div>
+
                 {{-- Cart --}}
                 @if($isAttendee)
 
@@ -329,6 +347,22 @@
         class="lg:hidden border-t border-slate-200 bg-white">
 
         <div class="px-4 py-4 space-y-2">
+
+            <div class="flex items-center justify-between px-4 py-3">
+                <span class="text-sm font-medium text-slate-700">{{ t(['en' => 'Language', 'si' => 'භාෂාව']) }}</span>
+                <div class="inline-flex items-center rounded-xl border border-slate-200 bg-white p-0.5 text-xs font-semibold">
+                    @foreach (\App\Support\Locale::SUPPORTED as $locale)
+                        <a href="{{ route('locale.switch', $locale) }}"
+                            class="rounded-lg px-2.5 py-1.5 transition {{ $currentLocale === $locale
+                                ? 'bg-indigo-600 text-white shadow-sm'
+                                : 'text-slate-600 hover:bg-slate-50' }}"
+                            hreflang="{{ $locale }}"
+                            lang="{{ $locale }}">
+                            {{ $locale === 'en' ? 'EN' : 'සිං' }}
+                        </a>
+                    @endforeach
+                </div>
+            </div>
 
             <a href="{{ route('notifications.index') }}"
                 class="flex items-center justify-between px-4 py-3 rounded-xl hover:bg-slate-100">

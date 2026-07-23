@@ -7,7 +7,7 @@
                 {{ config('app.name', 'EventHub') }}
             </h1>
             <p class="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-slate-600 dark:text-slate-300">
-                {{ t(['en' => 'We make discovering and booking live experiences simple — so you can spend less time searching and more time showing up.', 'si' => 'අපි සජීවී අත්දැකීම් සොයාගැනීම සහ වෙන්කරවා ගැනීම පහසු කරනවා — එවිට ඔබට සෙවීම සඳහා කාලය අඩු කර වැඩි කාලය සජීවීව සහභාගී වීමට වැය කළ හැක.']) }}
+                {{ t(['en' => 'We make discovering and booking live experiences simple — so you can spend less time searching and more time showing up.', 'si' => 'අපි සජීවී ප්‍රසංගය් සොයාගැනීම සහ වෙන්කරවා ගැනීම පහසු කරනවා — එවිට ඔබට සෙවීම සඳහා කාලය අඩු කර වැඩි කාලය සජීවීව සහභාගී වීමට වැය කළ හැක.']) }}
             </p>
             <div class="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
                 <a href="{{ route('welcome') }}#events"

@@ -26,7 +26,7 @@
                 </div>
                 <h2 class="text-2xl font-bold text-primary dark:text-primary-light">{{ t(['en' => 'Join EventHub', 'si' => 'EventHub හා එක්වන්න']) }}</h2>
                 <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                    {{ t(['en' => 'Create your account and start managing events like a pro.', 'si' => 'ඔබේ ගිණුම සාදා වෘත්තීය මට්ටමින් අත්දැකීම් කළමනාකරණය ආරම්භ කරන්න.']) }}
+                    {{ t(['en' => 'Create your account and start managing events like a pro.', 'si' => 'ඔබේ ගිණුම සාදා වෘත්තීය මට්ටමින් ප්‍රසංගය් කළමනාකරණය ආරම්භ කරන්න.']) }}
                 </p>
             </div>
 
@@ -59,7 +59,7 @@
                         {{ t(['en' => 'Join EventHub', 'si' => 'EventHub හා එක්වන්න']) }}
                     </h2>
                     <p class="mt-4 text-gray-600 dark:text-gray-400 text-lg leading-relaxed max-w-md">
-                        {{ t(['en' => 'Create your account and start managing events like a pro. Everything you need in one place.', 'si' => 'ඔබේ ගිණුම සාදා වෘත්තීය මට්ටමින් අත්දැකීම් කළමනාකරණය ආරම්භ කරන්න. ඔබට අවශ්‍ය සියල්ල එක තැනක.']) }}
+                        {{ t(['en' => 'Create your account and start managing events like a pro. Everything you need in one place.', 'si' => 'ඔබේ ගිණුම සාදා වෘත්තීය මට්ටමින් ප්‍රසංගය් කළමනාකරණය ආරම්භ කරන්න. ඔබට අවශ්‍ය සියල්ල එක තැනක.']) }}
                     </p>
 
                     <div class="mt-8 space-y-3">
@@ -79,7 +79,7 @@
                             <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary dark:text-primary-light">
                                 <i class="bi bi-check-lg"></i>
                             </span>
-                            {{ t(['en' => 'Full event management tools', 'si' => 'සම්පූර්ණ අත්දැකීම් කළමනාකරණ මෙවලම්']) }}
+                            {{ t(['en' => 'Full event management tools', 'si' => 'සම්පූර්ණ ප්‍රසංගය් කළමනාකරණ මෙවලම්']) }}
                         </div>
                     </div>
                 </div>
@@ -97,7 +97,7 @@
                                 {{ t(['en' => 'Register', 'si' => 'ලියාපදිංචි වන්න']) }}
                             </span>
                             <h3 class="mt-4 text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">{{ t(['en' => 'Create Account', 'si' => 'ගිණුමක් සාදන්න']) }}</h3>
-                            <p class="mt-2 text-gray-600 dark:text-gray-400">{{ t(['en' => 'Join EventHub and start managing your events', 'si' => 'EventHub හා එක්වී ඔබේ අත්දැකීම් කළමනාකරණය ආරම්භ කරන්න']) }}</p>
+                            <p class="mt-2 text-gray-600 dark:text-gray-400">{{ t(['en' => 'Join EventHub and start managing your events', 'si' => 'EventHub හා එක්වී ඔබේ ප්‍රසංගය් කළමනාකරණය ආරම්භ කරන්න']) }}</p>
                         </div>
 
                         <form method="POST" action="{{ route('register') }}" class="space-y-5">

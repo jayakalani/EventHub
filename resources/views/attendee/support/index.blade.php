@@ -3,12 +3,12 @@
     <x-slot name="header">
         <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div>
-                <h2 class="text-3xl font-bold text-slate-900">My Support</h2>
-                <p class="mt-1 text-slate-500">Track your inquiries and complaints.</p>
+                <h2 class="text-3xl font-bold text-slate-900">{{ t(['en' => 'My Support', 'si' => 'මගේ සහාය']) }}</h2>
+                <p class="mt-1 text-slate-500">{{ t(['en' => 'Track your inquiries and complaints.', 'si' => 'ඔබේ විමසුම් සහ පැමිණිලි බලන්න.']) }}</p>
             </div>
             <a href="{{ route('attendee.dashboard') }}"
                 class="inline-flex items-center gap-2 rounded-2xl bg-slate-800 px-5 py-3 text-sm font-semibold text-white hover:bg-slate-900 transition">
-                Back to Dashboard
+                {{ t(['en' => 'Back to Dashboard', 'si' => 'තොරතුරු පිටුවට ආපසු']) }}
             </a>
         </div>
     </x-slot>
@@ -27,12 +27,12 @@
                     <button @click="tab = 'inquiries'"
                         :class="tab === 'inquiries' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'"
                         class="px-4 py-3 text-sm font-semibold border-b-2 transition">
-                        Inquiries ({{ $inquiries->count() }})
+                        {{ t(['en' => 'Inquiries', 'si' => 'විමසුම්']) }} ({{ $inquiries->count() }})
                     </button>
                     <button @click="tab = 'complaints'"
                         :class="tab === 'complaints' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'"
                         class="px-4 py-3 text-sm font-semibold border-b-2 transition">
-                        Complaints ({{ $complaints->count() }})
+                        {{ t(['en' => 'Complaints', 'si' => 'පැමිණිලි']) }} ({{ $complaints->count() }})
                     </button>
                 </div>
 
@@ -44,7 +44,7 @@
                                 <div>
                                     <h3 class="text-lg font-bold text-slate-900">{{ $inquiry->subject }}</h3>
                                     <p class="text-sm text-slate-500">
-                                        Event: {{ $inquiry->event->name }} · {{ $inquiry->created_at->format('d M Y, H:i') }}
+                                        {{ t(['en' => 'Event:', 'si' => 'ප්‍රසංග:']) }} {{ $inquiry->event->name }} · {{ $inquiry->created_at->format('d M Y, H:i') }}
                                     </p>
                                 </div>
                                 @include('partials.support-status-badge', ['status' => $inquiry->status])
@@ -54,7 +54,7 @@
 
                                 @if($inquiry->responses->isNotEmpty())
                                     <div class="mt-6 space-y-3">
-                                        <h4 class="text-sm font-bold text-slate-800">CRO Responses</h4>
+                                        <h4 class="text-sm font-bold text-slate-800">{{ t(['en' => 'CRO Responses', 'si' => 'CRO ප්‍රතිචාර']) }}</h4>
                                         @foreach($inquiry->responses->sortBy('created_at') as $response)
                                             <div class="rounded-2xl border border-indigo-100 bg-indigo-50/60 p-4">
                                                 <div class="flex items-center justify-between gap-2 mb-2">
@@ -70,7 +70,7 @@
                         </div>
                     @empty
                         <div class="rounded-3xl border border-dashed border-slate-300 bg-white p-12 text-center">
-                            <p class="text-slate-500">No inquiries yet. Submit one from an event page.</p>
+                            <p class="text-slate-500">{{ t(['en' => 'No inquiries yet. Submit one from an event page.', 'si' => 'තවම විමසුම් නැත. ප්‍රසංග පිටුවකින් එකක් ඉදිරිපත් කරන්න.']) }}</p>
                         </div>
                     @endforelse
                 </div>
@@ -119,7 +119,7 @@
                         </div>
                     @empty
                         <div class="rounded-3xl border border-dashed border-slate-300 bg-white p-12 text-center">
-                            <p class="text-slate-500">No complaints yet. Submit one from your dashboard.</p>
+                            <p class="text-slate-500">{{ t(['en' => 'No complaints yet. Submit one from your dashboard.', 'si' => 'තවම පැමිණිලි නැත. ඔබේ තොරතුරු පිටුවෙන් එකක් ඉදිරිපත් කරන්න.']) }}</p>
                         </div>
                     @endforelse
                 </div>

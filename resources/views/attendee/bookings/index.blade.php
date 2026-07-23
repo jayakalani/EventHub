@@ -4,19 +4,17 @@
         <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div>
                 <h2 class="text-3xl font-bold text-slate-900">
-                    My Tickets
+                    {{ t(['en' => 'My Tickets', 'si' => 'මගේ ටිකට්']) }}
                 </h2>
 
                 <p class="mt-1 text-slate-500">
-                    Manage, download and access all your purchased event tickets.
+                    {{ t(['en' => 'Manage, download and access all your purchased event tickets.', 'si' => 'ඔබ මිලදී ගත් සියලු ප්‍රසංග ටිකට් කළමනාකරණය කරන්න, බාගත කරන්න සහ ප්‍රවේශ වන්න.']) }}
                 </p>
             </div>
 
             <a href="{{ route('attendee.dashboard') }}"
                 class="inline-flex items-center gap-2 rounded-2xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 transition">
-
-                Browse Events
-
+                {{ t(['en' => 'Browse Events', 'si' => 'ප්‍රසංග සොයන්න']) }}
             </a>
         </div>
     </x-slot>
@@ -37,7 +35,7 @@
 
                 <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
                     <p class="text-sm font-medium text-slate-500">
-                        Total Tickets
+                        {{ t(['en' => 'Total Tickets', 'si' => 'මුළු ටිකට්']) }}
                     </p>
 
                     <h3 class="mt-2 text-4xl font-bold text-indigo-600">
@@ -47,7 +45,7 @@
 
                 <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
                     <p class="text-sm font-medium text-slate-500">
-                        Active Events
+                        {{ t(['en' => 'Active Events', 'si' => 'සක්‍රීය ප්‍රසංග']) }}
                     </p>
 
                     <h3 class="mt-2 text-4xl font-bold text-emerald-600">
@@ -57,7 +55,7 @@
 
                 <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
                     <p class="text-sm font-medium text-slate-500">
-                        Ready To Use
+                        {{ t(['en' => 'Ready To Use', 'si' => 'භාවිතයට සූදානම්']) }}
                     </p>
 
                     <h3 class="mt-2 text-4xl font-bold text-amber-500">
@@ -77,18 +75,16 @@
                     </div>
 
                     <h3 class="mt-6 text-2xl font-bold text-slate-800">
-                        No Tickets Yet
+                        {{ t(['en' => 'No Tickets Yet', 'si' => 'තවම ටිකට් නැත']) }}
                     </h3>
 
                     <p class="mt-2 text-slate-500">
-                        Purchase tickets from upcoming events to see them here.
+                        {{ t(['en' => 'Purchase tickets from upcoming events to see them here.', 'si' => 'ඉදිරි ප්‍රසංගවලින් ටිකට් මිලදී ගෙන මෙහි බලන්න.']) }}
                     </p>
 
                     <a href="{{ route('attendee.dashboard') }}"
                         class="mt-6 inline-flex rounded-2xl bg-indigo-600 px-6 py-3 text-sm font-semibold text-white hover:bg-indigo-700">
-
-                        Explore Events
-
+                        {{ t(['en' => 'Explore Events', 'si' => 'ප්‍රසංග ගවේෂණය කරන්න']) }}
                     </a>
 
                 </div>
@@ -125,7 +121,7 @@
 
                                 @if($event->isCancelled())
                                     <div class="mb-4 inline-flex rounded-2xl border border-rose-300/40 bg-rose-500/90 px-4 py-2">
-                                        <p class="text-sm font-bold uppercase tracking-wide text-white">Event Cancelled</p>
+                                        <p class="text-sm font-bold uppercase tracking-wide text-white">{{ t(['en' => 'Event Cancelled', 'si' => 'ප්‍රසංගය අවලංගුයි']) }}</p>
                                     </div>
                                     @if($event->cancellation_reason)
                                         <p class="mb-3 max-w-3xl text-sm leading-relaxed text-rose-100">
@@ -134,7 +130,7 @@
                                     @endif
                                 @elseif($event->isCompleted())
                                     <div class="mb-4 inline-flex rounded-2xl border border-slate-300/40 bg-slate-600/90 px-4 py-2">
-                                        <p class="text-sm font-bold uppercase tracking-wide text-white">Event Completed</p>
+                                        <p class="text-sm font-bold uppercase tracking-wide text-white">{{ t(['en' => 'Event Completed', 'si' => 'ප්‍රසංගය අවසන්']) }}</p>
                                     </div>
                                 @endif
 
@@ -156,7 +152,7 @@
 
                                 @if($event->host)
                                     <p class="mt-1 text-sm text-white/80">
-                                        Hosted by {{ $event->host->name }}
+                                        {{ t(['en' => 'Hosted by', 'si' => 'සත්කාරකයා']) }} {{ $event->host->name }}
                                     </p>
                                 @endif
 
@@ -191,7 +187,7 @@
                                             </div>
 
                                             <p class="mt-2 text-xs text-slate-500 uppercase">
-                                                Ticket Number
+                                                {{ t(['en' => 'Ticket Number', 'si' => 'ටිකට් අංකය']) }}
                                             </p>
 
                                             <p class="font-mono text-sm font-bold text-indigo-700">
@@ -224,21 +220,21 @@
                                     <div class="mt-5 space-y-3">
 
                                         <div class="flex justify-between text-sm">
-                                            <span class="text-slate-500">Payment ID</span>
+                                            <span class="text-slate-500">{{ t(['en' => 'Payment ID', 'si' => 'ගෙවීම් අංකය']) }}</span>
                                             <span class="font-mono text-slate-700">
                                                 {{ $booking->payment->reference }}
                                             </span>
                                         </div>
 
                                         <div class="flex justify-between text-sm">
-                                            <span class="text-slate-500">Price</span>
+                                            <span class="text-slate-500">{{ t(['en' => 'Price', 'si' => 'මිල']) }}</span>
                                             <span class="font-semibold text-indigo-600">
                                                 Rs {{ number_format($booking->ticket_price, 2) }}
                                             </span>
                                         </div>
 
                                         <div class="flex justify-between text-sm">
-                                            <span class="text-slate-500">Purchased</span>
+                                            <span class="text-slate-500">{{ t(['en' => 'Purchased', 'si' => 'මිලදී ගත් දිනය']) }}</span>
                                             <span class="font-medium text-slate-700">
                                                 {{ $booking->created_at->format('d M Y') }}
                                             </span>
@@ -250,33 +246,29 @@
                                     <div class="mt-6 space-y-3">
                                         <a href="{{ route('attendee.bookings.download', $booking) }}"
                                             class="inline-flex w-full items-center justify-center rounded-2xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white hover:bg-indigo-700 transition">
-
-                                            Download Ticket PDF
-
+                                            {{ t(['en' => 'Download Ticket PDF', 'si' => 'ටිකට් PDF බාගත කරන්න']) }}
                                         </a>
 
                                         @if($booking->status === \App\Enums\BookingStatusEnum::EventCancelled)
                                             <div class="rounded-2xl bg-rose-50 px-4 py-3 text-center text-sm font-semibold text-rose-700">
-                                                Refunded to wallet due to event cancellation
+                                                {{ t(['en' => 'Refunded to wallet due to event cancellation', 'si' => 'ප්‍රසංගය අවලංගු වීම නිසා පසුම්බියට ආපසු ගෙවන ලදී']) }}
                                             </div>
                                         @elseif($event->isCompleted())
                                             <div class="rounded-2xl bg-slate-100 px-4 py-3 text-center text-sm font-semibold text-slate-700">
-                                                Event completed — ticket archived for your records
+                                                {{ t(['en' => 'Event completed — ticket archived for your records', 'si' => 'ප්‍රසංගය අවසන් — ටිකට් ඔබේ වාර්තා සඳහා සුරකින ලදී']) }}
                                             </div>
                                         @elseif($booking->isCancellable())
                                             <a href="{{ route('attendee.bookings.refund.create', $booking) }}"
                                                 class="inline-flex w-full items-center justify-center rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 hover:bg-red-100 transition">
-
-                                                Cancel Booking
-
+                                                {{ t(['en' => 'Cancel Booking', 'si' => 'වෙන්කිරීම අවලංගු කරන්න']) }}
                                             </a>
                                         @elseif($booking->refundRequest)
                                             <div class="rounded-2xl bg-slate-100 px-4 py-3 text-center text-xs font-medium text-slate-600">
-                                                Refund request: {{ ucfirst(str_replace('_', ' ', $booking->refundRequest->status->value)) }}
+                                                {{ t(['en' => 'Refund request:', 'si' => 'ආපසු ගෙවීමේ ඉල්ලීම:']) }} {{ ucfirst(str_replace('_', ' ', $booking->refundRequest->status->value)) }}
                                             </div>
                                         @elseif($booking->isExpired())
                                             <div class="rounded-2xl bg-slate-200 px-4 py-3 text-center text-sm font-semibold text-slate-600">
-                                                Ticket Expired
+                                                {{ t(['en' => 'Ticket Expired', 'si' => 'ටිකට් කල් ඉකුත් වී ඇත']) }}
                                             </div>
                                         @endif
                                     </div>
@@ -284,7 +276,7 @@
                                     @if($booking->refundRequest?->status === \App\Enums\RefundRequestStatusEnum::Declined && $booking->refundRequest->cro_notes)
                                         <div class="mt-4 rounded-2xl border border-red-100 bg-red-50 px-4 py-3">
                                             <p class="text-xs font-semibold uppercase tracking-wide text-red-600">
-                                                Refund Declined
+                                                {{ t(['en' => 'Refund Declined', 'si' => 'ආපසු ගෙවීම ප්‍රතික්ෂේප විය']) }}
                                             </p>
                                             <p class="mt-2 text-sm leading-relaxed text-red-800">
                                                 {{ $booking->refundRequest->cro_notes }}

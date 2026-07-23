@@ -3,10 +3,10 @@
     <x-slot name="header">
         <div>
             <h2 class="text-3xl font-bold text-slate-900">
-                Refund Request
+                {{ t(['en' => 'Refund Request', 'si' => 'ආපසු ගෙවීමේ ඉල්ලීම']) }}
             </h2>
             <p class="mt-1 text-slate-500">
-                Submit a cancellation request for your ticket.
+                {{ t(['en' => 'Submit a cancellation request for your ticket.', 'si' => 'ඔබේ ටිකට් අවලංගු කිරීමේ ඉල්ලීමක් ඉදිරිපත් කරන්න.']) }}
             </p>
         </div>
     </x-slot>
@@ -22,27 +22,27 @@
 
             {{-- Ticket Details --}}
             <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-                <h3 class="text-lg font-bold text-slate-900">Ticket Details</h3>
+                <h3 class="text-lg font-bold text-slate-900">{{ t(['en' => 'Ticket Details', 'si' => 'ටිකට් විස්තර']) }}</h3>
 
                 <div class="mt-4 space-y-3 text-sm">
                     <div class="flex justify-between">
-                        <span class="text-slate-500">Event</span>
+                        <span class="text-slate-500">{{ t(['en' => 'Event', 'si' => 'ප්‍රසංගය']) }}</span>
                         <span class="font-semibold text-slate-800">{{ $ticketBooking->event->name }}</span>
                     </div>
                     <div class="flex justify-between">
-                        <span class="text-slate-500">Category</span>
+                        <span class="text-slate-500">{{ t(['en' => 'Category', 'si' => 'වර්ගය']) }}</span>
                         <span class="font-semibold text-slate-800">{{ $ticketBooking->ticketCategory->name }}</span>
                     </div>
                     <div class="flex justify-between">
-                        <span class="text-slate-500">Ticket Number</span>
+                        <span class="text-slate-500">{{ t(['en' => 'Ticket Number', 'si' => 'ටිකට් අංකය']) }}</span>
                         <span class="font-mono font-semibold text-indigo-700">{{ $ticketBooking->ticket_number }}</span>
                     </div>
                     <div class="flex justify-between">
-                        <span class="text-slate-500">Price Paid</span>
+                        <span class="text-slate-500">{{ t(['en' => 'Price Paid', 'si' => 'ගෙවූ මිල']) }}</span>
                         <span class="font-semibold text-indigo-600">Rs {{ number_format((float) $ticketBooking->ticket_price, 2) }}</span>
                     </div>
                     <div class="flex justify-between">
-                        <span class="text-slate-500">Event Date</span>
+                        <span class="text-slate-500">{{ t(['en' => 'Event Date', 'si' => 'ප්‍රසංග දිනය']) }}</span>
                         <span class="font-medium text-slate-700">{{ $ticketBooking->event->date }}</span>
                     </div>
                 </div>
@@ -50,18 +50,18 @@
 
             {{-- Refund Policy --}}
             <div class="rounded-3xl border border-amber-200 bg-amber-50 p-6">
-                <h3 class="text-lg font-bold text-amber-900">Refund Policy</h3>
+                <h3 class="text-lg font-bold text-amber-900">{{ t(['en' => 'Refund Policy', 'si' => 'ආපසු ගෙවීමේ ප්‍රතිපත්තිය']) }}</h3>
                 <ul class="mt-3 space-y-2 text-sm text-amber-800">
-                    <li>More than 7 days before booking closes → <strong>100% refund</strong></li>
-                    <li>Within 7 days of booking closing → <strong>75% refund</strong></li>
-                    <li>After the event date → <strong>automatically declined</strong></li>
+                    <li>{{ t(['en' => 'More than 7 days before booking closes →', 'si' => 'වෙන්කිරීම අවසානයට දින 7කට වඩා පෙර →']) }} <strong>{{ t(['en' => '100% refund', 'si' => '100% ආපසු ගෙවීම']) }}</strong></li>
+                    <li>{{ t(['en' => 'Within 7 days of booking closing →', 'si' => 'වෙන්කිරීම අවසානයට දින 7ක් ඇතුළත →']) }} <strong>{{ t(['en' => '75% refund', 'si' => '75% ආපසු ගෙවීම']) }}</strong></li>
+                    <li>{{ t(['en' => 'After the event date →', 'si' => 'ප්‍රසංග දිනයෙන් පසු →']) }} <strong>{{ t(['en' => 'automatically declined', 'si' => 'ස්වයංක්‍රීයව ප්‍රතික්ෂේප වේ']) }}</strong></li>
                 </ul>
 
                 <div class="mt-4 rounded-2xl bg-white/70 px-4 py-3 text-sm">
                     <p class="font-semibold text-slate-800">{{ $policy->policyLabel }}</p>
                     @if($policy->refundPercentage > 0)
                         <p class="mt-1 text-slate-600">
-                            Estimated refund:
+                            {{ t(['en' => 'Estimated refund:', 'si' => 'ඇස්තමේන්තුගත ආපසු ගෙවීම:']) }}
                             <strong>{{ $policy->refundPercentage }}%</strong>
                             (Rs {{ number_format($policy->refundAmount, 2) }})
                         </p>
@@ -78,7 +78,7 @@
 
                 <div>
                     <label for="reason" class="block text-sm font-semibold text-slate-700">
-                        Reason for cancellation
+                        {{ t(['en' => 'Reason for cancellation', 'si' => 'අවලංගු කිරීමේ හේතුව']) }}
                     </label>
                     <textarea
                         id="reason"
@@ -87,15 +87,15 @@
                         required
                         minlength="10"
                         maxlength="2000"
-                        placeholder="Please explain why you would like to cancel this booking..."
+                        placeholder="{{ t(['en' => 'Please explain why you would like to cancel this booking...', 'si' => 'මෙම වෙන්කිරීම අවලංගු කිරීමට අවශ්‍ය වන්නේ ඇයිදැයි පැහැදිලි කරන්න...']) }}"
                         class="mt-2 w-full rounded-2xl border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                     >{{ old('reason') }}</textarea>
-                    <p class="mt-1 text-xs text-slate-500">Minimum 10 characters.</p>
+                    <p class="mt-1 text-xs text-slate-500">{{ t(['en' => 'Minimum 10 characters.', 'si' => 'අවම අක්ෂර 10ක්.']) }}</p>
                 </div>
 
                 @unless($policy->requiresCroReview)
                     <p class="text-sm text-red-700 bg-red-50 rounded-xl px-4 py-3">
-                        This request will be automatically declined because the event has already passed.
+                        {{ t(['en' => 'This request will be automatically declined because the event has already passed.', 'si' => 'ප්‍රසංගය දැනටමත් අවසන් වී ඇති බැවින් මෙම ඉල්ලීම ස්වයංක්‍රීයව ප්‍රතික්ෂේප වේ.']) }}
                     </p>
                 @endunless
 
@@ -104,14 +104,14 @@
                         type="submit"
                         class="inline-flex flex-1 items-center justify-center rounded-2xl bg-red-600 px-6 py-3 text-sm font-semibold text-white hover:bg-red-700 transition"
                     >
-                        Submit Refund Request
+                        {{ t(['en' => 'Submit Refund Request', 'si' => 'ආපසු ගෙවීමේ ඉල්ලීම ඉදිරිපත් කරන්න']) }}
                     </button>
 
                     <a
                         href="{{ route('attendee.bookings.index') }}"
                         class="inline-flex flex-1 items-center justify-center rounded-2xl border border-slate-300 px-6 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition"
                     >
-                        Cancel
+                        {{ t(['en' => 'Cancel', 'si' => 'අවලංගු කරන්න']) }}
                     </a>
                 </div>
             </form>

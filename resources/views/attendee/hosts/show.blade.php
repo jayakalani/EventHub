@@ -5,13 +5,13 @@
             <div>
                 <a href="{{ route('attendee.hosts.index') }}"
                     class="text-sm font-medium text-indigo-600 hover:text-indigo-800">
-                    &larr; {{ __('Back to Hosts') }}
+                    &larr; {{ t(['en' => 'Back to Hosts', 'si' => 'සත්කාරකයන් වෙත ආපසු']) }}
                 </a>
                 <h2 class="mt-1 text-2xl font-bold text-gray-900">
                     {{ $host->name }}
                 </h2>
                 <p class="mt-1 text-sm text-gray-500">
-                    {{ __('Host details and events') }}
+                    {{ t(['en' => 'Host details and events', 'si' => 'සත්කාරක විස්තර සහ ප්‍රසංග']) }}
                 </p>
             </div>
         </div>
@@ -28,7 +28,7 @@
                                 class="h-full w-full object-cover">
                         @else
                             <div class="h-full min-h-56 bg-slate-100 flex items-center justify-center text-slate-400">
-                                {{ __('No Image') }}
+                                {{ t(['en' => 'No Image', 'si' => 'රූපයක් නැත']) }}
                             </div>
                         @endif
                     </div>
@@ -39,7 +39,7 @@
                                 <h3 class="text-2xl font-bold text-slate-900">{{ $host->name }}</h3>
                                 <span
                                     class="mt-2 inline-flex rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
-                                    {{ __('Active') }}
+                                    {{ t(['en' => 'Active', 'si' => 'සක්‍රීය']) }}
                                 </span>
                             </div>
 
@@ -52,7 +52,7 @@
                                 <form action="{{ route('attendee.hosts.like', $host) }}" method="POST">
                                     @csrf
                                     <button type="submit"
-                                        aria-label="{{ $host->is_liked ? __('Unlike host') : __('Like host') }}"
+                                        aria-label="{{ $host->is_liked ? t(['en' => 'Unlike host', 'si' => 'කැමති නැත']) : t(['en' => 'Like host', 'si' => 'කැමතියි']) }}"
                                         class="inline-flex items-center justify-center rounded-full p-2.5 text-xl transition
                                         {{ $host->is_liked ? 'bg-[#1877F2] text-white hover:bg-[#166fe5]' : 'bg-slate-100 text-slate-500 hover:bg-slate-200' }}">
                                         <i class="bi {{ $host->is_liked ? 'bi-hand-thumbs-up-fill' : 'bi-hand-thumbs-up' }}"
@@ -68,11 +68,11 @@
             <div>
                 <div class="mb-4 flex items-center justify-between gap-3">
                     <h3 class="text-lg font-semibold text-slate-900">
-                        {{ __('Events by this host') }}
+                        {{ t(['en' => 'Events by this host', 'si' => 'මෙම සත්කාරකයාගේ ප්‍රසංග']) }}
                     </h3>
                     <a href="{{ route('attendee.dashboard', ['host' => $host->id]) }}"
                         class="text-sm font-semibold text-indigo-600 hover:text-indigo-800">
-                        {{ __('Browse in Events') }}
+                        {{ t(['en' => 'Browse in Events', 'si' => 'ප්‍රසංග තුළ බලන්න']) }}
                     </a>
                 </div>
 
@@ -85,7 +85,7 @@
                                     class="h-40 w-full object-cover">
                             @else
                                 <div class="h-40 bg-slate-100 flex items-center justify-center text-slate-400">
-                                    {{ __('No Image') }}
+                                    {{ t(['en' => 'No Image', 'si' => 'රූපයක් නැත']) }}
                                 </div>
                             @endif
 
@@ -103,7 +103,7 @@
                                     <form action="{{ route('attendee.events.like', $event) }}" method="POST">
                                         @csrf
                                         <button type="submit"
-                                            aria-label="{{ $event->is_liked ? __('Unlike event') : __('Like event') }}"
+                                            aria-label="{{ $event->is_liked ? t(['en' => 'Unlike event', 'si' => 'කැමති නැත']) : t(['en' => 'Like event', 'si' => 'කැමතියි']) }}"
                                             class="inline-flex items-center justify-center rounded-full p-2.5 text-xl transition
                                             {{ $event->is_liked ? 'bg-[#1877F2] text-white hover:bg-[#166fe5]' : 'bg-slate-100 text-slate-500 hover:bg-slate-200' }}">
                                             <i class="bi {{ $event->is_liked ? 'bi-hand-thumbs-up-fill' : 'bi-hand-thumbs-up' }}"
@@ -114,13 +114,13 @@
 
                                 <a href="{{ route('attendee.events.show', $event) }}"
                                     class="mt-4 block text-center rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 transition">
-                                    {{ __('View Event') }}
+                                    {{ t(['en' => 'View Event', 'si' => 'ප්‍රසංග බලන්න']) }}
                                 </a>
                             </div>
                         </div>
                     @empty
                         <div class="col-span-full rounded-3xl border border-dashed border-slate-300 bg-white p-8 text-center text-slate-500">
-                            {{ __('This host has no events yet.') }}
+                            {{ t(['en' => 'This host has no events yet.', 'si' => 'මෙම සත්කාරකයාට තවම ප්‍රසංග නැත.']) }}
                         </div>
                     @endforelse
                 </div>

@@ -3,13 +3,13 @@
     <x-slot name="header">
         <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div>
-                <h2 class="text-3xl font-bold text-slate-900">My Event Calendar</h2>
-                <p class="mt-1 text-slate-500">Events you have tickets for — click any event to view details.</p>
+                <h2 class="text-3xl font-bold text-slate-900">{{ t(['en' => 'My Event Calendar', 'si' => 'මගේ ප්‍රසංග දින දර්ශනය']) }}</h2>
+                <p class="mt-1 text-slate-500">{{ t(['en' => 'Events you have tickets for — click any event to view details.', 'si' => 'ඔබට ටිකට් ඇති ප්‍රසංග විස්තර බැලීමට , ඕනෑම ප්‍රසංගයක් ක්ලික් කරන්න.']) }}</p>
             </div>
             <a href="{{ route('attendee.bookings.index') }}"
                 class="inline-flex items-center gap-2 rounded-2xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 transition">
                 <i class="bi bi-ticket-perforated"></i>
-                My Tickets
+                {{ t(['en' => 'My Tickets', 'si' => 'මගේ ටිකට්']) }}
             </a>
         </div>
     </x-slot>
@@ -28,13 +28,13 @@
 
             {{-- Legend --}}
             <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                <p class="text-sm font-semibold text-slate-700 mb-3">Event status</p>
+                <p class="text-sm font-semibold text-slate-700 mb-3">{{ t(['en' => 'Event status', 'si' => 'ප්‍රසංග තත්ත්වය']) }}</p>
                 <div class="flex flex-wrap gap-4">
                     @foreach([
-                        'upcoming' => 'Upcoming',
-                        'ongoing' => 'Ongoing',
-                        'completed' => 'Completed',
-                        'cancelled' => 'Cancelled',
+                        'upcoming' => t(['en' => 'Upcoming', 'si' => 'ඉදිරියට']),
+                        'ongoing' => t(['en' => 'Ongoing', 'si' => 'පවතින']),
+                        'completed' => t(['en' => 'Completed', 'si' => 'අවසන්']),
+                        'cancelled' => t(['en' => 'Cancelled', 'si' => 'අවලංගු']),
                     ] as $key => $label)
                         <div class="flex items-center gap-2">
                             <span class="h-3 w-3 rounded-full" style="background-color: {{ $statusColors[$key] }}"></span>
@@ -54,7 +54,7 @@
                 <div class="space-y-6">
                     <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
                         <div class="flex items-center justify-between mb-4">
-                            <h3 class="text-lg font-bold text-slate-900">Upcoming Events</h3>
+                            <h3 class="text-lg font-bold text-slate-900">{{ t(['en' => 'Upcoming Events', 'si' => 'ඉදිරි ප්‍රසංග']) }}</h3>
                             <span class="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-semibold text-blue-700">
                                 {{ $upcomingEvents->count() }}
                             </span>
@@ -72,23 +72,23 @@
                                     </span>
                                 </div>
                                 <p class="mt-1 text-sm text-slate-500">
-                                    <i class="bi bi-calendar3"></i> {{ $event->date }} at {{ $event->time }}
+                                    <i class="bi bi-calendar3"></i> {{ $event->date }} {{ t(['en' => 'at', 'si' => 'දී']) }} {{ $event->time }}
                                 </p>
                                 <p class="mt-1 text-sm text-slate-500 line-clamp-1">
                                     <i class="bi bi-geo-alt"></i> {{ $event->place }}
                                 </p>
                                 <p class="mt-2 text-xs font-medium text-indigo-600">
-                                    {{ $event->user_ticket_count }} ticket(s) · View event
+                                    {{ $event->user_ticket_count }} {{ t(['en' => 'ticket(s) · View event', 'si' => 'ටිකට් ·  ප්‍රසංගය බලන්න']) }}
                                 </p>
                             </a>
                         @empty
-                            <p class="text-sm text-slate-500">No upcoming events with purchased tickets.</p>
+                            <p class="text-sm text-slate-500">{{ t(['en' => 'No upcoming events with purchased tickets.', 'si' => 'මිලදී ගත් ටිකට් සදහා ඉදිරි ප්‍රසංග නැත.']) }}</p>
                         @endforelse
                     </div>
 
                     <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
                         <div class="flex items-center justify-between mb-4">
-                            <h3 class="text-lg font-bold text-slate-900">Past & Attended</h3>
+                            <h3 class="text-lg font-bold text-slate-900">{{ t(['en' => 'Past & Attended', 'si' => 'අතීත සහ සහභාගී වූ']) }}</h3>
                             <span class="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-700">
                                 {{ $pastEvents->count() }}
                             </span>
@@ -109,11 +109,11 @@
                                     <i class="bi bi-calendar3"></i> {{ $event->date }}
                                 </p>
                                 <p class="mt-2 text-xs font-medium text-slate-600">
-                                    {{ $event->user_ticket_count }} ticket(s) · View event
+                                    {{ $event->user_ticket_count }} {{ t(['en' => 'ticket(s) · View event', 'si' => 'ටිකට් ·  ප්‍රසංගය බලන්න']) }}
                                 </p>
                             </a>
                         @empty
-                            <p class="text-sm text-slate-500">No past events yet.</p>
+                            <p class="text-sm text-slate-500">{{ t(['en' => 'No past events yet.', 'si' => 'තවම අතීත ප්‍රසංග නැත.']) }}</p>
                         @endforelse
                     </div>
                 </div>
@@ -135,6 +135,12 @@
                         center: 'title',
                         right: 'dayGridMonth,timeGridWeek,listMonth'
                     },
+                    buttonText: {
+                        today: @js(t(['en' => 'today', 'si' => 'අද'])),
+                        month: @js(t(['en' => 'month', 'si' => 'මාසය'])),
+                        week: @js(t(['en' => 'week', 'si' => 'සතිය'])),
+                        list: @js(t(['en' => 'list', 'si' => 'ලැයිස්තුව'])),
+                    },
                     height: 'auto',
                     events: events,
                     eventClick: function (info) {
@@ -147,7 +153,7 @@
                         const status = info.event.extendedProps.statusLabel;
                         const place = info.event.extendedProps.place;
                         const tickets = info.event.extendedProps.ticketCount;
-                        info.el.title = `${info.event.title} (${status}) — ${place} — ${tickets} ticket(s)`;
+                        info.el.title = `${info.event.title} (${status}) — ${place} — ${tickets} {{ t(['en' => 'ticket(s)', 'si' => 'ටිකට්']) }}`;
                     },
                 });
 

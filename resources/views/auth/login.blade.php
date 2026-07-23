@@ -35,7 +35,7 @@
                 </div>
                 <h2 class="text-2xl font-bold text-primary dark:text-primary-light">{{ t(['en' => 'Welcome to EventHub', 'si' => 'EventHub වෙත සාදරයෙන් පිළිගනිමු']) }}</h2>
                 <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                    {{ t(['en' => 'Discover, join, and manage events effortlessly.', 'si' => 'අත්දැකීම් පහසුවෙන් සොයා ගන්න, එක්වන්න සහ කළමනාකරණය කරන්න.']) }}
+                    {{ t(['en' => 'Discover, join, and manage events effortlessly.', 'si' => 'ප්‍රසංගය් පහසුවෙන් සොයා ගන්න, එක්වන්න සහ කළමනාකරණය කරන්න.']) }}
                 </p>
             </div>
 
@@ -69,13 +69,13 @@
                         {{ t(['en' => 'Welcome to EventHub', 'si' => 'EventHub වෙත සාදරයෙන් පිළිගනිමු']) }}
                     </h2>
                     <p class="mt-4 text-gray-600 dark:text-gray-400 text-lg leading-relaxed max-w-md">
-                        {{ t(['en' => 'Discover, join, and manage events effortlessly. Your next great experience starts here.', 'si' => 'අත්දැකීම් පහසුවෙන් සොයා ගන්න, එක්වන්න සහ කළමනාකරණය කරන්න. ඔබේ ඊළඟ විශිෂ්ට අත්දැකීම මෙතැනින් ආරම්භ වේ.']) }}
+                        {{ t(['en' => 'Discover, join, and manage events effortlessly. Your next great experience starts here.', 'si' => 'ප්‍රසංගය් පහසුවෙන් සොයා ගන්න, එක්වන්න සහ කළමනාකරණය කරන්න. ඔබේ ඊළඟ විශිෂ්ට ප්‍රසංගය මෙතැනින් ආරම්භ වේ.']) }}
                     </p>
 
                     <div class="mt-8 flex flex-wrap gap-3 justify-center lg:justify-start">
                         <span class="inline-flex items-center gap-2 rounded-full bg-white/80 px-4 py-2 text-sm text-gray-600 shadow-sm ring-1 ring-gray-200/80 dark:bg-gray-800/80 dark:text-gray-300 dark:ring-gray-700/80">
                             <i class="bi bi-calendar-check text-primary dark:text-primary-light"></i>
-                            {{ t(['en' => 'Event management', 'si' => 'අත්දැකීම් කළමනාකරණය']) }}
+                            {{ t(['en' => 'Event management', 'si' => 'ප්‍රසංගය් කළමනාකරණය']) }}
                         </span>
                         <span class="inline-flex items-center gap-2 rounded-full bg-white/80 px-4 py-2 text-sm text-gray-600 shadow-sm ring-1 ring-gray-200/80 dark:bg-gray-800/80 dark:text-gray-300 dark:ring-gray-700/80">
                             <i class="bi bi-people text-primary dark:text-primary-light"></i>

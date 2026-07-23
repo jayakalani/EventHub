@@ -7,13 +7,13 @@
                 {{ config('app.name', 'EventHub') }}
             </h1>
             <p class="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-slate-600 dark:text-slate-300">
-                {{ t(['en' => 'We make discovering and booking live experiences simple — so you can spend less time searching and more time showing up.', 'si' => 'සජීවී අත්දැකීම් සොයා ගැනීම සහ වෙන්කරවා ගැනීම සරල කරමු — සෙවීමට අඩු කාලයක් වැය කර, සහභාගී වීමට වැඩි කාලයක් ලබා ගන්න.']) }}
+                {{ t(['en' => 'We make discovering and booking live experiences simple — so you can spend less time searching and more time showing up.', 'si' => 'අපි සජීවී අත්දැකීම් සොයාගැනීම සහ වෙන්කරවා ගැනීම පහසු කරනවා — එවිට ඔබට සෙවීම සඳහා කාලය අඩු කර වැඩි කාලය සජීවීව සහභාගී වීමට වැය කළ හැක.']) }}
             </p>
             <div class="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
                 <a href="{{ route('welcome') }}#events"
                     class="inline-flex items-center justify-center gap-2 rounded-2xl bg-primary px-6 py-3.5 text-sm font-semibold text-white shadow-lg shadow-primary/30 transition hover:bg-primary-dark">
                     <i class="bi bi-search"></i>
-                    {{ t(['en' => 'Browse Events', 'si' => 'අත්දැකීම් බලන්න']) }}
+                    {{ t(['en' => 'Browse Events', 'si' => 'ප්‍රසංග සොයන්න']) }}
                 </a>
                 @guest
                     <a href="{{ route('register') }}"
@@ -38,7 +38,7 @@
                         {{ t(['en' => 'EventHub brings organizers and attendees together on one platform. Whether it’s a concert, workshop, meetup, or festival, we help hosts publish with confidence and guests book with ease.', 'si' => 'EventHub සංවිධායකයන් සහ සහභාගීවන්නන් එක වේදිකාවකට ගෙන එයි. එය සංගීත ප්‍රසංගයක්, වැඩමුළුවක්, හමුවක් හෝ උත්සවයක් වේවා, සත්කාරකයන්ට විශ්වාසයෙන් ප්‍රකාශයට පත් කිරීමටත් අමුත්තන්ට පහසුවෙන් වෙන්කරවා ගැනීමටත් අපි උදව් කරමු.']) }}
                     </p>
                     <p class="mt-4 text-base leading-relaxed text-slate-600 dark:text-slate-300">
-                        {{ t(['en' => 'From discovery to checkout, every step is designed to be clear, fast, and secure — so the focus stays on the event itself.', 'si' => 'සොයා ගැනීමේ සිට ගෙවීම දක්වා සෑම පියවරක්ම පැහැදිලි, වේගවත් සහ ආරක්ෂිත වන පරිදි නිර්මාණය කර ඇත — අවධානය අත්දැකීම මතම තබා ගැනීමට.']) }}
+                        {{ t(['en' => 'From discovery to checkout, every step is designed to be clear, fast, and secure — so the focus stays on the event itself.', 'si' => 'සොයා ගැනීමේ සිට ගෙවීම දක්වා සෑම පියවරක්ම පැහැදිලි, වේගවත් සහ ආරක්ෂිත වන පරිදි නිර්මාණය කර ඇත — අවධානය ප්‍රසංග මතම තබා ගැනීමට.']) }}
                     </p>
                 </div>
 
@@ -49,7 +49,7 @@
                         </span>
                         <h3 class="mt-4 font-semibold text-slate-900 dark:text-white">{{ t(['en' => 'For attendees', 'si' => 'සහභාගීවන්නන් සඳහා']) }}</h3>
                         <p class="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
-                            {{ t(['en' => 'Find events by category, save favorites, and book tickets in seconds.', 'si' => 'ප්‍රවර්ග අනුව අත්දැකීම් සොයන්න, ප්‍රියතමයන් සුරකින්න, තත්පර කිහිපයකින් ටිකට් වෙන්කරවා ගන්න.']) }}
+                            {{ t(['en' => 'Find events by category, save favorites, and book tickets in seconds.', 'si' => 'වර්ග අනුව  සොයන්න, ප්‍රියතමයන් සුරකින්න, තත්පර කිහිපයකින් ටිකට් වෙන්කරවා ගන්න.']) }}
                         </p>
                     </div>
                     <div class="rounded-2xl border border-slate-200/80 bg-white p-6 dark:border-slate-700 dark:bg-slate-900 sm:mt-6">
@@ -58,7 +58,7 @@
                         </span>
                         <h3 class="mt-4 font-semibold text-slate-900 dark:text-white">{{ t(['en' => 'For organizers', 'si' => 'සංවිධායකයන් සඳහා']) }}</h3>
                         <p class="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
-                            {{ t(['en' => 'Publish events, manage bookings, and reach the right audience.', 'si' => 'අත්දැකීම් ප්‍රකාශයට පත් කරන්න, වෙන්කිරීම් කළමනාකරණය කරන්න, නිවැරදි ප්‍රේක්ෂකයන් වෙත ළඟා වන්න.']) }}
+                            {{ t(['en' => 'Publish events, manage bookings, and reach the right audience.', 'si' => 'ප්‍රසංග ප්‍රකාශයට පත් කරන්න, වෙන්කිරීම් කළමනාකරණය කරන්න, නිවැරදි ප්‍රේක්ෂකයන් වෙත ළඟා වන්න.']) }}
                         </p>
                     </div>
                 </div>
@@ -70,7 +70,7 @@
     <section class="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
         <div class="text-center">
             <p class="text-sm font-semibold uppercase tracking-[0.2em] text-primary">{{ t(['en' => 'How it works', 'si' => 'එය ක්‍රියා කරන ආකාරය']) }}</p>
-            <h2 class="mt-2 text-3xl font-bold text-slate-900 dark:text-white">{{ t(['en' => 'Three steps to your next event', 'si' => 'ඔබේ ඊළඟ අත්දැකීමට පියවර තුනක්']) }}</h2>
+            <h2 class="mt-2 text-3xl font-bold text-slate-900 dark:text-white">{{ t(['en' => 'Three steps to your next event', 'si' => 'ඔබේ ඊළඟ ප්‍රසංගයට පියවර තුනක්']) }}</h2>
         </div>
 
         <ol class="mt-12 grid gap-8 sm:grid-cols-3">
@@ -78,7 +78,7 @@
                 <span class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-xl font-bold text-white shadow-lg shadow-primary/25">1</span>
                 <h3 class="mt-5 text-lg font-semibold text-slate-900 dark:text-white">{{ t(['en' => 'Discover', 'si' => 'සොයා ගන්න']) }}</h3>
                 <p class="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
-                    {{ t(['en' => 'Browse upcoming events and filter by the categories you care about.', 'si' => 'ඉදිරි අත්දැකීම් බලන්න සහ ඔබ උනන්දු ප්‍රවර්ග අනුව පෙරහන් කරන්න.']) }}
+                    {{ t(['en' => 'Browse upcoming events and filter by the categories you care about.', 'si' => 'ඉදිරි ප්‍රසංග බලන්න සහ ඔබ කැමති කාන්ඩය අනුව සොයන්න.']) }}
                 </p>
             </li>
             <li class="relative text-center">
@@ -92,7 +92,7 @@
                 <span class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-xl font-bold text-white shadow-lg shadow-primary/25">3</span>
                 <h3 class="mt-5 text-lg font-semibold text-slate-900 dark:text-white">{{ t(['en' => 'Enjoy', 'si' => 'රස විඳින්න']) }}</h3>
                 <p class="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
-                    {{ t(['en' => 'Get updates, manage your bookings, and show up ready for the experience.', 'si' => 'යාවත්කාලීන ලබා ගන්න, වෙන්කිරීම් කළමනාකරණය කරන්න, අත්දැකීමට සූදානම්ව පැමිණෙන්න.']) }}
+                    {{ t(['en' => 'Get updates, manage your bookings, and show up ready for the experience.', 'si' => 'යාවත්කාලීන ලබා ගන්න, වෙන්කිරීම් කළමනාකරණය කරන්න, ප්‍රසංගට සූදානම්ව පැමිණෙන්න.']) }}
                 </p>
             </li>
         </ol>
@@ -131,7 +131,7 @@
                     </span>
                     <h3 class="mt-4 font-semibold text-slate-900 dark:text-white">{{ t(['en' => 'Personal picks', 'si' => 'පුද්ගලික තේරීම්']) }}</h3>
                     <p class="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
-                        {{ t(['en' => 'Like and save events so your next plans stay in one place.', 'si' => 'කැමති වී අත්දැකීම් සුරකින්න — ඔබේ ඊළඟ සැලසුම් එක තැනක තබා ගන්න.']) }}
+                        {{ t(['en' => 'Like and save events so your next plans stay in one place.', 'si' => 'කැමති ප්‍රසංග සුරකින්න — ඔබේ ඊළඟ සැලසුම් එක තැනක තබා ගන්න.']) }}
                     </p>
                 </div>
             </div>
@@ -145,13 +145,13 @@
             <div class="relative">
                 <h2 class="text-2xl font-bold sm:text-3xl">{{ t(['en' => 'Ready to explore what’s next?', 'si' => 'ඊළඟ දේ ගවේෂණය කිරීමට සූදානම්ද?']) }}</h2>
                 <p class="mx-auto mt-3 max-w-lg text-slate-200">
-                    {{ t(['en' => 'Jump into upcoming events, or create an account to book, save, and stay updated.', 'si' => 'ඉදිරි අත්දැකීම් වෙත පිවිසෙන්න, නැතහොත් වෙන්කරවා ගැනීමට, සුරැකීමට සහ යාවත්කාලීනව සිටීමට ගිණුමක් සාදන්න.']) }}
+                    {{ t(['en' => 'Jump into upcoming events, or create an account to book, save, and stay updated.', 'si' => 'ඉදිරි ප්‍රසංග වෙත පිවිසෙන්න, නැතහොත් වෙන්කරවා ගැනීමට, සුරැකීමට සහ යාවත්කාලීනව සිටීමට ගිණුමක් සාදන්න.']) }}
                 </p>
                 <div class="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
                     <a href="{{ route('welcome') }}#events"
                         class="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-6 py-3 text-sm font-semibold text-slate-900 shadow-lg transition hover:bg-slate-100">
                         <i class="bi bi-calendar-event"></i>
-                        {{ t(['en' => 'View Events', 'si' => 'අත්දැකීම් බලන්න']) }}
+                        {{ t(['en' => 'View Events', 'si' => 'ප්‍රසංග බලන්න']) }}
                     </a>
                     @guest
                         <a href="{{ route('register') }}"
@@ -161,7 +161,7 @@
                     @else
                         <a href="{{ route('dashboard') }}"
                             class="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/30 bg-white/10 px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/20">
-                            {{ t(['en' => 'Go to Dashboard', 'si' => 'උපකරණ පුවරුවට යන්න']) }}
+                            {{ t(['en' => 'Go to Dashboard', 'si' => 'විස්තර පුවරුවට යන්න']) }}
                         </a>
                     @endguest
                 </div>

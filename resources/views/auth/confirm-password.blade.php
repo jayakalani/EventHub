@@ -1,6 +1,6 @@
 <x-guest-layout>
-    <div class="mb-4 text-sm text-gray-600">
-        {{ __('This is a secure area of the application. Please confirm your password before continuing.') }}
+    <div class="mb-4 text-sm text-gray-600 dark:text-gray-400">
+        {{ t(['en' => 'This is a secure area of the application. Please confirm your password before continuing.', 'si' => 'මෙය යෙදුමේ ආරක්ෂිත කලාපයකි. ඉදිරියට යාමට පෙර කරුණාකර ඔබේ මුරපදය තහවුරු කරන්න.']) }}
     </div>
 
     <form method="POST" action="{{ route('password.confirm') }}">
@@ -8,7 +8,7 @@
 
         <!-- Password -->
         <div>
-            <x-input-label for="password" :value="__('Password')" />
+            <x-input-label for="password" :value="t(['en' => 'Password', 'si' => 'මුරපදය'])" />
 
             <x-text-input id="password" class="block mt-1 w-full" type="password" name="password" required
                 autocomplete="current-password" />
@@ -18,7 +18,7 @@
 
         <div class="flex justify-end mt-4">
             <x-primary-button>
-                {{ __('Confirm') }}
+                {{ t(['en' => 'Confirm', 'si' => 'තහවුරු කරන්න']) }}
             </x-primary-button>
         </div>
     </form>

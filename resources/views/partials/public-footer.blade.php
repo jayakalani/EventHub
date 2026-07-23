@@ -14,7 +14,7 @@
         </div>
         <div class="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm">
             <a href="{{ $eventsHref }}"
-                class="{{ request()->routeIs('welcome') ? $footerActive : $footerLink }}">{{ t(['en' => 'Events', 'si' => 'අත්දැකීම්']) }}</a>
+                class="{{ request()->routeIs('welcome') ? $footerActive : $footerLink }}">{{ t(['en' => 'Events', 'si' => 'ප්‍රසංග']) }}</a>
             <a href="{{ route('about') }}"
                 class="{{ request()->routeIs('about') ? $footerActive : $footerLink }}">{{ t(['en' => 'About', 'si' => 'අපි ගැන']) }}</a>
             <a href="{{ route('terms') }}"
@@ -27,7 +27,7 @@
                 <a href="{{ route('register') }}"
                     class="{{ request()->routeIs('register') ? $footerActive : $footerLink }}">{{ t(['en' => 'Register', 'si' => 'ලියාපදිංචි වන්න']) }}</a>
             @else
-                <a href="{{ route('dashboard') }}" class="{{ $footerLink }}">{{ t(['en' => 'Dashboard', 'si' => 'උපකරණ පුවරුව']) }}</a>
+                <a href="{{ route('dashboard') }}" class="{{ $footerLink }}">{{ t(['en' => 'Dashboard', 'si' => ' විස්තර පුවරුව']) }}</a>
             @endguest
         </div>
     </div>

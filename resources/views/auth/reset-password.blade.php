@@ -7,7 +7,7 @@
 
         <!-- Email Address -->
         <div>
-            <x-input-label for="email" :value="__('Email')" />
+            <x-input-label for="email" :value="t(['en' => 'Email', 'si' => 'විද්‍යුත් තැපෑල'])" />
             <x-text-input id="email" class="block mt-1 w-full" type="email" name="email" :value="old('email', $request->email)" required
                 autofocus autocomplete="username" />
             <x-input-error :messages="$errors->get('email')" class="mt-2" />
@@ -15,7 +15,7 @@
 
         <!-- Password -->
         <div class="mt-4">
-            <x-input-label for="password" :value="__('Password')" />
+            <x-input-label for="password" :value="t(['en' => 'Password', 'si' => 'මුරපදය'])" />
             <x-text-input id="password" class="block mt-1 w-full" type="password" name="password" required
                 autocomplete="new-password" />
             <x-input-error :messages="$errors->get('password')" class="mt-2" />
@@ -23,7 +23,7 @@
 
         <!-- Confirm Password -->
         <div class="mt-4">
-            <x-input-label for="password_confirmation" :value="__('Confirm Password')" />
+            <x-input-label for="password_confirmation" :value="t(['en' => 'Confirm Password', 'si' => 'මුරපදය තහවුරු කරන්න'])" />
 
             <x-text-input id="password_confirmation" class="block mt-1 w-full" type="password"
                 name="password_confirmation" required autocomplete="new-password" />
@@ -33,7 +33,7 @@
 
         <div class="flex items-center justify-end mt-4">
             <x-primary-button>
-                {{ __('Reset Password') }}
+                {{ t(['en' => 'Reset Password', 'si' => 'මුරපදය යළි සකසන්න']) }}
             </x-primary-button>
         </div>
     </form>

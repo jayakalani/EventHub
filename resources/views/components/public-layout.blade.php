@@ -10,7 +10,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>{{ $title ? $title . ' — ' . config('app.name', 'EventHub') : config('app.name', 'EventHub') . ' — ' . t(['en' => 'Discover & Book Events', 'si' => 'අත්දැකීම් සොයා ගෙන වෙන්කරගන්න']) }}</title>
+    <title>{{ $title ? $title . ' — ' . config('app.name', 'EventHub') : config('app.name', 'EventHub') . ' — ' . t(['en' => 'Discover & Book Events', 'si' => 'ප්‍රසංග සොයා ගෙන වෙන්කරගන්න']) }}</title>
 
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=figtree:400,500,600,700,800&display=swap" rel="stylesheet" />
@@ -73,7 +73,7 @@
 
                 <h3 class="mt-4 text-center text-xl font-bold text-slate-900 dark:text-white">{{ t(['en' => 'Login Required', 'si' => 'පිවිසීම අවශ්‍යයි']) }}</h3>
                 <p class="mt-2 text-center text-sm leading-relaxed text-slate-600 dark:text-slate-400">
-                    {{ t(['en' => 'Please sign in to like, save, or book events.', 'si' => 'කැමති වීමට, සුරැකීමට හෝ ටිකට් වෙන්කරවා ගැනීමට කරුණාකර පිවිසෙන්න.']) }}
+                    {{ t(['en' => 'Please sign in to like, save, or book events.', 'si' => 'ප්‍රසංග වලට ප්‍රතිචාර දැක්වීමට කරුණාකර පිවිසෙන්න.']) }}
                 </p>
                 <p class="mt-4 text-center text-xs text-slate-500">
                     {{ t(['en' => 'Redirecting you to the login page...', 'si' => 'පිවිසුම් පිටුවට යොමු කරමින්...']) }}

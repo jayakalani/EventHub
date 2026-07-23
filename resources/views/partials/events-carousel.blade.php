@@ -86,12 +86,12 @@
                                         @auth
                                             <a href="{{ route('attendee.events.show', $event->id) }}"
                                                 class="absolute inset-0 z-10"
-                                                aria-label="Open event"></a>
+                                                aria-label="{{ t(['en' => 'Open event', 'si' => 'ප්‍රසංග විවෘත කරන්න']) }}"></a>
                                         @else
                                             <button type="button"
                                                 @click="$parent.promptLogin()"
                                                 class="absolute inset-0 z-10"
-                                                aria-label="Open event"></button>
+                                                aria-label="{{ t(['en' => 'Open event', 'si' => 'ප්‍රසංග විවෘත කරන්න']) }}"></button>
                                         @endauth
                                     </div>
                                 </div>
@@ -109,7 +109,7 @@
                         class="absolute left-0 top-1/2 z-20 flex h-10 w-10 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full
                             border border-white/50 bg-white/40 text-slate-800 shadow-lg backdrop-blur-xl
                             transition hover:bg-white/70 dark:border-white/15 dark:bg-slate-900/50 dark:text-white dark:hover:bg-slate-900/80"
-                        aria-label="Previous">
+                        aria-label="{{ t(['en' => 'Previous', 'si' => 'පෙර']) }}">
                         <i class="bi bi-chevron-left"></i>
                     </button>
                     <button type="button"
@@ -117,7 +117,7 @@
                         class="absolute right-0 top-1/2 z-20 flex h-10 w-10 translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full
                             border border-white/50 bg-white/40 text-slate-800 shadow-lg backdrop-blur-xl
                             transition hover:bg-white/70 dark:border-white/15 dark:bg-slate-900/50 dark:text-white dark:hover:bg-slate-900/80"
-                        aria-label="Next">
+                        aria-label="{{ t(['en' => 'Next', 'si' => 'ඊළඟ']) }}">
                         <i class="bi bi-chevron-right"></i>
                     </button>
                 </div>

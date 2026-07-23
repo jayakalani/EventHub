@@ -16,7 +16,7 @@
             </span>
             <div class="hidden sm:block">
                 <p class="text-lg font-bold text-slate-900 dark:text-white">{{ config('app.name') }}</p>
-                <p class="-mt-0.5 text-xs text-slate-500 dark:text-slate-400">{{ t(['en' => 'Discover & book events', 'si' => 'අත්දැකීම් සොයා ගෙන වෙන්කරගන්න']) }}</p>
+                <p class="-mt-0.5 text-xs text-slate-500 dark:text-slate-400">{{ t(['en' => 'Discover & book events', 'si' => ' සොයා ගෙන ප්‍රසංග වෙන්කරගන්න']) }}</p>
             </div>
         </a>
 
@@ -24,7 +24,7 @@
             <a href="{{ $eventsHref }}"
                 class="{{ $navLink }} {{ request()->routeIs('welcome') ? $navActive : $navIdle }}">
                 <i class="bi bi-grid-3x3-gap text-primary"></i>
-                {{ t(['en' => 'Events', 'si' => 'අත්දැකීම්']) }}
+                {{ t(['en' => 'Events', 'si' => 'ප්‍රසංග']) }}
             </a>
             <a href="{{ route('about') }}"
                 class="{{ $navLink }} {{ request()->routeIs('about') ? $navActive : $navIdle }}">
@@ -57,7 +57,7 @@
             @auth
                 <a href="{{ route('dashboard') }}"
                     class="inline-flex items-center justify-center rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-primary/25 transition hover:bg-primary-dark">
-                    {{ t(['en' => 'Dashboard', 'si' => 'උපකරණ පුවරුව']) }}
+                    {{ t(['en' => 'Dashboard', 'si' => 'විස්තර පුවරුව']) }}
                 </a>
             @else
                 <a href="{{ route('login') }}"
@@ -66,7 +66,7 @@
                 </a>
                 <a href="{{ route('register') }}"
                     class="inline-flex items-center justify-center rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-primary/25 transition hover:bg-primary-dark">
-                    {{ t(['en' => 'Get Started', 'si' => 'ආරම්භ කරන්න']) }}
+                    {{ t(['en' => 'Get Started', 'si' => 'ලියාපදිංචි වන්න']) }}
                 </a>
             @endauth
         </div>

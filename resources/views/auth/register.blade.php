@@ -331,9 +331,9 @@
                                 <input id="terms" type="checkbox" name="terms"
                                     class="mt-0.5 w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-primary dark:text-primary-light focus:ring-2 focus:ring-primary dark:focus:ring-primary-light focus:ring-offset-0 dark:focus:ring-offset-gray-800 cursor-pointer transition" />
                                 <label for="terms" class="text-sm text-gray-600 dark:text-gray-400 cursor-pointer leading-relaxed">
-                                    I agree to the <a href="#"
+                                    I agree to the <a href="{{ route('terms') }}"
                                         class="text-primary dark:text-primary-light hover:text-primary-dark dark:hover:text-primary font-semibold transition-colors hover:underline underline-offset-2">Terms
-                                        of Service</a> and <a href="#"
+                                        of Service</a> and <a href="{{ route('privacy') }}"
                                         class="text-primary dark:text-primary-light hover:text-primary-dark dark:hover:text-primary font-semibold transition-colors hover:underline underline-offset-2">Privacy
                                         Policy</a>
                                 </label>

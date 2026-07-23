@@ -20,6 +20,7 @@ use App\Http\Controllers\EventRatingController;
 use App\Http\Controllers\EventSaveController;
 use App\Http\Controllers\HostController;
 use App\Http\Controllers\HostLikeController;
+use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ComplaintController;
 use App\Http\Controllers\Cro\ComplaintController as CroComplaintController;
@@ -47,6 +48,21 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', [DashboardController::class, 'welcome'])
     ->middleware('prevent-back')
     ->name('welcome');
+
+Route::view('/about', 'about')
+    ->middleware('prevent-back')
+    ->name('about');
+
+Route::view('/terms', 'terms')
+    ->middleware('prevent-back')
+    ->name('terms');
+
+Route::view('/privacy', 'privacy')
+    ->middleware('prevent-back')
+    ->name('privacy');
+
+Route::get('/locale/{locale}', [LocaleController::class, 'switch'])
+    ->name('locale.switch');
 
 // Custom Auth Routes using AuthController
 Route::get('/login', [AuthController::class, 'showLoginForm'])

@@ -660,7 +660,7 @@
                                     <a href="{{ route('attendee.cart.index') }}"
                                         class="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-indigo-700">
                                         <i class="bi bi-bag-check" aria-hidden="true"></i>
-                                        {{ t(['en' => 'Go to Cart', 'si' => 'කාර්ට් එකට යන්න']) }}
+                                        Go to Cart
                                     </a>
                                 </div>
                             </section>

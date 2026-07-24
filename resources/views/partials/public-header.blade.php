@@ -4,14 +4,14 @@
     $eventsHref = request()->routeIs('welcome') ? '#events' : route('welcome') . '#events';
     $navLink = 'hidden sm:inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-medium transition';
     $navIdle = 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white';
-    $navActive = 'bg-slate-100 font-semibold text-slate-900 dark:bg-slate-800 dark:text-white';
+    $navActive = 'bg-[#0F0363]/10 font-semibold text-[#0F0363] dark:bg-[#0F0363]/20 dark:text-white';
     $currentLocale = Locale::current();
 @endphp
 
 <nav class="sticky top-0 z-40 border-b border-slate-200/80 bg-white/80 backdrop-blur-xl dark:border-slate-800/80 dark:bg-slate-950/80">
     <div class="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
         <a href="{{ route('welcome') }}" class="group flex shrink-0 items-center gap-3">
-            <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary-light text-white shadow-md shadow-primary/25 transition-transform duration-300 group-hover:scale-105">
+            <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-[#0F0363] text-white shadow-md shadow-[#0F0363]/25 transition-transform duration-300 group-hover:scale-105">
                 <i class="bi bi-calendar-event text-lg"></i>
             </span>
             <div class="hidden sm:block">
@@ -23,12 +23,12 @@
         <div class="flex items-center gap-2 sm:gap-3">
             <a href="{{ $eventsHref }}"
                 class="{{ $navLink }} {{ request()->routeIs('welcome') ? $navActive : $navIdle }}">
-                <i class="bi bi-grid-3x3-gap text-primary"></i>
+                <i class="bi bi-grid-3x3-gap text-[#0F0363]"></i>
                 {{ t(['en' => 'Events', 'si' => 'ප්‍රසංග']) }}
             </a>
             <a href="{{ route('about') }}"
                 class="{{ $navLink }} {{ request()->routeIs('about') ? $navActive : $navIdle }}">
-                <i class="bi bi-info-circle text-primary"></i>
+                <i class="bi bi-info-circle text-[#0F0363]"></i>
                 {{ t(['en' => 'About', 'si' => 'අපි ගැන']) }}
             </a>
 
@@ -38,7 +38,7 @@
                 @foreach (Locale::SUPPORTED as $locale)
                     <a href="{{ route('locale.switch', $locale) }}"
                         class="rounded-lg px-2.5 py-1.5 transition {{ $currentLocale === $locale
-                            ? 'bg-primary text-white shadow-sm'
+                            ? 'bg-[#0F0363] text-white shadow-sm'
                             : 'text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800' }}"
                         hreflang="{{ $locale }}"
                         lang="{{ $locale }}">
@@ -56,16 +56,16 @@
 
             @auth
                 <a href="{{ route('dashboard') }}"
-                    class="inline-flex items-center justify-center rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-primary/25 transition hover:bg-primary-dark">
+                    class="inline-flex items-center justify-center rounded-xl bg-[#0F0363] px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-[#0F0363]/25 transition hover:opacity-90">
                     {{ t(['en' => 'Dashboard', 'si' => 'විස්තර පුවරුව']) }}
                 </a>
             @else
                 <a href="{{ route('login') }}"
-                    class="hidden sm:inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 {{ request()->routeIs('login') ? 'ring-2 ring-primary/30' : '' }}">
+                    class="hidden sm:inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 {{ request()->routeIs('login') ? 'ring-2 ring-[#0F0363]/30' : '' }}">
                     {{ t(['en' => 'Sign In', 'si' => 'පිවිසෙන්න']) }}
                 </a>
                 <a href="{{ route('register') }}"
-                    class="inline-flex items-center justify-center rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-primary/25 transition hover:bg-primary-dark">
+                    class="inline-flex items-center justify-center rounded-xl bg-[#0F0363] px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-[#0F0363]/25 transition hover:opacity-90">
                     {{ t(['en' => 'Get Started', 'si' => 'ලියාපදිංචි වන්න']) }}
                 </a>
             @endauth

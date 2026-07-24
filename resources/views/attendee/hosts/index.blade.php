@@ -19,7 +19,7 @@
                     class="w-44 xl:w-52 px-4 py-2 text-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
 
                 <button type="submit"
-                    class="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-xl hover:bg-indigo-700 transition">
+                    class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 transition">
                     {{ t(['en' => 'Apply', 'si' => 'සොයන්න']) }}
                 </button>
 
@@ -78,7 +78,7 @@
                             </div>
 
                             <a href="{{ route('attendee.hosts.show', $host) }}"
-                                class="mt-4 inline-flex items-center justify-center rounded-xl bg-indigo-600 px-3 py-2.5 text-xs font-semibold text-white hover:bg-indigo-700 transition">
+                                class="mt-4 inline-flex items-center justify-center rounded-xl bg-primary px-3 py-2.5 text-xs font-semibold text-white hover:bg-primary-dark transition">
                                 {{ t(['en' => 'View Details', 'si' => 'විස්තර බලන්න']) }}
                             </a>
                         </div>
@@ -91,7 +91,7 @@
                                 {{ t(['en' => 'No Hosts Found', 'si' => 'සත්කාරකයන් හමු නොවීය']) }}
                             </h3>
                             <p class="text-sm text-slate-500">
-                                {{ t(['en' => 'No active hosts match your search.', 'si' => 'ඔබේ සෙවුමට ගැලපෙන සක්‍රීය සත්කාරකයන් නැත.']) }}
+                                {{ __('No active hosts match your search.') }}
                             </p>
                         </div>
                     </div>

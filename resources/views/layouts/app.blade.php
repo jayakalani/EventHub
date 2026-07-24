@@ -21,22 +21,30 @@
 </head>
 
 <body class="font-sans antialiased">
-    <div class="min-h-screen bg-gray-100">
+    @php
+        $isAttendee = Auth::user()?->userRole?->name_en === \App\Models\UserRole::ATTENDEE;
+    @endphp
+
+    <div class="flex min-h-screen flex-col bg-gray-100">
         @include('layouts.navigation')
 
         <!-- Page Heading -->
         @isset($header)
-            <header class="bg-white shadow">
-                <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+            <header class="sticky top-16 z-40 border-b border-slate-200/80 bg-white/85 shadow-sm backdrop-blur-xl">
+                <div class="mx-auto max-w-7xl px-4 py-4 sm:px-6 sm:py-5 lg:px-8">
                     {{ $header }}
                 </div>
             </header>
         @endisset
 
         <!-- Page Content -->
-        <main>
+        <main class="flex-1">
             {{ $slot }}
         </main>
+
+        @if ($isAttendee)
+            @include('partials.attendee-footer')
+        @endif
     </div>
     @stack('scripts')
 </body>

@@ -33,7 +33,7 @@
                         class="h-40 w-full object-cover transition-transform duration-500 hover:scale-105" />
                     <div class="absolute inset-0 bg-gradient-to-t from-primary/30 to-transparent"></div>
                 </div>
-                <h2 class="text-2xl font-bold text-primary dark:text-primary-light">{{ t(['en' => 'Welcome to EventHub', 'si' => 'EventHub වෙත සාදරයෙන් පිළිගනිමු']) }}</h2>
+                <h2 class="text-2xl font-bold text-[#0F0363] dark:text-[#C4B5FD]">{{ t(['en' => 'Welcome to EventHub', 'si' => 'EventHub වෙත සාදරයෙන් පිළිගනිමු']) }}</h2>
                 <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
                     {{ t(['en' => 'Discover, join, and manage events effortlessly.', 'si' => 'ප්‍රසංගය් පහසුවෙන් සොයා ගන්න, එක්වන්න සහ කළමනාකරණය කරන්න.']) }}
                 </p>

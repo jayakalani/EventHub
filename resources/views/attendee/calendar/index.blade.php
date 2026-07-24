@@ -1,13 +1,13 @@
 <x-app-layout>
 
     <x-slot name="header">
-        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-            <div>
-                <h2 class="text-3xl font-bold text-slate-900">{{ t(['en' => 'My Event Calendar', 'si' => 'මගේ ප්‍රසංග දින දර්ශනය']) }}</h2>
-                <p class="mt-1 text-slate-500">{{ t(['en' => 'Events you have tickets for — click any event to view details.', 'si' => 'ඔබට ටිකට් ඇති ප්‍රසංග විස්තර බැලීමට , ඕනෑම ප්‍රසංගයක් ක්ලික් කරන්න.']) }}</p>
+        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+            <div class="min-w-0 flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:gap-3">
+                <h2 class="text-lg font-bold leading-tight text-slate-900 sm:text-xl shrink-0">{{ t(['en' => 'My Event Calendar', 'si' => 'මගේ ප්‍රසංග දින දර්ශනය']) }}</h2>
+                <p class="text-xs text-slate-500 sm:text-sm">{{ t(['en' => 'Events you have tickets for — click any event to view details.', 'si' => 'ඔබට ටිකට් ඇති ප්‍රසංග විස්තර බැලීමට , ඕනෑම ප්‍රසංගයක් ක්ලික් කරන්න.']) }}</p>
             </div>
             <a href="{{ route('attendee.bookings.index') }}"
-                class="inline-flex items-center gap-2 rounded-2xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 transition">
+                class="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-primary px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-primary-dark transition sm:text-sm">
                 <i class="bi bi-ticket-perforated"></i>
                 {{ t(['en' => 'My Tickets', 'si' => 'මගේ ටිකට්']) }}
             </a>
@@ -23,22 +23,22 @@
         </style>
     @endpush
 
-    <div class="py-8">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
+    <div class="py-5">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-4">
 
             {{-- Legend --}}
-            <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                <p class="text-sm font-semibold text-slate-700 mb-3">{{ t(['en' => 'Event status', 'si' => 'ප්‍රසංග තත්ත්වය']) }}</p>
-                <div class="flex flex-wrap gap-4">
+            <div class="rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 shadow-sm">
+                <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+                    <p class="text-xs font-semibold text-slate-700">{{ t(['en' => 'Event status', 'si' => 'ප්‍රසංග තත්ත්වය']) }}</p>
                     @foreach([
                         'upcoming' => t(['en' => 'Upcoming', 'si' => 'ඉදිරියට']),
                         'ongoing' => t(['en' => 'Ongoing', 'si' => 'පවතින']),
                         'completed' => t(['en' => 'Completed', 'si' => 'අවසන්']),
                         'cancelled' => t(['en' => 'Cancelled', 'si' => 'අවලංගු']),
                     ] as $key => $label)
-                        <div class="flex items-center gap-2">
-                            <span class="h-3 w-3 rounded-full" style="background-color: {{ $statusColors[$key] }}"></span>
-                            <span class="text-sm text-slate-600">{{ $label }}</span>
+                        <div class="flex items-center gap-1.5">
+                            <span class="h-2.5 w-2.5 rounded-full" style="background-color: {{ $statusColors[$key] }}"></span>
+                            <span class="text-xs text-slate-600">{{ $label }}</span>
                         </div>
                     @endforeach
                 </div>

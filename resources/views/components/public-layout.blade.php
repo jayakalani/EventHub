@@ -37,7 +37,7 @@
         }"
     @endif>
 
-    <div class="relative flex min-h-screen flex-col overflow-hidden
+    <div class="relative flex min-h-screen flex-col
         bg-gradient-to-br from-slate-50 via-blue-50/40 to-indigo-50/60
         dark:from-gray-950 dark:via-gray-900 dark:to-slate-900">
 

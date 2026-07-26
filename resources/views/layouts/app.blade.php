@@ -22,7 +22,9 @@
 
 <body class="font-sans antialiased">
     @php
-        $isAttendee = Auth::user()?->userRole?->name_en === \App\Models\UserRole::ATTENDEE;
+        $userRoleName = Auth::user()?->userRole?->name_en;
+        $isAttendee = $userRoleName === \App\Models\UserRole::ATTENDEE;
+        $isOrganizer = $userRoleName === \App\Models\UserRole::ORGANIZER;
     @endphp
 
     <div class="flex min-h-screen flex-col bg-gray-100">
@@ -44,6 +46,8 @@
 
         @if ($isAttendee)
             @include('partials.attendee-footer')
+        @elseif ($isOrganizer)
+            @include('partials.organizer-footer')
         @endif
     </div>
     @stack('scripts')

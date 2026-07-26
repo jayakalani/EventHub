@@ -18,6 +18,7 @@ use App\Http\Controllers\EventController;
 use App\Http\Controllers\EventLikeController;
 use App\Http\Controllers\EventRatingController;
 use App\Http\Controllers\EventSaveController;
+use App\Http\Controllers\HelpController;
 use App\Http\Controllers\HostController;
 use App\Http\Controllers\HostLikeController;
 use App\Http\Controllers\LocaleController;
@@ -60,6 +61,13 @@ Route::view('/terms', 'terms')
 Route::view('/privacy', 'privacy')
     ->middleware('prevent-back')
     ->name('privacy');
+
+Route::get('/help', [HelpController::class, 'index'])
+    ->middleware('prevent-back')
+    ->name('help');
+Route::post('/help/contact', [HelpController::class, 'contact'])
+    ->middleware('throttle:8,1')
+    ->name('help.contact');
 
 Route::get('/locale/{locale}', [LocaleController::class, 'switch'])
     ->name('locale.switch');

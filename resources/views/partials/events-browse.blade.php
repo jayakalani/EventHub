@@ -40,15 +40,62 @@
 <div class="grid {{ $compact ? 'gap-4' : 'gap-6' }} sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
     @forelse($events as $event)
         <div class="group {{ $compact ? 'rounded-2xl' : 'rounded-3xl' }} overflow-hidden border border-slate-200 bg-white shadow-sm transition hover:shadow-xl dark:border-slate-700 dark:bg-slate-900">
-            @if ($event->cover)
-                <img src="{{ asset('uploads/covers/events/' . $event->cover) }}"
-                    alt="{{ $event->name }}"
-                    class="{{ $compact ? 'h-36' : 'h-52' }} w-full object-cover transition duration-300 group-hover:scale-105">
-            @else
-                <div class="{{ $compact ? 'h-36' : 'h-52' }} flex items-center justify-center bg-slate-100 text-slate-400 dark:bg-slate-800">
-                    {{ t(['en' => 'No Image Available', 'si' => 'රූපයක් නැත']) }}
+            <div class="relative {{ $compact ? 'h-36' : 'h-52' }} overflow-hidden">
+                @if ($event->cover)
+                    <img src="{{ asset('uploads/covers/events/' . $event->cover) }}"
+                        alt="{{ $event->name }}"
+                        class="h-full w-full object-cover transition duration-300 group-hover:scale-105">
+                @else
+                    <div class="flex h-full w-full items-center justify-center bg-slate-100 text-slate-400 dark:bg-slate-800">
+                        {{ t(['en' => 'No Image Available', 'si' => 'රූපයක් නැත']) }}
+                    </div>
+                @endif
+
+                <div
+                    class="absolute bottom-3 right-3 z-10 flex items-center gap-2 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+                    @auth
+                        @unless ($event->isCancelled() || $event->isCompleted())
+                            <form action="{{ route('attendee.events.like', $event) }}" method="POST">
+                                @csrf
+                                <button type="submit"
+                                    aria-label="{{ $event->is_liked ? t(['en' => 'Unlike event', 'si' => 'කැමති ඉවත් කරන්න']) : t(['en' => 'Like event', 'si' => 'කැමති වන්න']) }}"
+                                    title="{{ $event->is_liked ? t(['en' => 'Unlike', 'si' => 'කැමති නැත']) : t(['en' => 'Like', 'si' => 'කැමතියි']) }}"
+                                    class="inline-flex items-center justify-center rounded-full {{ $compact ? 'p-2 text-base' : 'p-2.5 text-xl' }} bg-white/70 shadow-sm backdrop-blur-md transition hover:bg-white/90
+                                    {{ $event->is_liked ? 'text-[#1877F2]' : 'text-slate-600 hover:text-[#1877F2]' }}">
+                                    <i class="bi {{ $event->is_liked ? 'bi-hand-thumbs-up-fill' : 'bi-hand-thumbs-up' }}"
+                                        aria-hidden="true"></i>
+                                </button>
+                            </form>
+
+                            <form action="{{ route('attendee.events.save', $event) }}" method="POST">
+                                @csrf
+                                <button type="submit"
+                                    aria-label="{{ $event->is_saved ? t(['en' => 'Unsave event', 'si' => 'සුරැකීම ඉවත් කරන්න']) : t(['en' => 'Save event', 'si' => 'ප්‍රසංග සුරකින්න']) }}"
+                                    title="{{ $event->is_saved ? t(['en' => 'Unsave', 'si' => 'සුරැකීම ඉවත්']) : t(['en' => 'Save', 'si' => 'සුරකින්න']) }}"
+                                    class="inline-flex items-center justify-center rounded-full {{ $compact ? 'p-2 text-base' : 'p-2.5 text-xl' }} bg-white/70 shadow-sm backdrop-blur-md transition hover:bg-white/90
+                                    {{ $event->is_saved ? 'text-amber-600' : 'text-slate-600 hover:text-amber-600' }}">
+                                    <i class="bi {{ $event->is_saved ? 'bi-bookmark-fill' : 'bi-bookmark' }}"
+                                        aria-hidden="true"></i>
+                                </button>
+                            </form>
+                        @endunless
+                    @else
+                        <button type="button"
+                            @click="promptLogin()"
+                            aria-label="{{ t(['en' => 'Like event', 'si' => 'කැමති වන්න']) }}"
+                            class="inline-flex items-center justify-center rounded-full {{ $compact ? 'p-2 text-base' : 'p-2.5 text-xl' }} bg-white/70 text-slate-600 shadow-sm backdrop-blur-md transition hover:bg-white/90 hover:text-[#1877F2]">
+                            <i class="bi bi-hand-thumbs-up" aria-hidden="true"></i>
+                        </button>
+
+                        <button type="button"
+                            @click="promptLogin()"
+                            aria-label="{{ t(['en' => 'Save event', 'si' => 'ප්‍රසංග සුරකින්න']) }}"
+                            class="inline-flex items-center justify-center rounded-full {{ $compact ? 'p-2 text-base' : 'p-2.5 text-xl' }} bg-white/70 text-slate-600 shadow-sm backdrop-blur-md transition hover:bg-white/90 hover:text-amber-600">
+                            <i class="bi bi-bookmark" aria-hidden="true"></i>
+                        </button>
+                    @endauth
                 </div>
-            @endif
+            </div>
 
             <div class="{{ $compact ? 'p-3.5' : 'p-5' }}">
                 @if ($event->isCancelled())
@@ -77,52 +124,6 @@
                 <p class="{{ $compact ? 'mt-0.5 text-xs' : 'mt-1 text-sm' }} text-slate-500 dark:text-slate-400">
                     <i class="bi bi-geo-alt mr-1"></i>{{ $event->place }}
                 </p>
-
-                <div class="{{ $compact ? 'mt-2.5' : 'mt-4' }} flex flex-wrap items-center justify-between gap-3">
-                    <div class="flex items-center gap-2">
-                        @auth
-                            @unless ($event->isCancelled() || $event->isCompleted())
-                            <form action="{{ route('attendee.events.like', $event) }}" method="POST">
-                                @csrf
-                                <button type="submit"
-                                    aria-label="{{ $event->is_liked ? t(['en' => 'Unlike event', 'si' => 'කැමති ඉවත් කරන්න']) : t(['en' => 'Like event', 'si' => 'කැමති වන්න']) }}"
-                                    title="{{ $event->is_liked ? t(['en' => 'Unlike', 'si' => 'කැමති නැත']) : t(['en' => 'Like', 'si' => 'කැමතියි']) }}"
-                                    class="inline-flex items-center justify-center rounded-full {{ $compact ? 'p-2 text-base' : 'p-2.5 text-xl' }} transition
-                                    {{ $event->is_liked ? 'bg-[#1877F2] text-white hover:bg-[#166fe5]' : 'bg-slate-100 text-slate-500 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700' }}">
-                                    <i class="bi {{ $event->is_liked ? 'bi-hand-thumbs-up-fill' : 'bi-hand-thumbs-up' }}"
-                                        aria-hidden="true"></i>
-                                </button>
-                            </form>
-
-                            <form action="{{ route('attendee.events.save', $event) }}" method="POST">
-                                @csrf
-                                <button type="submit"
-                                    aria-label="{{ $event->is_saved ? t(['en' => 'Unsave event', 'si' => 'සුරැකීම ඉවත් කරන්න']) : t(['en' => 'Save event', 'si' => 'ප්‍රසංග සුරකින්න']) }}"
-                                    title="{{ $event->is_saved ? t(['en' => 'Unsave', 'si' => 'සුරැකීම ඉවත්']) : t(['en' => 'Save', 'si' => 'සුරකින්න']) }}"
-                                    class="inline-flex items-center justify-center rounded-full {{ $compact ? 'p-2 text-base' : 'p-2.5 text-xl' }} transition
-                                    {{ $event->is_saved ? 'bg-amber-100 text-amber-600 hover:bg-amber-200' : 'bg-slate-100 text-slate-500 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700' }}">
-                                    <i class="bi {{ $event->is_saved ? 'bi-bookmark-fill' : 'bi-bookmark' }}"
-                                        aria-hidden="true"></i>
-                                </button>
-                            </form>
-                            @endunless
-                        @else
-                            <button type="button"
-                                @click="promptLogin()"
-                                aria-label="{{ t(['en' => 'Like event', 'si' => 'කැමති වන්න']) }}"
-                                class="inline-flex items-center justify-center rounded-full {{ $compact ? 'p-2 text-base' : 'p-2.5 text-xl' }} bg-slate-100 text-slate-500 transition hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700">
-                                <i class="bi bi-hand-thumbs-up" aria-hidden="true"></i>
-                            </button>
-
-                            <button type="button"
-                                @click="promptLogin()"
-                                aria-label="{{ t(['en' => 'Save event', 'si' => 'ප්‍රසංග සුරකින්න']) }}"
-                                class="inline-flex items-center justify-center rounded-full {{ $compact ? 'p-2 text-base' : 'p-2.5 text-xl' }} bg-slate-100 text-slate-500 transition hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700">
-                                <i class="bi bi-bookmark" aria-hidden="true"></i>
-                            </button>
-                        @endauth
-                    </div>
-                </div>
 
                 @auth
                     <a href="{{ route('attendee.events.show', $event->id) }}"

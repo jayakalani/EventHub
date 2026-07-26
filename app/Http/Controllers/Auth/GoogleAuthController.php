@@ -97,6 +97,7 @@ class GoogleAuthController extends Controller
         $request->session()->put('two_factor_verified', true);
 
         return redirect()->route('dashboard')
+            ->with('welcome_back', true)
             ->with('success', 'Your profile has been completed. Welcome to EventHub!');
     }
 

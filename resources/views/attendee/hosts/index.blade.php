@@ -37,21 +37,25 @@
                 @forelse($hosts as $host)
                     <div
                         class="group rounded-3xl border border-slate-200 bg-white shadow-sm hover:shadow-xl transition overflow-hidden flex flex-col">
-                        <div class="relative h-44 overflow-hidden">
+                        <div class="relative aspect-[3/4] overflow-hidden bg-slate-200">
                             @if ($host->cover)
                                 <img src="{{ asset('uploads/covers/hosts/' . $host->cover) }}"
+                                    alt=""
+                                    aria-hidden="true"
+                                    class="absolute inset-0 h-full w-full scale-110 object-cover blur-2xl brightness-90">
+                                <img src="{{ asset('uploads/covers/hosts/' . $host->cover) }}"
                                     alt="{{ $host->name }}"
-                                    class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
+                                    class="relative z-[1] h-full w-full object-contain transition duration-500 group-hover:scale-105">
                             @else
-                                <div class="h-full w-full bg-slate-100 flex items-center justify-center text-slate-400">
+                                <div class="flex h-full w-full items-center justify-center bg-slate-100 text-slate-400">
                                     {{ t(['en' => 'No Image', 'si' => 'රූපයක් නැත']) }}
                                 </div>
                             @endif
 
-                            <div class="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent"></div>
+                            <div class="pointer-events-none absolute inset-0 z-[2] bg-gradient-to-t from-black/70 via-black/15 to-transparent"></div>
 
-                            <div class="absolute bottom-3 left-3 right-3">
-                                <h3 class="text-lg font-bold text-white truncate">
+                            <div class="absolute bottom-3 left-3 right-3 z-[3]">
+                                <h3 class="truncate text-lg font-bold text-white drop-shadow">
                                     {{ $host->name }}
                                 </h3>
                             </div>

@@ -3,6 +3,11 @@
     'withLoginModal' => false,
 ])
 
+@php
+    $isAttendee = Auth::check()
+        && Auth::user()?->userRole?->name_en === \App\Models\UserRole::ATTENDEE;
+@endphp
+
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 
@@ -38,22 +43,33 @@
     @endif>
 
     <div class="relative flex min-h-screen flex-col
-        bg-gradient-to-br from-slate-50 via-blue-50/40 to-indigo-50/60
-        dark:from-gray-950 dark:via-gray-900 dark:to-slate-900">
+        {{ $isAttendee
+            ? 'bg-gray-100'
+            : 'bg-gradient-to-br from-slate-50 via-blue-50/40 to-indigo-50/60 dark:from-gray-950 dark:via-gray-900 dark:to-slate-900' }}">
 
-        <div class="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
-            <div class="absolute -top-40 -right-32 h-[28rem] w-[28rem] rounded-full bg-primary/10 blur-3xl dark:bg-primary/20"></div>
-            <div class="absolute top-1/3 -left-40 h-80 w-80 rounded-full bg-indigo-400/10 blur-3xl dark:bg-indigo-500/10"></div>
-            <div class="absolute -bottom-24 right-1/4 h-72 w-72 rounded-full bg-sky-300/20 blur-3xl dark:bg-sky-500/10"></div>
-        </div>
+        @unless ($isAttendee)
+            <div class="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+                <div class="absolute -top-40 -right-32 h-[28rem] w-[28rem] rounded-full bg-primary/10 blur-3xl dark:bg-primary/20"></div>
+                <div class="absolute top-1/3 -left-40 h-80 w-80 rounded-full bg-indigo-400/10 blur-3xl dark:bg-indigo-500/10"></div>
+                <div class="absolute -bottom-24 right-1/4 h-72 w-72 rounded-full bg-sky-300/20 blur-3xl dark:bg-sky-500/10"></div>
+            </div>
+        @endunless
 
-        @include('partials.public-header')
+        @if ($isAttendee)
+            @include('layouts.navigation')
+        @else
+            @include('partials.public-header')
+        @endif
 
         <main class="relative z-10 flex-1">
             {{ $slot }}
         </main>
 
-        @include('partials.public-footer')
+        @if ($isAttendee)
+            @include('partials.attendee-footer')
+        @else
+            @include('partials.public-footer')
+        @endif
     </div>
 
     @if ($withLoginModal)

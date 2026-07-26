@@ -17,6 +17,8 @@
                 class="{{ request()->routeIs('welcome') ? $footerActive : $footerLink }}">{{ t(['en' => 'Events', 'si' => 'ප්‍රසංග']) }}</a>
             <a href="{{ route('about') }}"
                 class="{{ request()->routeIs('about') ? $footerActive : $footerLink }}">{{ t(['en' => 'About', 'si' => 'අපි ගැන']) }}</a>
+            <a href="{{ route('help') }}"
+                class="{{ request()->routeIs('help', 'help.contact') ? $footerActive : $footerLink }}">{{ t(['en' => 'Help / FAQ', 'si' => 'උදව් / නිති ප්‍රශ්න']) }}</a>
             <a href="{{ route('terms') }}"
                 class="{{ request()->routeIs('terms') ? $footerActive : $footerLink }}">{{ t(['en' => 'Terms', 'si' => 'කොන්දේසි']) }}</a>
             <a href="{{ route('privacy') }}"

@@ -32,7 +32,9 @@ class ComplaintController extends Controller
             $request->file('attachments', []),
         );
 
-        return back()->with('success', 'Your complaint has been submitted. You will receive a confirmation email shortly.');
+        return redirect()
+            ->route('attendee.support.index', ['tab' => 'complaints'])
+            ->with('success', 'Your complaint has been submitted. You will receive a confirmation email shortly.');
     }
 
     public function downloadAttachment(Complaint $complaint, ComplaintAttachment $attachment): BinaryFileResponse

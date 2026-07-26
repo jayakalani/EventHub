@@ -96,64 +96,68 @@
                     <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
 
                         {{-- Event Header --}}
-                        <div class="relative">
+                        <div class="relative h-36 overflow-hidden sm:h-40">
 
                             @if(!empty($event->cover))
-
                                 <img
                                     src="{{ asset('uploads/covers/events/' . $event->cover) }}"
-                                    alt="{{ $event->name }}"
-                                    class="h-36 w-full object-cover sm:h-40">
-
+                                    alt=""
+                                    aria-hidden="true"
+                                    class="absolute inset-0 h-full w-full scale-110 object-cover blur-2xl brightness-90">
                             @else
-
                                 <div
-                                    class="h-36 sm:h-40"
+                                    class="absolute inset-0"
                                     style="background: linear-gradient(115deg, #02031F 0%, #030638 25%, #070130 50%, #0F0363 75%, #2A1585 100%);"></div>
-
                             @endif
 
-                            <div class="absolute inset-0 bg-black/50"></div>
+                            <div class="absolute inset-0 z-[1] bg-black/40"></div>
 
-                            <div class="absolute bottom-0 left-0 right-0 px-4 py-3 sm:px-5 sm:py-4">
-
-                                @if($event->isCancelled())
-                                    <div class="mb-2 inline-flex rounded-lg border border-rose-300/40 bg-rose-500/90 px-2.5 py-1">
-                                        <p class="text-xs font-bold uppercase tracking-wide text-white">{{ t(['en' => 'Event Cancelled', 'si' => 'ප්‍රසංගය අවලංගුයි']) }}</p>
+                            <div class="relative z-[2] flex h-full">
+                                @if(!empty($event->cover))
+                                    <div class="flex h-full w-2/5 shrink-0 items-center justify-center sm:w-1/3">
+                                        <img
+                                            src="{{ asset('uploads/covers/events/' . $event->cover) }}"
+                                            alt="{{ $event->name }}"
+                                            class="h-full w-full object-contain">
                                     </div>
-                                    @if($event->cancellation_reason)
-                                        <p class="mb-2 max-w-3xl text-xs leading-relaxed text-rose-100 line-clamp-2">
-                                            {{ $event->cancellation_reason }}
+                                @endif
+
+                                <div class="flex min-w-0 flex-1 flex-col justify-center px-4 py-3 sm:px-5 sm:py-4">
+                                    @if($event->isCancelled())
+                                        <div class="mb-2 inline-flex w-fit rounded-lg border border-rose-300/40 bg-rose-500/90 px-2.5 py-1">
+                                            <p class="text-xs font-bold uppercase tracking-wide text-white">{{ t(['en' => 'Event Cancelled', 'si' => 'ප්‍රසංගය අවලංගුයි']) }}</p>
+                                        </div>
+                                        @if($event->cancellation_reason)
+                                            <p class="mb-2 max-w-3xl text-xs leading-relaxed text-rose-100 line-clamp-2">
+                                                {{ $event->cancellation_reason }}
+                                            </p>
+                                        @endif
+                                    @elseif($event->isCompleted())
+                                        <div class="mb-2 inline-flex w-fit rounded-lg border border-slate-300/40 bg-slate-600/90 px-2.5 py-1">
+                                            <p class="text-xs font-bold uppercase tracking-wide text-white">{{ t(['en' => 'Event Completed', 'si' => 'ප්‍රසංගය අවසන්']) }}</p>
+                                        </div>
+                                    @endif
+
+                                    <h3 class="truncate text-xl font-bold text-white sm:text-2xl">
+                                        {{ $event->name }}
+                                    </h3>
+
+                                    <p class="mt-0.5 truncate text-sm text-white/90">
+                                        {{ $event->date }}
+
+                                        @if($event->time)
+                                            • {{ $event->time }}
+                                        @endif
+
+                                        • {{ $event->place }}
+                                    </p>
+
+                                    @if($event->host)
+                                        <p class="mt-0.5 truncate text-xs text-white/80">
+                                            {{ t(['en' => 'Hosted by', 'si' => 'සත්කාරකයා']) }} {{ $event->host->name }}
                                         </p>
                                     @endif
-                                @elseif($event->isCompleted())
-                                    <div class="mb-2 inline-flex rounded-lg border border-slate-300/40 bg-slate-600/90 px-2.5 py-1">
-                                        <p class="text-xs font-bold uppercase tracking-wide text-white">{{ t(['en' => 'Event Completed', 'si' => 'ප්‍රසංගය අවසන්']) }}</p>
-                                    </div>
-                                @endif
-
-                                <h3 class="text-xl font-bold text-white sm:text-2xl">
-                                    {{ $event->name }}
-                                </h3>
-
-                                <p class="mt-0.5 text-sm text-white/90">
-
-                                    {{ $event->date }}
-
-                                    @if($event->time)
-                                        • {{ $event->time }}
-                                    @endif
-
-                                    • {{ $event->place }}
-
-                                </p>
-
-                                @if($event->host)
-                                    <p class="mt-0.5 text-xs text-white/80">
-                                        {{ t(['en' => 'Hosted by', 'si' => 'සත්කාරකයා']) }} {{ $event->host->name }}
-                                    </p>
-                                @endif
-
+                                </div>
                             </div>
 
                         </div>

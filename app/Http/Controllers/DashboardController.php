@@ -33,11 +33,20 @@ class DashboardController extends Controller
         $user = Auth::user();
         $roleName = $user->userRole?->name_en;
 
+        if ($roleName === UserRole::ATTENDEE) {
+            $redirect = redirect()->route('attendee.dashboard');
+
+            if (session('welcome_back')) {
+                $redirect->with('welcome_back', true);
+            }
+
+            return $redirect;
+        }
+
         return match ($roleName) {
             UserRole::ADMIN => $this->admin(),
             UserRole::ORGANIZER => $this->organizer(),
             UserRole::CRO => $this->cro(),
-            UserRole::ATTENDEE => redirect()->route('attendee.dashboard'),
             default => redirect()->route('login')->with('error', 'Invalid role'),
         };
     }

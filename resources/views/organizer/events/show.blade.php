@@ -15,46 +15,46 @@
 
 <x-app-layout>
     <x-slot name="header">
-        <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
-                <p class="text-sm font-medium uppercase tracking-wide text-indigo-600">
-                    {{ t(['en' => 'Event Management', 'si' => 'ප්‍රසංගය් කළමනාකරණය']) }}
+                <p class="text-xs font-medium uppercase tracking-wide text-indigo-600">
+                    {{ __('Event Management') }}
                 </p>
-                <h2 class="text-2xl font-bold tracking-tight text-gray-900">
-                    {{ t(['en' => 'Event Details', 'si' => 'ප්‍රසංගය් විස්තර']) }}
+                <h2 class="text-xl font-bold tracking-tight text-gray-900">
+                    {{ __('Event Details') }}
                 </h2>
             </div>
 
             <div class="flex flex-wrap items-center gap-2">
                 <a href="{{ route('organizer.events.index') }}"
-                    class="inline-flex items-center justify-center rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
-                    <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    class="inline-flex items-center justify-center rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-sm font-semibold text-gray-700 shadow-sm transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+                    <svg class="mr-1.5 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 19l-7-7 7-7" />
                     </svg>
-                    {{ t(['en' => 'Back to Events', 'si' => 'ප්‍රසංගය් වෙත ආපසු']) }}
+                    {{ __('Back to Events') }}
                 </a>
 
                 <a href="{{ route('organizer.ticket-categories.create', $event->id) }}"
-                    class="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2">
-                    <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    class="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2">
+                    <svg class="mr-1.5 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                     </svg>
-                    {{ t(['en' => 'Add ticket Category', 'si' => 'ටිකට් ප්‍රවර්ගය එකතු කරන්න']) }}
+                    {{ __('Add ticket Category') }}
                 </a>
 
                 <a href="{{ route('organizer.events.exportPdf', $event->id) }}"
-                    class="inline-flex items-center justify-center rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-500 focus:ring-offset-2">
-                    <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    class="inline-flex items-center justify-center rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-sm font-semibold text-gray-700 shadow-sm transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-500 focus:ring-offset-2">
+                    <svg class="mr-1.5 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
                             d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
-                    {{ t(['en' => 'Export PDF', 'si' => 'PDF අපනයනය']) }}
+                    {{ __('Export PDF') }}
                 </a>
             </div>
         </div>
     </x-slot>
 
-    <div class="bg-gradient-to-br from-slate-50 via-white to-indigo-50/40 py-10" x-data="{
+    <div class="bg-gradient-to-br from-slate-50 via-white to-indigo-50/40 py-6" x-data="{
         cancelModal: {
             open: {{ $errors->has('cancellation_reason') ? 'true' : 'false' }},
             eventId: {{ $event->id }},
@@ -76,20 +76,20 @@
             }
         }
     }">
-        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-6">
+        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-4">
 
             @if ($errors->any())
-                <div class="overflow-hidden rounded-2xl border border-red-200 bg-red-50 px-5 py-4 shadow-sm">
+                <div class="overflow-hidden rounded-xl border border-red-200 bg-red-50 px-4 py-3 shadow-sm">
                     <div class="flex items-start gap-3">
-                        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-100">
-                            <svg class="h-5 w-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-100">
+                            <svg class="h-4 w-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="M12 8v4m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4c-.77-1.33-2.69-1.33-3.46 0L3.34 16c-.77 1.33.19 3 1.73 3z" />
                             </svg>
                         </div>
                         <div>
-                            <h3 class="font-semibold text-red-800">{{ t(['en' => 'Something went wrong', 'si' => 'යමක් වැරදී ඇත']) }}</h3>
-                            <ul class="mt-2 space-y-1 text-sm text-red-700">
+                            <h3 class="font-semibold text-red-800">{{ __('Something went wrong') }}</h3>
+                            <ul class="mt-1 space-y-1 text-sm text-red-700">
                                 @foreach ($errors->all() as $error)
                                     <li>{{ $error }}</li>
                                 @endforeach
@@ -100,16 +100,16 @@
             @endif
 
             @if (session('error'))
-                <div class="overflow-hidden rounded-2xl border border-red-200 bg-red-50 px-5 py-4 shadow-sm">
+                <div class="overflow-hidden rounded-xl border border-red-200 bg-red-50 px-4 py-3 shadow-sm">
                     <div class="flex items-center gap-3">
-                        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-100">
-                            <svg class="h-5 w-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-100">
+                            <svg class="h-4 w-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="M12 8v4m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4c-.77-1.33-2.69-1.33-3.46 0L3.34 16c-.77 1.33.19 3 1.73 3z" />
                             </svg>
                         </div>
                         <div>
-                            <h3 class="font-semibold text-red-800">{{ t(['en' => 'Error', 'si' => 'දෝෂය']) }}</h3>
+                            <h3 class="font-semibold text-red-800">{{ __('Error') }}</h3>
                             <p class="text-sm text-red-700">{{ session('error') }}</p>
                         </div>
                     </div>
@@ -118,18 +118,18 @@
 
             @if (session('success'))
                 <div x-data="{ show: true }" x-init="setTimeout(() => show = false, 5000)" x-show="show" x-transition
-                    class="overflow-hidden rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 shadow-sm">
+                    class="overflow-hidden rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 shadow-sm">
                     <div class="flex items-center justify-between gap-4">
                         <div class="flex items-center gap-3">
-                            <div class="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100">
-                                <svg class="h-5 w-5 text-emerald-600" fill="none" stroke="currentColor"
+                            <div class="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100">
+                                <svg class="h-4 w-4 text-emerald-600" fill="none" stroke="currentColor"
                                     viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                         d="M5 13l4 4L19 7" />
                                 </svg>
                             </div>
                             <div>
-                                <h3 class="font-semibold text-emerald-800">{{ t(['en' => 'Success', 'si' => 'සාර්ථකයි']) }}</h3>
+                                <h3 class="font-semibold text-emerald-800">{{ __('Success') }}</h3>
                                 <p class="text-sm text-emerald-700">{{ session('success') }}</p>
                             </div>
                         </div>
@@ -145,23 +145,23 @@
 
             {{-- Hero Card --}}
             <div
-                class="overflow-hidden rounded-3xl border border-white/70 bg-white/90 shadow-xl shadow-indigo-100/50 backdrop-blur">
+                class="overflow-hidden rounded-2xl border border-white/70 bg-white/90 shadow-lg shadow-indigo-100/40 backdrop-blur">
                 @if ($event->cover)
-                    <div class="relative h-56 sm:h-72">
+                    <div class="relative h-40 sm:h-52">
                         <img src="{{ asset('uploads/covers/events/' . $event->cover) }}" alt="{{ $event->name }}"
                             class="h-full w-full object-cover">
                         <div class="absolute inset-0 bg-gradient-to-t from-indigo-950/80 via-indigo-900/30 to-transparent">
                         </div>
-                        <div class="absolute bottom-0 left-0 right-0 p-6 sm:p-8">
-                            <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                        <div class="absolute bottom-0 left-0 right-0 p-4 sm:p-5">
+                            <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
                                 <div>
-                                    <p class="text-sm font-medium uppercase tracking-wide text-indigo-200">
-                                        {{ t(['en' => 'Event', 'si' => 'ප්‍රසංගය']) }} #{{ $event->id }}
+                                    <p class="text-xs font-medium uppercase tracking-wide text-indigo-200">
+                                        {{ __('Event') }} #{{ $event->id }}
                                     </p>
-                                    <h1 class="mt-1 text-3xl font-bold tracking-tight text-white sm:text-4xl">
+                                    <h1 class="mt-0.5 text-2xl font-bold tracking-tight text-white sm:text-3xl">
                                         {{ $event->name }}
                                     </h1>
-                                    <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-indigo-100">
+                                    <p class="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-indigo-100">
                                         <span class="inline-flex items-center gap-1.5">
                                             <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
@@ -197,21 +197,21 @@
                     </div>
                 @else
                     <div
-                        class="border-b border-gray-100 bg-gradient-to-r from-indigo-600 via-indigo-500 to-sky-500 px-6 py-8 text-white sm:px-8">
-                        <div class="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-                            <div class="flex items-center gap-4">
+                        class="border-b border-gray-100 bg-gradient-to-r from-indigo-600 via-indigo-500 to-sky-500 px-5 py-5 text-white sm:px-6">
+                        <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                            <div class="flex items-center gap-3">
                                 <div
-                                    class="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/15 text-2xl font-bold uppercase shadow-inner ring-1 ring-white/25">
+                                    class="flex h-12 w-12 items-center justify-center rounded-xl bg-white/15 text-lg font-bold uppercase shadow-inner ring-1 ring-white/25">
                                     {{ strtoupper(substr($event->name, 0, 2)) }}
                                 </div>
                                 <div>
-                                    <p class="text-sm font-medium uppercase tracking-wide text-indigo-200">
-                                        {{ t(['en' => 'Event', 'si' => 'ප්‍රසංගය']) }} #{{ $event->id }}
+                                    <p class="text-xs font-medium uppercase tracking-wide text-indigo-200">
+                                        {{ __('Event') }} #{{ $event->id }}
                                     </p>
-                                    <h1 class="text-2xl font-bold tracking-tight sm:text-3xl">
+                                    <h1 class="text-xl font-bold tracking-tight sm:text-2xl">
                                         {{ $event->name }}
                                     </h1>
-                                    <p class="mt-1 text-sm text-indigo-50">
+                                    <p class="mt-0.5 text-sm text-indigo-50">
                                         {{ $event->place }} &middot; {{ $event->date }} {{ $event->time }}
                                     </p>
                                 </div>
@@ -234,114 +234,114 @@
 
                 {{-- Stats Row --}}
                 <div class="grid grid-cols-2 gap-px bg-gray-100 sm:grid-cols-8">
-                    <div class="bg-white px-5 py-5">
-                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ t(['en' => 'Total tickets', 'si' => 'මුළු ටිකට්']) }}</p>
-                        <p class="mt-1 text-2xl font-bold text-gray-900">{{ number_format($event->total_tickets) }}</p>
+                    <div class="bg-white px-4 py-3.5">
+                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ __('Total tickets') }}</p>
+                        <p class="mt-0.5 text-xl font-bold text-gray-900">{{ number_format($event->total_tickets) }}</p>
                     </div>
-                    <div class="bg-white px-5 py-5">
-                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ t(['en' => 'Categories', 'si' => 'ප්‍රවර්ග']) }}</p>
-                        <p class="mt-1 text-2xl font-bold text-indigo-600">{{ $ticketCategories->count() }}</p>
+                    <div class="bg-white px-4 py-3.5">
+                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ __('Categories') }}</p>
+                        <p class="mt-0.5 text-xl font-bold text-indigo-600">{{ $ticketCategories->count() }}</p>
                     </div>
-                    <div class="bg-white px-5 py-5">
-                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ t(['en' => 'Available', 'si' => 'ලබා ගත හැකි']) }}</p>
-                        <p class="mt-1 text-2xl font-bold text-emerald-600">{{ $totalAvailable }}</p>
+                    <div class="bg-white px-4 py-3.5">
+                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ __('Available') }}</p>
+                        <p class="mt-0.5 text-xl font-bold text-emerald-600">{{ $totalAvailable }}</p>
                     </div>
-                    <div class="bg-white px-5 py-5">
-                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ t(['en' => 'Booked', 'si' => 'වෙන්කර ඇත']) }}</p>
-                        <p class="mt-1 text-2xl font-bold text-amber-600">{{ $totalBooked }}</p>
+                    <div class="bg-white px-4 py-3.5">
+                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ __('Booked') }}</p>
+                        <p class="mt-0.5 text-xl font-bold text-amber-600">{{ $totalBooked }}</p>
                     </div>
-                    <div class="bg-white px-5 py-5">
-                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ t(['en' => 'Likes', 'si' => 'කැමති']) }}</p>
-                        <p class="mt-1 text-2xl font-bold text-rose-600">{{ $event->likes_count ?? 0 }}</p>
+                    <div class="bg-white px-4 py-3.5">
+                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ __('Likes') }}</p>
+                        <p class="mt-0.5 text-xl font-bold text-rose-600">{{ $event->likes_count ?? 0 }}</p>
                     </div>
-                    <div class="bg-white px-5 py-5">
-                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ t(['en' => 'Saves', 'si' => 'සුරැකීම්']) }}</p>
-                        <p class="mt-1 text-2xl font-bold text-amber-600">{{ $event->saves_count ?? 0 }}</p>
+                    <div class="bg-white px-4 py-3.5">
+                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ __('Saves') }}</p>
+                        <p class="mt-0.5 text-xl font-bold text-amber-600">{{ $event->saves_count ?? 0 }}</p>
                     </div>
-                    <div class="bg-white px-5 py-5">
-                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ t(['en' => 'Comments', 'si' => 'අදහස්']) }}</p>
-                        <p class="mt-1 text-2xl font-bold text-indigo-600">{{ $event->comments_count ?? 0 }}</p>
+                    <div class="bg-white px-4 py-3.5">
+                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ __('Comments') }}</p>
+                        <p class="mt-0.5 text-xl font-bold text-indigo-600">{{ $event->comments_count ?? 0 }}</p>
                     </div>
-                    <div class="bg-white px-5 py-5">
-                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ t(['en' => 'Rating', 'si' => 'ශ්‍රේණිගත කිරීම']) }}</p>
-                        <p class="mt-1 text-2xl font-bold text-yellow-600">
+                    <div class="bg-white px-4 py-3.5">
+                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ __('Rating') }}</p>
+                        <p class="mt-0.5 text-xl font-bold text-yellow-600">
                             @if (($event->ratings_count ?? 0) > 0)
                                 {{ number_format($event->ratings_avg_score, 1) }}
                             @else
                                 —
                             @endif
                         </p>
-                        <p class="mt-0.5 text-xs text-gray-500">{{ $event->ratings_count ?? 0 }} {{ t(['en' => 'reviews', 'si' => 'සමාලෝචන']) }}</p>
+                        <p class="text-xs text-gray-500">{{ $event->ratings_count ?? 0 }} {{ __('reviews') }}</p>
                     </div>
                 </div>
             </div>
 
             @if ($event->isCompleted() && $postEventAnalytics)
-                <div class="overflow-hidden rounded-3xl border border-emerald-200 bg-white shadow-lg shadow-emerald-100/40">
-                    <div class="border-b border-emerald-100 bg-gradient-to-r from-emerald-600 to-teal-600 px-6 py-5 sm:px-8">
-                        <h3 class="text-lg font-semibold text-white">{{ t(['en' => 'Post-Event Report', 'si' => 'ප්‍රසංගයෙන් පසු වාර්තාව']) }}</h3>
-                        <p class="mt-1 text-sm text-emerald-50">
-                            {{ t(['en' => 'Analytics unlocked now that this event is completed.', 'si' => 'මෙම ප්‍රසංගය අවසන් වූ නිසා විශ්ලේෂණ දැන් ලබා ගත හැක.']) }}
+                <div class="overflow-hidden rounded-2xl border border-emerald-200 bg-white shadow-md shadow-emerald-100/30">
+                    <div class="border-b border-emerald-100 bg-gradient-to-r from-emerald-600 to-teal-600 px-5 py-4 sm:px-6">
+                        <h3 class="text-base font-semibold text-white">{{ __('Post-Event Report') }}</h3>
+                        <p class="mt-0.5 text-sm text-emerald-50">
+                            {{ __('Analytics unlocked now that this event is completed.') }}
                         </p>
                     </div>
 
                     <div class="grid gap-px bg-emerald-100 sm:grid-cols-2 lg:grid-cols-5">
-                        <div class="bg-white px-5 py-5">
-                            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ t(['en' => 'Revenue', 'si' => 'ආදායම']) }}</p>
-                            <p class="mt-1 text-2xl font-bold text-emerald-600">
+                        <div class="bg-white px-4 py-3.5">
+                            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ __('Revenue') }}</p>
+                            <p class="mt-0.5 text-xl font-bold text-emerald-600">
                                 LKR {{ number_format($postEventAnalytics['revenue'], 0) }}
                             </p>
-                            <p class="mt-1 text-xs text-gray-500">{{ t(['en' => 'Total ticket sales collected', 'si' => 'එකතු කළ මුළු ටිකට් විකුණුම්']) }}</p>
+                            <p class="mt-0.5 text-xs text-gray-500">{{ __('Total ticket sales collected') }}</p>
                         </div>
-                        <div class="bg-white px-5 py-5">
-                            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ t(['en' => 'Likes', 'si' => 'කැමති']) }}</p>
-                            <p class="mt-1 text-2xl font-bold text-rose-600">{{ number_format($postEventAnalytics['likes']) }}</p>
-                            <p class="mt-1 text-xs text-gray-500">{{ t(['en' => 'Attendee likes received', 'si' => 'ලැබුණු සහභාගීවන්නන්ගේ කැමති']) }}</p>
+                        <div class="bg-white px-4 py-3.5">
+                            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ __('Likes') }}</p>
+                            <p class="mt-0.5 text-xl font-bold text-rose-600">{{ number_format($postEventAnalytics['likes']) }}</p>
+                            <p class="mt-0.5 text-xs text-gray-500">{{ __('Attendee likes received') }}</p>
                         </div>
-                        <div class="bg-white px-5 py-5">
-                            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ t(['en' => 'Comments', 'si' => 'අදහස්']) }}</p>
-                            <p class="mt-1 text-2xl font-bold text-indigo-600">{{ number_format($postEventAnalytics['comments']) }}</p>
-                            <p class="mt-1 text-xs text-gray-500">{{ t(['en' => 'Feedback submitted', 'si' => 'ඉදිරිපත් කළ ප්‍රතිචාර']) }}</p>
+                        <div class="bg-white px-4 py-3.5">
+                            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ __('Comments') }}</p>
+                            <p class="mt-0.5 text-xl font-bold text-indigo-600">{{ number_format($postEventAnalytics['comments']) }}</p>
+                            <p class="mt-0.5 text-xs text-gray-500">{{ __('Feedback submitted') }}</p>
                         </div>
-                        <div class="bg-white px-5 py-5">
-                            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ t(['en' => 'Ratings', 'si' => 'ශ්‍රේණිගත කිරීම්']) }}</p>
-                            <p class="mt-1 text-2xl font-bold text-yellow-600">
+                        <div class="bg-white px-4 py-3.5">
+                            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ __('Ratings') }}</p>
+                            <p class="mt-0.5 text-xl font-bold text-yellow-600">
                                 @if ($postEventAnalytics['ratings_count'] > 0)
                                     {{ number_format($postEventAnalytics['average_rating'], 1) }}/5
                                 @else
                                     —
                                 @endif
                             </p>
-                            <p class="mt-1 text-xs text-gray-500">{{ $postEventAnalytics['ratings_count'] }} {{ t(['en' => 'reviews', 'si' => 'සමාලෝචන']) }}</p>
+                            <p class="mt-0.5 text-xs text-gray-500">{{ $postEventAnalytics['ratings_count'] }} {{ __('reviews') }}</p>
                         </div>
-                        <div class="bg-white px-5 py-5 sm:col-span-2 lg:col-span-1">
-                            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ t(['en' => 'Tickets Sold', 'si' => 'විකුණු ටිකට්']) }}</p>
-                            <p class="mt-1 text-2xl font-bold text-amber-600">{{ number_format($totalBooked) }}</p>
-                            <p class="mt-1 text-xs text-gray-500">{{ t(['en' => 'Across all categories', 'si' => 'සියලු ප්‍රවර්ග හරහා']) }}</p>
+                        <div class="bg-white px-4 py-3.5 sm:col-span-2 lg:col-span-1">
+                            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ __('Tickets Sold') }}</p>
+                            <p class="mt-0.5 text-xl font-bold text-amber-600">{{ number_format($totalBooked) }}</p>
+                            <p class="mt-0.5 text-xs text-gray-500">{{ __('Across all categories') }}</p>
                         </div>
                     </div>
 
-                    <div class="border-t border-emerald-100 px-6 py-5 sm:px-8">
-                        <h4 class="text-sm font-semibold uppercase tracking-wide text-gray-500">{{ t(['en' => 'Ticket Sales by Category', 'si' => 'ප්‍රවර්ග අනුව ටිකට් විකුණුම්']) }}</h4>
-                        <div class="mt-4 overflow-x-auto">
+                    <div class="border-t border-emerald-100 px-5 py-4 sm:px-6">
+                        <h4 class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ __('Ticket Sales by Category') }}</h4>
+                        <div class="mt-3 overflow-x-auto">
                             <table class="min-w-full">
                                 <thead>
                                     <tr class="border-b border-gray-100">
-                                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">{{ t(['en' => 'Category', 'si' => 'ප්‍රවර්ගය']) }}</th>
-                                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">{{ t(['en' => 'Sold', 'si' => 'විකුණුණු']) }}</th>
-                                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">{{ t(['en' => 'Revenue', 'si' => 'ආදායම']) }}</th>
+                                        <th class="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">{{ __('Category') }}</th>
+                                        <th class="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">{{ __('Sold') }}</th>
+                                        <th class="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">{{ __('Revenue') }}</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-gray-100">
                                     @forelse ($postEventAnalytics['ticket_sales'] as $sale)
                                         <tr>
-                                            <td class="px-4 py-3 text-sm font-semibold text-gray-900">{{ $sale['name'] }}</td>
-                                            <td class="px-4 py-3 text-sm text-gray-700">{{ number_format($sale['sold']) }}</td>
-                                            <td class="px-4 py-3 text-sm font-semibold text-emerald-700">LKR {{ number_format($sale['revenue'], 0) }}</td>
+                                            <td class="px-3 py-2.5 text-sm font-semibold text-gray-900">{{ $sale['name'] }}</td>
+                                            <td class="px-3 py-2.5 text-sm text-gray-700">{{ number_format($sale['sold']) }}</td>
+                                            <td class="px-3 py-2.5 text-sm font-semibold text-emerald-700">LKR {{ number_format($sale['revenue'], 0) }}</td>
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="3" class="px-4 py-6 text-center text-sm text-gray-500">{{ t(['en' => 'No ticket sales recorded.', 'si' => 'ටිකට් විකුණුම් වාර්තා වී නැත.']) }}</td>
+                                            <td colspan="3" class="px-3 py-4 text-center text-sm text-gray-500">{{ __('No ticket sales recorded.') }}</td>
                                         </tr>
                                     @endforelse
                                 </tbody>
@@ -351,95 +351,95 @@
                 </div>
             @endif
 
-            <div class="grid gap-6 lg:grid-cols-[1fr_320px]">
+            <div class="grid gap-4 lg:grid-cols-[1fr_300px]">
                 {{-- Main Content --}}
-                <div class="space-y-6">
+                <div class="space-y-4">
                     {{-- Event Information --}}
                     <div
-                        class="overflow-hidden rounded-3xl border border-white/70 bg-white/90 p-6 shadow-lg shadow-indigo-100/30 backdrop-blur sm:p-8">
-                        <div class="mb-6">
-                            <h3 class="text-lg font-semibold text-gray-900">{{ t(['en' => 'Event Information', 'si' => 'ප්‍රසංගය් තොරතුරු']) }}</h3>
-                            <p class="mt-1 text-sm text-gray-500">
-                                {{ t(['en' => 'Overview of hosts, category, and contact details.', 'si' => 'සත්කාරකයන්, ප්‍රවර්ගය සහ සම්බන්ධතා විස්තරවල දළ විශ්ලේෂණය.']) }}
+                        class="overflow-hidden rounded-2xl border border-white/70 bg-white/90 p-5 shadow-md shadow-indigo-100/25 backdrop-blur sm:p-6">
+                        <div class="mb-4">
+                            <h3 class="text-base font-semibold text-gray-900">{{ __('Event Information') }}</h3>
+                            <p class="mt-0.5 text-sm text-gray-500">
+                                {{ __('Overview of hosts, category, and contact details.') }}
                             </p>
                         </div>
 
-                        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                            <div class="rounded-2xl border border-gray-100 bg-gray-50/70 p-4">
+                        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                            <div class="rounded-xl border border-gray-100 bg-gray-50/70 p-3">
                                 <div class="flex items-start gap-3">
                                     <div
-                                        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-100 text-indigo-600">
-                                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-100 text-indigo-600">
+                                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
                                                 d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                                         </svg>
                                     </div>
                                     <div>
                                         <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                                            {{ t(['en' => 'Hosted By', 'si' => 'සත්කාරකයා']) }}
+                                            {{ __('Hosted By') }}
                                         </p>
-                                        <p class="mt-1 font-semibold text-gray-900">
-                                            {{ $event->host->name ?? t(['en' => 'N/A', 'si' => 'නැත']) }}
+                                        <p class="mt-0.5 text-sm font-semibold text-gray-900">
+                                            {{ $event->host->name ?? __('N/A') }}
                                         </p>
                                     </div>
                                 </div>
                             </div>
 
-                            <div class="rounded-2xl border border-gray-100 bg-gray-50/70 p-4">
+                            <div class="rounded-xl border border-gray-100 bg-gray-50/70 p-3">
                                 <div class="flex items-start gap-3">
                                     <div
-                                        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-100 text-sky-600">
-                                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sky-100 text-sky-600">
+                                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
                                                 d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z" />
                                         </svg>
                                     </div>
                                     <div>
                                         <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                                            {{ t(['en' => 'Category', 'si' => 'ප්‍රවර්ගය']) }}
+                                            {{ __('Category') }}
                                         </p>
-                                        <p class="mt-1 font-semibold text-gray-900">
-                                            {{ $event->eventCategory->name ?? t(['en' => 'N/A', 'si' => 'නැත']) }}
+                                        <p class="mt-0.5 text-sm font-semibold text-gray-900">
+                                            {{ $event->eventCategory->name ?? __('N/A') }}
                                         </p>
                                     </div>
                                 </div>
                             </div>
 
-                            <div class="rounded-2xl border border-gray-100 bg-gray-50/70 p-4">
+                            <div class="rounded-xl border border-gray-100 bg-gray-50/70 p-3">
                                 <div class="flex items-start gap-3">
                                     <div
-                                        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600">
-                                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-600">
+                                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
                                                 d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                                         </svg>
                                     </div>
                                     <div>
                                         <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                                            {{ t(['en' => 'Contact Person', 'si' => 'සම්බන්ධතා පුද්ගලයා']) }}
+                                            {{ __('Contact Person') }}
                                         </p>
-                                        <p class="mt-1 font-semibold text-gray-900">
-                                            {{ $event->contactPerson?->name ?? t(['en' => 'N/A', 'si' => 'නැත']) }}
+                                        <p class="mt-0.5 text-sm font-semibold text-gray-900">
+                                            {{ $event->contactPerson?->name ?? __('N/A') }}
                                         </p>
                                     </div>
                                 </div>
                             </div>
 
-                            <div class="rounded-2xl border border-gray-100 bg-gray-50/70 p-4">
+                            <div class="rounded-xl border border-gray-100 bg-gray-50/70 p-3">
                                 <div class="flex items-start gap-3">
                                     <div
-                                        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-600">
-                                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-600">
+                                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
                                                 d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
                                         </svg>
                                     </div>
                                     <div>
                                         <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                                            {{ t(['en' => 'Capacity', 'si' => 'ධාරිතාව']) }}
+                                            {{ __('Capacity') }}
                                         </p>
-                                        <p class="mt-1 font-semibold text-gray-900">
-                                            {{ number_format($event->total_tickets) }} {{ t(['en' => 'tickets', 'si' => 'ටිකට්']) }}
+                                        <p class="mt-0.5 text-sm font-semibold text-gray-900">
+                                            {{ number_format($event->total_tickets) }} {{ __('tickets') }}
                                         </p>
                                     </div>
                                 </div>
@@ -447,11 +447,11 @@
                         </div>
 
                         @if ($event->description)
-                            <div class="mt-6 rounded-2xl border border-gray-100 bg-gray-50/70 p-5">
+                            <div class="mt-4 rounded-xl border border-gray-100 bg-gray-50/70 p-4">
                                 <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                                    {{ t(['en' => 'Description', 'si' => 'විස්තරය']) }}
+                                    {{ __('Description') }}
                                 </p>
-                                <p class="mt-2 text-sm leading-7 text-gray-700">
+                                <p class="mt-1.5 text-sm leading-6 text-gray-700">
                                     {{ $event->description }}
                                 </p>
                             </div>
@@ -460,19 +460,19 @@
 
                     {{-- Attendee Ratings --}}
                     <div
-                        class="overflow-hidden rounded-3xl border border-white/70 bg-white/90 p-6 shadow-lg shadow-indigo-100/30 backdrop-blur sm:p-8">
-                        <div class="mb-6">
-                            <h3 class="text-lg font-semibold text-gray-900">{{ t(['en' => 'Attendee Ratings', 'si' => 'සහභාගීවන්නන්ගේ ශ්‍රේණිගත කිරීම්']) }}</h3>
-                            <p class="mt-1 text-sm text-gray-500">
-                                {{ t(['en' => 'Ratings submitted by attendees for this event.', 'si' => 'මෙම ප්‍රසංගය සඳහා සහභාගීවන්නන් ඉදිරිපත් කළ ශ්‍රේණිගත කිරීම්.']) }}
+                        class="overflow-hidden rounded-2xl border border-white/70 bg-white/90 p-5 shadow-md shadow-indigo-100/25 backdrop-blur sm:p-6">
+                        <div class="mb-4">
+                            <h3 class="text-base font-semibold text-gray-900">{{ __('Attendee Ratings') }}</h3>
+                            <p class="mt-0.5 text-sm text-gray-500">
+                                {{ __('Ratings submitted by attendees for this event.') }}
                             </p>
                         </div>
 
-                        <div class="mb-6 rounded-2xl border border-gray-100 bg-gray-50/70 p-5">
-                            <div class="flex flex-wrap items-center gap-4">
+                        <div class="mb-4 rounded-xl border border-gray-100 bg-gray-50/70 p-4">
+                            <div class="flex flex-wrap items-center gap-3">
                                 <div class="flex items-center gap-1">
                                     @for ($star = 1; $star <= 5; $star++)
-                                        <svg class="h-5 w-5 {{ ($event->ratings_avg_score ?? 0) >= $star ? 'text-yellow-400' : 'text-gray-300' }}"
+                                        <svg class="h-4 w-4 {{ ($event->ratings_avg_score ?? 0) >= $star ? 'text-yellow-400' : 'text-gray-300' }}"
                                             fill="currentColor" viewBox="0 0 24 24">
                                             <path
                                                 d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
@@ -480,34 +480,34 @@
                                     @endfor
                                 </div>
                                 <div>
-                                    <p class="text-lg font-bold text-gray-900">
+                                    <p class="text-base font-bold text-gray-900">
                                         @if (($event->ratings_count ?? 0) > 0)
-                                            {{ number_format($event->ratings_avg_score, 1) }} {{ t(['en' => 'out of 5', 'si' => '5න්']) }}
+                                            {{ number_format($event->ratings_avg_score, 1) }} {{ __('out of 5') }}
                                         @else
-                                            {{ t(['en' => 'No ratings yet', 'si' => 'තවම ශ්‍රේණිගත කිරීම් නැත']) }}
+                                            {{ __('No ratings yet') }}
                                         @endif
                                     </p>
-                                    <p class="text-sm text-gray-500">{{ $event->ratings_count ?? 0 }} {{ t(['en' => 'total ratings', 'si' => 'මුළු ශ්‍රේණිගත කිරීම්']) }}</p>
+                                    <p class="text-sm text-gray-500">{{ $event->ratings_count ?? 0 }} {{ __('total ratings') }}</p>
                                 </div>
                             </div>
                         </div>
 
-                        <div class="space-y-4">
+                        <div class="space-y-3">
                             @forelse ($event->ratings->sortByDesc('created_at') as $rating)
-                                <div class="rounded-2xl border border-gray-100 bg-gray-50/70 p-4">
+                                <div class="rounded-xl border border-gray-100 bg-gray-50/70 p-3">
                                     <div class="flex items-start gap-3">
                                         <div
-                                            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-yellow-100 text-xs font-bold text-yellow-700">
+                                            class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-yellow-100 text-xs font-bold text-yellow-700">
                                             {{ strtoupper(substr($rating->user->first_name, 0, 1)) }}{{ strtoupper(substr($rating->user->last_name, 0, 1)) }}
                                         </div>
                                         <div class="min-w-0 flex-1">
                                             <div class="flex flex-wrap items-center gap-2">
-                                                <p class="font-semibold text-gray-900">{{ $rating->user->full_name }}</p>
+                                                <p class="text-sm font-semibold text-gray-900">{{ $rating->user->full_name }}</p>
                                                 <span class="text-xs text-gray-500">{{ $rating->created_at->diffForHumans() }}</span>
                                             </div>
-                                            <div class="mt-2 flex items-center gap-1">
+                                            <div class="mt-1.5 flex items-center gap-1">
                                                 @for ($star = 1; $star <= 5; $star++)
-                                                    <svg class="h-4 w-4 {{ $star <= $rating->score ? 'text-yellow-400' : 'text-gray-300' }}"
+                                                    <svg class="h-3.5 w-3.5 {{ $star <= $rating->score ? 'text-yellow-400' : 'text-gray-300' }}"
                                                         fill="currentColor" viewBox="0 0 24 24">
                                                         <path
                                                             d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
@@ -519,8 +519,8 @@
                                     </div>
                                 </div>
                             @empty
-                                <div class="rounded-2xl border border-dashed border-gray-200 bg-white px-6 py-10 text-center text-sm text-gray-500">
-                                    {{ t(['en' => 'No ratings yet.', 'si' => 'තවම ශ්‍රේණිගත කිරීම් නැත.']) }}
+                                <div class="rounded-xl border border-dashed border-gray-200 bg-white px-5 py-6 text-center text-sm text-gray-500">
+                                    {{ __('No ratings yet.') }}
                                 </div>
                             @endforelse
                         </div>
@@ -528,34 +528,34 @@
 
                     {{-- Attendee Comments --}}
                     <div
-                        class="overflow-hidden rounded-3xl border border-white/70 bg-white/90 p-6 shadow-lg shadow-indigo-100/30 backdrop-blur sm:p-8">
-                        <div class="mb-6">
-                            <h3 class="text-lg font-semibold text-gray-900">{{ t(['en' => 'Attendee Comments', 'si' => 'සහභාගීවන්නන්ගේ අදහස්']) }}</h3>
-                            <p class="mt-1 text-sm text-gray-500">
-                                {{ t(['en' => 'Feedback and discussion from attendees.', 'si' => 'සහභාගීවන්නන්ගේ ප්‍රතිචාර සහ සාකච්ඡා.']) }}
+                        class="overflow-hidden rounded-2xl border border-white/70 bg-white/90 p-5 shadow-md shadow-indigo-100/25 backdrop-blur sm:p-6">
+                        <div class="mb-4">
+                            <h3 class="text-base font-semibold text-gray-900">{{ __('Attendee Comments') }}</h3>
+                            <p class="mt-0.5 text-sm text-gray-500">
+                                {{ __('Feedback and discussion from attendees.') }}
                             </p>
                         </div>
 
-                        <div class="space-y-4">
+                        <div class="space-y-3">
                             @forelse ($event->comments->sortByDesc('created_at') as $comment)
-                                <div class="rounded-2xl border border-gray-100 bg-gray-50/70 p-4">
+                                <div class="rounded-xl border border-gray-100 bg-gray-50/70 p-3">
                                     <div class="flex items-start gap-3">
                                         <div
-                                            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-700">
+                                            class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-700">
                                             {{ strtoupper(substr($comment->user->first_name, 0, 1)) }}{{ strtoupper(substr($comment->user->last_name, 0, 1)) }}
                                         </div>
                                         <div class="min-w-0 flex-1">
                                             <div class="flex flex-wrap items-center gap-2">
-                                                <p class="font-semibold text-gray-900">{{ $comment->user->full_name }}</p>
+                                                <p class="text-sm font-semibold text-gray-900">{{ $comment->user->full_name }}</p>
                                                 <span class="text-xs text-gray-500">{{ $comment->created_at->diffForHumans() }}</span>
                                             </div>
-                                            <p class="mt-2 text-sm leading-6 text-gray-700 whitespace-pre-wrap">{{ $comment->body }}</p>
+                                            <p class="mt-1.5 text-sm leading-5 text-gray-700 whitespace-pre-wrap">{{ $comment->body }}</p>
                                         </div>
                                     </div>
                                 </div>
                             @empty
-                                <div class="rounded-2xl border border-dashed border-gray-200 bg-white px-6 py-10 text-center text-sm text-gray-500">
-                                    {{ t(['en' => 'No comments yet.', 'si' => 'තවම අදහස් නැත.']) }}
+                                <div class="rounded-xl border border-dashed border-gray-200 bg-white px-5 py-6 text-center text-sm text-gray-500">
+                                    {{ __('No comments yet.') }}
                                 </div>
                             @endforelse
                         </div>
@@ -563,21 +563,21 @@
 
                     {{-- ticket Categories --}}
                     <div
-                        class="overflow-hidden rounded-3xl border border-white/70 bg-white/90 shadow-lg shadow-indigo-100/30 backdrop-blur">
-                        <div class="flex flex-col gap-4 border-b border-gray-100 px-6 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-8">
+                        class="overflow-hidden rounded-2xl border border-white/70 bg-white/90 shadow-md shadow-indigo-100/25 backdrop-blur">
+                        <div class="flex flex-col gap-3 border-b border-gray-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
                             <div>
-                                <h3 class="text-lg font-semibold text-gray-900">{{ t(['en' => 'ticket Categories', 'si' => 'ටිකට් ප්‍රවර්ග']) }}</h3>
-                                <p class="mt-1 text-sm text-gray-500">
-                                    {{ t(['en' => 'Manage ticket categories, pricing and availability.', 'si' => 'ටිකට් ප්‍රවර්ග, මිල ගණන් සහ ලබා ගත හැකි බව කළමනාකරණය කරන්න.']) }}
+                                <h3 class="text-base font-semibold text-gray-900">{{ __('ticket Categories') }}</h3>
+                                <p class="mt-0.5 text-sm text-gray-500">
+                                    {{ __('Manage ticket categories, pricing and availability.') }}
                                 </p>
                             </div>
                             <a href="{{ route('organizer.ticket-categories.create', $event->id) }}"
-                                class="inline-flex items-center justify-center rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700">
+                                class="inline-flex items-center justify-center rounded-xl bg-indigo-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700">
                                 <svg class="mr-1.5 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                         d="M12 4v16m8-8H4" />
                                 </svg>
-                                {{ t(['en' => 'Add Category', 'si' => 'ප්‍රවර්ගය එකතු කරන්න']) }}
+                                {{ __('Add Category') }}
                             </a>
                         </div>
 
@@ -586,44 +586,44 @@
                                 <thead>
                                     <tr class="border-b border-gray-100 bg-gray-50/80">
                                         <th
-                                            class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
-                                            {{ t(['en' => 'Category', 'si' => 'ප්‍රවර්ගය']) }}
+                                            class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                                            {{ __('Category') }}
                                         </th>
                                         <th
-                                            class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
-                                            {{ t(['en' => 'tickets', 'si' => 'ටිකට්']) }}
+                                            class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                                            {{ __('tickets') }}
                                         </th>
                                         <th
-                                            class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
-                                            {{ t(['en' => 'Available', 'si' => 'ලබා ගත හැකි']) }}
+                                            class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                                            {{ __('Available') }}
                                         </th>
                                         <th
-                                            class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
-                                            {{ t(['en' => 'Price', 'si' => 'මිල']) }}
+                                            class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                                            {{ __('Price') }}
                                         </th>
                                         <th
-                                            class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
-                                            {{ t(['en' => 'Status', 'si' => 'තත්ත්වය']) }}
+                                            class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                                            {{ __('Status') }}
                                         </th>
                                         <th
-                                            class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
-                                            {{ t(['en' => 'Booking', 'si' => 'වෙන්කිරීම']) }}
+                                            class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                                            {{ __('Booking') }}
                                         </th>
                                         <th
-                                            class="px-6 py-4 text-right text-xs font-semibold uppercase tracking-wider text-gray-500">
-                                            {{ t(['en' => 'Actions', 'si' => 'ක්‍රියාවන්']) }}
+                                            class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-500">
+                                            {{ __('Actions') }}
                                         </th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-gray-100">
                                     @forelse ($ticketCategories as $category)
                                         <tr class="transition hover:bg-indigo-50/30">
-                                            <td class="px-6 py-4">
+                                            <td class="px-4 py-3">
                                                 <div class="flex items-center gap-3">
                                                     <span class="inline-block h-3 w-3 shrink-0 rounded-full ring-2 ring-white shadow-sm"
                                                         style="background-color: {{ $category->ticket_color }}"></span>
                                                     <div>
-                                                        <p class="font-semibold text-gray-900">{{ $category->name }}</p>
+                                                        <p class="text-sm font-semibold text-gray-900">{{ $category->name }}</p>
                                                         @if ($category->description)
                                                             <p class="mt-0.5 max-w-xs truncate text-xs text-gray-500">
                                                                 {{ $category->description }}
@@ -632,64 +632,64 @@
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td class="px-6 py-4 text-sm text-gray-700">
+                                            <td class="px-4 py-3 text-sm text-gray-700">
                                                 {{ $category->no_of_tickets }}
                                             </td>
-                                            <td class="px-6 py-4">
+                                            <td class="px-4 py-3">
                                                 <span
                                                     class="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-100">
                                                     {{ $category->no_of_available_tickets }}
                                                 </span>
                                             </td>
-                                            <td class="px-6 py-4 text-sm font-semibold text-gray-900">
+                                            <td class="px-4 py-3 text-sm font-semibold text-gray-900">
                                                 LKR {{ number_format($category->ticket_price, 0) }}
                                             </td>
-                                            <td class="px-6 py-4">
+                                            <td class="px-4 py-3">
                                                 @if ($category->is_active)
                                                     <span
                                                         class="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-100">
-                                                        {{ t(['en' => 'Active', 'si' => 'සක්‍රීය']) }}
+                                                        {{ __('Active') }}
                                                     </span>
                                                 @else
                                                     <span
                                                         class="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-600 ring-1 ring-gray-200">
-                                                        {{ t(['en' => 'Inactive', 'si' => 'අක්‍රීය']) }}
+                                                        {{ __('Inactive') }}
                                                     </span>
                                                 @endif
                                             </td>
-                                            <td class="px-6 py-4 text-sm text-gray-600">
+                                            <td class="px-4 py-3 text-sm text-gray-600">
                                                 @if ($category->booking_start && $category->booking_end)
                                                     <div>{{ \Carbon\Carbon::parse($category->booking_start)->format('d M Y') }}
                                                     </div>
-                                                    <div class="text-xs text-gray-400">{{ t(['en' => 'to', 'si' => 'සිට']) }}</div>
+                                                    <div class="text-xs text-gray-400">{{ __('to') }}</div>
                                                     <div>{{ \Carbon\Carbon::parse($category->booking_end)->format('d M Y') }}
                                                     </div>
                                                 @else
                                                     <span class="text-gray-400">&mdash;</span>
                                                 @endif
                                             </td>
-                                            <td class="px-6 py-4">
+                                            <td class="px-4 py-3">
                                                 <div class="flex items-center justify-end gap-2">
                                                     <a href="{{ route('organizer.ticket-categories.edit', [$event, $category]) }}"
                                                         class="inline-flex items-center rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 shadow-sm transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700">
-                                                        {{ t(['en' => 'Edit', 'si' => 'සංස්කරණය']) }}
+                                                        {{ __('Edit') }}
                                                     </a>
                                                     @if ($category->ticket_bookings_count > 0)
                                                         <span
-                                                            title="{{ t(['en' => 'Tickets have been sold from this category and it cannot be deleted.', 'si' => 'මෙම ප්‍රවර්ගයෙන් ටිකට් විකුණා ඇති බැවින් එය මකා දැමිය නොහැක.']) }}"
+                                                            title="{{ __('Tickets have been sold from this category and it cannot be deleted.') }}"
                                                             class="inline-flex items-center rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-semibold text-gray-400 cursor-not-allowed">
-                                                            {{ t(['en' => 'Delete', 'si' => 'මකන්න']) }}
+                                                            {{ __('Delete') }}
                                                         </span>
                                                     @else
                                                         <form
                                                             action="{{ route('organizer.ticket-categories.destroy', [$event->id, $category->id]) }}"
                                                             method="POST"
-                                                            onsubmit="return confirm('{{ t(['en' => 'Are you sure you want to delete this ticket category?', 'si' => 'ඔබට මෙම ටිකට් ප්‍රවර්ගය මකා දැමීමට අවශ්‍ය බව විශ්වාසද?']) }}')">
+                                                            onsubmit="return confirm('{{ __('Are you sure you want to delete this ticket category?') }}')">
                                                             @csrf
                                                             @method('DELETE')
                                                             <button type="submit"
                                                                 class="inline-flex items-center rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-600 shadow-sm transition hover:bg-red-50">
-                                                                {{ t(['en' => 'Delete', 'si' => 'මකන්න']) }}
+                                                                {{ __('Delete') }}
                                                             </button>
                                                         </form>
                                                     @endif
@@ -698,25 +698,25 @@
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="7" class="px-6 py-16 text-center">
+                                            <td colspan="7" class="px-4 py-10 text-center">
                                                 <div
-                                                    class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
-                                                    <svg class="h-7 w-7" fill="none" stroke="currentColor"
+                                                    class="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+                                                    <svg class="h-6 w-6" fill="none" stroke="currentColor"
                                                         viewBox="0 0 24 24">
                                                         <path stroke-linecap="round" stroke-linejoin="round"
                                                             stroke-width="1.8"
                                                             d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
                                                     </svg>
                                                 </div>
-                                                <p class="mt-4 font-semibold text-gray-900">
-                                                    {{ t(['en' => 'No ticket categories yet', 'si' => 'තවම ටිකට් ප්‍රවර්ග නැත']) }}
+                                                <p class="mt-3 font-semibold text-gray-900">
+                                                    {{ __('No ticket categories yet') }}
                                                 </p>
                                                 <p class="mt-1 text-sm text-gray-500">
-                                                    {{ t(['en' => 'Create your first ticket tier to start selling tickets.', 'si' => 'ටිකට් විකිණීම ආරම්භ කිරීමට ඔබේ පළමු ටිකට් මට්ටම සාදන්න.']) }}
+                                                    {{ __('Create your first ticket tier to start selling tickets.') }}
                                                 </p>
                                                 <a href="{{ route('organizer.ticket-categories.create', $event->id) }}"
-                                                    class="mt-5 inline-flex items-center rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700">
-                                                    {{ t(['en' => 'Add First Category', 'si' => 'පළමු ප්‍රවර්ගය එකතු කරන්න']) }}
+                                                    class="mt-4 inline-flex items-center rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700">
+                                                    {{ __('Add First Category') }}
                                                 </a>
                                             </td>
                                         </tr>
@@ -728,123 +728,123 @@
                 </div>
 
                 {{-- Sidebar --}}
-                <aside class="space-y-4">
-                    <div class="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-                        <h4 class="text-sm font-semibold uppercase tracking-wide text-gray-500">
-                            {{ t(['en' => 'Quick Actions', 'si' => 'ඉක්මන් ක්‍රියාවන්']) }}
+                <aside class="space-y-3">
+                    <div class="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+                        <h4 class="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                            {{ __('Quick Actions') }}
                         </h4>
-                        <div class="mt-4 space-y-2">
+                        <div class="mt-3 space-y-2">
                             <a href="{{ route('organizer.events.edit', $event->id) }}"
-                                class="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700">
+                                class="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700">
                                 <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
                                         d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L12 15l-4 1 1-4 8.586-8.586z" />
                                 </svg>
-                                {{ t(['en' => 'Edit Event', 'si' => 'ප්‍රසංගය සංස්කරණය']) }}
+                                {{ __('Edit Event') }}
                             </a>
                             <a href="{{ route('organizer.events.exportPdf', $event->id) }}"
-                                class="flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50">
+                                class="flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50">
                                 <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
                                         d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                 </svg>
-                                {{ t(['en' => 'Download PDF', 'si' => 'PDF බාගත කරන්න']) }}
+                                {{ __('Download PDF') }}
                             </a>
                             <form action="{{ route('organizer.events.destroy', $event->id) }}" method="POST"
-                                onsubmit="return confirm('{{ t(['en' => 'Delete this event? This action cannot be undone.', 'si' => 'මෙම ප්‍රසංගය මකන්නද? මෙම ක්‍රියාව අහෝසි කළ නොහැක.']) }}')">
+                                onsubmit="return confirm('{{ __('Delete this event? This action cannot be undone.') }}')">
                                 @csrf
                                 @method('DELETE')
                                 <button type="submit"
-                                    class="flex w-full items-center justify-center gap-2 rounded-xl border border-red-200 bg-white px-4 py-3 text-sm font-semibold text-red-600 shadow-sm transition hover:bg-red-50">
+                                    class="flex w-full items-center justify-center gap-2 rounded-xl border border-red-200 bg-white px-4 py-2.5 text-sm font-semibold text-red-600 shadow-sm transition hover:bg-red-50">
                                     <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
                                             d="M19 7H5m5 4v6m4-6v6m-7-10l1 12a2 2 0 002 2h4a2 2 0 002-2l1-12M10 7V4a1 1 0 011-1h2a1 1 0 011 1v3" />
                                     </svg>
-                                    {{ t(['en' => 'Delete Event', 'si' => 'ප්‍රසංගය මකන්න']) }}
+                                    {{ __('Delete Event') }}
                                 </button>
                             </form>
                         </div>
                     </div>
 
-                    <div class="rounded-2xl border border-gray-100 bg-gray-50 p-5">
-                        <h4 class="text-sm font-semibold uppercase tracking-wide text-gray-500">
-                            {{ t(['en' => 'Event Status', 'si' => 'ප්‍රසංගය් තත්ත්වය']) }}
+                    <div class="rounded-xl border border-gray-100 bg-gray-50 p-4">
+                        <h4 class="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                            {{ __('Event Status') }}
                         </h4>
                         @if ($errors->has('status'))
-                            <p class="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+                            <p class="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
                                 {{ $errors->first('status') }}
                             </p>
                         @endif
 
                         @if ($event->isCancelled())
-                            <div class="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3">
-                                <p class="text-sm font-semibold text-rose-800">{{ t(['en' => 'Event Cancelled', 'si' => 'ප්‍රසංගය අවලංගුයි']) }}</p>
+                            <div class="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5">
+                                <p class="text-sm font-semibold text-rose-800">{{ __('Event Cancelled') }}</p>
                                 @if ($event->cancellation_reason)
-                                    <p class="mt-2 text-sm leading-relaxed text-rose-700">{{ $event->cancellation_reason }}</p>
+                                    <p class="mt-1.5 text-sm leading-relaxed text-rose-700">{{ $event->cancellation_reason }}</p>
                                 @endif
                                 @if ($event->cancelled_at)
-                                    <p class="mt-2 text-xs text-rose-600">
-                                        {{ t(['en' => 'Cancelled on', 'si' => 'අවලංගු කළ දිනය']) }} {{ $event->cancelled_at->format('M j, Y g:i A') }}
+                                    <p class="mt-1.5 text-xs text-rose-600">
+                                        {{ __('Cancelled on') }} {{ $event->cancelled_at->format('M j, Y g:i A') }}
                                     </p>
                                 @endif
                             </div>
                         @elseif ($event->isCompleted())
-                            <div class="mt-4 rounded-xl border border-slate-200 bg-slate-100 px-4 py-3">
-                                <p class="text-sm font-semibold text-slate-800">{{ t(['en' => 'Event Completed', 'si' => 'ප්‍රසංගය අවසන්']) }}</p>
-                                <p class="mt-2 text-sm leading-relaxed text-slate-600">
-                                    {{ t(['en' => 'This event has ended. Status, cancellation, and publication settings are locked. Post-event analytics are available above.', 'si' => 'මෙම ප්‍රසංගය අවසන් වී ඇත. තත්ත්වය, අවලංගු කිරීම සහ ප්‍රකාශන සැකසුම් අගුළු දමා ඇත. ප්‍රසංගයෙන් පසු විශ්ලේෂණ ඉහත ලබා ගත හැක.']) }}
+                            <div class="mt-3 rounded-xl border border-slate-200 bg-slate-100 px-3.5 py-2.5">
+                                <p class="text-sm font-semibold text-slate-800">{{ __('Event Completed') }}</p>
+                                <p class="mt-1.5 text-sm leading-relaxed text-slate-600">
+                                    {{ __('This event has ended. Status, cancellation, and publication settings are locked. Post-event analytics are available above.') }}
                                 </p>
                             </div>
                         @else
                             <form action="{{ route('organizer.events.updateStatus', $event->id) }}" method="POST"
-                                class="mt-4">
+                                class="mt-3">
                                 @csrf
                                 @method('PATCH')
                                 <select name="status"
                                     @change="handleStatusChange($event.target, {{ $event->id }}, @js($event->name), @js($event->date), @js($event->time), @js($event->place), @js($event->status))"
                                     class="block w-full rounded-xl border-gray-200 bg-white text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
                                     <option value="unpublished" {{ ($event->status ?? '') == 'unpublished' ? 'selected' : '' }}
-                                        @if ($event->ticket_bookings_count > 0) disabled title="{{ t(['en' => 'Cannot unpublish: tickets have been sold', 'si' => 'ප්‍රකාශනය අවලංගු කළ නොහැක: ටිකට් විකුණා ඇත']) }}" @endif>
-                                        {{ t(['en' => 'Unpublished', 'si' => 'ප්‍රකාශනය නොකළ']) }}
+                                        @if ($event->ticket_bookings_count > 0) disabled title="{{ __('Cannot unpublish: tickets have been sold') }}" @endif>
+                                        {{ __('Unpublished') }}
                                     </option>
                                     <option value="upcoming" {{ ($event->status ?? '') == 'upcoming' ? 'selected' : '' }}>
-                                        {{ t(['en' => 'Upcoming', 'si' => 'ඉදිරියට']) }}
+                                        {{ __('Upcoming') }}
                                     </option>
                                     <option value="ongoing" {{ ($event->status ?? '') == 'ongoing' ? 'selected' : '' }}>
-                                        {{ t(['en' => 'Ongoing', 'si' => 'පවතින']) }}
+                                        {{ __('Ongoing') }}
                                     </option>
-                                    <option value="cancelled">{{ t(['en' => 'Cancel Event', 'si' => 'ප්‍රසංගය අවලංගු කරන්න']) }}</option>
+                                    <option value="cancelled">{{ __('Cancel Event') }}</option>
                                 </select>
                                 <p class="mt-2 text-xs text-gray-500">
                                     @if ($event->ticket_bookings_count > 0)
-                                        {{ t(['en' => 'This event has sold tickets and cannot be unpublished.', 'si' => 'මෙම ප්‍රසංගයෙන් ටිකට් විකුණා ඇති බැවින් ප්‍රකාශනය අවලංගු කළ නොහැක.']) }}
+                                        {{ __('This event has sold tickets and cannot be unpublished.') }}
                                     @else
-                                        {{ t(['en' => 'Unpublished events are hidden from attendees. Set to Upcoming to publish.', 'si' => 'ප්‍රකාශනය නොකළ ප්‍රසංගය් සහභාගීවන්නන්ගෙන් සඟවා ඇත. ප්‍රකාශයට පත් කිරීමට Upcoming ලෙස සකසන්න.']) }}
+                                        {{ __('Unpublished events are hidden from attendees. Set to Upcoming to publish.') }}
                                     @endif
                                 </p>
                             </form>
                         @endif
                     </div>
 
-                    <div class="rounded-2xl border border-gray-100 bg-gray-50 p-5">
-                        <h4 class="text-sm font-semibold uppercase tracking-wide text-gray-500">
-                            {{ t(['en' => 'Event Summary', 'si' => 'ප්‍රසංගය් සාරාංශය']) }}
+                    <div class="rounded-xl border border-gray-100 bg-gray-50 p-4">
+                        <h4 class="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                            {{ __('Event Summary') }}
                         </h4>
-                        <dl class="mt-4 space-y-4 text-sm">
+                        <dl class="mt-3 space-y-2.5 text-sm">
                             <div class="flex items-center justify-between gap-4">
-                                <dt class="text-gray-500">{{ t(['en' => 'Event ID', 'si' => 'ප්‍රසංගය් අංකය']) }}</dt>
+                                <dt class="text-gray-500">{{ __('Event ID') }}</dt>
                                 <dd class="font-semibold text-gray-900">#{{ $event->id }}</dd>
                             </div>
                             <div class="flex items-center justify-between gap-4">
-                                <dt class="text-gray-500">{{ t(['en' => 'Date', 'si' => 'දිනය']) }}</dt>
+                                <dt class="text-gray-500">{{ __('Date') }}</dt>
                                 <dd class="font-semibold text-gray-900">{{ $event->date }}</dd>
                             </div>
                             <div class="flex items-center justify-between gap-4">
-                                <dt class="text-gray-500">{{ t(['en' => 'Time', 'si' => 'වේලාව']) }}</dt>
+                                <dt class="text-gray-500">{{ __('Time') }}</dt>
                                 <dd class="font-semibold text-gray-900">{{ $event->time }}</dd>
                             </div>
                             <div class="flex items-center justify-between gap-4">
-                                <dt class="text-gray-500">{{ t(['en' => 'Created', 'si' => 'නිර්මාණය කළ දිනය']) }}</dt>
+                                <dt class="text-gray-500">{{ __('Created') }}</dt>
                                 <dd class="font-semibold text-gray-900">
                                     {{ $event->created_at?->format('M d, Y') }}
                                 </dd>
@@ -852,19 +852,19 @@
                         </dl>
                     </div>
 
-                    <div class="rounded-2xl border border-indigo-100 bg-indigo-50 p-5">
+                    <div class="rounded-xl border border-indigo-100 bg-indigo-50 p-4">
                         <div class="flex gap-3">
                             <div
-                                class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-100 text-indigo-600">
-                                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-100 text-indigo-600">
+                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
                                         d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                 </svg>
                             </div>
                             <div>
-                                <h4 class="font-semibold text-indigo-950">{{ t(['en' => 'ticket category tip', 'si' => 'ටිකට් ප්‍රවර්ග ඉඟිය']) }}</h4>
-                                <p class="mt-1 text-sm leading-6 text-indigo-800">
-                                    {{ t(['en' => 'Each category can have its own price, color, and booking window for flexible ticketing.', 'si' => 'නම්‍යශීලී ටිකට් කිරීම සඳහා සෑම ප්‍රවර්ගයකටම තමන්ගේ මිල, වර්ණය සහ වෙන්කිරීමේ කවුළුවක් තිබිය හැක.']) }}
+                                <h4 class="text-sm font-semibold text-indigo-950">{{ __('ticket category tip') }}</h4>
+                                <p class="mt-0.5 text-sm leading-5 text-indigo-800">
+                                    {{ __('Each category can have its own price, color, and booking window for flexible ticketing.') }}
                                 </p>
                             </div>
                         </div>

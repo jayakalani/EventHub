@@ -107,9 +107,43 @@ class CartController extends Controller
 
         $wallet = $this->walletService->getOrCreateWallet(Auth::user());
         $walletBalance = (float) $wallet->balance;
-        $canPayWithWallet = $walletBalance >= $cartTotal && $cartTotal > 0;
 
-        return view('attendee.cart.index', compact('cartItems', 'cartTotal', 'walletBalance', 'canPayWithWallet'));
+        $validCartItemIds = $cartItems->flatten()->pluck('id')->map(fn ($id) => (int) $id)->all();
+        $selectedCartItemIds = collect(session('cart.selected_item_ids', []))
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn (int $id) => in_array($id, $validCartItemIds, true))
+            ->values()
+            ->all();
+
+        $this->rememberSelectedCartItemIds($selectedCartItemIds);
+
+        return view('attendee.cart.index', compact('cartItems', 'cartTotal', 'walletBalance', 'selectedCartItemIds'));
+    }
+
+    /**
+     * Persist selected cart item IDs in the session.
+     */
+    public function rememberSelection(Request $request): RedirectResponse|\Illuminate\Http\JsonResponse
+    {
+        $validated = $request->validate([
+            'cart_item_ids' => ['nullable', 'array'],
+            'cart_item_ids.*' => ['integer', 'exists:cart_items,id'],
+            'redirect_to' => ['nullable', 'string', 'in:wallet'],
+        ]);
+
+        $this->rememberSelectedCartItemIds($validated['cart_item_ids'] ?? []);
+
+        if (($validated['redirect_to'] ?? null) === 'wallet') {
+            return redirect()->route('attendee.wallet.index');
+        }
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'selected_cart_item_ids' => session('cart.selected_item_ids', []),
+            ]);
+        }
+
+        return back();
     }
 
     /**
@@ -144,7 +178,15 @@ class CartController extends Controller
     {
         $this->authorizeCartItem($cartItem);
 
+        $remainingSelected = collect(session('cart.selected_item_ids', []))
+            ->map(fn ($id) => (int) $id)
+            ->reject(fn (int $id) => $id === (int) $cartItem->id)
+            ->values()
+            ->all();
+
         $cartItem->delete();
+
+        $this->rememberSelectedCartItemIds($remainingSelected);
 
         return back()->with('success', 'Item removed from cart.');
     }
@@ -159,6 +201,8 @@ class CartController extends Controller
             'cart_item_ids.*' => ['integer', 'exists:cart_items,id'],
             'payment_method' => ['required', 'in:stripe,wallet'],
         ]);
+
+        $this->rememberSelectedCartItemIds($validated['cart_item_ids']);
 
         $cartItems = CartItem::query()
             ->where('user_id', Auth::id())
@@ -186,7 +230,9 @@ class CartController extends Controller
             $wallet = $this->walletService->getOrCreateWallet(Auth::user());
 
             if ((float) $wallet->balance < $cartTotal) {
-                return back()->withErrors(['checkout' => 'Insufficient wallet balance for this purchase.']);
+                return redirect()
+                    ->route('attendee.wallet.index')
+                    ->withErrors(['wallet' => 'Insufficient wallet balance. Please top up.']);
             }
 
             try {
@@ -196,6 +242,8 @@ class CartController extends Controller
 
                 return back()->withErrors(['checkout' => $e->getMessage() ?: 'Unable to complete wallet payment.']);
             }
+
+            session()->forget('cart.selected_item_ids');
 
             return redirect()
                 ->route('attendee.bookings.index')
@@ -211,7 +259,16 @@ class CartController extends Controller
         } catch (\Throwable $e) {
             report($e);
 
-            return back()->withErrors(['checkout' => 'Unable to start checkout. Please try again.']);
+            $message = 'Unable to start Stripe checkout. Please try again.';
+
+            if (str_contains($e->getMessage(), 'Could not resolve host')
+                || str_contains($e->getMessage(), 'Could not connect to Stripe')) {
+                $message = 'Unable to reach Stripe right now. Check your internet connection and try again.';
+            } elseif (filled($e->getMessage())) {
+                $message = $e->getMessage();
+            }
+
+            return back()->withErrors(['checkout' => $message]);
         }
 
         return redirect()->away($session->url);
@@ -222,5 +279,21 @@ class CartController extends Controller
         if ((int) $cartItem->user_id !== (int) Auth::id()) {
             abort(403);
         }
+    }
+
+    /**
+     * @param  array<int, int|string>  $ids
+     */
+    private function rememberSelectedCartItemIds(array $ids): void
+    {
+        $ownedIds = CartItem::query()
+            ->where('user_id', Auth::id())
+            ->whereIn('id', $ids)
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->values()
+            ->all();
+
+        session(['cart.selected_item_ids' => $ownedIds]);
     }
 }

@@ -272,6 +272,7 @@ Route::prefix('attendee')->name('attendee.')->middleware(['auth'])->group(functi
     Route::put('/cart/items/{cartItem}', [CartController::class, 'update'])->name('cart.update');
     Route::delete('/cart/items/{cartItem}', [CartController::class, 'destroy'])->name('cart.destroy');
     Route::post('/cart/checkout', [CartController::class, 'checkout'])->name('cart.checkout');
+    Route::post('/cart/selection', [CartController::class, 'rememberSelection'])->name('cart.selection');
     Route::get('/checkout/success', [CheckoutController::class, 'success'])->name('checkout.success');
     Route::get('/checkout/cancel', [CheckoutController::class, 'cancel'])->name('checkout.cancel');
     Route::get('/events/{event}', [EventController::class, 'showPublishedEvent'])->name('events.show');

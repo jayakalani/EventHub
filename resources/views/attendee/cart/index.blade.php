@@ -1,5 +1,82 @@
 <x-app-layout>
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-5">
+    <div
+        class="max-w-7xl mx-auto px-4 sm:px-6 py-5"
+        x-data="{
+            selected: {
+                @foreach ($selectedCartItemIds as $selectedId)
+                    {{ $selectedId }}: true,
+                @endforeach
+            },
+            items: {
+                @foreach ($cartItems->flatten() as $item)
+                    {{ $item->id }}: { qty: {{ (int) $item->quantity }}, total: {{ (float) $item->line_total }} },
+                @endforeach
+            },
+            get selectedIds() {
+                return Object.keys(this.selected).filter(id => this.selected[id]);
+            },
+            get selectedLines() {
+                return this.selectedIds.length;
+            },
+            get selectedTickets() {
+                return this.selectedIds.reduce((sum, id) => sum + (this.items[id]?.qty || 0), 0);
+            },
+            get selectedTotal() {
+                return this.selectedIds.reduce((sum, id) => sum + (this.items[id]?.total || 0), 0);
+            },
+            get allSelected() {
+                const ids = Object.keys(this.items);
+                return ids.length > 0 && ids.every(id => this.selected[id]);
+            },
+            toggleAll(checked) {
+                Object.keys(this.items).forEach(id => {
+                    this.selected[id] = checked;
+                });
+                this.persistSelection();
+            },
+            formatMoney(amount) {
+                return 'Rs ' + Number(amount).toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                });
+            },
+            async persistSelection() {
+                try {
+                    await fetch(@js(route('attendee.cart.selection')), {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': @js(csrf_token()),
+                            'X-Requested-With': 'XMLHttpRequest',
+                        },
+                        body: JSON.stringify({
+                            cart_item_ids: this.selectedIds.map(id => Number(id)),
+                        }),
+                    });
+                } catch (e) {
+                    // Keep UI responsive even if persistence fails.
+                }
+            },
+            async goToWallet(event) {
+                event.preventDefault();
+                await this.persistSelection();
+                window.location.href = @js(route('attendee.wallet.index'));
+            },
+        }"
+    >
+
+    @if(session('success'))
+        <div class="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+            {{ session('success') }}
+        </div>
+    @endif
+
+    @if($errors->any())
+        <div class="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+            {{ $errors->first() }}
+        </div>
+    @endif
 
     {{-- Header Stats --}}
     <div class="mb-4">
@@ -56,7 +133,7 @@
 
                     <input
                         type="checkbox"
-                        checked
+                        :checked="allSelected"
                         @change="toggleAll($event.target.checked)"
                         class="h-4 w-4 rounded border-slate-300 text-primary"
                     >
@@ -141,10 +218,9 @@
 
                                     <input
                                         type="checkbox"
-                                        checked
-                                        name="cart_item_ids[]"
                                         value="{{ $item->id }}"
-                                        form="checkout-form"
+                                        x-model="selected[{{ $item->id }}]"
+                                        @change="$nextTick(() => persistSelection())"
                                         class="h-4 w-4 rounded border-slate-300 text-primary shrink-0"
                                     >
 
@@ -242,8 +318,13 @@
                     id="checkout-form"
                     action="{{ route('attendee.cart.checkout') }}"
                     method="POST"
+                    @submit="if (selectedIds.length === 0) { $event.preventDefault(); alert(@js(t(['en' => 'Please select at least one ticket to pay.', 'si' => 'ගෙවීමට අවම වශයෙන් ටිකට් එකක් තෝරන්න.']))); }"
                 >
                     @csrf
+
+                    <template x-for="id in Object.keys(items).filter(id => selected[id])" :key="id">
+                        <input type="hidden" name="cart_item_ids[]" :value="id">
+                    </template>
 
                     <div class="rounded-2xl bg-white border border-slate-200 shadow-lg p-4 sm:p-5">
 
@@ -258,9 +339,7 @@
                                     {{ t(['en' => 'Reserved Lines', 'si' => 'වෙන්කර ගත් අයිතම']) }}
                                 </span>
 
-                                <span class="font-semibold">
-                                    {{ $cartItems->flatten()->count() }}
-                                </span>
+                                <span class="font-semibold" x-text="selectedLines">0</span>
                             </div>
 
                             <div class="flex justify-between">
@@ -268,9 +347,7 @@
                                     {{ t(['en' => 'Tickets', 'si' => 'ටිකට්']) }}
                                 </span>
 
-                                <span class="font-semibold">
-                                    {{ $cartItems->flatten()->sum('quantity') }}
-                                </span>
+                                <span class="font-semibold" x-text="selectedTickets">0</span>
                             </div>
 
                             <div class="border-t border-slate-200 pt-3">
@@ -281,8 +358,8 @@
                                         {{ t(['en' => 'Total', 'si' => 'මුළු එකතුව']) }}
                                     </span>
 
-                                    <span class="text-xl font-black text-primary">
-                                        Rs {{ number_format($cartTotal,2) }}
+                                    <span class="text-xl font-black text-primary" x-text="formatMoney(selectedTotal)">
+                                        Rs 0.00
                                     </span>
 
                                 </div>
@@ -298,28 +375,38 @@
                             <p class="mt-0.5 text-base font-bold text-primary">
                                 Rs {{ number_format($walletBalance, 2) }}
                             </p>
-                            <a href="{{ route('attendee.wallet.index') }}" class="mt-1.5 inline-block text-xs font-medium text-primary hover:text-primary-dark">
+                            <a
+                                href="{{ route('attendee.wallet.index') }}"
+                                @click="goToWallet($event)"
+                                class="mt-1.5 inline-block text-xs font-medium text-primary hover:text-primary-dark"
+                            >
                                 {{ t(['en' => 'Manage wallet →', 'si' => 'පසුම්බිය කළමනාකරණය කරන්න →']) }}
                             </a>
                         </div>
 
-                        @if($canPayWithWallet)
+                        <div class="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
                             <button
                                 type="submit"
-                                onclick="document.getElementById('payment_method').value='wallet'"
-                                class="mt-3 w-full rounded-xl bg-gradient-to-r from-[#0F0363] to-[#2A1585] px-5 py-2.5 text-sm font-bold text-white shadow-md hover:opacity-95 transition"
+                                onclick="
+                                    if (!confirm(@js(t(['en' => 'Are you sure you want to pay by wallet?', 'si' => 'ඔබට පසුම්බියෙන් ගෙවීමට අවශ්‍ය බව විශ්වාසද?'])))) {
+                                        event.preventDefault();
+                                        return false;
+                                    }
+                                    document.getElementById('payment_method').value='wallet';
+                                "
+                                class="w-full rounded-xl bg-gradient-to-r from-[#0F0363] to-[#2A1585] px-5 py-2.5 text-sm font-bold text-white shadow-md hover:opacity-95 transition"
                             >
-                                {{ t(['en' => 'Pay by Wallet', 'si' => 'පසුම්බියෙන් ගෙවන්න']) }}
+                                {{ t(['en' => 'Pay with Wallet', 'si' => 'පසුම්බියෙන් ගෙවන්න']) }}
                             </button>
-                        @endif
 
-                        <button
-                            type="submit"
-                            onclick="document.getElementById('payment_method').value='stripe'"
-                            class="mt-2 w-full rounded-xl bg-gradient-to-r from-emerald-600 to-green-500 px-5 py-2.5 text-sm font-bold text-white shadow-md hover:opacity-95 transition"
-                        >
-                            {{ t(['en' => 'Pay Securely with Stripe', 'si' => 'Stripe සමඟ ආරක්ෂිතව ගෙවන්න']) }}
-                        </button>
+                            <button
+                                type="submit"
+                                onclick="document.getElementById('payment_method').value='stripe'"
+                                class="w-full rounded-xl bg-gradient-to-r from-emerald-600 to-green-500 px-5 py-2.5 text-sm font-bold text-white shadow-md hover:opacity-95 transition"
+                            >
+                                {{ t(['en' => 'Pay Securely with Stripe', 'si' => 'Stripe සමඟ ආරක්ෂිතව ගෙවන්න']) }}
+                            </button>
+                        </div>
 
                         <p class="mt-3 text-center text-xs text-slate-500">
                             Secure payment powered by Stripe

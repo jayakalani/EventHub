@@ -32,6 +32,7 @@ class AdminReportService
         $payments = $this->getPaymentReports();
         $admin = $this->getAdminReports();
         $chartLabels = $this->lastSixMonthLabels();
+        $shortChartLabels = $this->lastSixMonthShortLabels();
 
         $eventsByStatus = collect($admin['eventsByStatus'])->keyBy('label');
         $statusCount = fn (string $label): int => (int) ($eventsByStatus->get(ucfirst($label))['count'] ?? 0);
@@ -43,14 +44,16 @@ class AdminReportService
             : ($currentMonthUsers > 0 ? 100.0 : 0.0);
 
         $ticketSalesByCategory = $this->ticketSalesByCategory();
+        $weeklyTicketSales = $this->weeklyTicketSales();
         $monthlyRevenue = collect($chartLabels)
             ->zip($payments['revenueTrend'])
             ->map(fn ($pair) => ['month' => $pair[0], 'amount' => $pair[1]])
             ->all();
 
         return [
-            'chartLabels' => $chartLabels,
+            'chartLabels' => $shortChartLabels,
             'userGrowthPercent' => $userGrowthPercent,
+            'todaySummary' => $this->getTodaySummary(),
             'users' => [
                 'total' => $users['totalUsers'],
                 'active' => $users['activeUsers'],
@@ -59,6 +62,7 @@ class AdminReportService
                 'newThisMonth' => $users['newUsersThisMonth'],
                 'byRole' => $users['usersByRole'],
                 'registrationTrend' => $users['registrationTrend'],
+                'recent' => $users['recentUsers'],
             ],
             'events' => [
                 'total' => $admin['totalEvents'],
@@ -87,11 +91,20 @@ class AdminReportService
                 'pendingAmount' => $payments['pendingAmount'],
                 'byStatus' => $payments['paymentsByStatus'],
             ],
+            'organizerPerformance' => $this->getOrganizerPerformance(),
+            'platformAnalytics' => [
+                'active' => $statusCount('ongoing'),
+                'completed' => $statusCount('completed'),
+                'cancelled' => $statusCount('cancelled'),
+                'upcoming' => $statusCount('upcoming'),
+            ],
             'support' => $this->getSupportDashboardStats(),
             'charts' => [
                 'userGrowth' => $users['registrationTrend'],
                 'revenue' => $payments['revenueTrend'],
                 'ticketSalesByCategory' => $ticketSalesByCategory,
+                'ticketSalesWeekly' => $weeklyTicketSales,
+                'eventsByCategory' => $this->eventsByCategory(),
             ],
             'recentActivity' => $this->getSystemReports()['recentAuditLogs'],
         ];
@@ -172,7 +185,7 @@ class AdminReportService
                 ->map(fn (User $user) => [
                     'name' => $user->full_name,
                     'email' => $user->email,
-                    'role' => $user->userRole?->name_en ?? 'Unknown',
+                    'role' => $this->roleDisplayLabel($user->userRole?->name_en),
                     'status' => $user->is_active ? 'Active' : 'Inactive',
                     'verified' => (bool) $user->email_verified_at,
                     'joined' => $user->created_at?->diffForHumans(),
@@ -265,6 +278,118 @@ class AdminReportService
             ->map(fn (int $i) => now()->subMonths($i)->format('M Y'))
             ->values()
             ->all();
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function lastSixMonthShortLabels(): array
+    {
+        return collect(range(5, 0))
+            ->map(fn (int $i) => now()->subMonths($i)->format('M'))
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return array{newOrganizers: int, newEvents: int, ticketsSold: int, supportRequests: int}
+     */
+    private function getTodaySummary(): array
+    {
+        $today = today();
+        $organizerRoleId = UserRole::query()->where('name_en', UserRole::ORGANIZER)->value('id');
+
+        return [
+            'newOrganizers' => User::query()
+                ->where('role_id', $organizerRoleId)
+                ->whereDate('created_at', $today)
+                ->count(),
+            'newEvents' => Event::query()->whereDate('created_at', $today)->count(),
+            'ticketsSold' => ticketBooking::query()
+                ->where('status', BookingStatusEnum::Confirmed)
+                ->whereDate('created_at', $today)
+                ->count(),
+            'supportRequests' => Inquiry::query()->whereDate('created_at', $today)->count()
+                + Complaint::query()->whereDate('created_at', $today)->count(),
+        ];
+    }
+
+    /**
+     * @return list<array{label: string, count: int}>
+     */
+    private function weeklyTicketSales(): array
+    {
+        return collect(range(3, 0))
+            ->map(function (int $weeksAgo, int $index) {
+                $start = now()->subWeeks($weeksAgo)->startOfWeek();
+                $end = now()->subWeeks($weeksAgo)->endOfWeek();
+
+                return [
+                    'label' => 'Week '.($index + 1),
+                    'count' => ticketBooking::query()
+                        ->where('status', BookingStatusEnum::Confirmed)
+                        ->whereBetween('created_at', [$start, $end])
+                        ->count(),
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return list<array{name: string, events: int, ticketsSold: int, revenue: float, revenueLabel: string}>
+     */
+    private function getOrganizerPerformance(int $limit = 5): array
+    {
+        $organizerRoleId = UserRole::query()->where('name_en', UserRole::ORGANIZER)->value('id');
+
+        if (! $organizerRoleId) {
+            return [];
+        }
+
+        return User::query()
+            ->where('users.role_id', $organizerRoleId)
+            ->leftJoin('events', 'events.created_by', '=', 'users.id')
+            ->leftJoin('ticket_bookings', function ($join) {
+                $join->on('ticket_bookings.event_id', '=', 'events.id')
+                    ->where('ticket_bookings.status', BookingStatusEnum::Confirmed->value);
+            })
+            ->select(
+                'users.id',
+                'users.first_name',
+                'users.last_name',
+                DB::raw('COUNT(DISTINCT events.id) as events_count'),
+                DB::raw('COUNT(ticket_bookings.id) as tickets_sold'),
+                DB::raw('COALESCE(SUM(ticket_bookings.ticket_price), 0) as revenue'),
+            )
+            ->groupBy('users.id', 'users.first_name', 'users.last_name')
+            ->orderByDesc('revenue')
+            ->orderByDesc('tickets_sold')
+            ->limit($limit)
+            ->get()
+            ->map(fn ($row) => [
+                'name' => trim(($row->first_name ?? '').' '.($row->last_name ?? '')) ?: 'Unknown',
+                'events' => (int) $row->events_count,
+                'ticketsSold' => (int) $row->tickets_sold,
+                'revenue' => (float) $row->revenue,
+                'revenueLabel' => $this->formatCompactLkr((float) $row->revenue),
+            ])
+            ->all();
+    }
+
+    private function formatCompactLkr(float $amount): string
+    {
+        if ($amount >= 1_000_000) {
+            $value = round($amount / 1_000_000, 1);
+
+            return 'LKR '.(fmod($value, 1.0) === 0.0 ? (int) $value : $value).'M';
+        }
+
+        if ($amount >= 1_000) {
+            return 'LKR '.number_format($amount / 1_000, 0).'K';
+        }
+
+        return 'LKR '.number_format($amount, 0);
     }
 
     /**
@@ -408,10 +533,19 @@ class AdminReportService
 
         $totalInquiries = Inquiry::count();
         $totalComplaints = Complaint::count();
-        $pendingCount = Inquiry::whereIn('status', $openStatuses)->count()
-            + Complaint::whereIn('status', $openStatuses)->count();
+        $openInquiries = Inquiry::whereIn('status', $openStatuses)->count();
+        $openComplaints = Complaint::whereIn('status', $openStatuses)->count();
+        $pendingCount = $openInquiries + $openComplaints;
         $resolvedCount = Inquiry::whereIn('status', $handledStatuses)->count()
             + Complaint::whereIn('status', $handledStatuses)->count();
+        $resolvedToday = Inquiry::query()
+            ->whereIn('status', $handledStatuses)
+            ->whereDate('updated_at', today())
+            ->count()
+            + Complaint::query()
+                ->whereIn('status', $handledStatuses)
+                ->whereDate('updated_at', today())
+                ->count();
 
         $croRoleId = UserRole::query()->where('name_en', UserRole::CRO)->value('id');
 
@@ -439,10 +573,30 @@ class AdminReportService
             'totalRequests' => $totalInquiries + $totalComplaints,
             'inquiries' => $totalInquiries,
             'complaints' => $totalComplaints,
+            'openInquiries' => $openInquiries,
+            'openComplaints' => $openComplaints,
+            'resolvedToday' => $resolvedToday,
             'pending' => $pendingCount,
             'resolved' => $resolvedCount,
             'croPerformance' => $croPerformance,
         ];
+    }
+
+    /**
+     * @return list<array{label: string, count: int}>
+     */
+    private function eventsByCategory(int $limit = 8): array
+    {
+        return Event::query()
+            ->join('event_categories', 'events.category_id', '=', 'event_categories.id')
+            ->select('event_categories.name as label', DB::raw('COUNT(*) as count'))
+            ->groupBy('event_categories.name')
+            ->orderByDesc('count')
+            ->limit($limit)
+            ->get()
+            ->map(fn ($row) => ['label' => $row->label, 'count' => (int) $row->count])
+            ->values()
+            ->all();
     }
 
     /**
@@ -475,19 +629,23 @@ class AdminReportService
      */
     private function formatRoleCounts(Collection $roleCounts): array
     {
-        $labels = [
-            UserRole::ADMIN => 'Admin',
-            UserRole::ORGANIZER => 'Organizer',
-            UserRole::CRO => 'CRO',
-            UserRole::ATTENDEE => 'Attendee',
-        ];
-
         return $roleCounts
             ->map(fn ($count, $role) => [
-                'label' => $labels[$role] ?? ucfirst($role),
+                'label' => $this->roleDisplayLabel($role),
                 'count' => (int) $count,
             ])
             ->values()
             ->all();
+    }
+
+    private function roleDisplayLabel(?string $role): string
+    {
+        return match ($role) {
+            UserRole::ADMIN => 'Administrator',
+            UserRole::ORGANIZER => 'Organizer',
+            UserRole::CRO => 'CRO',
+            UserRole::ATTENDEE => 'Attendee',
+            default => $role ? ucfirst($role) : 'Unknown',
+        };
     }
 }

@@ -2,6 +2,8 @@
     $userRole = Auth::user()?->userRole?->name_en;
     $isAttendee = $userRole === \App\Models\UserRole::ATTENDEE;
     $isOrganizer = $userRole === \App\Models\UserRole::ORGANIZER;
+    $isAdmin = $userRole === \App\Models\UserRole::ADMIN;
+    $isCro = $userRole === \App\Models\UserRole::CRO;
     $user = Auth::user();
     $currentLocale = \App\Support\Locale::current();
 
@@ -9,6 +11,39 @@
     $navActive = 'bg-white/80 font-semibold text-[#0F0363] shadow-sm shadow-[#0F0363]/10 ring-1 ring-[#0F0363]/15';
     $iconIdle = 'bg-white/40 text-slate-600 ring-1 ring-white/60 shadow-sm backdrop-blur-md transition-all duration-200 hover:-translate-y-0.5 hover:bg-white/80 hover:text-[#0F0363] hover:shadow-md hover:shadow-[#0F0363]/10 hover:ring-[#0F0363]/20';
     $iconActive = 'bg-white/80 text-[#0F0363] ring-1 ring-[#0F0363]/20 shadow-md shadow-[#0F0363]/10 backdrop-blur-md';
+
+    $adminNavLinks = [
+        [
+            'label' => 'Dashboard',
+            'route' => 'dashboard',
+            'active' => request()->routeIs('dashboard'),
+        ],
+        [
+            'label' => 'Users',
+            'route' => 'admin.users',
+            'active' => request()->routeIs('admin.users', 'admin.user.*', 'admin.employees.*', 'admin.employee.*'),
+        ],
+        [
+            'label' => 'Categories',
+            'route' => 'admin.event-categories',
+            'active' => request()->routeIs('admin.event-categories', 'admin.event-categories.*', 'admin.event.category.*'),
+        ],
+        [
+            'label' => 'Reports',
+            'route' => 'admin.reports',
+            'active' => request()->routeIs('admin.reports', 'admin.reports.*'),
+        ],
+        [
+            'label' => 'Support',
+            'route' => 'admin.support-reports',
+            'active' => request()->routeIs('admin.support-reports', 'admin.support-reports.*'),
+        ],
+        [
+            'label' => 'Audit Logs',
+            'route' => 'admin.audit-logs',
+            'active' => request()->routeIs('admin.audit-logs', 'admin.audit-logs.*'),
+        ],
+    ];
 @endphp
 
 <nav x-data="{ open: false }"
@@ -67,6 +102,34 @@
                     </a>
                     <a href="{{ route('organizer.reports') }}"
                         class="rounded-xl px-3.5 py-2 text-sm font-medium transition {{ request()->routeIs('organizer.reports', 'organizer.reports.*') ? $navActive : $navIdle }}">
+                        Reports
+                    </a>
+                @elseif ($isAdmin)
+                    @foreach ($adminNavLinks as $link)
+                        <a href="{{ route($link['route']) }}"
+                            class="rounded-xl px-3.5 py-2 text-sm font-medium transition {{ $link['active'] ? $navActive : $navIdle }}">
+                            {{ $link['label'] }}
+                        </a>
+                    @endforeach
+                @elseif ($isCro)
+                    <a href="{{ route('cro.dashboard') }}"
+                        class="rounded-xl px-3.5 py-2 text-sm font-medium transition {{ request()->routeIs('cro.dashboard') ? $navActive : $navIdle }}">
+                        Dashboard
+                    </a>
+                    <a href="{{ route('cro.inquiries.index') }}"
+                        class="rounded-xl px-3.5 py-2 text-sm font-medium transition {{ request()->routeIs('cro.inquiries.*') ? $navActive : $navIdle }}">
+                        Inquiries
+                    </a>
+                    <a href="{{ route('cro.complaints.index') }}"
+                        class="rounded-xl px-3.5 py-2 text-sm font-medium transition {{ request()->routeIs('cro.complaints.*') ? $navActive : $navIdle }}">
+                        Complaints
+                    </a>
+                    <a href="{{ route('cro.refund-requests.index') }}"
+                        class="rounded-xl px-3.5 py-2 text-sm font-medium transition {{ request()->routeIs('cro.refund-requests.*') ? $navActive : $navIdle }}">
+                        Refunds
+                    </a>
+                    <a href="{{ route('cro.reports') }}"
+                        class="rounded-xl px-3.5 py-2 text-sm font-medium transition {{ request()->routeIs('cro.reports', 'cro.reports.*') ? $navActive : $navIdle }}">
                         Reports
                     </a>
                 @else
@@ -321,14 +384,40 @@
                     class="block rounded-xl px-3 py-2.5 transition hover:bg-[#0F0363]/5 hover:text-[#0F0363] {{ request()->routeIs('organizer.reports', 'organizer.reports.*') ? $navActive : 'text-slate-700' }}">
                     Reports
                 </a>
-            @endif
-
-            @unless ($isOrganizer)
+            @elseif ($isAdmin)
+                @foreach ($adminNavLinks as $link)
+                    <a href="{{ route($link['route']) }}"
+                        class="block rounded-xl px-3 py-2.5 transition hover:bg-[#0F0363]/5 hover:text-[#0F0363] {{ $link['active'] ? $navActive : 'text-slate-700' }}">
+                        {{ $link['label'] }}
+                    </a>
+                @endforeach
+            @elseif ($isCro)
+                <a href="{{ route('cro.dashboard') }}"
+                    class="block rounded-xl px-3 py-2.5 transition hover:bg-[#0F0363]/5 hover:text-[#0F0363] {{ request()->routeIs('cro.dashboard') ? $navActive : 'text-slate-700' }}">
+                    Dashboard
+                </a>
+                <a href="{{ route('cro.inquiries.index') }}"
+                    class="block rounded-xl px-3 py-2.5 transition hover:bg-[#0F0363]/5 hover:text-[#0F0363] {{ request()->routeIs('cro.inquiries.*') ? $navActive : 'text-slate-700' }}">
+                    Inquiries
+                </a>
+                <a href="{{ route('cro.complaints.index') }}"
+                    class="block rounded-xl px-3 py-2.5 transition hover:bg-[#0F0363]/5 hover:text-[#0F0363] {{ request()->routeIs('cro.complaints.*') ? $navActive : 'text-slate-700' }}">
+                    Complaints
+                </a>
+                <a href="{{ route('cro.refund-requests.index') }}"
+                    class="block rounded-xl px-3 py-2.5 transition hover:bg-[#0F0363]/5 hover:text-[#0F0363] {{ request()->routeIs('cro.refund-requests.*') ? $navActive : 'text-slate-700' }}">
+                    Refunds
+                </a>
+                <a href="{{ route('cro.reports') }}"
+                    class="block rounded-xl px-3 py-2.5 transition hover:bg-[#0F0363]/5 hover:text-[#0F0363] {{ request()->routeIs('cro.reports', 'cro.reports.*') ? $navActive : 'text-slate-700' }}">
+                    Reports
+                </a>
+            @else
                 <a href="{{ route('dashboard') }}"
                     class="block rounded-xl px-3 py-2.5 transition hover:bg-[#0F0363]/5 hover:text-[#0F0363] {{ request()->routeIs('dashboard') ? $navActive : 'text-slate-700' }}">
                     {{ t(['en' => 'Dashboard', 'si' => 'විස්තර පුවරුව']) }}
                 </a>
-            @endunless
+            @endif
 
             <hr class="border-slate-200">
 

@@ -1,64 +1,99 @@
 <x-app-layout>
 
     <x-slot name="header">
-        <div class="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
-            <div class="min-w-0">
-                <a href="{{ route('attendee.hosts.index') }}"
-                    class="text-xs font-medium text-blue-600 hover:text-blue-800 sm:text-sm">
-                    &larr; {{ t(['en' => 'Back to Hosts', 'si' => 'සත්කාරකයන් වෙත ආපසු']) }}
-                </a>
-                <h2 class="mt-0.5 text-lg font-bold leading-tight text-slate-900 sm:text-xl">
-                    {{ $host->name }}
-                </h2>
-                <p class="text-xs text-slate-500 sm:text-sm">
-                    {{ t(['en' => 'Host details and events', 'si' => 'සත්කාරක විස්තර සහ ප්‍රසංග']) }}
-                </p>
-            </div>
+        <div class="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-0.5 sm:gap-x-3">
+            <a href="{{ route('attendee.hosts.index') }}"
+                class="shrink-0 text-xs font-semibold text-blue-600 hover:text-blue-800 sm:text-sm">
+                &larr; {{ t(['en' => 'Back to Hosts', 'si' => 'සත්කාරකයන් වෙත ආපසු']) }}
+            </a>
+            <span class="hidden h-3.5 w-px shrink-0 bg-slate-200 sm:block" aria-hidden="true"></span>
+            <p class="min-w-0 truncate text-xs text-slate-500 sm:text-sm">
+                <span class="text-slate-400">{{ t(['en' => 'Host details and events', 'si' => 'සත්කාරක විස්තර සහ ප්‍රසංග']) }}</span>
+                <span class="mx-1.5 text-slate-300" aria-hidden="true">·</span>
+                <span class="font-medium text-slate-700">{{ $host->name }}</span>
+            </p>
         </div>
     </x-slot>
 
-    <div class="py-5">
+    <div class="py-4">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-4">
 
+            {{-- Host profile header --}}
             <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                <div class="grid md:grid-cols-3">
-                    <div class="md:col-span-1 h-40 md:h-auto md:min-h-[10rem]">
-                        @if ($host->cover)
-                            <img src="{{ asset('uploads/covers/hosts/' . $host->cover) }}" alt="{{ $host->name }}"
-                                class="h-full w-full object-cover">
-                        @else
-                            <div class="flex h-full min-h-40 items-center justify-center bg-slate-100 text-sm text-slate-400">
-                                {{ t(['en' => 'No Image', 'si' => 'රූපයක් නැත']) }}
-                            </div>
-                        @endif
-                    </div>
+                <div
+                    class="relative px-5 py-6 sm:px-6 sm:py-7"
+                    style="background: linear-gradient(115deg, #02031F 0%, #030638 30%, #0F0363 65%, #2A1585 100%);"
+                >
+                    <div class="pointer-events-none absolute inset-0 opacity-30"
+                        style="background: radial-gradient(ellipse at 20% 40%, rgba(96,165,250,0.35), transparent 55%);"></div>
 
-                    <div class="md:col-span-2 px-4 py-4 sm:px-5 sm:py-5">
-                        <div class="flex flex-wrap items-start justify-between gap-3">
-                            <div>
-                                <h3 class="text-xl font-bold text-slate-900">{{ $host->name }}</h3>
-                                <span
-                                    class="mt-1.5 inline-flex rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">
-                                    {{ t(['en' => 'Active', 'si' => 'සක්‍රීය']) }}
-                                </span>
-                            </div>
+                    <div class="relative z-10 flex flex-col items-center gap-5 sm:flex-row sm:items-center sm:gap-6">
+                        <div class="relative shrink-0">
+                            @if ($host->cover)
+                                <div class="absolute -inset-3 overflow-hidden rounded-full opacity-60">
+                                    <img
+                                        src="{{ asset('uploads/covers/hosts/' . $host->cover) }}"
+                                        alt=""
+                                        aria-hidden="true"
+                                        class="h-full w-full scale-150 object-cover blur-xl"
+                                    >
+                                </div>
+                                <img
+                                    src="{{ asset('uploads/covers/hosts/' . $host->cover) }}"
+                                    alt="{{ $host->name }}"
+                                    class="relative z-10 h-28 w-28 rounded-full border-4 border-blue-500 object-cover object-top shadow-lg transition duration-300 hover:scale-105 hover:shadow-xl sm:h-32 sm:w-32"
+                                >
+                            @else
+                                <div class="relative z-10 flex h-28 w-28 items-center justify-center rounded-full border-4 border-blue-500 bg-white/10 text-xs font-medium text-violet-100 shadow-lg transition duration-300 hover:scale-105 hover:shadow-xl sm:h-32 sm:w-32">
+                                    {{ t(['en' => 'No Image', 'si' => 'රූපයක් නැත']) }}
+                                </div>
+                            @endif
+                        </div>
 
-                            <div class="flex items-center gap-2.5">
-                                <span class="inline-flex items-center gap-1.5 text-sm font-semibold text-[#1877F2]">
-                                    <i class="bi bi-hand-thumbs-up" aria-hidden="true"></i>
-                                    {{ $host->host_likes_count ?? 0 }}
-                                </span>
+                        <div class="min-w-0 flex-1 w-full">
+                            <div class="rounded-2xl border border-white/20 bg-white/15 px-4 py-4 shadow-sm backdrop-blur-md sm:px-5">
+                                <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                                    <div class="min-w-0 text-center sm:text-left">
+                                        <h3 class="truncate text-xl font-bold tracking-tight text-white sm:text-2xl">
+                                            {{ $host->name }}
+                                        </h3>
+                                        <div class="mt-2.5 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
+                                            <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-500 px-3 py-1 text-xs font-semibold text-white shadow-sm">
+                                                <span class="h-1.5 w-1.5 rounded-full bg-white/90"></span>
+                                                {{ t(['en' => 'Active', 'si' => 'සක්‍රීය']) }}
+                                            </span>
+                                            <span class="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-medium text-violet-100 ring-1 ring-white/20">
+                                                <i class="bi bi-calendar-event" aria-hidden="true"></i>
+                                                {{ $events->count() }} {{ t(['en' => 'Events', 'si' => 'ප්‍රසංග']) }}
+                                            </span>
+                                        </div>
+                                    </div>
 
-                                <form action="{{ route('attendee.hosts.like', $host) }}" method="POST">
-                                    @csrf
-                                    <button type="submit"
-                                        aria-label="{{ $host->is_liked ? t(['en' => 'Unlike host', 'si' => 'කැමති නැත']) : t(['en' => 'Like host', 'si' => 'කැමතියි']) }}"
-                                        class="inline-flex items-center justify-center rounded-full p-2 text-lg transition
-                                        {{ $host->is_liked ? 'bg-[#1877F2] text-white hover:bg-[#166fe5]' : 'bg-slate-100 text-slate-500 hover:bg-slate-200' }}">
-                                        <i class="bi {{ $host->is_liked ? 'bi-hand-thumbs-up-fill' : 'bi-hand-thumbs-up' }}"
-                                            aria-hidden="true"></i>
-                                    </button>
-                                </form>
+                                    <div class="flex items-center justify-center gap-3 sm:justify-end">
+                                        <div class="rounded-xl bg-white/15 px-3.5 py-2 ring-1 ring-white/20 backdrop-blur-sm">
+                                            <p class="text-[10px] font-semibold uppercase tracking-wider text-violet-200">
+                                                {{ t(['en' => 'Likes', 'si' => 'කැමති']) }}
+                                            </p>
+                                            <p class="mt-0.5 inline-flex items-center gap-1.5 text-lg font-bold text-white">
+                                                <i class="bi bi-hand-thumbs-up text-[#60A5FA]" aria-hidden="true"></i>
+                                                {{ $host->host_likes_count ?? 0 }}
+                                            </p>
+                                        </div>
+
+                                        <form action="{{ route('attendee.hosts.like', $host) }}" method="POST">
+                                            @csrf
+                                            <button type="submit"
+                                                aria-label="{{ $host->is_liked ? t(['en' => 'Unlike host', 'si' => 'කැමති නැත']) : t(['en' => 'Like host', 'si' => 'කැමතියි']) }}"
+                                                class="inline-flex h-12 w-12 items-center justify-center rounded-full text-xl shadow-md transition
+                                                {{ $host->is_liked
+                                                    ? 'bg-[#1877F2] text-white hover:bg-[#166fe5]'
+                                                    : 'bg-white text-slate-600 hover:bg-slate-50' }}">
+                                                <i class="bi {{ $host->is_liked ? 'bi-hand-thumbs-up-fill' : 'bi-hand-thumbs-up' }}"
+                                                    aria-hidden="true"></i>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>

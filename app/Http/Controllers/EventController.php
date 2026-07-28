@@ -6,6 +6,7 @@ use App\Models\CartItem;
 use App\Models\Event;
 use App\Enums\BookingStatusEnum;
 use App\Models\EventCategory;
+use App\Models\EventView;
 use App\Models\Host;
 use App\Models\User;
 use App\Models\UserRole;
@@ -397,8 +398,9 @@ class EventController extends Controller
     {
         $this->authorizeOrganizerEvent($event);
 
+        $event->load(['host', 'eventCategory', 'contactPerson']);
         $ticketCategories = $event->ticketCategories;
-        $pdf = Pdf::loadView('organizer.events.exports.event_pdf', compact('event', 'ticketCategories'));
+        $pdf = Pdf::loadView('organizer.exports.show_pdf', compact('event', 'ticketCategories'));
 
         return $pdf->download($event->name.'_details.pdf');
     }
@@ -409,6 +411,12 @@ class EventController extends Controller
         $event->refresh();
 
         $event->ensureVisibleToAttendees();
+
+        EventView::query()->create([
+            'event_id' => $event->id,
+            'user_id' => Auth::id(),
+            'session_id' => substr((string) request()->session()->getId(), 0, 64),
+        ]);
 
         $event->load(['host', 'eventCategory', 'contactPerson', 'ticketCategories', 'comments.user', 'ratings.user']);
         $event->loadCount(['likes', 'comments', 'ratings']);

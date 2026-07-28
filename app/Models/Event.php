@@ -210,6 +210,11 @@ class Event extends Model
         return $this->hasMany(Like::class, 'event_id');
     }
 
+    public function views()
+    {
+        return $this->hasMany(EventView::class, 'event_id');
+    }
+
     public function likedByUsers()
     {
         return $this->belongsToMany(User::class, 'likes', 'event_id', 'user_id')->withTimestamps();

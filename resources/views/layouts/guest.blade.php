@@ -17,8 +17,8 @@
 
 <body class="font-sans text-slate-900 antialiased dark:text-slate-100">
     <div class="relative flex min-h-screen flex-col
-        bg-gradient-to-br from-slate-50 via-blue-50/40 to-indigo-50/60
-        dark:from-gray-950 dark:via-gray-900 dark:to-slate-900">
+        bg-[#F0F8FF]
+        dark:bg-gradient-to-br dark:from-gray-950 dark:via-gray-900 dark:to-slate-900">
 
         <div class="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
             <div class="absolute -top-32 -right-32 h-96 w-96 rounded-full bg-primary/10 blur-3xl dark:bg-primary/20"></div>

@@ -44,8 +44,8 @@
 
     <div class="relative flex min-h-screen flex-col
         {{ $isAttendee
-            ? 'bg-gray-100'
-            : 'bg-gradient-to-br from-slate-50 via-blue-50/40 to-indigo-50/60 dark:from-gray-950 dark:via-gray-900 dark:to-slate-900' }}">
+            ? 'bg-[#F0F8FF]'
+            : 'bg-[#F0F8FF] dark:bg-gradient-to-br dark:from-gray-950 dark:via-gray-900 dark:to-slate-900' }}">
 
         @unless ($isAttendee)
             <div class="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">

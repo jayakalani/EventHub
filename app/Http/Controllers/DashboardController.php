@@ -14,6 +14,8 @@ use App\Models\User;
 use App\Models\UserRole;
 use App\Services\AdminReportService;
 use App\Services\EventCompletionService;
+use App\Services\OrganizerDashboardService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
@@ -23,6 +25,7 @@ class DashboardController extends Controller
     public function __construct(
         protected EventCompletionService $eventCompletionService,
         protected AdminReportService $adminReportService,
+        protected OrganizerDashboardService $organizerDashboardService,
     ) {}
 
     /**
@@ -68,25 +71,30 @@ class DashboardController extends Controller
     {
         $organizerId = Auth::id();
 
-        $totalEvents = Event::where('created_by', $organizerId)->count();
-        $totalAttendees = User::whereHas('userRole', function ($query) {
-            $query->where('name_en', UserRole::ATTENDEE);
-        })->count();
-        $upcomingEvents = Event::where('created_by', $organizerId)
-            ->whereIn('status', [Event::STATUS_UPCOMING, Event::STATUS_ONGOING])
-            ->count();
+        $this->organizerDashboardService->syncLowInventoryNotifications($organizerId);
 
-        $events = Event::where('created_by', $organizerId)
-            ->latest()
-            ->limit(5)
-            ->get();
+        $dashboard = $this->organizerDashboardService->getDashboardData($organizerId);
 
-        return view('organizer.dashboard', compact(
-            'totalEvents',
-            'totalAttendees',
-            'upcomingEvents',
-            'events'
-        ));
+        return view('organizer.dashboard', compact('dashboard'));
+    }
+
+    /**
+     * Update the organizer's monthly revenue goal.
+     */
+    public function updateRevenueGoal(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'monthly_revenue_goal' => ['required', 'numeric', 'min:1000', 'max:999999999'],
+        ]);
+
+        /** @var User $user */
+        $user = Auth::user();
+        $user->monthly_revenue_goal = $validated['monthly_revenue_goal'];
+        $user->save();
+
+        return redirect()
+            ->route('dashboard')
+            ->with('success', 'Successfully set new revenue goal.');
     }
 
     /**

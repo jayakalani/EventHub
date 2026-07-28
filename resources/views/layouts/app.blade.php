@@ -27,7 +27,7 @@
         $isOrganizer = $userRoleName === \App\Models\UserRole::ORGANIZER;
     @endphp
 
-    <div class="flex min-h-screen flex-col bg-gray-100">
+    <div class="flex min-h-screen flex-col bg-[#F0F8FF]">
         @include('layouts.navigation')
 
         <!-- Page Heading -->

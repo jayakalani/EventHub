@@ -42,6 +42,7 @@ class User extends Authenticatable implements MustVerifyEmailContract
         'is_active',
         'is_default_password_changed',
         'profile_completed',
+        'monthly_revenue_goal',
     ];
 
     /**
@@ -81,6 +82,7 @@ class User extends Authenticatable implements MustVerifyEmailContract
             'is_active' => 'boolean',
             'is_default_password_changed' => 'boolean',
             'profile_completed' => 'boolean',
+            'monthly_revenue_goal' => 'decimal:2',
             'gender' => GenderEnum::class,
         ];
     }

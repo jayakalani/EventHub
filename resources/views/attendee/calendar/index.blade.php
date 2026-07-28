@@ -127,8 +127,32 @@
             document.addEventListener('DOMContentLoaded', function () {
                 const calendarEl = document.getElementById('attendee-calendar');
                 const events = @json($calendarEvents);
+                const appLocale = @js(\App\Support\Locale::current());
+                const calendarLocale = appLocale === 'si' ? 'si' : 'en';
+
+                if (appLocale === 'si' && window.FullCalendar?.globalLocales) {
+                    FullCalendar.globalLocales.push({
+                        code: 'si',
+                        week: { dow: 0, doy: 4 },
+                        buttonText: {
+                            prev: 'පෙර',
+                            next: 'ඊළඟ',
+                            today: 'අද',
+                            year: 'වසර',
+                            month: 'මාසය',
+                            week: 'සතිය',
+                            day: 'දවස',
+                            list: 'ලැයිස්තුව',
+                        },
+                        weekText: 'සති',
+                        allDayText: 'දවස පුරා',
+                        moreLinkText: 'තවත්',
+                        noEventsText: 'පෙන්වීමට ප්‍රසංග නැත',
+                    });
+                }
 
                 const calendar = new FullCalendar.Calendar(calendarEl, {
+                    locale: calendarLocale,
                     initialView: 'dayGridMonth',
                     headerToolbar: {
                         left: 'prev,next today',

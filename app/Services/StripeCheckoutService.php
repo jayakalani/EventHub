@@ -186,6 +186,8 @@ class StripeCheckoutService
                 throw new RuntimeException('Cart items for this payment are no longer available.');
             }
 
+            $purchasedEventIds = $cartItems->pluck('event_id')->unique()->filter()->values()->all();
+
             foreach ($cartItems as $cartItem) {
                 $category = ticketCategory::query()
                     ->lockForUpdate()
@@ -218,8 +220,9 @@ class StripeCheckoutService
                 'stripe_payment_intent_id' => $stripePaymentIntentId,
             ]);
 
-            DB::afterCommit(function () use ($payment) {
+            DB::afterCommit(function () use ($payment, $purchasedEventIds) {
                 Mail::to($payment->user)->queue(new TicketPurchaseConfirmationMail($payment));
+                app(OrganizerDashboardService::class)->notifyLowInventoryForEvents($purchasedEventIds);
             });
         });
     }

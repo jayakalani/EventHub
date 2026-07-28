@@ -25,6 +25,10 @@
                 class="{{ request()->routeIs('organizer.hosts', 'organizer.hosts.*', 'organizer.host.*') ? $footerActive : $footerLink }}">
                 Hosts
             </a>
+            <a href="{{ route('organizer.calendar.index') }}"
+                class="{{ request()->routeIs('organizer.calendar.*') ? $footerActive : $footerLink }}">
+                Calendar
+            </a>
             <a href="{{ route('organizer.reports') }}"
                 class="{{ request()->routeIs('organizer.reports', 'organizer.reports.*') ? $footerActive : $footerLink }}">
                 Reports

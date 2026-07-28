@@ -5,27 +5,24 @@
     $user = Auth::user();
     $currentLocale = \App\Support\Locale::current();
 
-    $navIdle = 'text-slate-600 hover:bg-slate-100 hover:text-slate-900';
-    $navActive = 'bg-[#0F0363]/10 text-[#0F0363]';
-    $iconIdle = 'bg-slate-100 text-slate-700 hover:bg-slate-200';
-    $iconActive = 'bg-[#0F0363]/10 text-[#0F0363]';
+    $navIdle = 'text-slate-600 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:bg-white/70 hover:text-[#0F0363] hover:shadow-md hover:shadow-[#0F0363]/10';
+    $navActive = 'bg-white/80 font-semibold text-[#0F0363] shadow-sm shadow-[#0F0363]/10 ring-1 ring-[#0F0363]/15';
+    $iconIdle = 'bg-white/40 text-slate-600 ring-1 ring-white/60 shadow-sm backdrop-blur-md transition-all duration-200 hover:-translate-y-0.5 hover:bg-white/80 hover:text-[#0F0363] hover:shadow-md hover:shadow-[#0F0363]/10 hover:ring-[#0F0363]/20';
+    $iconActive = 'bg-white/80 text-[#0F0363] ring-1 ring-[#0F0363]/20 shadow-md shadow-[#0F0363]/10 backdrop-blur-md';
 @endphp
 
 <nav x-data="{ open: false }"
-    class="sticky top-0 z-50 border-b border-slate-200/80 bg-white/90 shadow-sm backdrop-blur-lg">
+    class="sticky top-0 z-50 border-b border-white/40 bg-white/55 shadow-lg shadow-[#0F0363]/5 backdrop-blur-2xl">
 
     <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div class="flex h-16 items-center justify-between gap-4">
 
             {{-- Brand --}}
-            <a href="{{ route('dashboard') }}" class="flex shrink-0 items-center gap-3">
-                <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-[#0F0363] text-white shadow-md shadow-[#0F0363]/25">
-                    <x-application-logo class="h-6 w-6 fill-current" />
-                </div>
-                <div class="hidden md:block">
-                    <p class="text-lg font-bold text-slate-900">EventHub</p>
-                    <p class="-mt-1 text-xs text-slate-500">{{ t(['en' => 'Event Management Platform', 'si' => 'ප්‍රසංග කළමනාකරණ වේදිකාව']) }}</p>
-                </div>
+            <a href="{{ route('dashboard') }}" class="group flex shrink-0 items-center gap-3 transition-transform duration-200 hover:scale-[1.02]">
+                <img src="{{ asset('images/eventhub-logo.png') }}"
+                    alt="{{ config('app.name', 'EventHub') }}"
+                    class="h-8 w-auto object-contain transition duration-200 group-hover:drop-shadow-md sm:h-9">
+                <span class="hidden text-base font-bold tracking-tight text-[#0F0363] transition-colors duration-200 group-hover:text-[#1a0a8a] sm:inline">EventHub</span>
             </a>
 
             {{-- Desktop links --}}
@@ -51,10 +48,31 @@
                         class="rounded-xl px-3.5 py-2 text-sm font-medium transition {{ request()->routeIs('attendee.support.*') ? $navActive : $navIdle }}">
                         {{ t(['en' => 'Support', 'si' => 'සහාය']) }}
                     </a>
+                @elseif ($isOrganizer)
+                    <a href="{{ route('dashboard') }}"
+                        class="rounded-xl px-3.5 py-2 text-sm font-medium transition {{ request()->routeIs('dashboard') ? $navActive : $navIdle }}">
+                        Dashboard
+                    </a>
+                    <a href="{{ route('organizer.events.index') }}"
+                        class="rounded-xl px-3.5 py-2 text-sm font-medium transition {{ request()->routeIs('organizer.events.*') ? $navActive : $navIdle }}">
+                        Events
+                    </a>
+                    <a href="{{ route('organizer.hosts') }}"
+                        class="rounded-xl px-3.5 py-2 text-sm font-medium transition {{ request()->routeIs('organizer.hosts', 'organizer.hosts.*', 'organizer.host.*') ? $navActive : $navIdle }}">
+                        Hosts
+                    </a>
+                    <a href="{{ route('organizer.calendar.index') }}"
+                        class="rounded-xl px-3.5 py-2 text-sm font-medium transition {{ request()->routeIs('organizer.calendar.*') ? $navActive : $navIdle }}">
+                        Calendar
+                    </a>
+                    <a href="{{ route('organizer.reports') }}"
+                        class="rounded-xl px-3.5 py-2 text-sm font-medium transition {{ request()->routeIs('organizer.reports', 'organizer.reports.*') ? $navActive : $navIdle }}">
+                        Reports
+                    </a>
                 @else
-                    <a href="{{ route('attendee.dashboard') }}"
-                        class="rounded-xl px-3.5 py-2 text-sm font-medium transition {{ request()->routeIs('attendee.dashboard', 'attendee.events.*') ? $navActive : $navIdle }}">
-                        {{ t(['en' => 'Events', 'si' => 'ප්‍රසංග']) }}
+                    <a href="{{ route('dashboard') }}"
+                        class="rounded-xl px-3.5 py-2 text-sm font-medium transition {{ request()->routeIs('dashboard') ? $navActive : $navIdle }}">
+                        {{ t(['en' => 'Dashboard', 'si' => 'විස්තර පුවරුව']) }}
                     </a>
                 @endif
             </div>
@@ -63,14 +81,14 @@
             <div class="flex items-center gap-2 sm:gap-3">
 
                 @unless ($isOrganizer)
-                    <div class="inline-flex items-center rounded-xl border border-slate-200 bg-white p-0.5 text-xs font-semibold"
+                    <div class="inline-flex items-center rounded-xl border border-white/50 bg-white/40 p-0.5 text-xs font-semibold shadow-sm backdrop-blur-md transition-all duration-200 hover:bg-white/60"
                         role="group"
                         aria-label="{{ t(['en' => 'Language', 'si' => 'භාෂාව']) }}">
                         @foreach (\App\Support\Locale::SUPPORTED as $locale)
                             <a href="{{ route('locale.switch', $locale) }}"
-                                class="rounded-lg px-2.5 py-1.5 transition {{ $currentLocale === $locale
-                                    ? 'bg-[#0F0363] text-white shadow-sm'
-                                    : 'text-slate-600 hover:bg-slate-50' }}"
+                                class="rounded-lg px-2.5 py-1.5 transition-all duration-200 {{ $currentLocale === $locale
+                                    ? 'bg-[#0F0363] text-white shadow-md shadow-[#0F0363]/25'
+                                    : 'text-slate-600 hover:bg-white/80 hover:text-[#0F0363]' }}"
                                 hreflang="{{ $locale }}"
                                 lang="{{ $locale }}">
                                 {{ $locale === 'en' ? 'EN' : 'සිං' }}
@@ -118,7 +136,7 @@
                                         d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                                 </svg>
                                 @if (($unreadNotificationCount ?? 0) > 0)
-                                    <span class="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-xs font-bold text-white">
+                                    <span class="notification-badge-pulse absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-xs font-bold text-white">
                                         {{ $unreadNotificationCount > 9 ? '9+' : $unreadNotificationCount }}
                                     </span>
                                 @endif
@@ -167,11 +185,11 @@
                 <div class="hidden sm:block">
                     <x-dropdown align="right" width="56">
                         <x-slot name="trigger">
-                            <button class="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-2.5 py-1.5 transition hover:bg-slate-50 sm:gap-3 sm:px-3 sm:py-2">
-                                <div class="flex h-9 w-9 items-center justify-center rounded-full bg-[#0F0363] text-sm font-semibold text-white">
+                            <button class="flex items-center gap-2 rounded-2xl border border-white/50 bg-white/40 px-2.5 py-1.5 shadow-sm backdrop-blur-md transition-all duration-200 hover:-translate-y-0.5 hover:border-[#0F0363]/20 hover:bg-white/70 hover:shadow-md hover:shadow-[#0F0363]/10 sm:gap-3 sm:px-3 sm:py-2">
+                                <div class="flex h-9 w-9 items-center justify-center rounded-full bg-[#0F0363] text-sm font-semibold text-white shadow-sm shadow-[#0F0363]/25">
                                     {{ strtoupper(substr($user?->name ?? 'G', 0, 1)) }}
                                 </div>
-                                <svg class="h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg class="h-4 w-4 text-slate-400 transition group-hover:text-[#0F0363]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                                 </svg>
                             </button>
@@ -200,9 +218,9 @@
 
                 <button
                     @click="open = !open"
-                    class="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 lg:hidden"
+                    class="flex h-10 w-10 items-center justify-center rounded-xl border border-white/50 bg-white/40 text-slate-700 shadow-sm backdrop-blur-md transition-all duration-200 hover:-translate-y-0.5 hover:bg-white/70 hover:text-[#0F0363] hover:shadow-md hover:shadow-[#0F0363]/10 lg:hidden"
                     aria-label="{{ t(['en' => 'Toggle menu', 'si' => 'මෙනුව']) }}">
-                    <svg class="h-6 w-6 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path x-show="!open" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
                         <path x-show="open" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                     </svg>
@@ -212,18 +230,18 @@
     </div>
 
     {{-- Mobile menu --}}
-    <div x-show="open" x-transition class="border-t border-slate-200 bg-white lg:hidden" style="display: none;">
+    <div x-show="open" x-transition class="border-t border-white/40 bg-white/70 backdrop-blur-2xl lg:hidden" style="display: none;">
         <div class="space-y-1 px-4 py-3">
 
             @unless ($isOrganizer)
                 <div class="flex items-center justify-between px-3 py-2">
                     <span class="text-sm font-medium text-slate-700">{{ t(['en' => 'Language', 'si' => 'භාෂාව']) }}</span>
-                    <div class="inline-flex items-center rounded-xl border border-slate-200 bg-white p-0.5 text-xs font-semibold">
+                    <div class="inline-flex items-center rounded-xl border border-slate-200/80 bg-white/60 p-0.5 text-xs font-semibold">
                         @foreach (\App\Support\Locale::SUPPORTED as $locale)
                             <a href="{{ route('locale.switch', $locale) }}"
                                 class="rounded-lg px-2.5 py-1.5 transition {{ $currentLocale === $locale
                                     ? 'bg-[#0F0363] text-white shadow-sm'
-                                    : 'text-slate-600 hover:bg-slate-50' }}"
+                                    : 'text-slate-600 hover:bg-[#0F0363]/5 hover:text-[#0F0363]' }}"
                                 hreflang="{{ $locale }}"
                                 lang="{{ $locale }}">
                                 {{ $locale === 'en' ? 'EN' : 'සිං' }}
@@ -234,10 +252,10 @@
             @endunless
 
             <a href="{{ route('notifications.index') }}"
-                class="flex items-center justify-between rounded-xl px-3 py-2.5 hover:bg-slate-100 {{ request()->routeIs('notifications.*') ? $navActive : '' }}">
+                class="flex items-center justify-between rounded-xl px-3 py-2.5 transition hover:bg-[#0F0363]/5 hover:text-[#0F0363] {{ request()->routeIs('notifications.*') ? $navActive : 'text-slate-700' }}">
                 <span>{{ t(['en' => 'Notifications', 'si' => 'දැනුම්දීම්']) }}</span>
                 @if (($unreadNotificationCount ?? 0) > 0)
-                    <span class="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-xs font-bold text-white">
+                    <span class="notification-badge-pulse inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-xs font-bold text-white">
                         {{ $unreadNotificationCount > 9 ? '9+' : $unreadNotificationCount }}
                     </span>
                 @endif
@@ -245,15 +263,15 @@
 
             @if ($isAttendee)
                 <a href="{{ route('attendee.dashboard') }}"
-                    class="block rounded-xl px-3 py-2.5 hover:bg-slate-100 {{ request()->routeIs('attendee.dashboard', 'attendee.events.*') ? $navActive : '' }}">
+                    class="block rounded-xl px-3 py-2.5 transition hover:bg-[#0F0363]/5 hover:text-[#0F0363] {{ request()->routeIs('attendee.dashboard', 'attendee.events.*') ? $navActive : 'text-slate-700' }}">
                     {{ t(['en' => 'Events', 'si' => 'ප්‍රසංග']) }}
                 </a>
                 <a href="{{ route('attendee.hosts.index') }}"
-                    class="block rounded-xl px-3 py-2.5 hover:bg-slate-100 {{ request()->routeIs('attendee.hosts.*') ? $navActive : '' }}">
+                    class="block rounded-xl px-3 py-2.5 transition hover:bg-[#0F0363]/5 hover:text-[#0F0363] {{ request()->routeIs('attendee.hosts.*') ? $navActive : 'text-slate-700' }}">
                     {{ t(['en' => 'Hosts', 'si' => 'සත්කාරක']) }}
                 </a>
                 <a href="{{ route('attendee.bookings.index') }}"
-                    class="flex items-center justify-between rounded-xl px-3 py-2.5 hover:bg-slate-100 {{ request()->routeIs('attendee.bookings.*') ? $navActive : '' }}">
+                    class="flex items-center justify-between rounded-xl px-3 py-2.5 transition hover:bg-[#0F0363]/5 hover:text-[#0F0363] {{ request()->routeIs('attendee.bookings.*') ? $navActive : 'text-slate-700' }}">
                     <span>{{ t(['en' => 'Tickets', 'si' => 'ටිකට්']) }}</span>
                     @if (($reservedTicketCount ?? 0) > 0)
                         <span class="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-500 px-1.5 text-xs font-bold text-white">
@@ -262,15 +280,15 @@
                     @endif
                 </a>
                 <a href="{{ route('attendee.calendar.index') }}"
-                    class="block rounded-xl px-3 py-2.5 hover:bg-slate-100 {{ request()->routeIs('attendee.calendar.*') ? $navActive : '' }}">
+                    class="block rounded-xl px-3 py-2.5 transition hover:bg-[#0F0363]/5 hover:text-[#0F0363] {{ request()->routeIs('attendee.calendar.*') ? $navActive : 'text-slate-700' }}">
                     {{ t(['en' => 'Calendar', 'si' => 'දින දර්ශනය']) }}
                 </a>
                 <a href="{{ route('attendee.support.index') }}"
-                    class="block rounded-xl px-3 py-2.5 hover:bg-slate-100 {{ request()->routeIs('attendee.support.*') ? $navActive : '' }}">
+                    class="block rounded-xl px-3 py-2.5 transition hover:bg-[#0F0363]/5 hover:text-[#0F0363] {{ request()->routeIs('attendee.support.*') ? $navActive : 'text-slate-700' }}">
                     {{ t(['en' => 'Support', 'si' => 'සහාය']) }}
                 </a>
                 <a href="{{ route('attendee.cart.index') }}"
-                    class="flex items-center justify-between rounded-xl px-3 py-2.5 hover:bg-slate-100 {{ request()->routeIs('attendee.cart.*') ? $navActive : '' }}">
+                    class="flex items-center justify-between rounded-xl px-3 py-2.5 transition hover:bg-[#0F0363]/5 hover:text-[#0F0363] {{ request()->routeIs('attendee.cart.*') ? $navActive : 'text-slate-700' }}">
                     <span>{{ t(['en' => 'Cart', 'si' => 'කරත්තය']) }}</span>
                     @if (($cartItemCount ?? 0) > 0)
                         <span class="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-xs font-bold text-white">
@@ -279,27 +297,50 @@
                     @endif
                 </a>
                 <a href="{{ route('attendee.wallet.index') }}"
-                    class="block rounded-xl px-3 py-2.5 hover:bg-slate-100 {{ request()->routeIs('attendee.wallet.*') ? $navActive : '' }}">
+                    class="block rounded-xl px-3 py-2.5 transition hover:bg-[#0F0363]/5 hover:text-[#0F0363] {{ request()->routeIs('attendee.wallet.*') ? $navActive : 'text-slate-700' }}">
                     {{ t(['en' => 'Wallet', 'si' => 'පසුම්බිය']) }}
+                </a>
+            @elseif ($isOrganizer)
+                <a href="{{ route('dashboard') }}"
+                    class="block rounded-xl px-3 py-2.5 transition hover:bg-[#0F0363]/5 hover:text-[#0F0363] {{ request()->routeIs('dashboard') ? $navActive : 'text-slate-700' }}">
+                    Dashboard
+                </a>
+                <a href="{{ route('organizer.events.index') }}"
+                    class="block rounded-xl px-3 py-2.5 transition hover:bg-[#0F0363]/5 hover:text-[#0F0363] {{ request()->routeIs('organizer.events.*') ? $navActive : 'text-slate-700' }}">
+                    Events
+                </a>
+                <a href="{{ route('organizer.hosts') }}"
+                    class="block rounded-xl px-3 py-2.5 transition hover:bg-[#0F0363]/5 hover:text-[#0F0363] {{ request()->routeIs('organizer.hosts', 'organizer.hosts.*', 'organizer.host.*') ? $navActive : 'text-slate-700' }}">
+                    Hosts
+                </a>
+                <a href="{{ route('organizer.calendar.index') }}"
+                    class="block rounded-xl px-3 py-2.5 transition hover:bg-[#0F0363]/5 hover:text-[#0F0363] {{ request()->routeIs('organizer.calendar.*') ? $navActive : 'text-slate-700' }}">
+                    Calendar
+                </a>
+                <a href="{{ route('organizer.reports') }}"
+                    class="block rounded-xl px-3 py-2.5 transition hover:bg-[#0F0363]/5 hover:text-[#0F0363] {{ request()->routeIs('organizer.reports', 'organizer.reports.*') ? $navActive : 'text-slate-700' }}">
+                    Reports
                 </a>
             @endif
 
-            <a href="{{ route('dashboard') }}"
-                class="block rounded-xl px-3 py-2.5 hover:bg-slate-100 {{ request()->routeIs('dashboard') ? $navActive : '' }}">
-                {{ t(['en' => 'Dashboard', 'si' => 'විස්තර පුවරුව']) }}
-            </a>
+            @unless ($isOrganizer)
+                <a href="{{ route('dashboard') }}"
+                    class="block rounded-xl px-3 py-2.5 transition hover:bg-[#0F0363]/5 hover:text-[#0F0363] {{ request()->routeIs('dashboard') ? $navActive : 'text-slate-700' }}">
+                    {{ t(['en' => 'Dashboard', 'si' => 'විස්තර පුවරුව']) }}
+                </a>
+            @endunless
 
             <hr class="border-slate-200">
 
             <a href="{{ route('profile.edit') }}"
-                class="block rounded-xl px-3 py-2.5 hover:bg-slate-100">
+                class="block rounded-xl px-3 py-2.5 text-slate-700 transition hover:bg-[#0F0363]/5 hover:text-[#0F0363]">
                 {{ t(['en' => 'Profile Settings', 'si' => 'පැතිකඩ සැකසුම්']) }}
             </a>
 
             <form method="POST" action="{{ route('logout') }}">
                 @csrf
                 <button type="submit"
-                    class="w-full rounded-xl px-3 py-2.5 text-left text-red-600 hover:bg-red-50">
+                    class="w-full rounded-xl px-3 py-2.5 text-left text-red-600 transition hover:bg-red-50">
                     {{ t(['en' => 'Sign Out', 'si' => 'ඉවත් වන්න']) }}
                 </button>
             </form>

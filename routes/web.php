@@ -197,7 +197,7 @@ Route::prefix('organizer')->name('organizer.')->middleware(['auth', 'verified', 
     Route::get('/events/export/pdf', [EventController::class, 'exportPdf'])->name('events.export.pdf');
     Route::patch('/events/{event}/status', [EventController::class, 'updateStatus'])->name('events.updateStatus');
     Route::post('/events/{event}/cancel', [EventController::class, 'cancel'])->name('events.cancel');
-    Route::get('/events/{event}/export-pdf', [EventController::class, 'exportPdf'])->name('events.exportPdf');
+    Route::get('/events/{event}/export-pdf', [EventController::class, 'showexportPdf'])->name('events.exportPdf');
 
     // ticket category routes
     Route::get('/events/{event}/ticket-categories/create', [ticketCategoryController::class, 'create'])->name('ticket-categories.create');
@@ -222,6 +222,10 @@ Route::prefix('organizer')->name('organizer.')->middleware(['auth', 'verified', 
     Route::get('/reports', [OrganizerReportController::class, 'index'])->name('reports');
     Route::get('/reports/export/excel', [OrganizerReportController::class, 'exportExcel'])->name('reports.export.excel');
     Route::get('/reports/export/pdf', [OrganizerReportController::class, 'exportPdf'])->name('reports.export.pdf');
+
+    // Calendar
+    Route::get('/calendar', [CalendarController::class, 'organizer'])->name('calendar.index');
+    Route::put('/revenue-goal', [DashboardController::class, 'updateRevenueGoal'])->name('revenue-goal.update');
 });
 
 /*

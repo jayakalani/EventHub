@@ -15,28 +15,26 @@
     @endphp
 
     <x-slot name="header">
-        <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div>
+        <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+            <div class="flex min-w-0 items-center gap-x-2.5">
                 <a href="{{ route('attendee.dashboard') }}"
-                    class="inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 transition hover:text-indigo-600">
+                    class="shrink-0 text-xs font-semibold text-blue-600 transition hover:text-blue-800 sm:text-sm">
                     <i class="bi bi-arrow-left" aria-hidden="true"></i>
-                    {{ t(['en' => 'Back to events', 'si' => 'ප්‍රසංගය වෙත ආපසු']) }}
+                    {{ t(['en' => 'Back', 'si' => 'ආපසු']) }}
                 </a>
-                <h2 class="mt-2 text-3xl font-bold tracking-tight text-slate-900">
-                    {{ $event->name }}
-                </h2>
-                <p class="mt-1 text-slate-500">
-                    {{ t(['en' => 'View details, reserve tickets, and join the conversation.', 'si' => 'විස්තර බලන්න, ටිකට් වෙන්කරවා ගෙන සාකච්ඡාවට එකතු වන්න.']) }}
+                <span class="hidden h-3.5 w-px bg-slate-200 sm:block" aria-hidden="true"></span>
+                <p class="min-w-0 truncate text-xs text-slate-500 sm:text-sm">
+                    <span class="font-medium text-slate-700">{{ Str::limit($event->name, 50) }}</span>
                 </p>
             </div>
 
-            <div class="flex flex-wrap items-center gap-3">
+            <div class="flex shrink-0 flex-wrap items-center gap-2">
                 @unless ($isCancelled || $isCompleted)
                 <form action="{{ route('attendee.events.like', $event) }}" method="POST">
                     @csrf
                     <button type="submit"
                         aria-label="{{ $isLiked ? t(['en' => 'Unlike event', 'si' => 'කැමති ඉවත් කරන්න']) : t(['en' => 'Like event', 'si' => 'කැමති වන්න']) }}"
-                        class="inline-flex items-center gap-2 rounded-2xl border px-4 py-2.5 text-sm font-semibold transition
+                        class="inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition sm:text-sm
                         {{ $isLiked ? 'border-[#1877F2] bg-[#1877F2] text-white' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300' }}">
                         <i class="bi {{ $isLiked ? 'bi-hand-thumbs-up-fill' : 'bi-hand-thumbs-up' }}" aria-hidden="true"></i>
                         {{ number_format($likesCount) }}
@@ -47,7 +45,7 @@
                     @csrf
                     <button type="submit"
                         aria-label="{{ $isSaved ? t(['en' => 'Unsave event', 'si' => 'සුරැකීම ඉවත් කරන්න']) : t(['en' => 'Save event', 'si' => 'ප්‍රසංගය සුරකින්න']) }}"
-                        class="inline-flex items-center gap-2 rounded-2xl border px-4 py-2.5 text-sm font-semibold transition
+                        class="inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition sm:text-sm
                         {{ $isSaved ? 'border-amber-500 bg-amber-500 text-white' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300' }}">
                         <i class="bi {{ $isSaved ? 'bi-bookmark-fill' : 'bi-bookmark' }}" aria-hidden="true"></i>
                         {{ $isSaved ? t(['en' => 'Saved', 'si' => 'සුරකින ලදී']) : t(['en' => 'Save', 'si' => 'සුරකින්න']) }}
@@ -58,23 +56,18 @@
         </div>
     </x-slot>
 
-    <div class="py-8">
+    <div class="py-5">
         <div x-data="{ showModal: false, selected: { id: null, name: '', price: 0, available: 0, color: '' }, qty: 1, amount: 0 }">
-            <div class="mx-auto max-w-7xl space-y-8 px-4 sm:px-6 lg:px-8">
+            <div class="mx-auto max-w-7xl space-y-5 px-4 sm:px-6 lg:px-8">
 
                 @if ($errors->any())
-                    <div class="rounded-2xl border border-red-200 bg-red-50 p-5">
-                        <div class="flex gap-4">
-                            <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600">
-                                <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
-                            </div>
-                            <div>
-                                <h3 class="font-semibold text-red-800">{{ t(['en' => 'Something went wrong', 'si' => 'යමක් වැරදී ඇත']) }}</h3>
-                                <ul class="mt-2 space-y-1 text-sm text-red-700">
-                                    @foreach ($errors->all() as $error)
-                                        <li>{{ $error }}</li>
-                                    @endforeach
-                                </ul>
+                    <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+                        <div class="flex gap-3">
+                            <i class="bi bi-exclamation-triangle-fill shrink-0 text-red-500 mt-0.5" aria-hidden="true"></i>
+                            <div class="text-sm text-red-700">
+                                @foreach ($errors->all() as $error)
+                                    <p>{{ $error }}</p>
+                                @endforeach
                             </div>
                         </div>
                     </div>
@@ -82,50 +75,41 @@
 
                 @if (session('success'))
                     <div x-data="{ show: true }" x-init="setTimeout(() => show = false, 5000)" x-show="show" x-transition
-                        class="rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
-                        <div class="flex items-start justify-between gap-4">
-                            <div class="flex gap-4">
-                                <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
-                                    <i class="bi bi-check-circle-fill" aria-hidden="true"></i>
-                                </div>
-                                <div>
-                                    <h3 class="font-semibold text-emerald-800">{{ t(['en' => 'Success', 'si' => 'සාර්ථකයි']) }}</h3>
-                                    <p class="mt-1 text-sm text-emerald-700">{{ session('success') }}</p>
-                                </div>
+                        class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+                        <div class="flex items-center justify-between gap-3">
+                            <div class="flex items-center gap-2.5">
+                                <i class="bi bi-check-circle-fill shrink-0 text-emerald-500" aria-hidden="true"></i>
+                                <p class="text-sm text-emerald-700">{{ session('success') }}</p>
                             </div>
-                            <button @click="show=false" class="text-emerald-600 hover:text-emerald-800" aria-label="{{ t(['en' => 'Dismiss', 'si' => 'ඉවතලන්න']) }}">
-                                <i class="bi bi-x-lg" aria-hidden="true"></i>
+                            <button @click="show=false" class="text-emerald-500 hover:text-emerald-700" aria-label="{{ t(['en' => 'Dismiss', 'si' => 'ඉවතලන්න']) }}">
+                                <i class="bi bi-x-lg text-sm" aria-hidden="true"></i>
                             </button>
                         </div>
                     </div>
                 @endif
 
                 @if ($isCancelled)
-                    <div class="rounded-2xl border border-rose-200 bg-rose-50 p-5">
-                        <div class="flex gap-4">
-                            <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-rose-100 text-rose-600">
-                                <i class="bi bi-x-circle-fill" aria-hidden="true"></i>
-                            </div>
-                            <div>
-                                <h3 class="font-semibold text-rose-900">{{ t(['en' => 'Event Cancelled', 'si' => 'ප්‍රසංගය අවලංගුයි']) }}</h3>
+                    <div class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3">
+                        <div class="flex gap-3">
+                            <i class="bi bi-x-circle-fill shrink-0 text-rose-500 mt-0.5" aria-hidden="true"></i>
+                            <div class="text-sm">
+                                <p class="font-semibold text-rose-900">{{ t(['en' => 'Event Cancelled', 'si' => 'ප්‍රසංගය අවලංගුයි']) }}</p>
                                 @if ($event->cancellation_reason)
-                                    <p class="mt-2 text-sm leading-relaxed text-rose-800">{{ $event->cancellation_reason }}</p>
+                                    <p class="mt-1 text-rose-800">{{ $event->cancellation_reason }}</p>
                                 @endif
-                                <p class="mt-3 text-sm text-rose-700">
+                                <p class="mt-1 text-rose-700">
                                     {{ t(['en' => 'This event is no longer available for booking or interaction. If you purchased tickets, refunds have been processed to your wallet.', 'si' => 'මෙම ප්‍රසංගය තවදුරටත් වෙන්කිරීම හෝ අන්තර්ක්‍රියා සඳහා ලබා ගත නොහැක. ඔබ ටිකට් මිලදී ගෙන තිබේ නම්, ආපසු ගෙවීම් ඔබේ මුදල් පසුම්බියට ලැබී ඇත.']) }}
                                 </p>
                             </div>
                         </div>
                     </div>
                 @elseif ($isCompleted)
-                    <div class="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-                        <div class="flex gap-4">
-                            <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-slate-200 text-slate-700">
-                                <i class="bi bi-check-circle-fill" aria-hidden="true"></i>
-                            </div>
-                            <div>
-                                <h3 class="font-semibold text-slate-900">{{ t(['en' => 'Event Completed', 'si' => 'ප්‍රසංගය අවසන්']) }}</h3>
-                                <p class="mt-2 text-sm leading-relaxed text-slate-700">
+                    <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                        <div class="flex gap-3">
+                            <i class="bi bi-check-circle-fill shrink-0 text-slate-500 mt-0.5" aria-hidden="true"></i>
+                            <div class="text-sm">
+                                <p class="font-semibold text-slate-900">{{ t(['en' => 'Event Completed', 'si' => 'ප්‍රසංගය අවසන්']) }}</p>
+                                <p class="mt-1 text-slate-700">
                                     {{ t(['en' => 'This event has ended. You can still review event details, your ticket history, and any comments, likes, or ratings you submitted.', 'si' => 'මෙම ප්‍රසංගය අවසන් වී ඇත. ඔබට තවමත් ප්‍රසංගය් විස්තර, ටිකට් ඉතිහාසය සහ ඔබ ඉදිරිපත් කළ අදහස්, කැමති හෝ ශ්‍රේණිගත කිරීම් සමාලෝචනය කළ හැක.']) }}
                                 </p>
                             </div>
@@ -134,107 +118,134 @@
                 @endif
 
                 {{-- Hero --}}
-                <div class="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
-                    <div class="relative">
-                        @if ($event->cover)
-                            <img src="{{ asset('uploads/covers/events/' . $event->cover) }}"
-                                alt="{{ $event->name }}"
-                                class="h-[360px] w-full object-cover sm:h-[420px]">
-                        @else
-                            <div class="h-[360px] w-full bg-gradient-to-br from-indigo-600 via-violet-600 to-purple-700 sm:h-[420px]"></div>
-                        @endif
+                <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                    <div class="grid sm:grid-cols-[0.85fr_1.15fr]">
 
-                        <div class="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/35 to-transparent"></div>
-
-                        <div class="absolute inset-x-0 bottom-0 p-6 sm:p-8">
-                            <div class="flex flex-wrap items-center gap-2">
-                                <span class="rounded-full border border-white/20 bg-white/15 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white backdrop-blur">
-                                    {{ $event->eventCategory->name ?? t(['en' => 'Event', 'si' => 'ප්‍රසංගය']) }}
-                                </span>
-                                <span class="rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide backdrop-blur {{ $statusClass }}">
-                                    {{ $isCancelled ? t(['en' => 'Event Cancelled', 'si' => 'ප්‍රසංගය අවලංගුයි']) : ($isCompleted ? t(['en' => 'Completed', 'si' => 'අවසන්']) : ucfirst($eventStatus)) }}
-                                </span>
-                            </div>
-
-                            <h1 class="mt-4 max-w-4xl text-3xl font-bold tracking-tight text-white sm:text-5xl">
-                                {{ $event->name }}
-                            </h1>
-
-                            <div class="mt-5 flex flex-wrap gap-x-6 gap-y-3 text-sm text-white/90 sm:text-base">
-                                <span class="inline-flex items-center gap-2">
-                                    <i class="bi bi-geo-alt-fill text-white/80" aria-hidden="true"></i>
-                                    {{ $event->place }}
-                                </span>
-                                <span class="inline-flex items-center gap-2">
-                                    <i class="bi bi-calendar-event text-white/80" aria-hidden="true"></i>
-                                    {{ $formattedDate }}
-                                </span>
-                                @if ($event->time)
-                                    <span class="inline-flex items-center gap-2">
-                                        <i class="bi bi-clock text-white/80" aria-hidden="true"></i>
-                                        {{ $event->time }}
-                                    </span>
+                        {{-- Image panel --}}
+                        <div class="relative overflow-hidden bg-slate-900">
+                            <div class="aspect-[4/3] sm:aspect-auto sm:h-full sm:min-h-[240px]">
+                                @if ($event->cover)
+                                    <img
+                                        src="{{ asset('uploads/covers/events/' . $event->cover) }}"
+                                        alt=""
+                                        aria-hidden="true"
+                                        class="absolute inset-0 h-full w-full scale-110 object-cover blur-xl brightness-[0.6]"
+                                    >
+                                    <div class="relative z-[1] flex h-full items-center justify-center p-4 sm:p-5">
+                                        <img
+                                            src="{{ asset('uploads/covers/events/' . $event->cover) }}"
+                                            alt="{{ $event->name }}"
+                                            class="h-full w-auto max-w-full rounded-2xl object-contain shadow-2xl ring-1 ring-white/15 transition duration-300 hover:scale-[1.03]"
+                                        >
+                                    </div>
+                                @else
+                                    <div class="flex h-full items-center justify-center bg-gradient-to-br from-[#0F0363] to-[#2A1585] text-sm font-medium text-violet-200/80">
+                                        {{ t(['en' => 'No Image', 'si' => 'රූපයක් නැත']) }}
+                                    </div>
                                 @endif
                             </div>
                         </div>
-                    </div>
 
-                    {{-- Quick stats strip --}}
-                    <div class="grid divide-y divide-slate-100 sm:grid-cols-2 lg:grid-cols-5 lg:divide-x lg:divide-y-0">
-                        <div class="flex items-center gap-4 px-6 py-5">
-                            <div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
-                                <i class="bi bi-person-badge text-lg" aria-hidden="true"></i>
-                            </div>
-                            <div>
-                                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ t(['en' => 'Host', 'si' => 'සත්කාරකයා']) }}</p>
-                                <p class="mt-0.5 font-semibold text-slate-900">{{ $event->host->name ?? t(['en' => 'N/A', 'si' => 'නැත']) }}</p>
-                            </div>
-                        </div>
+                        {{-- Details panel --}}
+                        <div class="flex flex-col justify-between gap-4 p-5 sm:p-6">
 
-                        <div class="flex items-center gap-4 px-6 py-5">
-                            <div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-violet-50 text-violet-600">
-                                <i class="bi bi-ticket-perforated text-lg" aria-hidden="true"></i>
-                            </div>
-                            <div>
-                                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ t(['en' => 'Capacity', 'si' => 'ධාරිතාව']) }}</p>
-                                <p class="mt-0.5 font-semibold text-slate-900">{{ number_format($event->total_tickets) }} {{ t(['en' => 'tickets', 'si' => 'ටිකට්']) }}</p>
-                            </div>
-                        </div>
+                            {{-- Top: badges + title + meta --}}
+                            <div class="space-y-3">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <span class="inline-flex items-center rounded-full bg-indigo-50 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-indigo-600">
+                                        {{ $event->eventCategory->name ?? t(['en' => 'Event', 'si' => 'ප්‍රසංගය']) }}
+                                    </span>
+                                    <span class="inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide {{ $statusClass }}">
+                                        {{ $isCancelled ? t(['en' => 'Cancelled', 'si' => 'අවලංගුයි']) : ($isCompleted ? t(['en' => 'Completed', 'si' => 'අවසන්']) : ucfirst($eventStatus)) }}
+                                    </span>
+                                </div>
 
-                        <div class="flex items-center gap-4 px-6 py-5">
-                            <div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-sky-50 text-sky-600">
-                                <i class="bi bi-headset text-lg" aria-hidden="true"></i>
-                            </div>
-                            <div>
-                                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ t(['en' => 'Contact', 'si' => 'සම්බන්ධතාව']) }}</p>
-                                <p class="mt-0.5 font-semibold text-slate-900">{{ $event->contactPerson->full_name ?? t(['en' => 'N/A', 'si' => 'නැත']) }}</p>
-                            </div>
-                        </div>
+                                <h1 class="text-lg font-bold leading-snug text-slate-900 sm:text-xl lg:text-2xl">
+                                    {{ $event->name }}
+                                </h1>
 
-                        <div class="flex items-center gap-4 px-6 py-5">
-                            <div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-50 text-amber-600">
-                                <i class="bi bi-star-fill text-lg" aria-hidden="true"></i>
-                            </div>
-                            <div>
-                                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ t(['en' => 'Rating', 'si' => 'ශ්‍රේණිගත කිරීම']) }}</p>
-                                <p class="mt-0.5 font-semibold text-slate-900">
-                                    @if ($ratingsCount > 0)
-                                        {{ number_format($averageRating, 1) }}/5 · {{ $ratingsCount }} {{ t(['en' => 'reviews', 'si' => 'සමාලෝචන']) }}
-                                    @else
-                                        {{ t(['en' => 'No ratings yet', 'si' => 'තවම ශ්‍රේණිගත කිරීම් නැත']) }}
+                                <div class="flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-500">
+                                    <span class="inline-flex items-center gap-1.5">
+                                        <i class="bi bi-geo-alt text-slate-400" aria-hidden="true"></i>
+                                        {{ $event->place }}
+                                    </span>
+                                    <span class="inline-flex items-center gap-1.5">
+                                        <i class="bi bi-calendar3 text-slate-400" aria-hidden="true"></i>
+                                        {{ $formattedDate }}
+                                    </span>
+                                    @if ($event->time)
+                                        <span class="inline-flex items-center gap-1.5">
+                                            <i class="bi bi-clock text-slate-400" aria-hidden="true"></i>
+                                            {{ $event->time }}
+                                        </span>
                                     @endif
-                                </p>
+                                </div>
                             </div>
-                        </div>
 
-                        <div class="flex items-center gap-4 px-6 py-5">
-                            <div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#1877F2]/10 text-[#1877F2]">
-                                <i class="bi bi-hand-thumbs-up-fill text-lg" aria-hidden="true"></i>
+                            {{-- Bottom: compact stats with icons --}}
+                            <div class="grid grid-cols-2 gap-2.5 rounded-xl border border-slate-100 bg-slate-50/70 px-3 py-2.5 sm:grid-cols-3 lg:grid-cols-5">
+                                <div class="flex items-center gap-2.5">
+                                    <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+                                        <i class="bi bi-person-badge text-sm" aria-hidden="true"></i>
+                                    </div>
+                                    <div class="min-w-0">
+                                        <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{{ t(['en' => 'Host', 'si' => 'සත්කාරක']) }}</p>
+                                        @if($event->host)
+                                            <a href="{{ route('attendee.hosts.show', $event->host) }}"
+                                                title="{{ $event->host->name }}"
+                                                class="block truncate text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:underline transition">
+                                                {{ $event->host->name }}
+                                            </a>
+                                        @else
+                                            <p class="truncate text-xs font-bold text-slate-800">—</p>
+                                        @endif
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-2.5">
+                                    <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-violet-50 text-violet-600">
+                                        <i class="bi bi-ticket-perforated text-sm" aria-hidden="true"></i>
+                                    </div>
+                                    <div class="min-w-0">
+                                        <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{{ t(['en' => 'Capacity', 'si' => 'ධාරිතාව']) }}</p>
+                                        <p class="text-xs font-bold text-slate-800">{{ number_format($event->total_tickets) }} {{ t(['en' => 'tickets', 'si' => 'ටිකට්']) }}</p>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-2.5">
+                                    <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-600">
+                                        <i class="bi bi-headset text-sm" aria-hidden="true"></i>
+                                    </div>
+                                    <div class="min-w-0">
+                                        <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{{ t(['en' => 'Contact', 'si' => 'සම්බන්ධ']) }}</p>
+                                        <p class="truncate text-xs font-bold text-slate-800">{{ $event->contactPerson->full_name ?? '—' }}</p>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-2.5">
+                                    <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-500">
+                                        <i class="bi bi-star-fill text-sm" aria-hidden="true"></i>
+                                    </div>
+                                    <div class="min-w-0">
+                                        <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{{ t(['en' => 'Rating', 'si' => 'ශ්‍රේණිය']) }}</p>
+                                        <p class="text-xs font-bold text-slate-800">
+                                            @if ($ratingsCount > 0)
+                                                {{ number_format($averageRating, 1) }}/5
+                                                <span class="font-medium text-slate-500">· {{ $ratingsCount }}</span>
+                                            @else
+                                                {{ t(['en' => 'No ratings yet', 'si' => 'තවම නැත']) }}
+                                            @endif
+                                        </p>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-2.5">
+                                    <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#1877F2]/10 text-[#1877F2]">
+                                        <i class="bi bi-hand-thumbs-up-fill text-sm" aria-hidden="true"></i>
+                                    </div>
+                                    <div class="min-w-0">
+                                        <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{{ t(['en' => 'Likes', 'si' => 'කැමති']) }}</p>
+                                        <p class="text-xs font-bold text-[#1877F2]">{{ number_format($likesCount) }}</p>
+                                    </div>
+                                </div>
                             </div>
-                            <div>
-                                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ t(['en' => 'Likes', 'si' => 'කැමති']) }}</p>
-                                <p class="mt-0.5 font-semibold text-slate-900">{{ number_format($likesCount) }}</p>
-                            </div>
+
                         </div>
                     </div>
                 </div>

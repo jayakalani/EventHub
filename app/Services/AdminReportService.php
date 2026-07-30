@@ -115,13 +115,222 @@ class AdminReportService
      */
     public function getAllReports(): array
     {
+        $admin = $this->getAdminReports();
+        $users = $this->getUserReports();
+        $payments = $this->getPaymentReports();
+        $system = $this->getSystemReports();
+
         return [
-            'admin' => $this->getAdminReports(),
-            'users' => $this->getUserReports(),
-            'payments' => $this->getPaymentReports(),
-            'system' => $this->getSystemReports(),
+            'admin' => $admin,
+            'users' => $users,
+            'payments' => $payments,
+            'system' => $system,
             'chartLabels' => $this->lastSixMonthLabels(),
+            'chartLabelsShort' => $this->lastSixMonthShortLabels(),
+            'overview' => $this->getReportsOverview($admin, $users, $payments, $system),
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $admin
+     * @param  array<string, mixed>  $users
+     * @param  array<string, mixed>  $payments
+     * @param  array<string, mixed>  $system
+     * @return array<string, mixed>
+     */
+    private function getReportsOverview(array $admin, array $users, array $payments, array $system): array
+    {
+        $today = today();
+        $organizerRoleId = UserRole::query()->where('name_en', UserRole::ORGANIZER)->value('id');
+
+        $newUsersToday = User::query()->whereDate('created_at', $today)->count();
+        $newEventsToday = Event::query()->whereDate('created_at', $today)->count();
+        $newEventsThisWeek = Event::query()
+            ->where('created_at', '>=', now()->startOfWeek())
+            ->count();
+        $ticketsSoldToday = ticketBooking::query()
+            ->where('status', BookingStatusEnum::Confirmed)
+            ->whereDate('created_at', $today)
+            ->count();
+
+        $pendingOrganizerApprovals = $organizerRoleId
+            ? User::query()
+                ->where('role_id', $organizerRoleId)
+                ->where(function ($query) {
+                    $query->where('is_active', false)
+                        ->orWhereNull('email_verified_at');
+                })
+                ->count()
+            : 0;
+
+        $currentMonthRevenue = (float) Payment::query()
+            ->where('status', PaymentStatusEnum::Completed)
+            ->where('created_at', '>=', now()->startOfMonth())
+            ->sum('amount');
+        $previousMonthRevenue = (float) Payment::query()
+            ->where('status', PaymentStatusEnum::Completed)
+            ->whereBetween('created_at', [
+                now()->subMonth()->startOfMonth(),
+                now()->subMonth()->endOfMonth(),
+            ])
+            ->sum('amount');
+
+        $revenueMoMPercent = $previousMonthRevenue > 0
+            ? round((($currentMonthRevenue - $previousMonthRevenue) / $previousMonthRevenue) * 100, 1)
+            : ($currentMonthRevenue > 0 ? 100.0 : 0.0);
+
+        $totalUsers = max(1, (int) $users['totalUsers']);
+        $roleBreakdown = collect($users['usersByRole'])
+            ->map(fn (array $role) => [
+                'label' => $role['label'],
+                'count' => (int) $role['count'],
+                'percent' => round(((int) $role['count'] / $totalUsers) * 100, 1),
+            ])
+            ->values()
+            ->all();
+
+        return [
+            'highlights' => [
+                'newUsers' => $newUsersToday,
+                'newEvents' => $newEventsToday,
+                'ticketsSold' => $ticketsSoldToday,
+                'pendingOrganizerApprovals' => $pendingOrganizerApprovals,
+            ],
+            'kpis' => [
+                'totalUsers' => (int) $admin['totalUsers'],
+                'usersToday' => $newUsersToday,
+                'roleBreakdown' => $roleBreakdown,
+                'totalEvents' => (int) $admin['totalEvents'],
+                'eventsThisWeek' => $newEventsThisWeek,
+                'platformRevenue' => (float) $payments['netRevenue'],
+                'revenueMoMPercent' => $revenueMoMPercent,
+                'ticketsSold' => (int) $admin['totalTicketsSold'],
+                'ticketsToday' => $ticketsSoldToday,
+            ],
+            'userGrowth' => $users['registrationTrend'],
+            'userDistribution' => $roleBreakdown,
+            'revenueTrend' => [
+                'labels' => $this->lastSixMonthShortLabels(),
+                'values' => $payments['revenueTrend'],
+                'formatted' => collect($this->lastSixMonthShortLabels())
+                    ->zip($payments['revenueTrend'])
+                    ->map(fn ($pair) => [
+                        'month' => $pair[0],
+                        'amount' => (float) $pair[1],
+                        'label' => $this->formatCompactLkr((float) $pair[1]),
+                    ])
+                    ->values()
+                    ->all(),
+            ],
+            'ticketSalesWeekly' => $this->weeklyTicketSales(),
+            'recentUsers' => array_slice($users['recentUsers'], 0, 6),
+            'organizerPerformance' => $this->getOrganizerPerformance(5),
+            'recentPayments' => $this->getOverviewRecentPayments(6),
+            'recentAuditLogs' => array_slice($system['recentAuditLogs'] ?? [], 0, 6),
+            'platformStatus' => $this->getPlatformStatus(),
+            'eventsByCategory' => $this->eventsByCategory(8),
+        ];
+    }
+
+    /**
+     * @return list<array{key: string, label: string, status: string, detail: string, online: bool}>
+     */
+    private function getPlatformStatus(): array
+    {
+        $databaseOnline = false;
+        try {
+            DB::connection()->getPdo();
+            DB::select('select 1');
+            $databaseOnline = true;
+        } catch (\Throwable) {
+            $databaseOnline = false;
+        }
+
+        $mailer = (string) config('mail.default', 'log');
+        $mailConfigured = filled($mailer) && (
+            $mailer === 'log'
+            || filled(config("mail.mailers.{$mailer}.host"))
+            || filled(config("mail.mailers.{$mailer}.transport"))
+            || filled(config('mail.from.address'))
+        );
+
+        $stripeConnected = filled(config('services.stripe.secret'))
+            && filled(config('services.stripe.key'));
+
+        $storagePath = storage_path('app');
+        $storageHealthy = is_dir($storagePath) && is_writable($storagePath);
+
+        return [
+            [
+                'key' => 'database',
+                'label' => 'Database',
+                'status' => $databaseOnline ? 'Online' : 'Offline',
+                'detail' => $databaseOnline ? 'Connection healthy' : 'Unable to connect',
+                'online' => $databaseOnline,
+                'icon' => 'bi-database',
+            ],
+            [
+                'key' => 'email',
+                'label' => 'Email Service',
+                'status' => $mailConfigured ? 'Running' : 'Not configured',
+                'detail' => $mailConfigured ? 'Mailer: '.$mailer : 'Mail settings missing',
+                'online' => $mailConfigured,
+                'icon' => 'bi-envelope',
+            ],
+            [
+                'key' => 'stripe',
+                'label' => 'Stripe Payments',
+                'status' => $stripeConnected ? 'Connected' : 'Not connected',
+                'detail' => $stripeConnected ? 'API keys present' : 'Stripe keys missing',
+                'online' => $stripeConnected,
+                'icon' => 'bi-credit-card',
+            ],
+            [
+                'key' => 'storage',
+                'label' => 'Storage',
+                'status' => $storageHealthy ? 'Healthy' : 'Unavailable',
+                'detail' => $storageHealthy ? 'Writable disk' : 'Storage not writable',
+                'online' => $storageHealthy,
+                'icon' => 'bi-hdd',
+            ],
+        ];
+    }
+
+    /**
+     * @return list<array{customer: string, event: string, amount: float, status: string, statusLabel: string}>
+     */
+    private function getOverviewRecentPayments(int $limit = 6): array
+    {
+        return Payment::query()
+            ->with(['user', 'ticketBookings.event'])
+            ->latest()
+            ->limit($limit)
+            ->get()
+            ->map(function (Payment $payment) {
+                $eventName = $payment->ticketBookings
+                    ->map(fn ($booking) => $booking->event?->name)
+                    ->filter()
+                    ->unique()
+                    ->values()
+                    ->first();
+
+                $status = $payment->status->value;
+
+                return [
+                    'customer' => $payment->user?->full_name ?? 'Unknown',
+                    'event' => $eventName ?: ($payment->purpose ?: '—'),
+                    'amount' => (float) $payment->amount,
+                    'status' => $status,
+                    'statusLabel' => match ($status) {
+                        'completed' => 'Paid',
+                        'pending' => 'Pending',
+                        'failed' => 'Failed',
+                        'cancelled' => 'Cancelled',
+                        default => ucfirst($status),
+                    },
+                ];
+            })
+            ->all();
     }
 
     /**

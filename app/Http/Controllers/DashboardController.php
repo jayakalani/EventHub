@@ -2,17 +2,13 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\RefundRequestStatusEnum;
-use App\Enums\SupportTicketStatusEnum;
-use App\Models\Complaint;
 use App\Models\Event;
 use App\Models\EventCategory;
 use App\Models\Host;
-use App\Models\Inquiry;
-use App\Models\RefundRequest;
 use App\Models\User;
 use App\Models\UserRole;
 use App\Services\AdminReportService;
+use App\Services\CroDashboardService;
 use App\Services\EventCompletionService;
 use App\Services\OrganizerDashboardService;
 use Illuminate\Http\RedirectResponse;
@@ -26,6 +22,7 @@ class DashboardController extends Controller
         protected EventCompletionService $eventCompletionService,
         protected AdminReportService $adminReportService,
         protected OrganizerDashboardService $organizerDashboardService,
+        protected CroDashboardService $croDashboardService,
     ) {}
 
     /**
@@ -102,29 +99,9 @@ class DashboardController extends Controller
      */
     public function cro(): View
     {
-        $pendingRefundCount = RefundRequest::query()
-            ->where('status', RefundRequestStatusEnum::Pending)
-            ->count();
+        $dashboard = $this->croDashboardService->getDashboardData();
 
-        $processedRefundCount = RefundRequest::query()
-            ->whereIn('status', [
-                RefundRequestStatusEnum::Approved,
-                RefundRequestStatusEnum::Declined,
-            ])
-            ->count();
-
-        $openInquiryCount = Inquiry::where('status', SupportTicketStatusEnum::Open)->count();
-        $openComplaintCount = Complaint::where('status', SupportTicketStatusEnum::Open)->count();
-        $inProgressCount = Inquiry::where('status', SupportTicketStatusEnum::InProgress)->count()
-            + Complaint::where('status', SupportTicketStatusEnum::InProgress)->count();
-
-        return view('cro.dashboard', compact(
-            'pendingRefundCount',
-            'processedRefundCount',
-            'openInquiryCount',
-            'openComplaintCount',
-            'inProgressCount',
-        ));
+        return view('cro.dashboard', compact('dashboard'));
     }
 
     /**

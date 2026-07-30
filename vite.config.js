@@ -12,6 +12,7 @@ export default defineConfig({
                 'resources/js/organizer-dashboard.js',
                 'resources/js/organizer-reports.js',
                 'resources/js/cro-reports.js',
+                'resources/js/cro-dashboard.js',
             ],
             refresh: true,
         }),

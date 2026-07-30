@@ -360,8 +360,12 @@ function buildChartSpecs(data) {
     const engagementBreakdown = data.engagement.engagementBreakdown ?? [];
     const eventPerformance = data.eventPerformance ?? [];
     const rankedByRevenue = [...eventPerformance]
-        .sort((a, b) => Number(b.revenue || 0) - Number(a.revenue || 0))
-        .slice(0, 8);
+        .sort((a, b) => Number(b.revenue || 0) - Number(a.revenue || 0));
+    const top5ByRevenue = rankedByRevenue.slice(0, 5);
+    const top5ByTickets = [...eventPerformance]
+        .sort((a, b) => Number(b.tickets_sold || 0) - Number(a.tickets_sold || 0))
+        .slice(0, 5);
+    const revenuePerEvent = rankedByRevenue.slice(0, 10);
 
     return {
         revenueTrend: {
@@ -655,6 +659,35 @@ function buildChartSpecs(data) {
                 );
             },
         },
+        audienceEngagementVsSales: {
+            canvasId: 'audienceEngagementVsSalesChart',
+            render: (targetId) => {
+                const rows = data.engagement.engagementVsSales ?? [];
+                return createScatterChart(
+                    targetId,
+                    rows.map((item) => ({
+                        x: Number(item.engagement || 0),
+                        y: Number(item.tickets_sold || 0),
+                        name: item.name,
+                        likes: item.likes,
+                        comments: item.comments,
+                        saves: item.saves,
+                    })),
+                    {
+                        xLabel: 'Engagement score (likes + saves + comments + ratings)',
+                        yLabel: 'Tickets sold',
+                        pointColor: 'rgba(79, 70, 229, 0.75)',
+                        pointBorder: 'rgba(79, 70, 229, 1)',
+                        formatTooltip: (point) => {
+                            const name = point.name ?? 'Event';
+                            const engagement = Number(point.x ?? 0).toLocaleString();
+                            const tickets = Number(point.y ?? 0).toLocaleString();
+                            return `${name}: ${engagement} engagement · ${tickets} tickets`;
+                        },
+                    },
+                );
+            },
+        },
         revenueByEvent: {
             canvasId: 'overviewRevenueByEventChart',
             render: (targetId) => createBarChart(
@@ -674,12 +707,64 @@ function buildChartSpecs(data) {
                 },
             ),
         },
+        revenuePerEvent: {
+            canvasId: 'revenuePerEventChart',
+            render: (targetId) => createBarChart(
+                targetId,
+                revenuePerEvent.map((item) => item.name),
+                revenuePerEvent.map((item) => item.revenue),
+                {
+                    label: 'Revenue (LKR)',
+                    colors: [
+                        'rgba(16, 185, 129, 0.85)',
+                        'rgba(37, 99, 235, 0.8)',
+                        'rgba(79, 70, 229, 0.8)',
+                        'rgba(6, 182, 212, 0.8)',
+                        'rgba(245, 158, 11, 0.8)',
+                        'rgba(244, 63, 94, 0.75)',
+                        'rgba(147, 51, 234, 0.75)',
+                        'rgba(14, 165, 233, 0.75)',
+                        'rgba(99, 102, 241, 0.75)',
+                        'rgba(100, 116, 139, 0.75)',
+                    ],
+                    showLegend: true,
+                },
+            ),
+        },
+        top5Revenue: {
+            canvasId: 'top5EventsRevenueChart',
+            render: (targetId) => createBarChart(
+                targetId,
+                top5ByRevenue.map((item) => item.name),
+                top5ByRevenue.map((item) => item.revenue),
+                {
+                    label: 'Revenue (LKR)',
+                    horizontal: true,
+                    color: 'rgba(16, 185, 129, 0.85)',
+                    showLegend: true,
+                },
+            ),
+        },
+        top5Tickets: {
+            canvasId: 'top5EventsTicketsChart',
+            render: (targetId) => createBarChart(
+                targetId,
+                top5ByTickets.map((item) => item.name),
+                top5ByTickets.map((item) => item.tickets_sold),
+                {
+                    label: 'Tickets sold',
+                    horizontal: true,
+                    color: 'rgba(37, 99, 235, 0.85)',
+                    showLegend: true,
+                },
+            ),
+        },
         revenueRanking: {
             canvasId: 'revenueRankingChart',
             render: (targetId) => createBarChart(
                 targetId,
-                rankedByRevenue.map((item) => item.name),
-                rankedByRevenue.map((item) => item.revenue),
+                top5ByRevenue.map((item) => item.name),
+                top5ByRevenue.map((item) => item.revenue),
                 {
                     label: 'Revenue (LKR)',
                     horizontal: true,
@@ -696,8 +781,20 @@ function buildChartSpecs(data) {
                     x: Number(item.fill_rate || 0),
                     y: Number(item.revenue || 0),
                     name: item.name,
+                    tickets: item.tickets_sold,
                 })),
-                { xMax: 100 },
+                {
+                    xMax: 100,
+                    xLabel: 'Fill rate (%)',
+                    yLabel: 'Revenue (LKR)',
+                    formatTooltip: (point) => {
+                        const name = point.name ?? 'Event';
+                        const fill = Number(point.x ?? 0).toLocaleString();
+                        const revenue = Number(point.y ?? 0).toLocaleString();
+                        const tickets = Number(point.tickets ?? 0).toLocaleString();
+                        return `${name}: LKR ${revenue} · ${fill}% fill · ${tickets} tickets`;
+                    },
+                },
             ),
         },
         ticketSalesByEvent: {
@@ -839,6 +936,12 @@ function initOrganizerReports() {
     };
 
     window.addEventListener('resize', resizeCharts);
+    window.addEventListener('organizer-reports-tab-changed', () => {
+        requestAnimationFrame(() => {
+            resizeCharts();
+            setTimeout(resizeCharts, 80);
+        });
+    });
 }
 
 document.addEventListener('DOMContentLoaded', initOrganizerReports);

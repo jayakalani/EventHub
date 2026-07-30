@@ -54,11 +54,23 @@ const defaultFont = {
     size: 12,
 };
 
-function createLineChart(canvasId, labels, datasets) {
+function destroyChartOn(canvasOrId) {
+    const canvas = typeof canvasOrId === 'string'
+        ? document.getElementById(canvasOrId)
+        : canvasOrId;
+    if (!canvas) return;
+    const existing = Chart.getChart(canvas);
+    if (existing) existing.destroy();
+}
+
+function createLineChart(canvasId, labels, datasets, options = {}) {
     const canvas = document.getElementById(canvasId);
     if (!canvas) return null;
+    destroyChartOn(canvas);
 
-    const chart = new Chart(canvas, {
+    const fullscreen = Boolean(options.fullscreen);
+
+    return new Chart(canvas, {
         type: 'line',
         data: { labels, datasets },
         options: {
@@ -68,7 +80,7 @@ function createLineChart(canvasId, labels, datasets) {
             plugins: {
                 legend: {
                     position: 'bottom',
-                    labels: { font: defaultFont, padding: 16, usePointStyle: true },
+                    labels: { font: defaultFont, padding: fullscreen ? 20 : 16, usePointStyle: true },
                 },
                 tooltip: {
                     backgroundColor: 'rgba(15, 23, 42, 0.9)',
@@ -91,17 +103,14 @@ function createLineChart(canvasId, labels, datasets) {
             },
         },
     });
-
-    return chart;
 }
 
 function createBarChart(canvasId, labels, data, options = {}) {
     const canvas = document.getElementById(canvasId);
-    if (!canvas) return null;
+    if (!canvas || !labels.length) return null;
+    destroyChartOn(canvas);
 
-    if (!labels.length) return null;
-
-    const chart = new Chart(canvas, {
+    return new Chart(canvas, {
         type: 'bar',
         data: {
             labels,
@@ -137,26 +146,25 @@ function createBarChart(canvasId, labels, data, options = {}) {
             },
         },
     });
-
-    return chart;
 }
 
-function createDoughnutChart(canvasId, labels, data) {
+function createDoughnutChart(canvasId, labels, data, options = {}) {
     const canvas = document.getElementById(canvasId);
-    if (!canvas) return null;
+    if (!canvas || !labels.length) return null;
+    destroyChartOn(canvas);
 
-    if (!labels.length) return null;
+    const fullscreen = Boolean(options.fullscreen);
 
-    const chart = new Chart(canvas, {
+    return new Chart(canvas, {
         type: 'doughnut',
         data: {
             labels,
             datasets: [{
                 data,
-                backgroundColor: chartColors.slice(0, labels.length),
+                backgroundColor: (options.colors ?? chartColors).slice(0, labels.length),
                 borderWidth: 2,
                 borderColor: '#ffffff',
-                hoverOffset: 8,
+                hoverOffset: fullscreen ? 12 : 8,
             }],
         },
         options: {
@@ -166,13 +174,11 @@ function createDoughnutChart(canvasId, labels, data) {
             plugins: {
                 legend: {
                     position: 'bottom',
-                    labels: { font: defaultFont, padding: 14, usePointStyle: true },
+                    labels: { font: defaultFont, padding: fullscreen ? 18 : 14, usePointStyle: true },
                 },
             },
         },
     });
-
-    return chart;
 }
 
 function initAdminReports() {
@@ -180,168 +186,259 @@ function initAdminReports() {
     if (!data) return;
 
     const { chartLabels } = data;
-    const charts = [];
+    const shortLabels = data.chartLabelsShort ?? chartLabels.map((label) => String(label).split(' ')[0]);
+    const overview = data.overview ?? {};
+    const roleDistribution = overview.userDistribution ?? data.users?.usersByRole ?? [];
+    const revenueTrend = overview.revenueTrend ?? {};
+    const weeklyTickets = overview.ticketSalesWeekly ?? [];
+    const eventsByCategory = overview.eventsByCategory ?? [];
 
-    const register = (chart) => {
-        if (chart) charts.push(chart);
-        return chart;
-    };
+    const categoryColors = [
+        'rgba(79, 70, 229, 0.8)',
+        'rgba(37, 99, 235, 0.8)',
+        'rgba(6, 182, 212, 0.8)',
+        'rgba(16, 185, 129, 0.8)',
+        'rgba(245, 158, 11, 0.8)',
+        'rgba(244, 63, 94, 0.8)',
+        'rgba(147, 51, 234, 0.8)',
+        'rgba(100, 116, 139, 0.8)',
+    ];
 
-    register(createLineChart('adminPlatformGrowthChart', chartLabels, [
-        {
-            label: 'New Users',
-            data: data.admin.platformGrowth,
+    const weekColors = [
+        'rgba(37, 99, 235, 0.75)',
+        'rgba(79, 70, 229, 0.75)',
+        'rgba(6, 182, 212, 0.75)',
+        'rgba(16, 185, 129, 0.75)',
+    ];
+
+    const chartBuilders = {
+        userGrowth: (canvasId, options = {}) => createLineChart(canvasId, shortLabels, [{
+            label: 'New Registrations',
+            data: overview.userGrowth ?? data.users?.registrationTrend ?? [],
             borderColor: palette.indigo,
-            backgroundColor: 'rgba(79, 70, 229, 0.1)',
+            backgroundColor: 'rgba(79, 70, 229, 0.12)',
             fill: true,
             tension: 0.35,
-            pointRadius: 4,
-            pointHoverRadius: 6,
-        },
-        {
-            label: 'New Events',
-            data: data.admin.eventGrowth,
-            borderColor: palette.cyan,
-            backgroundColor: 'rgba(6, 182, 212, 0.1)',
-            fill: true,
-            tension: 0.35,
-            pointRadius: 4,
-            pointHoverRadius: 6,
-        },
-    ]));
+            pointRadius: options.fullscreen ? 6 : 4,
+            pointHoverRadius: options.fullscreen ? 9 : 6,
+            borderWidth: options.fullscreen ? 3 : 2,
+        }], options),
 
-    register(createDoughnutChart(
-        'adminEventsStatusChart',
-        data.admin.eventsByStatus.map((i) => i.label),
-        data.admin.eventsByStatus.map((i) => i.count),
-    ));
+        userDistribution: (canvasId, options = {}) => createDoughnutChart(
+            canvasId,
+            roleDistribution.map((i) => i.label),
+            roleDistribution.map((i) => i.count),
+            options,
+        ),
 
-    register(createBarChart(
-        'adminTopCategoriesChart',
-        data.admin.topCategories.map((i) => i.label),
-        data.admin.topCategories.map((i) => i.count),
-        { label: 'Events' },
-    ));
+        revenueTrend: (canvasId, options = {}) => createLineChart(
+            canvasId,
+            revenueTrend.labels ?? shortLabels,
+            [{
+                label: 'Revenue (LKR)',
+                data: revenueTrend.values ?? data.payments?.revenueTrend ?? [],
+                borderColor: palette.emerald,
+                backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                fill: true,
+                tension: 0.35,
+                pointRadius: options.fullscreen ? 6 : 4,
+                pointHoverRadius: options.fullscreen ? 9 : 6,
+                borderWidth: options.fullscreen ? 3 : 2,
+            }],
+            options,
+        ),
 
-    register(createDoughnutChart(
-        'userRoleChart',
-        data.users.usersByRole.map((i) => i.label),
-        data.users.usersByRole.map((i) => i.count),
-    ));
+        ticketSalesWeekly: (canvasId, options = {}) => createBarChart(
+            canvasId,
+            weeklyTickets.map((item) => item.label),
+            weeklyTickets.map((item) => item.count),
+            { ...options, label: 'Tickets sold', colors: weekColors },
+        ),
 
-    register(createLineChart('userRegistrationChart', chartLabels, [
-        {
+        eventsByCategory: (canvasId, options = {}) => createBarChart(
+            canvasId,
+            eventsByCategory.map((item) => item.label),
+            eventsByCategory.map((item) => item.count),
+            { ...options, label: 'Events', colors: categoryColors },
+        ),
+
+        platformGrowth: (canvasId, options = {}) => createLineChart(canvasId, chartLabels, [
+            {
+                label: 'New Users',
+                data: data.admin.platformGrowth,
+                borderColor: palette.indigo,
+                backgroundColor: 'rgba(79, 70, 229, 0.1)',
+                fill: true,
+                tension: 0.35,
+                pointRadius: options.fullscreen ? 6 : 4,
+                pointHoverRadius: options.fullscreen ? 9 : 6,
+                borderWidth: options.fullscreen ? 3 : 2,
+            },
+            {
+                label: 'New Events',
+                data: data.admin.eventGrowth,
+                borderColor: palette.cyan,
+                backgroundColor: 'rgba(6, 182, 212, 0.1)',
+                fill: true,
+                tension: 0.35,
+                pointRadius: options.fullscreen ? 6 : 4,
+                pointHoverRadius: options.fullscreen ? 9 : 6,
+                borderWidth: options.fullscreen ? 3 : 2,
+            },
+        ], options),
+
+        eventsStatus: (canvasId, options = {}) => createDoughnutChart(
+            canvasId,
+            data.admin.eventsByStatus.map((i) => i.label),
+            data.admin.eventsByStatus.map((i) => i.count),
+            options,
+        ),
+
+        topCategories: (canvasId, options = {}) => createBarChart(
+            canvasId,
+            data.admin.topCategories.map((i) => i.label),
+            data.admin.topCategories.map((i) => i.count),
+            { ...options, label: 'Events' },
+        ),
+
+        userRoles: (canvasId, options = {}) => createDoughnutChart(
+            canvasId,
+            data.users.usersByRole.map((i) => i.label),
+            data.users.usersByRole.map((i) => i.count),
+            options,
+        ),
+
+        userRegistration: (canvasId, options = {}) => createLineChart(canvasId, chartLabels, [{
             label: 'Registrations',
             data: data.users.registrationTrend,
             borderColor: palette.blue,
             backgroundColor: 'rgba(37, 99, 235, 0.1)',
             fill: true,
             tension: 0.35,
-            pointRadius: 4,
-            pointHoverRadius: 6,
-        },
-    ]));
+            pointRadius: options.fullscreen ? 6 : 4,
+            pointHoverRadius: options.fullscreen ? 9 : 6,
+            borderWidth: options.fullscreen ? 3 : 2,
+        }], options),
 
-    register(createBarChart(
-        'userStatusChart',
-        ['Active', 'Inactive', 'Verified', 'Unverified', 'Locked'],
-        [
-            data.users.activeUsers,
-            data.users.inactiveUsers,
-            data.users.verifiedUsers,
-            data.users.unverifiedUsers,
-            data.users.lockedUsers,
-        ],
-        {
-            label: 'Users',
-            colors: [
-                'rgba(16, 185, 129, 0.75)',
-                'rgba(100, 116, 139, 0.75)',
-                'rgba(37, 99, 235, 0.75)',
-                'rgba(245, 158, 11, 0.75)',
-                'rgba(244, 63, 94, 0.75)',
+        userStatus: (canvasId, options = {}) => createBarChart(
+            canvasId,
+            ['Active', 'Inactive', 'Verified', 'Unverified', 'Locked'],
+            [
+                data.users.activeUsers,
+                data.users.inactiveUsers,
+                data.users.verifiedUsers,
+                data.users.unverifiedUsers,
+                data.users.lockedUsers,
             ],
-        },
-    ));
+            {
+                ...options,
+                label: 'Users',
+                colors: [
+                    'rgba(16, 185, 129, 0.75)',
+                    'rgba(100, 116, 139, 0.75)',
+                    'rgba(37, 99, 235, 0.75)',
+                    'rgba(245, 158, 11, 0.75)',
+                    'rgba(244, 63, 94, 0.75)',
+                ],
+            },
+        ),
 
-    register(createLineChart('paymentRevenueChart', chartLabels, [
-        {
+        paymentRevenue: (canvasId, options = {}) => createLineChart(canvasId, chartLabels, [{
             label: 'Revenue (LKR)',
             data: data.payments.revenueTrend,
             borderColor: palette.emerald,
             backgroundColor: 'rgba(16, 185, 129, 0.1)',
             fill: true,
             tension: 0.35,
-            pointRadius: 4,
-            pointHoverRadius: 6,
-        },
-    ]));
+            pointRadius: options.fullscreen ? 6 : 4,
+            pointHoverRadius: options.fullscreen ? 9 : 6,
+            borderWidth: options.fullscreen ? 3 : 2,
+        }], options),
 
-    register(createDoughnutChart(
-        'paymentStatusChart',
-        data.payments.paymentsByStatus.map((i) => i.label),
-        data.payments.paymentsByStatus.map((i) => i.count),
-    ));
+        paymentStatus: (canvasId, options = {}) => createDoughnutChart(
+            canvasId,
+            data.payments.paymentsByStatus.map((i) => i.label),
+            data.payments.paymentsByStatus.map((i) => i.count),
+            options,
+        ),
 
-    register(createDoughnutChart(
-        'paymentMethodChart',
-        data.payments.paymentsByMethod.map((i) => i.label),
-        data.payments.paymentsByMethod.map((i) => i.count),
-    ));
+        paymentMethod: (canvasId, options = {}) => createDoughnutChart(
+            canvasId,
+            data.payments.paymentsByMethod.map((i) => i.label),
+            data.payments.paymentsByMethod.map((i) => i.count),
+            options,
+        ),
 
-    register(createLineChart('systemActivityChart', chartLabels, [
-        {
+        systemActivity: (canvasId, options = {}) => createLineChart(canvasId, chartLabels, [{
             label: 'Audit Log Entries',
             data: data.system.activityTrend,
             borderColor: palette.purple,
             backgroundColor: 'rgba(147, 51, 234, 0.1)',
             fill: true,
             tension: 0.35,
-            pointRadius: 4,
-            pointHoverRadius: 6,
-        },
-    ]));
+            pointRadius: options.fullscreen ? 6 : 4,
+            pointHoverRadius: options.fullscreen ? 9 : 6,
+            borderWidth: options.fullscreen ? 3 : 2,
+        }], options),
 
-    register(createBarChart(
-        'systemAuditActionChart',
-        data.system.auditByAction.map((i) => i.label),
-        data.system.auditByAction.map((i) => i.count),
-        { label: 'Actions' },
-    ));
+        systemAuditActions: (canvasId, options = {}) => createBarChart(
+            canvasId,
+            data.system.auditByAction.map((i) => i.label),
+            data.system.auditByAction.map((i) => i.count),
+            { ...options, label: 'Actions' },
+        ),
+    };
 
-    register(createLineChart('overviewRevenueChart', chartLabels, [{
-        label: 'Revenue (LKR)',
-        data: data.payments.revenueTrend,
-        borderColor: palette.emerald,
-        backgroundColor: 'rgba(16, 185, 129, 0.15)',
-        fill: true,
-        tension: 0.4,
-        pointRadius: 5,
-        pointHoverRadius: 8,
-    }]));
+    const cardTargets = {
+        userGrowth: 'adminOverviewUserGrowthChart',
+        userDistribution: 'adminOverviewUserDistributionChart',
+        revenueTrend: 'adminOverviewRevenueTrendChart',
+        ticketSalesWeekly: 'adminOverviewTicketSalesChart',
+        eventsByCategory: 'adminOverviewEventsByCategoryChart',
+        platformGrowth: 'adminPlatformGrowthChart',
+        eventsStatus: 'adminEventsStatusChart',
+        topCategories: 'adminTopCategoriesChart',
+        userRoles: 'userRoleChart',
+        userRegistration: 'userRegistrationChart',
+        userStatus: 'userStatusChart',
+        paymentRevenue: 'paymentRevenueChart',
+        paymentStatus: 'paymentStatusChart',
+        paymentMethod: 'paymentMethodChart',
+        systemActivity: 'systemActivityChart',
+        systemAuditActions: 'systemAuditActionChart',
+    };
 
-    register(createBarChart(
-        'overviewTicketSalesChart',
-        chartLabels,
-        data.admin.ticketSalesTrend ?? [],
-        {
-            label: 'Tickets Sold',
-            colors: chartColors.map((c) => c.replace('rgb', 'rgba').replace(')', ', 0.8)')),
-        },
-    ));
+    const chartInstances = Object.entries(cardTargets)
+        .map(([key, canvasId]) => chartBuilders[key]?.(canvasId))
+        .filter(Boolean);
 
-    register(createLineChart('overviewUserRegChart', chartLabels, [{
-        label: 'Registrations',
-        data: data.users.registrationTrend,
-        borderColor: palette.indigo,
-        backgroundColor: 'rgba(79, 70, 229, 0.15)',
-        fill: true,
-        tension: 0.4,
-        pointRadius: 5,
-        pointHoverRadius: 8,
-    }]));
+    let fullscreenChart = null;
 
-    const resizeCharts = () => charts.forEach((chart) => chart.resize());
+    function destroyFullscreenChart() {
+        if (fullscreenChart) {
+            fullscreenChart.destroy();
+            fullscreenChart = null;
+        }
+        destroyChartOn('adminReportsChartFullscreen');
+    }
+
+    window.addEventListener('admin-reports-chart-expand', (event) => {
+        const key = event.detail?.key;
+        const builder = chartBuilders[key];
+        if (!builder) return;
+
+        destroyFullscreenChart();
+        requestAnimationFrame(() => {
+            fullscreenChart = builder('adminReportsChartFullscreen', { fullscreen: true });
+        });
+    });
+
+    window.addEventListener('admin-reports-chart-collapse', destroyFullscreenChart);
+
+    const resizeCharts = () => {
+        chartInstances.forEach((chart) => chart.resize());
+        if (fullscreenChart) fullscreenChart.resize();
+    };
 
     window.addEventListener('admin-reports-tab-changed', resizeCharts);
     window.addEventListener('resize', resizeCharts);

@@ -3,6 +3,10 @@
         $stats = $dashboard['stats'];
         $todaySummary = $dashboard['todaySummary'];
         $kpis = $dashboard['kpis'];
+        $kpiFilter = $dashboard['kpiFilter'] ?? ['selectedEventId' => null, 'selectedEventName' => null, 'events' => []];
+        $chartFilter = $dashboard['chartFilter'] ?? ['selectedEventId' => null, 'selectedEventName' => null, 'events' => []];
+        $engagement = $dashboard['engagement'];
+        $engagementFilter = $engagement['filter'] ?? ['selectedEventId' => null, 'selectedEventName' => null, 'events' => $chartFilter['events'] ?? []];
         $revenueGoal = $dashboard['revenueGoal'];
         $statusSummary = $dashboard['statusSummary'];
         $performance = $dashboard['performance'];
@@ -10,7 +14,6 @@
         $nextUpcomingEvent = $dashboard['nextUpcomingEvent'] ?? null;
         $recentPurchases = $dashboard['recentPurchases'];
         $recentActivity = $dashboard['recentActivity'];
-        $engagement = $dashboard['engagement'];
         $totalEvents = max(1, $stats['totalEvents']);
         $user = Auth::user();
         $hour = (int) now()->format('G');
@@ -19,7 +22,7 @@
         $initials = strtoupper(substr($user?->first_name ?? 'O', 0, 1) . substr($user?->last_name ?? '', 0, 1));
     @endphp
 
-    <div class="py-5 sm:py-6"
+    <div class="organizer-dashboard relative isolate overflow-hidden py-5 sm:py-6"
         x-data="{
             open: false,
             chartKey: null,
@@ -53,10 +56,18 @@
         }"
         @keydown.escape.window="if (open) closeChart()">
 
-        <div class="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
+        <div class="pointer-events-none absolute inset-0 -z-10">
+            <div class="absolute inset-0 bg-gradient-to-br from-slate-100 via-indigo-50/45 to-cyan-50/55"></div>
+            <div class="absolute -left-24 top-8 h-72 w-72 rounded-full bg-indigo-300/25 blur-3xl"></div>
+            <div class="absolute right-0 top-36 h-80 w-80 rounded-full bg-cyan-300/20 blur-3xl"></div>
+            <div class="absolute bottom-24 left-1/3 h-64 w-64 rounded-full bg-emerald-300/15 blur-3xl"></div>
+            <div class="absolute inset-0 bg-grid-slate-100 opacity-50"></div>
+        </div>
+
+        <div class="mx-auto max-w-7xl space-y-5 px-4 sm:px-6 lg:px-8">
 
             @if (session('success'))
-                <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800 shadow-sm"
+                <div class="glass-card !rounded-xl border-emerald-200/80 bg-emerald-50/70 px-4 py-3 text-sm font-medium text-emerald-800"
                     x-data="{ show: true }"
                     x-show="show"
                     x-init="setTimeout(() => show = false, 5000)"
@@ -68,10 +79,11 @@
                 </div>
             @endif
 
-            {{-- Intro --}}
-            <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                <div class="relative bg-gradient-to-br from-slate-50 via-white to-indigo-50/70 px-4 py-4 sm:px-6 sm:py-5">
-                    <div class="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-indigo-100/40"></div>
+            {{-- 1. Hero --}}
+            <section class="glass-panel overflow-hidden !rounded-2xl">
+                <div class="relative px-4 py-4 sm:px-6 sm:py-5">
+                    <div class="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-indigo-200/35 blur-2xl"></div>
+                    <div class="pointer-events-none absolute -bottom-12 left-1/4 h-28 w-28 rounded-full bg-cyan-200/30 blur-2xl"></div>
 
                     <div class="relative flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div class="min-w-0">
@@ -79,15 +91,15 @@
                                 @if ($user?->profile_photo)
                                     <img src="{{ asset('uploads/users-profile-photos/' . $user->profile_photo) }}"
                                         alt="{{ $displayName }}"
-                                        class="h-9 w-9 rounded-full object-cover ring-2 ring-white shadow-sm sm:h-10 sm:w-10">
+                                        class="h-9 w-9 rounded-full object-cover ring-2 ring-white/80 shadow-sm sm:h-10 sm:w-10">
                                 @else
-                                    <div class="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-600 text-xs font-bold text-white shadow-sm ring-2 ring-white sm:h-10 sm:w-10 sm:text-sm">
+                                    <div class="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-600/90 text-xs font-bold text-white shadow-sm ring-2 ring-white/70 sm:h-10 sm:w-10 sm:text-sm">
                                         {{ $initials }}
                                     </div>
                                 @endif
                                 <div class="min-w-0">
                                     <p class="truncate text-sm font-semibold text-slate-700">
-                                        {{ $greeting }}, {{ $displayName }} <span aria-hidden="true">👋</span>
+                                        {{ $greeting }}, {{ $displayName }}
                                     </p>
                                     <h1 class="truncate text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
                                         Organizer Dashboard
@@ -95,34 +107,33 @@
                                 </div>
                             </div>
                             <p class="mt-1.5 hidden text-sm text-slate-500 sm:block">
-                                Manage events, ticket sales, and revenue in one place.
+                                Events, ticket sales, and revenue · {{ now()->format('l, M j, Y') }}
                             </p>
                         </div>
 
                         <div class="flex flex-wrap gap-2 sm:shrink-0 sm:justify-end">
                             <a href="{{ route('organizer.events.create') }}"
-                                class="btn-smooth inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 sm:text-sm">
+                                class="btn-smooth inline-flex items-center gap-1.5 rounded-lg bg-indigo-600/95 px-3 py-2 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 hover:shadow-md sm:text-sm">
                                 <i class="bi bi-plus-lg"></i>
                                 New Event
                             </a>
                             <a href="{{ route('organizer.reports') }}"
-                                class="btn-smooth inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 sm:text-sm">
+                                class="btn-smooth inline-flex items-center gap-1.5 rounded-lg border border-white/70 bg-white/50 px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm hover:border-indigo-200 hover:bg-white/80 sm:text-sm">
                                 <i class="bi bi-graph-up-arrow"></i>
                                 Reports
                             </a>
                         </div>
                     </div>
 
-                    {{-- Today's Summary --}}
-                    <div class="relative mt-3 flex flex-col gap-2 rounded-xl border border-indigo-100/80 bg-white/80 px-3 py-2.5 sm:flex-row sm:items-center sm:gap-4 sm:px-4">
-                        <div class="shrink-0 sm:border-r sm:border-slate-200/80 sm:pr-4">
+                    <div class="relative mt-3 flex flex-col gap-2 rounded-xl border border-white/70 bg-white/45 px-3 py-2.5 shadow-sm backdrop-blur-md sm:flex-row sm:items-center sm:gap-4 sm:px-4">
+                        <div class="shrink-0 sm:border-r sm:border-slate-200/60 sm:pr-4">
                             <p class="text-[11px] font-semibold uppercase tracking-wide text-indigo-600">Today</p>
                             <p class="text-xs text-slate-500">{{ now()->format('D, M j') }}</p>
                         </div>
 
                         <div class="grid min-w-0 flex-1 grid-cols-3 gap-2">
-                            <div class="flex items-center gap-2 rounded-lg bg-indigo-50/70 px-2 py-1.5 sm:px-2.5">
-                                <span class="hidden h-7 w-7 items-center justify-center rounded-md bg-indigo-100 text-sm text-indigo-600 sm:flex">
+                            <div class="btn-smooth flex items-center gap-2 rounded-lg border border-white/50 bg-indigo-50/60 px-2 py-1.5 backdrop-blur-sm hover:-translate-y-0.5 hover:bg-white/70 sm:px-2.5">
+                                <span class="hidden h-7 w-7 items-center justify-center rounded-md bg-indigo-100/80 text-sm text-indigo-600 sm:flex">
                                     <i class="bi bi-calendar-event"></i>
                                 </span>
                                 <div class="min-w-0">
@@ -130,8 +141,8 @@
                                     <p class="truncate text-[10px] font-medium text-slate-500 sm:text-xs">Events</p>
                                 </div>
                             </div>
-                            <div class="flex items-center gap-2 rounded-lg bg-blue-50/70 px-2 py-1.5 sm:px-2.5">
-                                <span class="hidden h-7 w-7 items-center justify-center rounded-md bg-blue-100 text-sm text-blue-600 sm:flex">
+                            <div class="btn-smooth flex items-center gap-2 rounded-lg border border-white/50 bg-blue-50/60 px-2 py-1.5 backdrop-blur-sm hover:-translate-y-0.5 hover:bg-white/70 sm:px-2.5">
+                                <span class="hidden h-7 w-7 items-center justify-center rounded-md bg-blue-100/80 text-sm text-blue-600 sm:flex">
                                     <i class="bi bi-ticket-perforated"></i>
                                 </span>
                                 <div class="min-w-0">
@@ -139,8 +150,8 @@
                                     <p class="truncate text-[10px] font-medium text-slate-500 sm:text-xs">Tickets</p>
                                 </div>
                             </div>
-                            <div class="flex items-center gap-2 rounded-lg bg-emerald-50/70 px-2 py-1.5 sm:px-2.5">
-                                <span class="hidden h-7 w-7 items-center justify-center rounded-md bg-emerald-100 text-sm text-emerald-600 sm:flex">
+                            <div class="btn-smooth flex items-center gap-2 rounded-lg border border-white/50 bg-emerald-50/60 px-2 py-1.5 backdrop-blur-sm hover:-translate-y-0.5 hover:bg-white/70 sm:px-2.5">
+                                <span class="hidden h-7 w-7 items-center justify-center rounded-md bg-emerald-100/80 text-sm text-emerald-600 sm:flex">
                                     <i class="bi bi-cash-stack"></i>
                                 </span>
                                 <div class="min-w-0">
@@ -151,7 +162,6 @@
                         </div>
                     </div>
 
-                    {{-- Compact shortcuts --}}
                     <div class="relative mt-3 flex flex-wrap gap-1.5">
                         @foreach ([
                             ['label' => 'Manage Events', 'route' => route('organizer.events.index'), 'icon' => 'bi-calendar-event'],
@@ -160,7 +170,7 @@
                             ['label' => 'Attendees', 'route' => route('organizer.reports', ['tab' => 'attendees']), 'icon' => 'bi-people'],
                         ] as $shortcut)
                             <a href="{{ $shortcut['route'] }}"
-                                class="btn-smooth inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white/80 px-2.5 py-1 text-[11px] font-semibold text-slate-600 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700">
+                                class="btn-smooth inline-flex items-center gap-1.5 rounded-full border border-white/70 bg-white/50 px-2.5 py-1 text-[11px] font-semibold text-slate-600 backdrop-blur-sm hover:-translate-y-0.5 hover:border-indigo-200 hover:bg-white/80 hover:text-indigo-700 hover:shadow-sm">
                                 <i class="bi {{ $shortcut['icon'] }}"></i>
                                 {{ $shortcut['label'] }}
                             </a>
@@ -169,105 +179,174 @@
                 </div>
             </section>
 
-            {{-- KPI strip --}}
-            <section class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                @foreach ($kpis as $kpi)
-                    @php
-                        $accent = match ($kpi['accent']) {
-                            'emerald' => [
-                                'top' => 'border-t-emerald-500',
-                                'left' => 'border-l-emerald-500',
-                                'iconBg' => 'bg-emerald-100/70',
-                                'iconText' => 'text-emerald-600',
-                                'cardBg' => 'bg-emerald-50/40',
-                            ],
-                            'indigo' => [
-                                'top' => 'border-t-indigo-500',
-                                'left' => 'border-l-indigo-500',
-                                'iconBg' => 'bg-indigo-100/70',
-                                'iconText' => 'text-indigo-600',
-                                'cardBg' => 'bg-indigo-50/40',
-                            ],
-                            'blue' => [
-                                'top' => 'border-t-blue-500',
-                                'left' => 'border-l-blue-500',
-                                'iconBg' => 'bg-blue-100/70',
-                                'iconText' => 'text-blue-600',
-                                'cardBg' => 'bg-blue-50/40',
-                            ],
-                            'rose' => [
-                                'top' => 'border-t-rose-500',
-                                'left' => 'border-l-rose-500',
-                                'iconBg' => 'bg-rose-100/70',
-                                'iconText' => 'text-rose-600',
-                                'cardBg' => 'bg-rose-50/40',
-                            ],
-                            default => [
-                                'top' => 'border-t-slate-400',
-                                'left' => 'border-l-slate-400',
-                                'iconBg' => 'bg-slate-100/70',
-                                'iconText' => 'text-slate-600',
-                                'cardBg' => 'bg-slate-50/40',
-                            ],
-                        };
-                        $trendPositive = $kpi['trendUp'];
-                        $trendClass = $trendPositive ? 'text-emerald-600' : 'text-rose-600';
-                        $trendArrow = $trendPositive ? '▲' : '▼';
-                    @endphp
-
-                    <div class="group kpi-lift rounded-xl border border-slate-200/80 border-t-[3px] {{ $accent['top'] }} border-l-[3px] {{ $accent['left'] }} {{ $accent['cardBg'] }} px-4 py-3.5 shadow-sm">
-                        <div class="flex items-start justify-between gap-2">
-                            <div class="min-w-0">
-                                <p class="text-xs font-medium text-slate-500">
-                                    <span aria-hidden="true">{{ $kpi['emoji'] }}</span>
-                                    {{ $kpi['label'] }}
-                                </p>
-                                <p class="mt-1 truncate text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
-                                    {{ $kpi['value'] }}
-                                </p>
-                            </div>
-                            <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg {{ $accent['iconBg'] }} transition-transform duration-300 ease-out group-hover:scale-110">
-                                <i class="bi {{ $kpi['icon'] }} {{ $accent['iconText'] }}"></i>
-                            </div>
-                        </div>
-
-                        <p class="mt-2 text-xs text-slate-500">
-                            {{ $kpi['trendHint'] }}
-                            <span class="ml-1 font-bold {{ $trendClass }}">
-                                <span aria-hidden="true">{{ $trendArrow }}</span>{{ $kpi['trendLabel'] }}
-                            </span>
+            {{-- 2. KPI snapshot --}}
+            <section class="space-y-3">
+                <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                    <div class="min-w-0">
+                        <h2 class="text-sm font-semibold text-slate-900">Performance snapshot</h2>
+                        <p class="text-xs text-slate-500">
+                            @if ($kpiFilter['selectedEventId'])
+                                Whole-event totals for
+                                <span class="font-semibold text-slate-700">{{ $kpiFilter['selectedEventName'] }}</span>
+                            @else
+                                All-events monthly overview
+                            @endif
                         </p>
                     </div>
-                @endforeach
+
+                    <form method="GET" action="{{ route('organizer.dashboard') }}" class="sm:w-72">
+                        @if (request()->filled('goal_event'))
+                            <input type="hidden" name="goal_event" value="{{ request('goal_event') }}">
+                        @endif
+                        @if (request()->filled('chart_event'))
+                            <input type="hidden" name="chart_event" value="{{ request('chart_event') }}">
+                        @endif
+                        @if (request()->filled('engagement_event'))
+                            <input type="hidden" name="engagement_event" value="{{ request('engagement_event') }}">
+                        @endif
+                        <label for="kpi_event" class="sr-only">Filter KPIs by event</label>
+                        <select
+                            id="kpi_event"
+                            name="kpi_event"
+                            onchange="this.form.submit()"
+                            class="block w-full rounded-xl border-white/70 bg-white/60 text-sm font-medium text-slate-700 shadow-sm backdrop-blur-md focus:border-indigo-500 focus:ring-indigo-500"
+                        >
+                            <option value="">All Events</option>
+                            @foreach ($kpiFilter['events'] as $eventOption)
+                                <option value="{{ $eventOption['id'] }}"
+                                    @selected((int) ($kpiFilter['selectedEventId'] ?? 0) === (int) $eventOption['id'])>
+                                    {{ $eventOption['name'] }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </form>
+                </div>
+
+                <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                    @foreach ($kpis as $kpi)
+                        @php
+                            $accent = match ($kpi['accent']) {
+                                'emerald' => [
+                                    'top' => 'border-t-emerald-500',
+                                    'iconBg' => 'bg-emerald-100/70',
+                                    'iconText' => 'text-emerald-600',
+                                ],
+                                'indigo' => [
+                                    'top' => 'border-t-indigo-500',
+                                    'iconBg' => 'bg-indigo-100/70',
+                                    'iconText' => 'text-indigo-600',
+                                ],
+                                'blue' => [
+                                    'top' => 'border-t-blue-500',
+                                    'iconBg' => 'bg-blue-100/70',
+                                    'iconText' => 'text-blue-600',
+                                ],
+                                'rose' => [
+                                    'top' => 'border-t-rose-500',
+                                    'iconBg' => 'bg-rose-100/70',
+                                    'iconText' => 'text-rose-600',
+                                ],
+                                default => [
+                                    'top' => 'border-t-slate-400',
+                                    'iconBg' => 'bg-slate-100/70',
+                                    'iconText' => 'text-slate-600',
+                                ],
+                            };
+                            $showTrend = $kpi['showTrend'] ?? true;
+                            $trendPositive = $kpi['trendUp'];
+                            $trendClass = $trendPositive ? 'text-emerald-600' : 'text-rose-600';
+                            $trendArrow = $trendPositive ? '▲' : '▼';
+                        @endphp
+
+                        <div class="glass-card kpi-lift group border-t-4 {{ $accent['top'] }} p-4 sm:p-5">
+                            <div class="flex items-start justify-between gap-2">
+                                <div class="min-w-0">
+                                    <p class="text-xs font-medium text-slate-500">
+                                        <span aria-hidden="true">{{ $kpi['emoji'] }}</span>
+                                        {{ $kpi['label'] }}
+                                    </p>
+                                    <p class="mt-1 truncate text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
+                                        {{ $kpi['value'] }}
+                                    </p>
+                                </div>
+                                <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg {{ $accent['iconBg'] }} transition-transform duration-300 ease-out group-hover:scale-110">
+                                    <i class="bi {{ $kpi['icon'] }} {{ $accent['iconText'] }}"></i>
+                                </div>
+                            </div>
+
+                            <p class="mt-2 text-xs text-slate-500">
+                                {{ $kpi['trendHint'] }}
+                                @if ($showTrend && filled($kpi['trendLabel']))
+                                    <span class="ml-1 font-bold {{ $trendClass }}">
+                                        @if ($kpiFilter['selectedEventId'])
+                                            {{ $kpi['trendLabel'] }}
+                                        @else
+                                            <span aria-hidden="true">{{ $trendArrow }}</span>{{ $kpi['trendLabel'] }}
+                                        @endif
+                                    </span>
+                                @endif
+                            </p>
+                        </div>
+                    @endforeach
+                </div>
             </section>
 
-            {{-- Revenue Goal --}}
-            <section class="overflow-hidden rounded-3xl border border-emerald-100 bg-gradient-to-r from-emerald-50 via-white to-cyan-50 p-5 shadow-sm sm:p-6"
-                x-data="{ editing: {{ $errors->has('monthly_revenue_goal') ? 'true' : 'false' }} }">
-                <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            {{-- 3. Revenue Goal --}}
+            <section class="glass-panel overflow-hidden p-5 sm:p-6"
+                x-data="{ editing: {{ $errors->has('revenue_goal') || $errors->has('monthly_revenue_goal') ? 'true' : 'false' }} }">
+                <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     <div class="min-w-0">
                         <div class="flex flex-wrap items-center gap-2">
                             <h2 class="text-lg font-bold text-slate-900">Revenue Goal</h2>
-                            <span class="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">
-                                {{ $revenueGoal['month_label'] }}
+                            <span class="rounded-full border border-emerald-200/70 bg-emerald-100/80 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 backdrop-blur-sm">
+                                {{ $revenueGoal['label'] ?? $revenueGoal['month_label'] ?? now()->format('F Y') }}
                             </span>
                             @if($revenueGoal['achieved'])
-                                <span class="rounded-full bg-emerald-600 px-2.5 py-0.5 text-xs font-semibold text-white">
+                                <span class="rounded-full bg-emerald-600 px-2.5 py-0.5 text-xs font-semibold text-white shadow-sm">
                                     Goal reached
                                 </span>
                             @endif
                         </div>
                         <p class="mt-1 text-sm text-slate-500">
-                            Track progress toward your monthly sales target.
+                            {{ $revenueGoal['description'] ?? 'Track progress toward your monthly sales target.' }}
                         </p>
                     </div>
 
-                    <button type="button"
-                        @click="editing = !editing"
-                        class="btn-smooth inline-flex items-center gap-1.5 self-start rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50">
-                        <i class="bi bi-bullseye"></i>
-                        <span x-text="editing ? 'Cancel' : 'Set Goal'"></span>
-                    </button>
+                    <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+                        <form method="GET" action="{{ route('organizer.dashboard') }}" class="sm:w-64">
+                            @if (request()->filled('kpi_event'))
+                                <input type="hidden" name="kpi_event" value="{{ request('kpi_event') }}">
+                            @endif
+                            @if (request()->filled('chart_event'))
+                                <input type="hidden" name="chart_event" value="{{ request('chart_event') }}">
+                            @endif
+                            @if (request()->filled('engagement_event'))
+                                <input type="hidden" name="engagement_event" value="{{ request('engagement_event') }}">
+                            @endif
+                            <label for="goal_event" class="sr-only">Filter revenue goal by event</label>
+                            <select
+                                id="goal_event"
+                                name="goal_event"
+                                onchange="this.form.submit()"
+                                class="block w-full rounded-xl border-white/70 bg-white/60 text-sm font-medium text-slate-700 shadow-sm backdrop-blur-md focus:border-emerald-500 focus:ring-emerald-500"
+                            >
+                                <option value="">All Events</option>
+                                @foreach (($revenueGoal['events'] ?? []) as $eventOption)
+                                    <option value="{{ $eventOption['id'] }}"
+                                        @selected((int) ($revenueGoal['selectedEventId'] ?? 0) === (int) $eventOption['id'])>
+                                        {{ $eventOption['name'] }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </form>
+
+                        <button type="button"
+                            @click="editing = !editing"
+                            class="btn-smooth inline-flex items-center justify-center gap-1.5 rounded-xl border border-white/70 bg-white/55 px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-sm backdrop-blur-sm hover:border-emerald-200 hover:bg-white/80">
+                            <i class="bi bi-bullseye"></i>
+                            <span x-text="editing ? 'Cancel' : 'Set Goal'"></span>
+                        </button>
+                    </div>
                 </div>
 
                 <div class="mt-5 grid gap-4 lg:grid-cols-12 lg:items-end">
@@ -285,13 +364,13 @@
                                 {{ $revenueGoal['progress'] }}%
                             </p>
                         </div>
-                        <div class="h-3 overflow-hidden rounded-full bg-white/80 ring-1 ring-emerald-100">
+                        <div class="h-3 overflow-hidden rounded-full bg-white/70 ring-1 ring-emerald-100/80">
                             <div class="progress-fill h-full rounded-full bg-gradient-to-r from-emerald-500 to-cyan-500"
                                 style="--progress: {{ $revenueGoal['progress'] }}%; --progress-delay: 120ms"></div>
                         </div>
                         <p class="mt-2 text-xs text-slate-500">
                             @if($revenueGoal['achieved'])
-                                You've hit this month's target. Great work!
+                                You've hit this {{ ($revenueGoal['mode'] ?? 'monthly') === 'event' ? 'event' : "month's" }} target. Great work!
                             @else
                                 LKR {{ number_format($revenueGoal['remaining'], 0) }} remaining to reach your goal.
                             @endif
@@ -299,25 +378,40 @@
                     </div>
 
                     <div class="lg:col-span-4" x-show="editing" x-cloak x-transition>
-                        <form method="POST" action="{{ route('organizer.revenue-goal.update') }}" class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                        <form method="POST" action="{{ route('organizer.revenue-goal.update') }}" class="rounded-2xl border border-white/70 bg-white/70 p-4 shadow-sm backdrop-blur-md">
                             @csrf
                             @method('PUT')
-                            <label for="monthly_revenue_goal" class="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                                Monthly goal (LKR)
+                            @if (request()->filled('kpi_event'))
+                                <input type="hidden" name="kpi_event" value="{{ request('kpi_event') }}">
+                            @endif
+                            @if (request()->filled('chart_event'))
+                                <input type="hidden" name="chart_event" value="{{ request('chart_event') }}">
+                            @endif
+                            @if (request()->filled('engagement_event'))
+                                <input type="hidden" name="engagement_event" value="{{ request('engagement_event') }}">
+                            @endif
+                            @if (! empty($revenueGoal['selectedEventId']))
+                                <input type="hidden" name="goal_event" value="{{ $revenueGoal['selectedEventId'] }}">
+                            @endif
+                            <label for="revenue_goal" class="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                {{ ($revenueGoal['mode'] ?? 'monthly') === 'event' ? 'Event goal (LKR)' : 'Monthly goal (LKR)' }}
                             </label>
-                            <input id="monthly_revenue_goal"
+                            <input id="revenue_goal"
                                 type="number"
-                                name="monthly_revenue_goal"
+                                name="revenue_goal"
                                 min="1000"
                                 step="1000"
-                                value="{{ old('monthly_revenue_goal', (int) $revenueGoal['goal']) }}"
-                                class="mt-2 w-full rounded-xl border-slate-300 text-sm focus:border-emerald-500 focus:ring-emerald-500"
+                                value="{{ old('revenue_goal', old('monthly_revenue_goal', (int) $revenueGoal['goal'])) }}"
+                                class="mt-2 w-full rounded-xl border-slate-300/80 bg-white/80 text-sm focus:border-emerald-500 focus:ring-emerald-500"
                                 required>
+                            @error('revenue_goal')
+                                <p class="mt-1 text-xs text-rose-600">{{ $message }}</p>
+                            @enderror
                             @error('monthly_revenue_goal')
                                 <p class="mt-1 text-xs text-rose-600">{{ $message }}</p>
                             @enderror
                             <button type="submit"
-                                class="btn-smooth mt-3 inline-flex w-full items-center justify-center rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700">
+                                class="btn-smooth mt-3 inline-flex w-full items-center justify-center rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 hover:shadow-md">
                                 Save Goal
                             </button>
                         </form>
@@ -325,16 +419,50 @@
                 </div>
             </section>
 
-            {{-- Analytics charts --}}
-            <section class="rounded-3xl border border-indigo-100 bg-gradient-to-br from-indigo-50/80 via-white to-cyan-50/60 p-5 shadow-sm sm:p-6">
+            {{-- 4. Analytics --}}
+            <section class="glass-panel p-5 sm:p-6">
                 <div class="mb-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                     <div>
                         <h2 class="text-lg font-bold text-slate-900">Analytics</h2>
-                        <p class="text-sm text-slate-500">Click a chart to open fullscreen</p>
+                        <p class="text-sm text-slate-500">
+                            @if ($chartFilter['selectedEventId'])
+                                Event analytics for
+                                <span class="font-semibold text-slate-700">{{ $chartFilter['selectedEventName'] }}</span>
+                            @else
+                                Click a chart to open fullscreen
+                            @endif
+                        </p>
                     </div>
 
-                    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-                        <div class="inline-flex rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
+                    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-3">
+                        <form method="GET" action="{{ route('organizer.dashboard') }}" class="sm:w-60">
+                            @if (request()->filled('kpi_event'))
+                                <input type="hidden" name="kpi_event" value="{{ request('kpi_event') }}">
+                            @endif
+                            @if (request()->filled('goal_event'))
+                                <input type="hidden" name="goal_event" value="{{ request('goal_event') }}">
+                            @endif
+                            @if (request()->filled('engagement_event'))
+                                <input type="hidden" name="engagement_event" value="{{ request('engagement_event') }}">
+                            @endif
+                            <label for="chart_event" class="sr-only">Filter analytics by event</label>
+                            <select
+                                id="chart_event"
+                                name="chart_event"
+                                onchange="this.form.submit()"
+                                class="block w-full rounded-xl border-white/70 bg-white/60 text-sm font-medium text-slate-700 shadow-sm backdrop-blur-md focus:border-indigo-500 focus:ring-indigo-500"
+                            >
+                                <option value="">All Events</option>
+                                @foreach ($chartFilter['events'] as $eventOption)
+                                    <option value="{{ $eventOption['id'] }}"
+                                        @selected((int) ($chartFilter['selectedEventId'] ?? 0) === (int) $eventOption['id'])>
+                                        {{ $eventOption['name'] }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </form>
+
+                        <div class="inline-flex rounded-xl border border-white/70 bg-white/55 p-1 shadow-sm backdrop-blur-md">
                             @foreach ([
                                 'week' => 'This Week',
                                 'month' => 'This Month',
@@ -344,7 +472,7 @@
                                     @click="setChartPeriod('{{ $key }}')"
                                     :class="chartPeriod === '{{ $key }}'
                                         ? 'bg-indigo-600 text-white shadow-sm'
-                                        : 'text-slate-600 hover:bg-slate-50'"
+                                        : 'text-slate-600 hover:bg-white/80'"
                                     class="btn-smooth rounded-lg px-3 py-1.5 text-xs font-semibold sm:px-3.5 sm:text-sm">
                                     {{ $label }}
                                 </button>
@@ -352,8 +480,8 @@
                         </div>
 
                         <a href="{{ route('organizer.reports') }}"
-                            class="text-sm font-semibold text-indigo-600 hover:text-indigo-700">
-                            Open full reports →
+                            class="btn-smooth text-sm font-semibold text-indigo-600 hover:text-indigo-700">
+                            Full reports →
                         </a>
                     </div>
                 </div>
@@ -366,8 +494,7 @@
                             'modalTitle' => 'Revenue Chart',
                             'modalDesc' => 'Earnings for the selected period',
                             'canvas' => 'organizerRevenueChart',
-                            'expandBg' => 'bg-emerald-50 text-emerald-600 group-hover:bg-emerald-100',
-                            'metricPrefix' => true,
+                            'expandBg' => 'bg-emerald-50/80 text-emerald-600 group-hover:bg-emerald-100',
                         ],
                         [
                             'key' => 'tickets',
@@ -375,11 +502,10 @@
                             'modalTitle' => 'Ticket Sales Chart',
                             'modalDesc' => 'Confirmed tickets for the selected period',
                             'canvas' => 'organizerTicketSalesChart',
-                            'expandBg' => 'bg-blue-50 text-blue-600 group-hover:bg-blue-100',
-                            'metricPrefix' => false,
+                            'expandBg' => 'bg-blue-50/80 text-blue-600 group-hover:bg-blue-100',
                         ],
                     ] as $chart)
-                        <div class="rounded-2xl border border-white bg-white/90 p-5 shadow-sm sm:p-6">
+                        <div class="glass-card group p-5 sm:p-6">
                             <div class="flex items-start justify-between gap-3">
                                 <div class="min-w-0">
                                     <h3 class="text-base font-bold text-slate-900">{{ $chart['title'] }}</h3>
@@ -399,7 +525,7 @@
                                 </div>
                                 <button type="button"
                                     @click="openChart('{{ $chart['key'] }}', '{{ $chart['modalTitle'] }}', '{{ $chart['modalDesc'] }}')"
-                                    class="group flex h-9 w-9 shrink-0 items-center justify-center rounded-xl {{ $chart['expandBg'] }} btn-smooth"
+                                    class="btn-smooth group flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/60 {{ $chart['expandBg'] }}"
                                     title="View fullscreen"
                                     aria-label="View {{ $chart['title'] }} fullscreen">
                                     <i class="bi bi-arrows-fullscreen text-sm"></i>
@@ -408,7 +534,7 @@
 
                             <button type="button"
                                 @click="openChart('{{ $chart['key'] }}', '{{ $chart['modalTitle'] }}', '{{ $chart['modalDesc'] }}')"
-                                class="mt-4 block h-56 w-full cursor-pointer rounded-xl text-left transition hover:bg-slate-50/50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:h-64">
+                                class="mt-4 block h-56 w-full cursor-pointer rounded-xl text-left transition hover:bg-white/40 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:h-64">
                                 <canvas id="{{ $chart['canvas'] }}" class="pointer-events-none"></canvas>
                             </button>
                         </div>
@@ -416,16 +542,16 @@
                 </div>
             </section>
 
-            {{-- Performance + status --}}
-            <section class="grid gap-6 xl:grid-cols-12">
-                <div class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm xl:col-span-8">
-                    <div class="flex flex-col gap-3 border-b border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+            {{-- 5. Performance + status --}}
+            <section class="grid gap-5 xl:grid-cols-12">
+                <div class="glass-panel overflow-hidden xl:col-span-8">
+                    <div class="flex flex-col gap-3 border-b border-white/50 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
                         <div>
                             <h2 class="text-lg font-bold text-slate-900">Event Performance</h2>
                             <p class="text-sm text-slate-500">Sales, fill rate, and revenue by event</p>
                         </div>
                         <a href="{{ route('organizer.events.index') }}"
-                            class="inline-flex items-center gap-1 text-sm font-semibold text-indigo-600 hover:text-indigo-700">
+                            class="btn-smooth inline-flex items-center gap-1 text-sm font-semibold text-indigo-600 hover:text-indigo-700">
                             Manage events
                             <i class="bi bi-arrow-right"></i>
                         </a>
@@ -433,7 +559,7 @@
 
                     <div class="overflow-x-auto">
                         <table class="min-w-full divide-y divide-slate-100 text-left text-sm">
-                            <thead class="bg-slate-50/90 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            <thead class="bg-white/40 text-xs font-semibold uppercase tracking-wide text-slate-500 backdrop-blur-sm">
                                 <tr>
                                     <th class="px-5 py-3 sm:px-6">Event</th>
                                     <th class="px-3 py-3">Status</th>
@@ -468,7 +594,7 @@
                                             default => 'text-slate-900',
                                         };
                                     @endphp
-                                    <tr class="transition hover:bg-slate-50/80">
+                                    <tr class="btn-smooth hover:bg-white/45">
                                         <td class="px-5 py-3.5 sm:px-6">
                                             <a href="{{ $row['url'] }}" class="group block min-w-[11rem]">
                                                 <p class="font-semibold text-slate-900 group-hover:text-indigo-700">
@@ -529,8 +655,8 @@
                     </div>
                 </div>
 
-                <aside class="space-y-6 xl:col-span-4">
-                    <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+                <aside class="space-y-5 xl:col-span-4">
+                    <div class="glass-panel p-5 sm:p-6">
                         <h2 class="text-lg font-bold text-slate-900">Event Status</h2>
                         <p class="mt-0.5 text-sm text-slate-500">How your catalog is distributed</p>
 
@@ -578,10 +704,10 @@
                         </div>
                     </div>
 
-                    <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+                    <div class="glass-panel p-5 sm:p-6">
                         <div class="flex items-start justify-between gap-3">
                             <div>
-                                <h2 class="text-lg font-bold text-slate-900">Upcoming Events</h2>
+                                <h2 class="text-lg font-bold text-slate-900">Next Up</h2>
                                 @if($nextUpcomingEvent)
                                     <p class="mt-0.5 text-sm font-semibold text-indigo-600">{{ $nextUpcomingEvent['day_label'] }}</p>
                                 @else
@@ -589,7 +715,7 @@
                                 @endif
                             </div>
                             <a href="{{ route('organizer.calendar.index') }}"
-                                class="text-xs font-semibold text-indigo-600 hover:text-indigo-700">
+                                class="btn-smooth text-xs font-semibold text-indigo-600 hover:text-indigo-700">
                                 Calendar
                             </a>
                         </div>
@@ -609,8 +735,8 @@
                                         @php
                                             $categoryColor = $category['color'] ?? '#6366f1';
                                         @endphp
-                                        <div class="flex items-center justify-between gap-3 rounded-xl border border-slate-100 px-3.5 py-2.5"
-                                            style="background-color: {{ $categoryColor }}12; border-left: 3px solid {{ $categoryColor }};">
+                                        <div class="btn-smooth flex items-center justify-between gap-3 rounded-xl border border-white/60 bg-white/50 px-3.5 py-2.5 backdrop-blur-sm hover:bg-white/75"
+                                            style="border-left: 3px solid {{ $categoryColor }};">
                                             <div class="flex min-w-0 items-center gap-2.5">
                                                 <span class="h-2.5 w-2.5 shrink-0 rounded-full"
                                                     style="background-color: {{ $categoryColor }}"></span>
@@ -632,13 +758,13 @@
                                 </div>
 
                                 <a href="{{ $nextUpcomingEvent['manage_url'] }}"
-                                    class="btn-smooth mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700">
+                                    class="btn-smooth mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600/95 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 hover:shadow-md">
                                     Manage
                                     <i class="bi bi-arrow-right"></i>
                                 </a>
                             </div>
                         @else
-                            <div class="mt-6 rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center">
+                            <div class="mt-6 rounded-xl border border-dashed border-white/70 bg-white/40 px-4 py-8 text-center backdrop-blur-sm">
                                 <p class="text-sm text-slate-500">No upcoming events to manage.</p>
                                 <a href="{{ route('organizer.events.create') }}"
                                     class="mt-3 inline-flex text-sm font-semibold text-indigo-600 hover:text-indigo-700">
@@ -650,22 +776,59 @@
                 </aside>
             </section>
 
-            {{-- Engagement insights --}}
-            <section class="overflow-hidden rounded-2xl border border-violet-100 bg-gradient-to-r from-violet-50/80 via-white to-amber-50/60 p-4 shadow-sm sm:p-5">
-                <div class="flex flex-wrap items-center justify-between gap-2">
+            {{-- 6. Engagement --}}
+            <section class="glass-panel overflow-hidden p-4 sm:p-5">
+                <div class="flex flex-wrap items-center justify-between gap-3">
                     <div>
                         <h2 class="text-base font-bold text-slate-900">Event Engagement</h2>
-                        <p class="text-xs text-slate-500">Interaction signals beyond ticket sales</p>
+                        <p class="text-xs text-slate-500">
+                            @if ($engagementFilter['selectedEventId'])
+                                Engagement for
+                                <span class="font-semibold text-slate-700">{{ $engagementFilter['selectedEventName'] }}</span>
+                            @else
+                                Interaction signals across all events
+                            @endif
+                        </p>
                     </div>
-                    <a href="{{ $engagement['url'] }}"
-                        class="inline-flex items-center gap-1 text-sm font-semibold text-violet-700 hover:text-violet-800">
-                        View report
-                        <i class="bi bi-arrow-right"></i>
-                    </a>
+
+                    <div class="flex flex-wrap items-center gap-3">
+                        <form method="GET" action="{{ route('organizer.dashboard') }}" class="sm:w-60">
+                            @if (request()->filled('kpi_event'))
+                                <input type="hidden" name="kpi_event" value="{{ request('kpi_event') }}">
+                            @endif
+                            @if (request()->filled('goal_event'))
+                                <input type="hidden" name="goal_event" value="{{ request('goal_event') }}">
+                            @endif
+                            @if (request()->filled('chart_event'))
+                                <input type="hidden" name="chart_event" value="{{ request('chart_event') }}">
+                            @endif
+                            <label for="engagement_event" class="sr-only">Filter engagement by event</label>
+                            <select
+                                id="engagement_event"
+                                name="engagement_event"
+                                onchange="this.form.submit()"
+                                class="block w-full rounded-xl border-white/70 bg-white/60 text-sm font-medium text-slate-700 shadow-sm backdrop-blur-md focus:border-indigo-500 focus:ring-indigo-500"
+                            >
+                                <option value="">All Events</option>
+                                @foreach ($engagementFilter['events'] as $eventOption)
+                                    <option value="{{ $eventOption['id'] }}"
+                                        @selected((int) ($engagementFilter['selectedEventId'] ?? 0) === (int) $eventOption['id'])>
+                                        {{ $eventOption['name'] }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </form>
+
+                        <a href="{{ $engagement['url'] }}"
+                            class="btn-smooth inline-flex items-center gap-1 text-sm font-semibold text-indigo-600 hover:text-indigo-700">
+                            View report
+                            <i class="bi bi-arrow-right"></i>
+                        </a>
+                    </div>
                 </div>
 
                 <div class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                    <div class="rounded-xl border border-amber-100 bg-white/80 px-4 py-3">
+                    <div class="glass-card !rounded-xl border-amber-100/80 p-4">
                         <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Satisfaction</p>
                         @if($engagement['reviews_count'] > 0)
                             @php
@@ -707,11 +870,11 @@
                     </div>
 
                     @foreach([
-                        ['label' => 'Likes', 'value' => $engagement['likes'], 'icon' => 'bi-heart-fill', 'wrap' => 'border-rose-100 bg-rose-50/50', 'iconBg' => 'bg-rose-100 text-rose-600'],
-                        ['label' => 'Saved', 'value' => $engagement['saves'], 'icon' => 'bi-bookmark-fill', 'wrap' => 'border-indigo-100 bg-indigo-50/50', 'iconBg' => 'bg-indigo-100 text-indigo-600'],
-                        ['label' => 'Comments', 'value' => $engagement['comments'], 'icon' => 'bi-chat-dots-fill', 'wrap' => 'border-blue-100 bg-blue-50/50', 'iconBg' => 'bg-blue-100 text-blue-600'],
+                        ['label' => 'Likes', 'value' => $engagement['likes'], 'icon' => 'bi-heart-fill', 'iconBg' => 'bg-rose-100/80 text-rose-600'],
+                        ['label' => 'Saved', 'value' => $engagement['saves'], 'icon' => 'bi-bookmark-fill', 'iconBg' => 'bg-indigo-100/80 text-indigo-600'],
+                        ['label' => 'Comments', 'value' => $engagement['comments'], 'icon' => 'bi-chat-dots-fill', 'iconBg' => 'bg-blue-100/80 text-blue-600'],
                     ] as $metric)
-                        <div class="rounded-xl border {{ $metric['wrap'] }} px-4 py-3">
+                        <div class="glass-card !rounded-xl p-4">
                             <div class="flex items-center gap-2.5">
                                 <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sm {{ $metric['iconBg'] }}">
                                     <i class="bi {{ $metric['icon'] }}"></i>
@@ -726,21 +889,21 @@
                 </div>
             </section>
 
-            {{-- Operations: upcoming, purchases, activity --}}
-            <section class="grid gap-6 lg:grid-cols-3">
-                <div class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-                    <div class="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+            {{-- 7. Operations --}}
+            <section class="grid gap-5 lg:grid-cols-3">
+                <div class="glass-panel overflow-hidden">
+                    <div class="flex items-center justify-between border-b border-white/50 px-5 py-4">
                         <div>
                             <h2 class="text-base font-bold text-slate-900">Upcoming</h2>
                             <p class="text-xs text-slate-500">Next on your schedule</p>
                         </div>
                         <a href="{{ route('organizer.calendar.index') }}"
-                            class="text-xs font-semibold text-indigo-600 hover:text-indigo-700">Calendar</a>
+                            class="btn-smooth text-xs font-semibold text-indigo-600 hover:text-indigo-700">Calendar</a>
                     </div>
-                    <div class="max-h-[28rem] divide-y divide-slate-100 overflow-y-auto">
+                    <div class="max-h-[28rem] divide-y divide-white/40 overflow-y-auto">
                         @forelse($upcomingEvents as $event)
-                            <a href="{{ $event['url'] }}" class="flex gap-3 px-5 py-4 transition hover:bg-slate-50">
-                                <div class="flex h-11 w-11 shrink-0 flex-col items-center justify-center rounded-xl bg-indigo-50 text-indigo-700">
+                            <a href="{{ $event['url'] }}" class="btn-smooth flex gap-3 px-5 py-4 hover:bg-white/45">
+                                <div class="flex h-11 w-11 shrink-0 flex-col items-center justify-center rounded-xl border border-white/60 bg-indigo-50/80 text-indigo-700 backdrop-blur-sm">
                                     <span class="text-[10px] font-semibold uppercase leading-none">{{ $event['month'] }}</span>
                                     <span class="mt-0.5 text-base font-bold leading-none">{{ $event['day'] }}</span>
                                 </div>
@@ -761,19 +924,19 @@
                     </div>
                 </div>
 
-                <div class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-                    <div class="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+                <div class="glass-panel overflow-hidden">
+                    <div class="flex items-center justify-between border-b border-white/50 px-5 py-4">
                         <div>
                             <h2 class="text-base font-bold text-slate-900">Recent Sales</h2>
                             <p class="text-xs text-slate-500">Latest ticket purchases</p>
                         </div>
                         <a href="{{ route('organizer.reports', ['tab' => 'attendees']) }}"
-                            class="text-xs font-semibold text-indigo-600 hover:text-indigo-700">Reports</a>
+                            class="btn-smooth text-xs font-semibold text-indigo-600 hover:text-indigo-700">Reports</a>
                     </div>
-                    <div class="max-h-[28rem] divide-y divide-slate-100 overflow-y-auto">
+                    <div class="max-h-[28rem] divide-y divide-white/40 overflow-y-auto">
                         @forelse($recentPurchases as $purchase)
-                            <a href="{{ $purchase['url'] }}" class="flex items-start gap-3 px-5 py-4 transition hover:bg-slate-50">
-                                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-sm font-bold text-indigo-700">
+                            <a href="{{ $purchase['url'] }}" class="btn-smooth flex items-start gap-3 px-5 py-4 hover:bg-white/45">
+                                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/60 bg-indigo-50/80 text-sm font-bold text-indigo-700 backdrop-blur-sm">
                                     {{ strtoupper(substr($purchase['buyer'], 0, 1)) }}
                                 </div>
                                 <div class="min-w-0 flex-1">
@@ -805,8 +968,8 @@
                     </div>
                 </div>
 
-                <div class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-                    <div class="border-b border-slate-100 px-5 py-4">
+                <div class="glass-panel overflow-hidden">
+                    <div class="border-b border-white/50 px-5 py-4">
                         <h2 class="text-base font-bold text-slate-900">Recent Activity</h2>
                         <p class="text-xs text-slate-500">Updates and bookings</p>
                     </div>
@@ -814,21 +977,21 @@
                         @forelse($recentActivity as $item)
                             @php
                                 $iconStyles = match ($item['color']) {
-                                    'emerald' => 'bg-emerald-100 text-emerald-600 ring-emerald-200',
-                                    'rose' => 'bg-rose-100 text-rose-600 ring-rose-200',
-                                    'blue' => 'bg-blue-100 text-blue-600 ring-blue-200',
-                                    'indigo' => 'bg-indigo-100 text-indigo-600 ring-indigo-200',
-                                    'amber' => 'bg-amber-100 text-amber-600 ring-amber-200',
-                                    'violet' => 'bg-violet-100 text-violet-600 ring-violet-200',
-                                    'cyan' => 'bg-cyan-100 text-cyan-600 ring-cyan-200',
-                                    default => 'bg-slate-100 text-slate-600 ring-slate-200',
+                                    'emerald' => 'bg-emerald-100/80 text-emerald-600 ring-emerald-200/70',
+                                    'rose' => 'bg-rose-100/80 text-rose-600 ring-rose-200/70',
+                                    'blue' => 'bg-blue-100/80 text-blue-600 ring-blue-200/70',
+                                    'indigo' => 'bg-indigo-100/80 text-indigo-600 ring-indigo-200/70',
+                                    'amber' => 'bg-amber-100/80 text-amber-600 ring-amber-200/70',
+                                    'violet' => 'bg-violet-100/80 text-violet-600 ring-violet-200/70',
+                                    'cyan' => 'bg-cyan-100/80 text-cyan-600 ring-cyan-200/70',
+                                    default => 'bg-slate-100/80 text-slate-600 ring-slate-200/70',
                                 };
                             @endphp
-                            <a href="{{ $item['url'] }}" class="group relative flex gap-3 py-3.5">
+                            <a href="{{ $item['url'] }}" class="btn-smooth group relative flex gap-3 rounded-xl py-3.5 hover:bg-white/45">
                                 @if(! $loop->last)
-                                    <span class="absolute left-4 top-11 bottom-0 w-px bg-slate-100"></span>
+                                    <span class="absolute left-4 top-11 bottom-0 w-px bg-white/60"></span>
                                 @endif
-                                <div class="relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ring-1 {{ $iconStyles }}">
+                                <div class="relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ring-1 backdrop-blur-sm {{ $iconStyles }}">
                                     <i class="bi {{ $item['icon'] }} text-sm"></i>
                                 </div>
                                 <div class="min-w-0 flex-1">
@@ -852,9 +1015,9 @@
             x-cloak
             class="fixed inset-0 z-[80] flex items-center justify-center p-4 sm:p-6"
             style="display: none;">
-            <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" @click="closeChart()"></div>
+            <div class="absolute inset-0 bg-slate-900/55 backdrop-blur-md" @click="closeChart()"></div>
 
-            <div class="relative flex h-[min(92vh,56rem)] w-full max-w-6xl flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl"
+            <div class="relative flex h-[min(92vh,56rem)] w-full max-w-6xl flex-col overflow-hidden rounded-3xl border border-white/60 bg-white/90 shadow-2xl backdrop-blur-xl"
                 x-show="open"
                 x-transition:enter="transition ease-out duration-200"
                 x-transition:enter-start="opacity-0 scale-95"
@@ -865,14 +1028,14 @@
                 role="dialog"
                 aria-modal="true"
                 :aria-label="title">
-                <div class="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4 sm:px-6">
+                <div class="flex items-start justify-between gap-4 border-b border-white/60 px-5 py-4 sm:px-6">
                     <div class="min-w-0">
                         <h2 class="text-lg font-bold text-slate-900" x-text="title"></h2>
                         <p class="mt-0.5 text-sm text-slate-500" x-text="description"></p>
                     </div>
                     <button type="button"
                         @click="closeChart()"
-                        class="btn-smooth flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+                        class="btn-smooth flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/70 bg-white/60 text-slate-500 hover:bg-white hover:text-slate-800"
                         aria-label="Close fullscreen chart">
                         <i class="bi bi-x-lg"></i>
                     </button>
@@ -882,7 +1045,7 @@
                         <canvas id="organizerChartFullscreen"></canvas>
                     </div>
                 </div>
-                <div class="border-t border-slate-100 px-5 py-3 text-xs text-slate-400 sm:px-6">
+                <div class="border-t border-white/60 px-5 py-3 text-xs text-slate-400 sm:px-6">
                     Press <kbd class="rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 font-semibold text-slate-600">Esc</kbd> to close
                 </div>
             </div>
@@ -898,6 +1061,40 @@
     @push('scripts')
         <script>
             window.organizerDashboardData = @json($dashboard);
+            (function () {
+                var key = 'organizer-dashboard-scroll';
+                try {
+                    var saved = sessionStorage.getItem(key);
+                    if (saved !== null) {
+                        sessionStorage.removeItem(key);
+                        if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+                        var y = Number(saved);
+                        if (Number.isFinite(y)) {
+                            var restore = function () { window.scrollTo(0, y); };
+                            restore();
+                            requestAnimationFrame(restore);
+                            window.addEventListener('load', restore, { once: true });
+                            setTimeout(restore, 50);
+                            setTimeout(restore, 250);
+                        }
+                    }
+                } catch (e) {}
+
+                document.addEventListener('DOMContentLoaded', function () {
+                    document.querySelectorAll(
+                        '.organizer-dashboard select[name="kpi_event"],' +
+                        '.organizer-dashboard select[name="goal_event"],' +
+                        '.organizer-dashboard select[name="chart_event"],' +
+                        '.organizer-dashboard select[name="engagement_event"]'
+                    ).forEach(function (select) {
+                        select.addEventListener('change', function () {
+                            try {
+                                sessionStorage.setItem(key, String(window.scrollY));
+                            } catch (e) {}
+                        });
+                    });
+                });
+            })();
         </script>
         @vite('resources/js/organizer-dashboard.js')
     @endpush

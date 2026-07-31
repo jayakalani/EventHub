@@ -234,6 +234,8 @@
                             </div>
                         </section>
 
+                        @include('organizer.events.partials.refund-policy-fields')
+
                         {{-- Cover --}}
                         <section class="space-y-3 border-t border-gray-100 pt-5">
                             <div>

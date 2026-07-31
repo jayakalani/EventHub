@@ -25,7 +25,7 @@ class RefundRequestController extends Controller
         if ($ticketBooking->isExpired()) {
             return redirect()
                 ->route('attendee.bookings.index')
-                ->withErrors(['refund' => 'This ticket has expired. Cancellation is not available after the event date.']);
+                ->withErrors(['refund' => 'This ticket has expired. Cancellation is not available on or after the event date.']);
         }
 
         if (! $ticketBooking->isCancellable()) {
@@ -55,7 +55,7 @@ class RefundRequestController extends Controller
         }
 
         $message = $refundRequest->status->value === 'auto_declined'
-            ? 'Your refund request was automatically declined because the event has already passed.'
+            ? 'Your refund request was automatically declined because it is on or after the event date.'
             : 'Your refund request has been submitted. A confirmation email has been sent.';
 
         return redirect()

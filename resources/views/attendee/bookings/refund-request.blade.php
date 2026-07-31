@@ -49,12 +49,34 @@
             </div>
 
             {{-- Refund Policy --}}
+            @php
+                $event = $ticketBooking->event;
+                $fullDays = (int) $event->refund_full_days_before_close;
+                $fullPercentage = (int) $event->refund_full_percentage;
+                $partialPercentage = (int) $event->refund_partial_percentage;
+            @endphp
             <div class="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 sm:px-5">
                 <h3 class="text-base font-bold text-amber-900">{{ t(['en' => 'Refund Policy', 'si' => 'ආපසු ගෙවීමේ ප්‍රතිපත්තිය']) }}</h3>
                 <ul class="mt-2 space-y-1.5 text-sm text-amber-800">
-                    <li>{{ t(['en' => 'More than 7 days before booking closes →', 'si' => 'වෙන්කිරීම අවසානයට දින 7කට වඩා පෙර →']) }} <strong>{{ t(['en' => '100% refund', 'si' => '100% ආපසු ගෙවීම']) }}</strong></li>
-                    <li>{{ t(['en' => 'Within 7 days of booking closing →', 'si' => 'වෙන්කිරීම අවසානයට දින 7ක් ඇතුළත →']) }} <strong>{{ t(['en' => '75% refund', 'si' => '75% ආපසු ගෙවීම']) }}</strong></li>
-                    <li>{{ t(['en' => 'After the event date →', 'si' => 'ප්‍රසංග දිනයෙන් පසු →']) }} <strong>{{ t(['en' => 'automatically declined', 'si' => 'ස්වයංක්‍රීයව ප්‍රතික්ෂේප වේ']) }}</strong></li>
+                    @if (! $event->refunds_allowed)
+                        <li>
+                            <strong>{{ t(['en' => 'No refunds', 'si' => 'ආපසු ගෙවීම් නැත']) }}</strong>
+                            — {{ t(['en' => 'This event does not allow ticket refunds.', 'si' => 'මෙම ප්‍රසංගය ටිකට් ආපසු ගෙවීම් සඳහා ඉඩ නොදේ.']) }}
+                        </li>
+                    @else
+                        <li>
+                            {{ t(['en' => "More than {$fullDays} days before booking closes →", 'si' => "වෙන්කිරීම අවසානයට දින {$fullDays}කට වඩා පෙර →"]) }}
+                            <strong>{{ t(['en' => "{$fullPercentage}% refund", 'si' => "{$fullPercentage}% ආපසු ගෙවීම"]) }}</strong>
+                        </li>
+                        <li>
+                            {{ t(['en' => "Within {$fullDays} days of booking closing →", 'si' => "වෙන්කිරීම අවසානයට දින {$fullDays}ක් ඇතුළත →"]) }}
+                            <strong>{{ t(['en' => "{$partialPercentage}% refund", 'si' => "{$partialPercentage}% ආපසු ගෙවීම"]) }}</strong>
+                        </li>
+                        <li>
+                            {{ t(['en' => 'On or after the event date →', 'si' => 'ප්‍රසංග දිනයේ හෝ ඊට පසු →']) }}
+                            <strong>{{ t(['en' => 'automatically declined', 'si' => 'ස්වයංක්‍රීයව ප්‍රතික්ෂේප වේ']) }}</strong>
+                        </li>
+                    @endif
                 </ul>
 
                 <div class="mt-3 rounded-xl bg-white/70 px-3.5 py-2.5 text-sm">
@@ -95,7 +117,7 @@
 
                 @unless($policy->requiresCroReview)
                     <p class="rounded-xl bg-red-50 px-3.5 py-2.5 text-sm text-red-700">
-                        {{ t(['en' => 'This request will be automatically declined because the event has already passed.', 'si' => 'ප්‍රසංගය දැනටමත් අවසන් වී ඇති බැවින් මෙම ඉල්ලීම ස්වයංක්‍රීයව ප්‍රතික්ෂේප වේ.']) }}
+                        {{ t(['en' => 'This request will be automatically declined because it is on or after the event date.', 'si' => 'ප්‍රසංග දිනයේ හෝ ඊට පසු බැවින් මෙම ඉල්ලීම ස්වයංක්‍රීයව ප්‍රතික්ෂේප වේ.']) }}
                     </p>
                 @endunless
 

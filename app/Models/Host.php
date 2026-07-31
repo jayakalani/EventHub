@@ -50,4 +50,23 @@ class Host extends Model
 
         return $this->hostLikes()->where('user_id', $user->id)->exists();
     }
+
+    public function hostFollows()
+    {
+        return $this->hasMany(FollowHost::class, 'host_id');
+    }
+
+    public function followedByUsers()
+    {
+        return $this->belongsToMany(User::class, 'follow_hosts', 'host_id', 'user_id')->withTimestamps();
+    }
+
+    public function isFollowedBy(?User $user): bool
+    {
+        if (! $user) {
+            return false;
+        }
+
+        return $this->hostFollows()->where('user_id', $user->id)->exists();
+    }
 }

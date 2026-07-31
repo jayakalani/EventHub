@@ -89,6 +89,8 @@ class HostController extends Controller
      */
     public function organizerShow(Host $host)
     {
+        $host->loadCount(['hostLikes', 'hostFollows']);
+
         $events = $host->events()
             ->with('eventCategory')
             ->latest()
@@ -106,9 +108,12 @@ class HostController extends Controller
             ->where('is_active', true)
             ->withCount(['events' => function ($eventQuery) {
                 $eventQuery->visibleToAttendees();
-            }, 'hostLikes'])
+            }, 'hostLikes', 'hostFollows'])
             ->withExists(['hostLikes as is_liked' => function ($likeQuery) {
                 $likeQuery->where('user_id', Auth::id());
+            }])
+            ->withExists(['hostFollows as is_followed' => function ($followQuery) {
+                $followQuery->where('user_id', Auth::id());
             }]);
 
         if ($request->filled('search')) {
@@ -129,10 +134,15 @@ class HostController extends Controller
             abort(404);
         }
 
-        $host->loadCount('hostLikes');
-        $host->loadExists(['hostLikes as is_liked' => function ($likeQuery) {
-            $likeQuery->where('user_id', Auth::id());
-        }]);
+        $host->loadCount(['hostLikes', 'hostFollows']);
+        $host->loadExists([
+            'hostLikes as is_liked' => function ($likeQuery) {
+                $likeQuery->where('user_id', Auth::id());
+            },
+            'hostFollows as is_followed' => function ($followQuery) {
+                $followQuery->where('user_id', Auth::id());
+            },
+        ]);
 
         $events = $host->events()
             ->visibleToAttendees()

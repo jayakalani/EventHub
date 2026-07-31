@@ -45,7 +45,7 @@ class DashboardController extends Controller
 
         return match ($roleName) {
             UserRole::ADMIN => $this->admin(),
-            UserRole::ORGANIZER => $this->organizer(),
+            UserRole::ORGANIZER => $this->organizer(request()),
             UserRole::CRO => $this->cro(),
             default => redirect()->route('login')->with('error', 'Invalid role'),
         };
@@ -64,34 +64,66 @@ class DashboardController extends Controller
     /**
      * Organizer Dashboard
      */
-    public function organizer(): View
+    public function organizer(Request $request): View
     {
         $organizerId = Auth::id();
 
         $this->organizerDashboardService->syncLowInventoryNotifications($organizerId);
 
-        $dashboard = $this->organizerDashboardService->getDashboardData($organizerId);
+        $kpiEventId = $request->filled('kpi_event') ? $request->integer('kpi_event') : null;
+        $goalEventId = $request->filled('goal_event') ? $request->integer('goal_event') : null;
+        $chartEventId = $request->filled('chart_event') ? $request->integer('chart_event') : null;
+        $engagementEventId = $request->filled('engagement_event') ? $request->integer('engagement_event') : null;
+        $dashboard = $this->organizerDashboardService->getDashboardData(
+            $organizerId,
+            $kpiEventId,
+            $goalEventId,
+            $chartEventId,
+            $engagementEventId,
+        );
 
         return view('organizer.dashboard', compact('dashboard'));
     }
 
     /**
-     * Update the organizer's monthly revenue goal.
+     * Update the organizer monthly revenue goal or a per-event revenue goal.
      */
     public function updateRevenueGoal(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'monthly_revenue_goal' => ['required', 'numeric', 'min:1000', 'max:999999999'],
+            'revenue_goal' => ['required', 'numeric', 'min:1000', 'max:999999999'],
+            'goal_event' => ['nullable', 'integer', 'exists:events,id'],
         ]);
+
+        $redirectParams = array_filter([
+            'kpi_event' => $request->filled('kpi_event') ? $request->integer('kpi_event') : null,
+            'chart_event' => $request->filled('chart_event') ? $request->integer('chart_event') : null,
+            'engagement_event' => $request->filled('engagement_event') ? $request->integer('engagement_event') : null,
+        ]);
+
+        if (! empty($validated['goal_event'])) {
+            $event = Event::query()
+                ->createdByOrganizer(Auth::id())
+                ->findOrFail($validated['goal_event']);
+
+            $event->revenue_goal = $validated['revenue_goal'];
+            $event->save();
+
+            $redirectParams['goal_event'] = $event->id;
+
+            return redirect()
+                ->route('organizer.dashboard', $redirectParams)
+                ->with('success', 'Successfully set revenue goal for '.$event->name.'.');
+        }
 
         /** @var User $user */
         $user = Auth::user();
-        $user->monthly_revenue_goal = $validated['monthly_revenue_goal'];
+        $user->monthly_revenue_goal = $validated['revenue_goal'];
         $user->save();
 
         return redirect()
-            ->route('dashboard')
-            ->with('success', 'Successfully set new revenue goal.');
+            ->route('organizer.dashboard', $redirectParams)
+            ->with('success', 'Successfully set monthly revenue goal.');
     }
 
     /**

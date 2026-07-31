@@ -63,22 +63,47 @@
 
                         <div class="p-5 flex flex-col flex-1">
                             <div class="flex items-center justify-between gap-3">
-                                <span class="inline-flex items-center gap-1.5 text-sm font-semibold text-[#1877F2]">
-                                    <i class="bi  text-base" aria-hidden="true"></i>
-                                    {{ $host->host_likes_count ?? 0 }}
-                                </span>
+                                <div class="flex items-center gap-3">
+                                    <span class="inline-flex items-center gap-1.5 text-sm font-semibold text-[#1877F2]">
+                                        <i class="bi bi-hand-thumbs-up text-base" aria-hidden="true"></i>
+                                        {{ $host->host_likes_count ?? 0 }}
+                                    </span>
+                                    <span class="inline-flex items-center gap-1.5 text-sm font-semibold text-indigo-600">
+                                        <i class="bi bi-person-check text-base" aria-hidden="true"></i>
+                                        {{ $host->host_follows_count ?? 0 }}
+                                    </span>
+                                </div>
 
-                                <form action="{{ route('attendee.hosts.like', $host) }}" method="POST">
-                                    @csrf
-                                    <button type="submit"
-                                        aria-label="{{ $host->is_liked ? t(['en' => 'Unlike host', 'si' => 'කැමති නැත']) : t(['en' => 'Like host', 'si' => 'කැමතියි']) }}"
-                                        title="{{ $host->is_liked ? t(['en' => 'Unlike', 'si' => 'කැමති නැත']) : t(['en' => 'Like', 'si' => 'කැමතියි']) }}"
-                                        class="inline-flex items-center justify-center rounded-full p-2.5 text-xl transition
-                                        {{ $host->is_liked ? 'bg-[#1877F2] text-white hover:bg-[#166fe5]' : 'bg-slate-100 text-slate-500 hover:bg-slate-200' }}">
-                                        <i class="bi {{ $host->is_liked ? 'bi-hand-thumbs-up-fill' : 'bi-hand-thumbs-up' }}"
-                                            aria-hidden="true"></i>
-                                    </button>
-                                </form>
+                                <div class="flex items-center gap-2">
+                                    <form action="{{ route('attendee.hosts.follow', $host) }}" method="POST">
+                                        @csrf
+                                        <button type="submit"
+                                            aria-label="{{ $host->is_followed ? t(['en' => 'Unfollow host', 'si' => 'අනුගමනය නවත්වන්න']) : t(['en' => 'Follow host', 'si' => 'අනුගමනය කරන්න']) }}"
+                                            title="{{ $host->is_followed ? t(['en' => 'Following', 'si' => 'අනුගමනය කරයි']) : t(['en' => 'Follow', 'si' => 'අනුගමනය කරන්න']) }}"
+                                            class="inline-flex items-center justify-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold transition
+                                            {{ $host->is_followed
+                                                ? 'bg-indigo-600 text-white hover:bg-indigo-700'
+                                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200' }}">
+                                            <i class="bi {{ $host->is_followed ? 'bi-person-check-fill' : 'bi-person-plus' }}"
+                                                aria-hidden="true"></i>
+                                            {{ $host->is_followed
+                                                ? t(['en' => 'Following', 'si' => 'අනුගමනය'])
+                                                : t(['en' => 'Follow', 'si' => 'අනුගමනය']) }}
+                                        </button>
+                                    </form>
+
+                                    <form action="{{ route('attendee.hosts.like', $host) }}" method="POST">
+                                        @csrf
+                                        <button type="submit"
+                                            aria-label="{{ $host->is_liked ? t(['en' => 'Unlike host', 'si' => 'කැමති නැත']) : t(['en' => 'Like host', 'si' => 'කැමතියි']) }}"
+                                            title="{{ $host->is_liked ? t(['en' => 'Unlike', 'si' => 'කැමති නැත']) : t(['en' => 'Like', 'si' => 'කැමතියි']) }}"
+                                            class="inline-flex items-center justify-center rounded-full p-2.5 text-xl transition
+                                            {{ $host->is_liked ? 'bg-[#1877F2] text-white hover:bg-[#166fe5]' : 'bg-slate-100 text-slate-500 hover:bg-slate-200' }}">
+                                            <i class="bi {{ $host->is_liked ? 'bi-hand-thumbs-up-fill' : 'bi-hand-thumbs-up' }}"
+                                                aria-hidden="true"></i>
+                                        </button>
+                                    </form>
+                                </div>
                             </div>
 
                             <a href="{{ route('attendee.hosts.show', $host) }}"

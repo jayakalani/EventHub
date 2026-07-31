@@ -72,6 +72,16 @@
                                     <div class="flex items-center justify-center gap-3 sm:justify-end">
                                         <div class="rounded-xl bg-white/15 px-3.5 py-2 ring-1 ring-white/20 backdrop-blur-sm">
                                             <p class="text-[10px] font-semibold uppercase tracking-wider text-violet-200">
+                                                {{ t(['en' => 'Followers', 'si' => 'අනුගාමිකයන්']) }}
+                                            </p>
+                                            <p class="mt-0.5 inline-flex items-center gap-1.5 text-lg font-bold text-white">
+                                                <i class="bi bi-person-check text-indigo-200" aria-hidden="true"></i>
+                                                {{ $host->host_follows_count ?? 0 }}
+                                            </p>
+                                        </div>
+
+                                        <div class="rounded-xl bg-white/15 px-3.5 py-2 ring-1 ring-white/20 backdrop-blur-sm">
+                                            <p class="text-[10px] font-semibold uppercase tracking-wider text-violet-200">
                                                 {{ t(['en' => 'Likes', 'si' => 'කැමති']) }}
                                             </p>
                                             <p class="mt-0.5 inline-flex items-center gap-1.5 text-lg font-bold text-white">
@@ -79,6 +89,22 @@
                                                 {{ $host->host_likes_count ?? 0 }}
                                             </p>
                                         </div>
+
+                                        <form action="{{ route('attendee.hosts.follow', $host) }}" method="POST">
+                                            @csrf
+                                            <button type="submit"
+                                                aria-label="{{ $host->is_followed ? t(['en' => 'Unfollow host', 'si' => 'අනුගමනය නවත්වන්න']) : t(['en' => 'Follow host', 'si' => 'අනුගමනය කරන්න']) }}"
+                                                class="inline-flex h-12 items-center justify-center gap-1.5 rounded-full px-4 text-sm font-semibold shadow-md transition
+                                                {{ $host->is_followed
+                                                    ? 'bg-indigo-500 text-white hover:bg-indigo-600'
+                                                    : 'bg-white text-slate-700 hover:bg-slate-50' }}">
+                                                <i class="bi {{ $host->is_followed ? 'bi-person-check-fill' : 'bi-person-plus' }}"
+                                                    aria-hidden="true"></i>
+                                                {{ $host->is_followed
+                                                    ? t(['en' => 'Following', 'si' => 'අනුගමනය'])
+                                                    : t(['en' => 'Follow', 'si' => 'අනුගමනය']) }}
+                                            </button>
+                                        </form>
 
                                         <form action="{{ route('attendee.hosts.like', $host) }}" method="POST">
                                             @csrf

@@ -38,12 +38,22 @@ class Event extends Model
         'status',
         'cancellation_reason',
         'cancelled_at',
+        'refunds_allowed',
+        'refund_full_days_before_close',
+        'refund_full_percentage',
+        'refund_partial_percentage',
+        'revenue_goal',
     ];
 
     protected function casts(): array
     {
         return [
             'cancelled_at' => 'datetime',
+            'refunds_allowed' => 'boolean',
+            'refund_full_days_before_close' => 'integer',
+            'refund_full_percentage' => 'integer',
+            'refund_partial_percentage' => 'integer',
+            'revenue_goal' => 'decimal:2',
         ];
     }
 

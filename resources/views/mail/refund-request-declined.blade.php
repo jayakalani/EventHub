@@ -29,7 +29,7 @@
                             </p>
                             @if($refundRequest->status->value === 'auto_declined')
                                 <p style="margin:0 0 16px;font-size:14px;line-height:1.6;color:#475569;">
-                                    Refunds are not available after the event date per our refund policy.
+                                    Refunds are not available on or after the event date per the event refund policy.
                                 </p>
                             @elseif($refundRequest->cro_notes)
                                 <div style="margin:0 0 16px;padding:16px;background:#fef2f2;border:1px solid #fecaca;border-radius:12px;">

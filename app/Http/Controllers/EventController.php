@@ -122,6 +122,10 @@ class EventController extends Controller
             'description' => 'required|string',
             'contact_person' => 'required|exists:users,id',
             'cover' => 'required|image|mimes:jpg,jpeg,png|max:2048',
+            'refunds_allowed' => 'sometimes|boolean',
+            'refund_full_days_before_close' => 'required_if:refunds_allowed,1|nullable|integer|min:0|max:365',
+            'refund_full_percentage' => 'required_if:refunds_allowed,1|nullable|integer|min:0|max:100',
+            'refund_partial_percentage' => 'required_if:refunds_allowed,1|nullable|integer|min:0|max:100',
         ]);
 
         if ($request->hasfile('cover')) {
@@ -130,6 +134,8 @@ class EventController extends Controller
             $fileName = time().'.'.$extension;
             $file->move('uploads/covers/events/', $fileName);
         }
+
+        $refundsAllowed = $request->boolean('refunds_allowed');
 
         Event::create([
             'name' => $validatedData['name'],
@@ -144,6 +150,16 @@ class EventController extends Controller
             'cover' => $fileName,
             'created_by' => Auth::user()->id,
             'status' => Event::STATUS_UNPUBLISHED,
+            'refunds_allowed' => $refundsAllowed,
+            'refund_full_days_before_close' => $refundsAllowed
+                ? (int) $validatedData['refund_full_days_before_close']
+                : 7,
+            'refund_full_percentage' => $refundsAllowed
+                ? (int) $validatedData['refund_full_percentage']
+                : 100,
+            'refund_partial_percentage' => $refundsAllowed
+                ? (int) $validatedData['refund_partial_percentage']
+                : 75,
         ]);
 
         return redirect()->route('organizer.events.index')->with('success', 'Event created successfully. It is unpublished and hidden from attendees until you publish it.');
@@ -248,7 +264,9 @@ class EventController extends Controller
     {
         $this->authorizeOrganizerEvent($event);
 
-        $validatedData = $request->validate([
+        $policyLocked = $event->hasSoldTickets();
+
+        $rules = [
             'name' => 'required|string|max:255',
             'hosted_by' => 'required|exists:users,id',
             'category_id' => 'required|exists:event_categories,id',
@@ -259,7 +277,16 @@ class EventController extends Controller
             'description' => 'required|string',
             'contact_person' => 'required|exists:users,id',
             'cover' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
-        ]);
+        ];
+
+        if (! $policyLocked) {
+            $rules['refunds_allowed'] = 'sometimes|boolean';
+            $rules['refund_full_days_before_close'] = 'required_if:refunds_allowed,1|nullable|integer|min:0|max:365';
+            $rules['refund_full_percentage'] = 'required_if:refunds_allowed,1|nullable|integer|min:0|max:100';
+            $rules['refund_partial_percentage'] = 'required_if:refunds_allowed,1|nullable|integer|min:0|max:100';
+        }
+
+        $validatedData = $request->validate($rules);
 
         if ($request->hasfile('cover')) {
             $file = $request->file('cover');
@@ -280,6 +307,20 @@ class EventController extends Controller
         $event->description = $validatedData['description'];
         $event->contact_person = $validatedData['contact_person'];
         $event->cover = $fileName ?? $event->cover;
+
+        if (! $policyLocked) {
+            $refundsAllowed = $request->boolean('refunds_allowed');
+            $event->refunds_allowed = $refundsAllowed;
+            $event->refund_full_days_before_close = $refundsAllowed
+                ? (int) $validatedData['refund_full_days_before_close']
+                : $event->refund_full_days_before_close;
+            $event->refund_full_percentage = $refundsAllowed
+                ? (int) $validatedData['refund_full_percentage']
+                : $event->refund_full_percentage;
+            $event->refund_partial_percentage = $refundsAllowed
+                ? (int) $validatedData['refund_partial_percentage']
+                : $event->refund_partial_percentage;
+        }
 
         $event->save();
 

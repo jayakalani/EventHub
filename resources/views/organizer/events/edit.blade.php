@@ -235,6 +235,8 @@
                             </div>
                         </section>
 
+                        @include('organizer.events.partials.refund-policy-fields', ['event' => $event])
+
                         <div
                             class="flex flex-col-reverse gap-2.5 border-t border-gray-100 pt-5 sm:flex-row sm:items-center sm:justify-end">
                             <a href="{{ route('organizer.events.index') }}"

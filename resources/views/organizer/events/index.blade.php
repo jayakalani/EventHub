@@ -29,36 +29,24 @@
         </div>
     </x-slot>
 
-    <div class="py-5" x-data="{
-        cancelModal: {
-            open: {{ $errors->has('cancellation_reason') ? 'true' : 'false' }},
-            eventId: @js(old('_cancel_event_id')),
-            action: @js(old('_cancel_event_id') ? route('organizer.events.cancel', old('_cancel_event_id')) : ''),
-            name: @js(old('_cancel_event_name', '')),
-            date: @js(old('_cancel_event_date', '')),
-            time: @js(old('_cancel_event_time', '')),
-            place: @js(old('_cancel_event_place', '')),
-        },
-        handleStatusChange(select, eventId, eventName, eventDate, eventTime, eventPlace, currentStatus) {
-            if (select.value === 'cancelled' && currentStatus !== 'cancelled') {
-                select.value = currentStatus;
-                this.cancelModal = {
-                    open: true,
-                    eventId,
-                    action: @js(url('organizer/events')) + '/' + eventId + '/cancel',
-                    name: eventName,
-                    date: eventDate,
-                    time: eventTime,
-                    place: eventPlace,
-                };
-                return;
-            }
+    @php
+        $organizerEventsPageConfig = [
+            'cancelModal' => [
+                'open' => $errors->has('cancellation_reason'),
+                'eventId' => old('_cancel_event_id'),
+                'action' => old('_cancel_event_id') ? route('organizer.events.cancel', old('_cancel_event_id')) : '',
+                'name' => old('_cancel_event_name', ''),
+                'date' => old('_cancel_event_date', ''),
+                'time' => old('_cancel_event_time', ''),
+                'place' => old('_cancel_event_place', ''),
+            ],
+            'eventsBaseUrl' => url('organizer/events'),
+        ];
+    @endphp
 
-            if (currentStatus !== 'cancelled') {
-                select.form.submit();
-            }
-        }
-    }">
+    <script type="application/json" id="organizer-events-page-config">@json($organizerEventsPageConfig)</script>
+
+    <div class="py-5" x-data="JSON.parse(document.getElementById('organizer-events-page-config').textContent)">
         <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
 
             {{-- Statistics --}}
@@ -243,7 +231,13 @@
                                                 @method('PATCH')
 
                                                 <select name="status"
-                                                    @change="handleStatusChange($event.target, {{ $event->id }}, @js($event->name), @js($event->date), @js($event->time), @js($event->place), @js($event->status))"
+                                                    data-event-id="{{ $event->id }}"
+                                                    data-event-name="{{ $event->name }}"
+                                                    data-event-date="{{ $event->date }}"
+                                                    data-event-time="{{ $event->time }}"
+                                                    data-event-place="{{ $event->place }}"
+                                                    data-current-status="{{ $event->status }}"
+                                                    onchange="window.organizerHandleEventStatusChange(this)"
                                                     class="rounded-lg border-slate-300 text-xs focus:border-indigo-500 focus:ring-indigo-500">
                                                     <option value="unpublished"
                                                         {{ $event->status == 'unpublished' ? 'selected' : '' }}
@@ -307,4 +301,8 @@
 
         @include('organizer.events.partials.cancel-event-modal')
     </div>
+
+    @push('scripts')
+        @include('organizer.events.partials.status-change-script')
+    @endpush
 </x-app-layout>

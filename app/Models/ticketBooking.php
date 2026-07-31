@@ -61,15 +61,18 @@ class ticketBooking extends Model
             return false;
         }
 
-        return now()->gt(Carbon::parse($this->event->date)->endOfDay());
+        return now()->gte(Carbon::parse($this->event->date)->startOfDay());
     }
 
     public function isCancellable(): bool
     {
+        $this->loadMissing('event');
+
         return $this->status === BookingStatusEnum::Confirmed
             && $this->refundRequest === null
             && ! $this->isExpired()
-            && ! $this->event->isCompleted();
+            && ! $this->event->isCompleted()
+            && $this->event->refunds_allowed;
     }
 
     public function displayStatusLabel(): string

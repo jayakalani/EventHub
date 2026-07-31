@@ -23,43 +23,77 @@ class RefundPolicyService
     {
         $booking->loadMissing(['event', 'ticketCategory']);
 
+        $event = $booking->event;
         $ticketPrice = (float) $booking->ticket_price;
         $now = now();
-        $eventDate = Carbon::parse($booking->event->date)->endOfDay();
+        $eventDayStart = Carbon::parse($event->date)->startOfDay();
 
-        if ($now->gt($eventDate)) {
+        if (! $event->refunds_allowed) {
             return new RefundPolicyResult(
                 refundPercentage: 0,
                 refundAmount: 0,
                 status: RefundRequestStatusEnum::AutoDeclined,
-                policyLabel: 'Refunds are not available after the event date.',
+                policyLabel: 'Refunds are not available for this event.',
                 requiresCroReview: false,
             );
         }
 
-        $bookingCloseDate = $booking->ticketCategory->booking_end
-            ? Carbon::parse($booking->ticketCategory->booking_end)
-            : $eventDate->copy()->startOfDay();
-
-        $sevenDaysBeforeClose = $bookingCloseDate->copy()->subDays(7);
-
-        if ($now->lt($sevenDaysBeforeClose)) {
+        if ($now->gte($eventDayStart)) {
             return new RefundPolicyResult(
-                refundPercentage: 100,
-                refundAmount: $ticketPrice,
-                status: RefundRequestStatusEnum::Pending,
-                policyLabel: 'Full refund (100%) — more than 7 days before booking closes.',
-                requiresCroReview: true,
+                refundPercentage: 0,
+                refundAmount: 0,
+                status: RefundRequestStatusEnum::AutoDeclined,
+                policyLabel: 'Refunds are not available on or after the event date.',
+                requiresCroReview: false,
             );
         }
 
-        $refundAmount = round($ticketPrice * 0.75, 2);
+        $fullDays = (int) $event->refund_full_days_before_close;
+        $fullPercentage = (int) $event->refund_full_percentage;
+        $partialPercentage = (int) $event->refund_partial_percentage;
+
+        $bookingCloseDate = $booking->ticketCategory->booking_end
+            ? Carbon::parse($booking->ticketCategory->booking_end)
+            : $eventDayStart->copy();
+
+        $fullRefundCutoff = $bookingCloseDate->copy()->subDays($fullDays);
+
+        if ($now->lt($fullRefundCutoff)) {
+            return $this->buildResult(
+                $fullPercentage,
+                $ticketPrice,
+                "Full refund ({$fullPercentage}%) — more than {$fullDays} days before booking closes.",
+            );
+        }
+
+        return $this->buildResult(
+            $partialPercentage,
+            $ticketPrice,
+            "Partial refund ({$partialPercentage}%) — within {$fullDays} days of booking closing date.",
+        );
+    }
+
+    private function buildResult(int $percentage, float $ticketPrice, string $eligibleLabel): RefundPolicyResult
+    {
+        $percentage = max(0, min(100, $percentage));
+
+        if ($percentage <= 0) {
+            return new RefundPolicyResult(
+                refundPercentage: 0,
+                refundAmount: 0,
+                status: RefundRequestStatusEnum::AutoDeclined,
+                policyLabel: 'No refund is available under this event\'s policy at this time.',
+                requiresCroReview: false,
+            );
+        }
+
+        $refundAmount = round($ticketPrice * ($percentage / 100), 2);
 
         return new RefundPolicyResult(
-            refundPercentage: 75,
+            refundPercentage: $percentage,
             refundAmount: $refundAmount,
             status: RefundRequestStatusEnum::Pending,
-            policyLabel: 'Partial refund (75%) — within 7 days of booking closing date.',
+            policyLabel: $eligibleLabel,
             requiresCroReview: true,
         );
     }

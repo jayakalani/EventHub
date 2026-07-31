@@ -24,8 +24,13 @@ class OrganizerDashboardService
     /**
      * @return array<string, mixed>
      */
-    public function getDashboardData(int $organizerId): array
-    {
+    public function getDashboardData(
+        int $organizerId,
+        ?int $kpiEventId = null,
+        ?int $goalEventId = null,
+        ?int $chartEventId = null,
+        ?int $engagementEventId = null,
+    ): array {
         $reportService = app(OrganizerReportService::class);
         $sales = $reportService->getTicketSalesReport($organizerId);
         $revenue = $reportService->getRevenueReport($organizerId);
@@ -43,13 +48,19 @@ class OrganizerDashboardService
         $recentActivity = $this->recentActivity($organizerId, $recentPurchases);
         $todaySummary = $this->todaySummary($organizerId);
         $nextUpcomingEvent = $this->nextUpcomingEvent($organizerId);
-        $kpis = $this->buildKpis($organizerId, [
-            'totalEvents' => $sales['totalEvents'],
-            'ticketsSold' => $sales['totalTicketsSold'],
-            'grossRevenue' => $revenue['grossRevenue'],
-        ]);
-        $revenueGoal = $this->revenueGoal($organizerId);
-        $engagement = $this->engagementInsights($organizerId);
+        $kpiFilter = $this->kpiEventFilter($organizerId, $kpiEventId);
+        $kpis = $kpiFilter['selectedEventId']
+            ? $this->buildEventKpis($organizerId, $kpiFilter['selectedEventId'])
+            : $this->buildKpis($organizerId, [
+                'totalEvents' => $sales['totalEvents'],
+                'ticketsSold' => $sales['totalTicketsSold'],
+                'grossRevenue' => $revenue['grossRevenue'],
+            ]);
+        $revenueGoal = $this->revenueGoal($organizerId, $goalEventId);
+        $chartFilter = $this->kpiEventFilter($organizerId, $chartEventId);
+        $engagementFilter = $this->kpiEventFilter($organizerId, $engagementEventId);
+        $engagement = $this->engagementInsights($organizerId, $engagementFilter['selectedEventId']);
+        $engagement['filter'] = $engagementFilter;
 
         return [
             'stats' => [
@@ -66,6 +77,7 @@ class OrganizerDashboardService
                 'totalRefunded' => $revenue['totalRefunded'],
             ],
             'todaySummary' => $todaySummary,
+            'kpiFilter' => $kpiFilter,
             'kpis' => $kpis,
             'revenueGoal' => $revenueGoal,
             'engagement' => $engagement,
@@ -76,7 +88,8 @@ class OrganizerDashboardService
                 ['key' => 'unpublished', 'label' => 'Unpublished', 'count' => $statusCounts['unpublished'] ?? 0, 'color' => 'amber'],
                 ['key' => 'cancelled', 'label' => 'Cancelled', 'count' => $statusCounts['cancelled'] ?? 0, 'color' => 'rose'],
             ],
-            'charts' => $this->buildChartPeriods($organizerId),
+            'chartFilter' => $chartFilter,
+            'charts' => $this->buildChartPeriods($organizerId, $chartFilter['selectedEventId']),
             'performance' => $performance,
             'upcomingEvents' => $upcomingEvents,
             'nextUpcomingEvent' => $nextUpcomingEvent,
@@ -88,7 +101,7 @@ class OrganizerDashboardService
     /**
      * @return array{defaultPeriod: string, periods: array<string, array<string, mixed>>}
      */
-    private function buildChartPeriods(int $organizerId): array
+    private function buildChartPeriods(int $organizerId, ?int $eventId = null): array
     {
         return [
             'defaultPeriod' => 'month',
@@ -101,6 +114,7 @@ class OrganizerDashboardService
                     now()->subWeek()->startOfWeek(),
                     now()->subWeek()->endOfWeek(),
                     'day',
+                    $eventId,
                 ),
                 'month' => $this->chartPeriodPayload(
                     $organizerId,
@@ -110,6 +124,7 @@ class OrganizerDashboardService
                     now()->subMonthNoOverflow()->startOfMonth(),
                     now()->subMonthNoOverflow()->endOfMonth(),
                     'day',
+                    $eventId,
                 ),
                 'year' => $this->chartPeriodPayload(
                     $organizerId,
@@ -119,6 +134,7 @@ class OrganizerDashboardService
                     now()->subYear()->startOfYear(),
                     now()->subYear(),
                     'month',
+                    $eventId,
                 ),
             ],
         ];
@@ -135,18 +151,19 @@ class OrganizerDashboardService
         Carbon $previousStart,
         Carbon $previousEnd,
         string $bucket,
+        ?int $eventId = null,
     ): array {
-        $currentRevenueSeries = $this->bookingSeries($organizerId, $currentStart, $currentEnd, $bucket, 'sum');
-        $currentTicketSeries = $this->bookingSeries($organizerId, $currentStart, $currentEnd, $bucket, 'count');
+        $currentRevenueSeries = $this->bookingSeries($organizerId, $currentStart, $currentEnd, $bucket, 'sum', $eventId);
+        $currentTicketSeries = $this->bookingSeries($organizerId, $currentStart, $currentEnd, $bucket, 'count', $eventId);
 
         $currentRevenueTotal = array_sum($currentRevenueSeries['values']);
         $currentTicketTotal = array_sum($currentTicketSeries['values']);
 
-        $previousRevenueTotal = (float) $this->organizerConfirmedBookings($organizerId)
+        $previousRevenueTotal = (float) $this->organizerConfirmedBookings($organizerId, $eventId)
             ->whereBetween('created_at', [$previousStart, $previousEnd])
             ->sum('ticket_price');
 
-        $previousTicketTotal = (int) $this->organizerConfirmedBookings($organizerId)
+        $previousTicketTotal = (int) $this->organizerConfirmedBookings($organizerId, $eventId)
             ->whereBetween('created_at', [$previousStart, $previousEnd])
             ->count();
 
@@ -180,6 +197,7 @@ class OrganizerDashboardService
         Carbon $end,
         string $bucket,
         string $aggregate,
+        ?int $eventId = null,
     ): array {
         $effectiveEnd = $end->copy()->min(now()->endOfDay());
 
@@ -195,7 +213,7 @@ class OrganizerDashboardService
                 $cursor->addMonth();
             }
 
-            $rows = $this->organizerConfirmedBookings($organizerId)
+            $rows = $this->organizerConfirmedBookings($organizerId, $eventId)
                 ->whereBetween('created_at', [$start, $effectiveEnd])
                 ->selectRaw(
                     $aggregate === 'sum'
@@ -227,7 +245,7 @@ class OrganizerDashboardService
             $cursor->addDay();
         }
 
-        $rows = $this->organizerConfirmedBookings($organizerId)
+        $rows = $this->organizerConfirmedBookings($organizerId, $eventId)
             ->whereBetween('created_at', [$start, $effectiveEnd])
             ->selectRaw(
                 $aggregate === 'sum'
@@ -248,11 +266,17 @@ class OrganizerDashboardService
         ];
     }
 
-    private function organizerConfirmedBookings(int $organizerId)
+    private function organizerConfirmedBookings(int $organizerId, ?int $eventId = null)
     {
-        return ticketBooking::query()
+        $query = ticketBooking::query()
             ->whereHas('event', fn ($query) => $query->createdByOrganizer($organizerId))
             ->where('status', BookingStatusEnum::Confirmed);
+
+        if ($eventId) {
+            $query->where('event_id', $eventId);
+        }
+
+        return $query;
     }
 
     private function percentChange(float|int $current, float|int $previous): float
@@ -339,6 +363,7 @@ class OrganizerDashboardService
                 'trendLabel' => abs($revenuePercent).'%',
                 'trendHint' => 'Compared with last month',
                 'trendUp' => $revenuePercent >= 0,
+                'showTrend' => true,
                 'icon' => 'bi-cash-stack',
                 'accent' => 'emerald',
             ],
@@ -351,6 +376,7 @@ class OrganizerDashboardService
                 'trendLabel' => (string) $eventsThisMonth,
                 'trendHint' => 'Added this month',
                 'trendUp' => true,
+                'showTrend' => true,
                 'icon' => 'bi-calendar-event',
                 'accent' => 'indigo',
             ],
@@ -363,6 +389,7 @@ class OrganizerDashboardService
                 'trendLabel' => (string) $ticketsToday,
                 'trendHint' => 'Sold today',
                 'trendUp' => true,
+                'showTrend' => true,
                 'icon' => 'bi-ticket-perforated',
                 'accent' => 'blue',
             ],
@@ -375,6 +402,136 @@ class OrganizerDashboardService
                 'trendLabel' => (string) $likesToday,
                 'trendHint' => 'New today',
                 'trendUp' => true,
+                'showTrend' => true,
+                'icon' => 'bi-heart-fill',
+                'accent' => 'rose',
+            ],
+        ];
+    }
+
+    /**
+     * @return array{selectedEventId: int|null, selectedEventName: string|null, events: list<array{id: int, name: string}>}
+     */
+    private function kpiEventFilter(int $organizerId, ?int $kpiEventId): array
+    {
+        $events = Event::query()
+            ->createdByOrganizer($organizerId)
+            ->orderByDesc('date')
+            ->orderByDesc('id')
+            ->get(['id', 'name'])
+            ->map(fn (Event $event) => [
+                'id' => $event->id,
+                'name' => $event->name,
+            ])
+            ->values()
+            ->all();
+
+        $selectedEventId = null;
+        $selectedEventName = null;
+
+        if ($kpiEventId) {
+            $selected = collect($events)->firstWhere('id', $kpiEventId);
+            if ($selected) {
+                $selectedEventId = $selected['id'];
+                $selectedEventName = $selected['name'];
+            }
+        }
+
+        return [
+            'selectedEventId' => $selectedEventId,
+            'selectedEventName' => $selectedEventName,
+            'events' => $events,
+        ];
+    }
+
+    /**
+     * Whole-event KPIs for a single selected event (no monthly comparisons).
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function buildEventKpis(int $organizerId, int $eventId): array
+    {
+        $event = Event::query()
+            ->createdByOrganizer($organizerId)
+            ->withCount([
+                'ticketBookings as tickets_sold' => fn ($query) => $query->where('status', BookingStatusEnum::Confirmed),
+                'likes',
+            ])
+            ->withSum([
+                'ticketBookings as revenue' => fn ($query) => $query->where('status', BookingStatusEnum::Confirmed),
+            ], 'ticket_price')
+            ->find($eventId);
+
+        if (! $event) {
+            return $this->buildKpis($organizerId, [
+                'totalEvents' => 0,
+                'ticketsSold' => 0,
+                'grossRevenue' => 0,
+            ]);
+        }
+
+        $ticketsSold = (int) $event->tickets_sold;
+        $capacity = (int) $event->total_tickets;
+        $remaining = max(0, $capacity - $ticketsSold);
+        $fillRate = $capacity > 0 ? round(($ticketsSold / $capacity) * 100, 1) : 0;
+        $revenue = (float) ($event->revenue ?? 0);
+        $attendees = (int) ticketBooking::query()
+            ->where('event_id', $event->id)
+            ->where('status', BookingStatusEnum::Confirmed)
+            ->distinct('user_id')
+            ->count('user_id');
+        $likes = (int) $event->likes_count;
+
+        return [
+            [
+                'key' => 'revenue',
+                'label' => 'Event Revenue',
+                'emoji' => '💰',
+                'value' => 'LKR '.number_format($revenue, 0),
+                'trendValue' => 0,
+                'trendLabel' => '',
+                'trendHint' => 'Whole event total',
+                'trendUp' => true,
+                'showTrend' => false,
+                'icon' => 'bi-cash-stack',
+                'accent' => 'emerald',
+            ],
+            [
+                'key' => 'tickets',
+                'label' => 'Tickets Sold',
+                'emoji' => '🎟',
+                'value' => number_format($ticketsSold).($capacity > 0 ? ' / '.number_format($capacity) : ''),
+                'trendValue' => $fillRate,
+                'trendLabel' => $fillRate.'%',
+                'trendHint' => 'Fill rate',
+                'trendUp' => true,
+                'showTrend' => true,
+                'icon' => 'bi-ticket-perforated',
+                'accent' => 'blue',
+            ],
+            [
+                'key' => 'attendees',
+                'label' => 'Attendees',
+                'emoji' => '👥',
+                'value' => number_format($attendees),
+                'trendValue' => $remaining,
+                'trendLabel' => (string) $remaining,
+                'trendHint' => 'Tickets remaining',
+                'trendUp' => true,
+                'showTrend' => true,
+                'icon' => 'bi-people',
+                'accent' => 'indigo',
+            ],
+            [
+                'key' => 'followers',
+                'label' => 'Likes',
+                'emoji' => '❤️',
+                'value' => number_format($likes),
+                'trendValue' => 0,
+                'trendLabel' => '',
+                'trendHint' => 'Whole event total',
+                'trendUp' => true,
+                'showTrend' => false,
                 'icon' => 'bi-heart-fill',
                 'accent' => 'rose',
             ],
@@ -693,15 +850,24 @@ class OrganizerDashboardService
     /**
      * @return array<string, mixed>
      */
-    private function engagementInsights(int $organizerId): array
+    private function engagementInsights(int $organizerId, ?int $eventId = null): array
     {
-        $likes = (int) Like::query()->whereHas('event', fn ($q) => $q->createdByOrganizer($organizerId))->count();
-        $saves = (int) SavedEvent::query()->whereHas('event', fn ($q) => $q->createdByOrganizer($organizerId))->count();
-        $comments = (int) Comment::query()->whereHas('event', fn ($q) => $q->createdByOrganizer($organizerId))->count();
+        $scope = function ($query) use ($organizerId, $eventId) {
+            $query->createdByOrganizer($organizerId);
 
-        $reviewsCount = (int) Rating::query()->whereHas('event', fn ($q) => $q->createdByOrganizer($organizerId))->count();
+            if ($eventId) {
+                $query->where('id', $eventId);
+            }
+        };
+
+        $likes = (int) Like::query()->whereHas('event', $scope)->count();
+        $saves = (int) SavedEvent::query()->whereHas('event', $scope)->count();
+        $comments = (int) Comment::query()->whereHas('event', $scope)->count();
+
+        $ratingsQuery = Rating::query()->whereHas('event', $scope);
+        $reviewsCount = (int) (clone $ratingsQuery)->count();
         $averageRating = $reviewsCount > 0
-            ? round((float) Rating::query()->whereHas('event', fn ($q) => $q->createdByOrganizer($organizerId))->avg('score'), 1)
+            ? round((float) (clone $ratingsQuery)->avg('score'), 1)
             : null;
 
         return [
@@ -717,8 +883,14 @@ class OrganizerDashboardService
     /**
      * @return array<string, mixed>
      */
-    private function revenueGoal(int $organizerId): array
+    private function revenueGoal(int $organizerId, ?int $goalEventId = null): array
     {
+        $filter = $this->kpiEventFilter($organizerId, $goalEventId);
+
+        if ($filter['selectedEventId']) {
+            return $this->eventRevenueGoal($organizerId, $filter);
+        }
+
         $organizer = User::find($organizerId);
 
         $thisMonthRevenue = (float) $this->organizerConfirmedBookings($organizerId)
@@ -742,14 +914,61 @@ class OrganizerDashboardService
         $remaining = max(0, $goal - $thisMonthRevenue);
 
         return [
+            'mode' => 'monthly',
+            'selectedEventId' => null,
+            'selectedEventName' => null,
+            'events' => $filter['events'],
             'goal' => $goal,
             'current' => $thisMonthRevenue,
             'remaining' => $remaining,
             'progress' => $progress,
-            'month_label' => now()->format('F Y'),
+            'label' => now()->format('F Y'),
+            'description' => 'Track progress toward your monthly sales target across all events.',
             'is_custom' => $organizer?->monthly_revenue_goal !== null,
             'suggested' => $suggestedGoal,
             'achieved' => $thisMonthRevenue >= $goal && $goal > 0,
+        ];
+    }
+
+    /**
+     * @param  array{selectedEventId: int|null, selectedEventName: string|null, events: list<array{id: int, name: string}>}  $filter
+     * @return array<string, mixed>
+     */
+    private function eventRevenueGoal(int $organizerId, array $filter): array
+    {
+        $event = Event::query()
+            ->createdByOrganizer($organizerId)
+            ->withSum([
+                'ticketBookings as revenue' => fn ($query) => $query->where('status', BookingStatusEnum::Confirmed),
+            ], 'ticket_price')
+            ->find($filter['selectedEventId']);
+
+        $currentRevenue = (float) ($event?->revenue ?? 0);
+        $customGoal = $event?->revenue_goal !== null ? (float) $event->revenue_goal : null;
+
+        $suggestedGoal = max(10000, (int) (ceil(($currentRevenue * 1.25) / 5000) * 5000));
+        if ($suggestedGoal <= $currentRevenue) {
+            $suggestedGoal = (int) (ceil((($currentRevenue + 10000) * 1.1) / 5000) * 5000);
+        }
+
+        $goal = $customGoal ?? (float) $suggestedGoal;
+        $progress = $goal > 0 ? min(100, round(($currentRevenue / $goal) * 100, 1)) : 0;
+        $remaining = max(0, $goal - $currentRevenue);
+
+        return [
+            'mode' => 'event',
+            'selectedEventId' => $filter['selectedEventId'],
+            'selectedEventName' => $filter['selectedEventName'],
+            'events' => $filter['events'],
+            'goal' => $goal,
+            'current' => $currentRevenue,
+            'remaining' => $remaining,
+            'progress' => $progress,
+            'label' => $filter['selectedEventName'] ?? 'Event',
+            'description' => 'Track progress toward this event\'s sales target.',
+            'is_custom' => $customGoal !== null,
+            'suggested' => $suggestedGoal,
+            'achieved' => $currentRevenue >= $goal && $goal > 0,
         ];
     }
 

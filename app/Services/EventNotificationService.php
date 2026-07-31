@@ -6,9 +6,10 @@ use App\Enums\BookingStatusEnum;
 use App\Enums\EventReminderTypeEnum;
 use App\Mail\EventReminderMail;
 use App\Mail\EventUpdatedMail;
+use App\Mail\NewEventFromHostMail;
 use App\Models\Event;
 use App\Models\EventReminderLog;
-use App\Models\HostLike;
+use App\Models\FollowHost;
 use App\Models\ticketBooking;
 use App\Models\User;
 use App\Models\UserRole;
@@ -62,7 +63,7 @@ class EventNotificationService
         }
 
         $event->loadMissing('host');
-        $recipients = $this->getHostInterestedAttendees($event->hosted_by, $event->id);
+        $recipients = $this->getHostFollowers($event->hosted_by);
 
         if ($recipients->isEmpty()) {
             return;
@@ -70,6 +71,7 @@ class EventNotificationService
 
         DB::afterCommit(function () use ($event, $recipients) {
             foreach ($recipients as $user) {
+                Mail::to($user)->queue(new NewEventFromHostMail($event, $user));
                 $user->notify(new NewEventFromHostNotification($event));
             }
         });
@@ -115,32 +117,15 @@ class EventNotificationService
     }
 
     /**
-     * Attendees who liked the host or purchased tickets for a previous event by that host.
+     * Attendees who follow the host.
      *
      * @return Collection<int, User>
      */
-    public function getHostInterestedAttendees(int $hostId, ?int $excludeEventId = null): Collection
+    public function getHostFollowers(int $hostId): Collection
     {
-        $likedUserIds = HostLike::query()
+        $userIds = FollowHost::query()
             ->where('host_id', $hostId)
             ->pluck('user_id');
-
-        $purchasedUserIds = ticketBooking::query()
-            ->where('status', BookingStatusEnum::Confirmed)
-            ->whereHas('event', function ($query) use ($hostId, $excludeEventId) {
-                $query->where('hosted_by', $hostId);
-
-                if ($excludeEventId) {
-                    $query->where('id', '!=', $excludeEventId);
-                }
-            })
-            ->distinct()
-            ->pluck('user_id');
-
-        $userIds = $likedUserIds
-            ->merge($purchasedUserIds)
-            ->unique()
-            ->values();
 
         if ($userIds->isEmpty()) {
             return new Collection;

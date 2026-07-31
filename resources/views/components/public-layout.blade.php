@@ -37,7 +37,7 @@
                 this.showLoginModal = true;
                 setTimeout(() => {
                     window.location.href = '{{ route('login') }}';
-                }, 2500);
+                }, 10000);
             }
         }"
     @endif>
@@ -89,15 +89,18 @@
 
                 <h3 class="mt-4 text-center text-xl font-bold text-slate-900 dark:text-white">{{ t(['en' => 'Login Required', 'si' => 'පිවිසීම අවශ්‍යයි']) }}</h3>
                 <p class="mt-2 text-center text-sm leading-relaxed text-slate-600 dark:text-slate-400">
-                    {{ t(['en' => 'Please sign in to like, save, or book events.', 'si' => 'ප්‍රසංග වලට ප්‍රතිචාර දැක්වීමට කරුණාකර පිවිසෙන්න.']) }}
+                    {{ t(['en' => 'Login required to like, save, or book events.', 'si' => 'ප්‍රසංග වලට ප්‍රතිචාර දැක්වීමට, සුරැකීමට හෝ වෙන්කරවා ගැනීමට පිවිසීම අවශ්‍යයි.']) }}
+                </p>
+                <p class="mt-3 text-center text-sm leading-relaxed text-slate-600 dark:text-slate-400">
+                    {{ t(['en' => "Don't have an account? Create one to continue.", 'si' => 'ගිණුමක් නැතිද? ඉදිරියට යාමට ගිණුමක් සාදන්න.']) }}
                 </p>
                 <p class="mt-4 text-center text-xs text-slate-500">
                     {{ t(['en' => 'Redirecting you to the login page...', 'si' => 'පිවිසුම් පිටුවට යොමු කරමින්...']) }}
                 </p>
 
-                <a href="{{ route('login') }}"
+                <a href="{{ route('register') }}"
                     class="mt-6 inline-flex w-full items-center justify-center rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white transition hover:bg-primary-dark">
-                    {{ t(['en' => 'Go to Login', 'si' => 'පිවිසුමට යන්න']) }}
+                    {{ t(['en' => 'Create Account', 'si' => 'ගිණුමක් සාදන්න']) }}
                 </a>
             </div>
         </div>

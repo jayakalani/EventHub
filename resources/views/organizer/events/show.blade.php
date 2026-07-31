@@ -54,28 +54,24 @@
         </div>
     </x-slot>
 
-    <div class="bg-gradient-to-br from-slate-50 via-white to-indigo-50/40 py-6" x-data="{
-        cancelModal: {
-            open: {{ $errors->has('cancellation_reason') ? 'true' : 'false' }},
-            eventId: {{ $event->id }},
-            action: @js(route('organizer.events.cancel', $event->id)),
-            name: @js($event->name),
-            date: @js($event->date),
-            time: @js($event->time),
-            place: @js($event->place),
-        },
-        handleStatusChange(select, eventId, eventName, eventDate, eventTime, eventPlace, currentStatus) {
-            if (select.value === 'cancelled' && currentStatus !== 'cancelled') {
-                select.value = currentStatus;
-                this.cancelModal.open = true;
-                return;
-            }
+    @php
+        $organizerEventShowConfig = [
+            'cancelModal' => [
+                'open' => $errors->has('cancellation_reason'),
+                'eventId' => $event->id,
+                'action' => route('organizer.events.cancel', $event->id),
+                'name' => $event->name,
+                'date' => $event->date,
+                'time' => $event->time,
+                'place' => $event->place,
+            ],
+            'eventsBaseUrl' => url('organizer/events'),
+        ];
+    @endphp
 
-            if (currentStatus !== 'cancelled') {
-                select.form.submit();
-            }
-        }
-    }">
+    <script type="application/json" id="organizer-event-show-config">@json($organizerEventShowConfig)</script>
+
+    <div class="bg-gradient-to-br from-slate-50 via-white to-indigo-50/40 py-6" x-data="JSON.parse(document.getElementById('organizer-event-show-config').textContent)">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-4">
 
             @if ($errors->any())
@@ -801,7 +797,13 @@
                                 @csrf
                                 @method('PATCH')
                                 <select name="status"
-                                    @change="handleStatusChange($event.target, {{ $event->id }}, @js($event->name), @js($event->date), @js($event->time), @js($event->place), @js($event->status))"
+                                    data-event-id="{{ $event->id }}"
+                                    data-event-name="{{ $event->name }}"
+                                    data-event-date="{{ $event->date }}"
+                                    data-event-time="{{ $event->time }}"
+                                    data-event-place="{{ $event->place }}"
+                                    data-current-status="{{ $event->status }}"
+                                    onchange="window.organizerHandleEventStatusChange(this)"
                                     class="block w-full rounded-xl border-gray-200 bg-white text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
                                     <option value="unpublished" {{ ($event->status ?? '') == 'unpublished' ? 'selected' : '' }}
                                         @if ($event->ticket_bookings_count > 0) disabled title="{{ __('Cannot unpublish: tickets have been sold') }}" @endif>
@@ -875,4 +877,8 @@
 
         @include('organizer.events.partials.cancel-event-modal')
     </div>
+
+    @push('scripts')
+        @include('organizer.events.partials.status-change-script')
+    @endpush
 </x-app-layout>

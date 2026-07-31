@@ -21,6 +21,7 @@ use App\Http\Controllers\EventSaveController;
 use App\Http\Controllers\HelpController;
 use App\Http\Controllers\HostController;
 use App\Http\Controllers\HostLikeController;
+use App\Http\Controllers\HostFollowController;
 use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ComplaintController;
@@ -185,6 +186,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
 |--------------------------------------------------------------------------
 */
 Route::prefix('organizer')->name('organizer.')->middleware(['auth', 'verified', 'prevent-back', 'role:'.UserRole::ORGANIZER])->group(function () {
+    Route::get('/dashboard', [DashboardController::class, 'organizer'])->name('dashboard');
+
     // Event routes
     Route::get('/events', [EventController::class, 'index'])->name('events.index');
     Route::get('/events/create', [EventController::class, 'create'])->name('events.create');
@@ -270,6 +273,7 @@ Route::prefix('attendee')->name('attendee.')->middleware(['auth'])->group(functi
     Route::get('/hosts', [HostController::class, 'attendeeIndex'])->name('hosts.index');
     Route::get('/hosts/{host}', [HostController::class, 'attendeeShow'])->name('hosts.show');
     Route::post('/hosts/{host}/like', [HostLikeController::class, 'toggle'])->name('hosts.like');
+    Route::post('/hosts/{host}/follow', [HostFollowController::class, 'toggle'])->name('hosts.follow');
     Route::get('/calendar', [CalendarController::class, 'index'])->name('calendar.index');
     Route::get('/cart', [CartController::class, 'index'])->name('cart.index');
     Route::post('/events/{event}/cart', [CartController::class, 'store'])->name('cart.store');

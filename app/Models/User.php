@@ -130,6 +130,21 @@ class User extends Authenticatable implements MustVerifyEmailContract
         return $this->hostLikes()->where('host_id', $host->id)->exists();
     }
 
+    public function hostFollows()
+    {
+        return $this->hasMany(FollowHost::class);
+    }
+
+    public function followedHosts()
+    {
+        return $this->belongsToMany(Host::class, 'follow_hosts', 'user_id', 'host_id')->withTimestamps();
+    }
+
+    public function hasFollowedHost(Host $host): bool
+    {
+        return $this->hostFollows()->where('host_id', $host->id)->exists();
+    }
+
     public function savedEvents()
     {
         return $this->belongsToMany(Event::class, 'saved_events', 'user_id', 'event_id')->withTimestamps();

@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Auth;
 
+use App\Http\Requests\Concerns\NormalizesTitleCaseFields;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Foundation\Http\FormRequest;
@@ -9,6 +10,17 @@ use Illuminate\Validation\Rule;
 
 class GoogleCompleteProfileRequest extends FormRequest
 {
+    use NormalizesTitleCaseFields;
+
+    /**
+     * @var list<string>
+     */
+    protected array $titleCase = [
+        'first_name',
+        'last_name',
+        'address',
+    ];
+
     public function authorize(): bool
     {
         return $this->user() !== null && ! $this->user()->profile_completed;
@@ -19,14 +31,14 @@ class GoogleCompleteProfileRequest extends FormRequest
      */
     public function rules(): array
     {
-        $before = (new Carbon())->subYears(16)->format('Y-m-d');
+        $before = (new Carbon)->subYears(16)->format('Y-m-d');
 
         return [
             'first_name' => ['required', 'string', 'max:255'],
             'last_name' => ['required', 'string', 'max:255'],
             'nic' => ['required', 'string', 'max:16', Rule::unique(User::class)->ignore($this->user()->id)],
             'contact_number' => ['required', 'string', 'max:20'],
-            'date_of_birth' => ['required', 'date', 'before:' . $before],
+            'date_of_birth' => ['required', 'date', 'before:'.$before],
             'address' => ['required', 'string', 'max:255'],
             'gender' => ['required', Rule::in(['male', 'female'])],
         ];

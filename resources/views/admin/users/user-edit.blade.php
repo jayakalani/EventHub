@@ -81,7 +81,7 @@
                                     <x-input-label for="first_name" :value="__('First Name')" />
                                     <x-text-input id="first_name"
                                         class="mt-2 block w-full rounded-xl border-gray-200 bg-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                        type="text" name="first_name" :value="old('first_name', $user->first_name)" required />
+                                        type="text" name="first_name" :value="old('first_name', $user->first_name)" required :title-case="true" />
                                     <x-input-error :messages="$errors->get('first_name')" class="mt-2" />
                                 </div>
 
@@ -91,7 +91,7 @@
                                     <x-input-label for="last_name" :value="__('Last Name')" />
                                     <x-text-input id="last_name"
                                         class="mt-2 block w-full rounded-xl border-gray-200 bg-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                        type="text" name="last_name" :value="old('last_name', $user->last_name)" required />
+                                        type="text" name="last_name" :value="old('last_name', $user->last_name)" required :title-case="true" />
                                     <x-input-error :messages="$errors->get('last_name')" class="mt-2" />
                                 </div>
 

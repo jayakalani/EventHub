@@ -97,7 +97,7 @@
                                     <label for="name" class="block text-xs font-semibold uppercase tracking-wide text-gray-500">Event Name</label>
                                     <input id="name" type="text" name="name" value="{{ old('name') }}"
                                         class="mt-1.5 block w-full rounded-xl border-gray-200 bg-white text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                        required>
+                                        required data-title-case>
                                     @error('name')
                                         <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                                     @enderror
@@ -176,7 +176,7 @@
                                     <label for="place" class="block text-xs font-semibold uppercase tracking-wide text-gray-500">Place</label>
                                     <input id="place" type="text" name="place" value="{{ old('place') }}"
                                         class="mt-1.5 block w-full rounded-xl border-gray-200 bg-white text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                        required>
+                                        required data-title-case>
                                     @error('place')
                                         <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                                     @enderror

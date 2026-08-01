@@ -2,14 +2,22 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasTitleCaseAttributes;
+use App\Traits\Auditable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Notifications\Notifiable;
-use App\Traits\Auditable;
 
 class Host extends Model
 {
-    use HasFactory, Notifiable, Auditable;
+    use Auditable, HasFactory, HasTitleCaseAttributes, Notifiable;
+
+    /**
+     * @var list<string>
+     */
+    protected array $titleCase = [
+        'name',
+    ];
 
      /**
      * The attributes that are mass assignable.

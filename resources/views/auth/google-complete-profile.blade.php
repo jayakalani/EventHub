@@ -33,14 +33,14 @@
                         <label for="first_name"
                             class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">{{ t(['en' => 'First Name', 'si' => 'මුල් නම']) }}</label>
                         <input type="text" id="first_name" name="first_name"
-                            value="{{ old('first_name', $user->first_name) }}" required
+                            value="{{ old('first_name', $user->first_name) }}" required data-title-case
                             class="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary" />
                     </div>
                     <div>
                         <label for="last_name"
                             class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">{{ t(['en' => 'Last Name', 'si' => 'අවසන් නම']) }}</label>
                         <input type="text" id="last_name" name="last_name"
-                            value="{{ old('last_name', $user->last_name) }}" required
+                            value="{{ old('last_name', $user->last_name) }}" required data-title-case
                             class="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary" />
                     </div>
                 </div>
@@ -71,7 +71,7 @@
                 <div>
                     <label for="address"
                         class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">{{ t(['en' => 'Address', 'si' => 'ලිපිනය']) }}</label>
-                    <input type="text" id="address" name="address" value="{{ old('address') }}" required
+                    <input type="text" id="address" name="address" value="{{ old('address') }}" required data-title-case
                         class="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary" />
                 </div>
 

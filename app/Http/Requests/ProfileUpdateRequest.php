@@ -2,13 +2,24 @@
 
 namespace App\Http\Requests;
 
+use App\Http\Requests\Concerns\NormalizesTitleCaseFields;
 use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class ProfileUpdateRequest extends FormRequest
 {
-    
+    use NormalizesTitleCaseFields;
+
+    /**
+     * @var list<string>
+     */
+    protected array $titleCase = [
+        'first_name',
+        'last_name',
+        'address',
+    ];
+
     /**
      * Get the validation rules that apply to the request.
      *
@@ -19,14 +30,13 @@ class ProfileUpdateRequest extends FormRequest
         return [
             'first_name' => ['required', 'string', 'max:255'],
             'last_name' => ['required', 'string', 'max:255'],
-            'nic'            => ['required', 'string', 'max:20', Rule::unique(User::class)->ignore($this->user()->id)],
+            'nic' => ['required', 'string', 'max:20', Rule::unique(User::class)->ignore($this->user()->id)],
             'contact_number' => ['required', 'string', 'max:15'],
-            'date_of_birth'  => ['required', 'date'],
-            'address'        => ['required', 'string', 'max:255'],
-            'gender'         => ['required', Rule::in(['male','female'])],
-            'profile_photo'  => ['nullable','image','max:2048'],
-            'email' => ['required','string','lowercase','email','max:255',Rule::unique(User::class)->ignore($this->user()->id),],
+            'date_of_birth' => ['required', 'date'],
+            'address' => ['required', 'string', 'max:255'],
+            'gender' => ['required', Rule::in(['male', 'female'])],
+            'profile_photo' => ['nullable', 'image', 'max:2048'],
+            'email' => ['required', 'string', 'lowercase', 'email', 'max:255', Rule::unique(User::class)->ignore($this->user()->id)],
         ];
     }
 }
-

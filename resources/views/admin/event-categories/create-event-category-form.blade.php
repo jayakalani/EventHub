@@ -94,6 +94,7 @@
                                 name="name"
                                 value="{{ old('name') }}"
                                 required
+                                data-title-case
                                 placeholder="e.g. Music Concert, Workshop, Sports Event"
                                 class="w-full rounded-2xl border-slate-300 shadow-sm
                                 focus:border-indigo-500 focus:ring-indigo-500">

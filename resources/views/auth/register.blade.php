@@ -113,7 +113,7 @@
                                             <i class="bi bi-person text-gray-400 text-lg transition-colors duration-200 group-focus-within:text-primary dark:group-focus-within:text-primary-light"></i>
                                         </div>
                                         <input type="text" id="first_name" name="first_name" value="{{ old('first_name') }}"
-                                            required autofocus autocomplete="given-name" placeholder="{{ t(['en' => 'Enter your first name', 'si' => 'ඔබේ මුල් නම ඇතුළත් කරන්න']) }}"
+                                            required autofocus autocomplete="given-name" data-title-case placeholder="{{ t(['en' => 'Enter your first name', 'si' => 'ඔබේ මුල් නම ඇතුළත් කරන්න']) }}"
                                             class="w-full pl-12 pr-4 py-3.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white/90 dark:bg-gray-700/90 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/30 dark:focus:ring-primary-light/30 focus:border-primary dark:focus:border-primary-light hover:border-gray-300 dark:hover:border-gray-500 transition-all duration-200" />
                                     </div>
                                     @error('first_name')
@@ -132,7 +132,7 @@
                                             <i class="bi bi-person text-gray-400 text-lg transition-colors duration-200 group-focus-within:text-primary dark:group-focus-within:text-primary-light"></i>
                                         </div>
                                         <input type="text" id="last_name" name="last_name" value="{{ old('last_name') }}"
-                                            required autocomplete="family-name" placeholder="{{ t(['en' => 'Enter your last name', 'si' => 'ඔබේ අවසන් නම ඇතුළත් කරන්න']) }}"
+                                            required autocomplete="family-name" data-title-case placeholder="{{ t(['en' => 'Enter your last name', 'si' => 'ඔබේ අවසන් නම ඇතුළත් කරන්න']) }}"
                                             class="w-full pl-12 pr-4 py-3.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white/90 dark:bg-gray-700/90 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/30 dark:focus:ring-primary-light/30 focus:border-primary dark:focus:border-primary-light hover:border-gray-300 dark:hover:border-gray-500 transition-all duration-200" />
                                     </div>
                                     @error('last_name')
@@ -236,7 +236,7 @@
                                         <i class="bi bi-house text-gray-400 text-lg transition-colors duration-200 group-focus-within:text-primary dark:group-focus-within:text-primary-light"></i>
                                     </div>
                                     <input type="text" id="address" name="address" value="{{ old('address') }}"
-                                        required autofocus autocomplete="address" placeholder="{{ t(['en' => 'Enter your address', 'si' => 'ඔබේ ලිපිනය ඇතුළත් කරන්න']) }}"
+                                        required autofocus autocomplete="address" data-title-case placeholder="{{ t(['en' => 'Enter your address', 'si' => 'ඔබේ ලිපිනය ඇතුළත් කරන්න']) }}"
                                         class="w-full pl-12 pr-4 py-3.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white/90 dark:bg-gray-700/90 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/30 dark:focus:ring-primary-light/30 focus:border-primary dark:focus:border-primary-light hover:border-gray-300 dark:hover:border-gray-500 transition-all duration-200" />
                                 </div>
                                 @error('address')

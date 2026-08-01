@@ -4,6 +4,7 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Enums\GenderEnum;
+use App\Models\Concerns\HasTitleCaseAttributes;
 use App\Traits\Auditable;
 use Illuminate\Auth\MustVerifyEmail;
 use Illuminate\Contracts\Auth\MustVerifyEmail as MustVerifyEmailContract;
@@ -16,7 +17,18 @@ use Illuminate\Notifications\Notifiable;
 class User extends Authenticatable implements MustVerifyEmailContract
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use Auditable, HasFactory, MustVerifyEmail, Notifiable, SoftDeletes;
+    use Auditable, HasFactory, HasTitleCaseAttributes, MustVerifyEmail, Notifiable, SoftDeletes;
+
+    /**
+     * Human-readable name fields that should be title-cased on save.
+     *
+     * @var list<string>
+     */
+    protected array $titleCase = [
+        'first_name',
+        'last_name',
+        'address',
+    ];
 
     /**
      * The attributes that are mass assignable.

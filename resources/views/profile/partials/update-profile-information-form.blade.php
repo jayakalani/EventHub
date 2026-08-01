@@ -52,14 +52,14 @@
         <div>
             <x-input-label for="first_name" :value="__('First Name')" />
             <x-text-input id="first_name" name="first_name" type="text" class="mt-1 block w-full" :value="old('first_name', $user->first_name)"
-                required autofocus autocomplete="first_name" />
+                required autofocus autocomplete="first_name" :title-case="true" />
             <x-input-error class="mt-2" :messages="$errors->get('first_name')" />
         </div>
 
         <div>
             <x-input-label for="last_name" :value="__('Last Name')" />
             <x-text-input id="last_name" name="last_name" type="text" class="mt-1 block w-full" :value="old('last_name', $user->last_name)"
-                required autofocus autocomplete="last_name" />
+                required autofocus autocomplete="last_name" :title-case="true" />
             <x-input-error class="mt-2" :messages="$errors->get('last_name')" />
         </div>
 
@@ -87,7 +87,7 @@
         <div>
             <x-input-label for="address" :value="__('Address')" />
             <x-text-input id="address" name="address" type="text" class="mt-1 block w-full" :value="old('address', $user->address)"
-                required autofocus autocomplete="address" />
+                required autofocus autocomplete="address" :title-case="true" />
             <x-input-error class="mt-2" :messages="$errors->get('address')" />
         </div>
 

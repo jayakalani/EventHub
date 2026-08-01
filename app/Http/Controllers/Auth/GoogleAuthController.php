@@ -7,6 +7,7 @@ use App\Http\Requests\Auth\GoogleCompleteProfileRequest;
 use App\Models\User;
 use App\Models\UserRole;
 use App\Services\AuthLoginService;
+use App\Support\TitleCase;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -135,8 +136,8 @@ class GoogleAuthController extends Controller
         $parts = preg_split('/\s+/', $fullName, 2);
 
         return [
-            'first_name' => $parts[0],
-            'last_name' => $parts[1] ?? '',
+            'first_name' => TitleCase::format($parts[0]) ?? '',
+            'last_name' => TitleCase::format($parts[1] ?? '') ?? '',
         ];
     }
 }

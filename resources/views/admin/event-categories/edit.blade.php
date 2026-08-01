@@ -111,7 +111,7 @@
                                     <x-input-label for="name" :value="__('Category Name')" />
                                     <x-text-input id="name"
                                         class="mt-2 block w-full rounded-xl border-gray-200 bg-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                        type="text" name="name" :value="old('name', $eventCategory->name)" required autofocus />
+                                        type="text" name="name" :value="old('name', $eventCategory->name)" required autofocus :title-case="true" />
                                     <p class="mt-2 text-xs text-gray-500">
                                         {{ __('Choose a clear and recognizable category name.') }}
                                     </p>

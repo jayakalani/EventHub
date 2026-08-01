@@ -103,7 +103,7 @@
                                     <x-input-label for="name" :value="__('Category Name')" />
                                     <x-text-input id="name"
                                         class="mt-2 block w-full rounded-xl border-gray-200 bg-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                        type="text" name="name" :value="old('name', $ticketCategory->name)" required />
+                                        type="text" name="name" :value="old('name', $ticketCategory->name)" required :title-case="true" />
                                     <x-input-error :messages="$errors->get('name')" class="mt-2" />
                                 </div>
 

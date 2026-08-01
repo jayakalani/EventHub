@@ -69,7 +69,7 @@
                                 </label>
 
                                 <input type="text" name="first_name" value="{{ old('first_name') }}" required
-                                    placeholder="Enter first name"
+                                    placeholder="Enter first name" data-title-case
                                     class="w-full rounded-2xl border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
                             </div>
 
@@ -80,7 +80,7 @@
                                 </label>
 
                                 <input type="text" name="last_name" value="{{ old('last_name') }}" required
-                                    placeholder="Enter last name"
+                                    placeholder="Enter last name" data-title-case
                                     class="w-full rounded-2xl border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
                             </div>
                         </div>

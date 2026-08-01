@@ -234,7 +234,7 @@
                         <div>
                             <label for="name" class="sr-only">{{ t(['en' => 'Name', 'si' => 'නම']) }}</label>
                             <input id="name" type="text" name="name" value="{{ old('name') }}"
-                                placeholder="{{ t(['en' => 'Name', 'si' => 'නම']) }}" required
+                                placeholder="{{ t(['en' => 'Name', 'si' => 'නම']) }}" required data-title-case
                                 class="block w-full rounded-md border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm focus:border-primary focus:ring-primary dark:border-slate-600 dark:bg-slate-950 dark:text-white">
                         </div>
                         <div>

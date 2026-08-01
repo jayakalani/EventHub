@@ -99,7 +99,7 @@
                                     <x-input-label for="name" value="Event Name" />
                                     <x-text-input id="name"
                                         class="mt-1.5 block w-full rounded-xl border-gray-200 bg-white text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                        type="text" name="name" :value="old('name', $event->name)" required />
+                                        type="text" name="name" :value="old('name', $event->name)" required :title-case="true" />
                                     <x-input-error :messages="$errors->get('name')" class="mt-1" />
                                 </div>
 
@@ -160,7 +160,7 @@
                                     <x-input-label for="place" value="Place / Venue" />
                                     <x-text-input id="place"
                                         class="mt-1.5 block w-full rounded-xl border-gray-200 bg-white text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                        type="text" name="place" :value="old('place', $event->place)" required />
+                                        type="text" name="place" :value="old('place', $event->place)" required :title-case="true" />
                                     <x-input-error :messages="$errors->get('place')" class="mt-1" />
                                 </div>
 

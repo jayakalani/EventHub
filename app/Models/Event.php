@@ -3,15 +3,24 @@
 namespace App\Models;
 
 use App\Enums\BookingStatusEnum;
+use App\Models\Concerns\HasTitleCaseAttributes;
+use App\Traits\Auditable;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Notifications\Notifiable;
-use App\Traits\Auditable;
 
 class Event extends Model
 {
-    use HasFactory, Notifiable, Auditable;
+    use Auditable, HasFactory, HasTitleCaseAttributes, Notifiable;
+
+    /**
+     * @var list<string>
+     */
+    protected array $titleCase = [
+        'name',
+        'place',
+    ];
 
     public const STATUS_UNPUBLISHED = 'unpublished';
 

@@ -9,6 +9,7 @@ import {
     LineController,
     LineElement,
     LinearScale,
+    PieController,
     PointElement,
     Tooltip,
 } from 'chart.js';
@@ -24,6 +25,7 @@ Chart.register(
     LineController,
     LineElement,
     LinearScale,
+    PieController,
     PointElement,
     Tooltip,
 );
@@ -64,7 +66,7 @@ const defaultFont = {
 
 function createLineChart(canvasId, labels, datasets, yMax = null) {
     const canvas = document.getElementById(canvasId);
-    if (!canvas) return null;
+    if (!canvas || !labels.length) return null;
 
     return new Chart(canvas, {
         type: 'line',
@@ -128,12 +130,15 @@ function createBarChart(canvasId, labels, datasets, options = {}) {
     });
 }
 
-function createDoughnutChart(canvasId, labels, data, colors = null) {
+function createDoughnutChart(canvasId, labels, data, colors = null, options = {}) {
     const canvas = document.getElementById(canvasId);
     if (!canvas || !labels.length) return null;
 
+    const hasData = data.some((value) => Number(value) > 0);
+    if (!hasData) return null;
+
     return new Chart(canvas, {
-        type: 'doughnut',
+        type: options.type ?? 'doughnut',
         data: {
             labels,
             datasets: [{
@@ -147,11 +152,21 @@ function createDoughnutChart(canvasId, labels, data, colors = null) {
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            cutout: '65%',
+            cutout: options.type === 'pie' ? 0 : '65%',
             plugins: {
                 legend: {
                     position: 'bottom',
                     labels: { font: defaultFont, padding: 14, usePointStyle: true },
+                },
+                tooltip: {
+                    callbacks: {
+                        label(context) {
+                            const total = context.dataset.data.reduce((sum, value) => sum + Number(value), 0);
+                            const value = Number(context.raw) || 0;
+                            const percent = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                            return ` ${context.label}: ${value} (${percent}%)`;
+                        },
+                    },
                 },
             },
         },
@@ -169,20 +184,26 @@ function initCroReports() {
         return chart;
     };
 
-    const inquiries = data.inquiries;
-    const complaints = data.complaints;
+    const inquiries = data.inquiries ?? {};
+    const complaints = data.complaints ?? {};
+    const satisfaction = data.satisfaction ?? {};
+    const resolutionTrend = inquiries.resolutionTrend ?? { submitted: [], resolved: [], resolutionRate: [] };
+    const responseTimeTrend = inquiries.responseTimeTrend ?? [];
+    const categoryBreakdown = complaints.categoryBreakdown ?? complaints.typeBreakdown ?? [];
+    const csatDistribution = satisfaction.distribution ?? { labels: [], counts: [] };
+    const csatTrend = satisfaction.trend ?? [];
 
     register(createDoughnutChart(
         'inquiryStatusChart',
-        inquiries.statusBreakdown.map((i) => i.label),
-        inquiries.statusBreakdown.map((i) => i.count),
+        (inquiries.statusBreakdown ?? []).map((i) => i.label),
+        (inquiries.statusBreakdown ?? []).map((i) => i.count),
         statusColors,
     ));
 
     register(createLineChart('inquiryResolutionTrendChart', chartLabels, [
         {
             label: 'Submitted',
-            data: inquiries.resolutionTrend.submitted,
+            data: resolutionTrend.submitted,
             borderColor: palette.indigo,
             backgroundColor: 'rgba(79, 70, 229, 0.1)',
             fill: true,
@@ -192,7 +213,7 @@ function initCroReports() {
         },
         {
             label: 'Resolved',
-            data: inquiries.resolutionTrend.resolved,
+            data: resolutionTrend.resolved,
             borderColor: palette.emerald,
             backgroundColor: 'rgba(16, 185, 129, 0.1)',
             fill: true,
@@ -202,16 +223,16 @@ function initCroReports() {
         },
     ]));
 
-    register(createLineChart('inquiryResolutionRateChart', chartLabels, [{
-        label: 'Resolution Rate (%)',
-        data: inquiries.resolutionTrend.resolutionRate,
-        borderColor: palette.cyan,
-        backgroundColor: 'rgba(6, 182, 212, 0.1)',
-        fill: true,
-        tension: 0.35,
-        pointRadius: 4,
-        pointHoverRadius: 6,
-    }], 100));
+    register(createBarChart(
+        'inquiryResponseTimeChart',
+        chartLabels,
+        [{
+            label: 'Avg minutes',
+            data: responseTimeTrend.map((value) => value ?? 0),
+            backgroundColor: 'rgba(6, 182, 212, 0.75)',
+            borderRadius: 8,
+        }],
+    ));
 
     const topEvents = inquiries.byEvent ?? [];
     register(createBarChart(
@@ -228,20 +249,28 @@ function initCroReports() {
 
     register(createDoughnutChart(
         'complaintStatusChart',
-        complaints.statusBreakdown.map((i) => i.label),
-        complaints.statusBreakdown.map((i) => i.count),
+        (complaints.statusBreakdown ?? []).map((i) => i.label),
+        (complaints.statusBreakdown ?? []).map((i) => i.count),
         statusColors,
     ));
 
     register(createDoughnutChart(
         'complaintTypeChart',
-        complaints.typeBreakdown.map((i) => i.label),
-        complaints.typeBreakdown.map((i) => i.count),
+        (complaints.typeBreakdown ?? []).map((i) => i.label),
+        (complaints.typeBreakdown ?? []).map((i) => i.count),
+    ));
+
+    register(createDoughnutChart(
+        'complaintCategoryPieChart',
+        categoryBreakdown.map((i) => i.label),
+        categoryBreakdown.map((i) => i.count),
+        null,
+        { type: 'pie' },
     ));
 
     register(createLineChart('complaintSubmissionsChart', chartLabels, [{
         label: 'Complaints Submitted',
-        data: complaints.submissionsTrend,
+        data: complaints.submissionsTrend ?? [],
         borderColor: palette.rose,
         backgroundColor: 'rgba(244, 63, 94, 0.1)',
         fill: true,
@@ -283,9 +312,52 @@ function initCroReports() {
         { stacked: true },
     ));
 
+    // Overview charts
+    register(createLineChart('overviewInquiryResolutionChart', chartLabels, [
+        {
+            label: 'Submitted',
+            data: resolutionTrend.submitted,
+            borderColor: palette.indigo,
+            backgroundColor: 'rgba(79, 70, 229, 0.12)',
+            fill: true,
+            tension: 0.4,
+            pointRadius: 4,
+            pointHoverRadius: 7,
+        },
+        {
+            label: 'Resolved',
+            data: resolutionTrend.resolved,
+            borderColor: palette.emerald,
+            backgroundColor: 'rgba(16, 185, 129, 0.12)',
+            fill: true,
+            tension: 0.4,
+            pointRadius: 4,
+            pointHoverRadius: 7,
+        },
+    ]));
+
+    register(createBarChart(
+        'overviewResponseTimeChart',
+        chartLabels,
+        [{
+            label: 'Avg minutes',
+            data: responseTimeTrend.map((value) => value ?? 0),
+            backgroundColor: 'rgba(79, 70, 229, 0.75)',
+            borderRadius: 8,
+        }],
+    ));
+
+    register(createDoughnutChart(
+        'overviewComplaintCategoriesChart',
+        categoryBreakdown.map((i) => i.label),
+        categoryBreakdown.map((i) => i.count),
+        null,
+        { type: 'pie' },
+    ));
+
     register(createLineChart('overviewResolutionRateChart', chartLabels, [{
         label: 'Resolution Rate (%)',
-        data: inquiries.resolutionTrend.resolutionRate,
+        data: resolutionTrend.resolutionRate,
         borderColor: palette.cyan,
         backgroundColor: 'rgba(6, 182, 212, 0.15)',
         fill: true,
@@ -294,16 +366,31 @@ function initCroReports() {
         pointHoverRadius: 8,
     }], 100));
 
-    register(createLineChart('overviewComplaintTrendChart', chartLabels, [{
-        label: 'Complaints',
-        data: complaints.submissionsTrend,
-        borderColor: palette.rose,
-        backgroundColor: 'rgba(244, 63, 94, 0.15)',
+    register(createLineChart('overviewCsatTrendChart', chartLabels, [{
+        label: 'Avg rating',
+        data: csatTrend.map((value) => value ?? null),
+        borderColor: palette.amber,
+        backgroundColor: 'rgba(245, 158, 11, 0.15)',
         fill: true,
         tension: 0.4,
         pointRadius: 5,
         pointHoverRadius: 8,
-    }]));
+        spanGaps: true,
+    }], 5));
+
+    register(createDoughnutChart(
+        'overviewCsatDistributionChart',
+        csatDistribution.labels ?? [],
+        csatDistribution.counts ?? [],
+        [
+            'rgba(16, 185, 129, 0.85)',
+            'rgba(6, 182, 212, 0.85)',
+            'rgba(245, 158, 11, 0.85)',
+            'rgba(244, 63, 94, 0.85)',
+            'rgba(79, 70, 229, 0.85)',
+        ],
+        { type: 'pie' },
+    ));
 
     const resizeCharts = () => charts.forEach((chart) => chart.resize());
     window.addEventListener('cro-reports-tab-changed', resizeCharts);

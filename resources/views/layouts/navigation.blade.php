@@ -5,6 +5,8 @@
     $isAdmin = $userRole === \App\Models\UserRole::ADMIN;
     $isCro = $userRole === \App\Models\UserRole::CRO;
     $user = Auth::user();
+    $navInitials = strtoupper(substr($user?->first_name ?? 'U', 0, 1).substr($user?->last_name ?? '', 0, 1));
+    $navDisplayName = $user?->full_name ?: ($user?->email ?? 'User');
     $currentLocale = \App\Support\Locale::current();
 
     $navIdle = 'text-slate-600 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:bg-white/70 hover:text-[#0F0363] hover:shadow-md hover:shadow-[#0F0363]/10';
@@ -249,9 +251,17 @@
                     <x-dropdown align="right" width="56">
                         <x-slot name="trigger">
                             <button class="flex items-center gap-2 rounded-2xl border border-white/50 bg-white/40 px-2.5 py-1.5 shadow-sm backdrop-blur-md transition-all duration-200 hover:-translate-y-0.5 hover:border-[#0F0363]/20 hover:bg-white/70 hover:shadow-md hover:shadow-[#0F0363]/10 sm:gap-3 sm:px-3 sm:py-2">
-                                <div class="flex h-9 w-9 items-center justify-center rounded-full bg-[#0F0363] text-sm font-semibold text-white shadow-sm shadow-[#0F0363]/25">
-                                    {{ strtoupper(substr($user?->name ?? 'G', 0, 1)) }}
-                                </div>
+                                @if ($user?->profile_photo)
+                                    <div class="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-[#0F0363] p-0.5 shadow-sm shadow-[#0F0363]/25">
+                                        <img src="{{ asset('uploads/users-profile-photos/' . $user->profile_photo) }}"
+                                            alt="{{ $navDisplayName }}"
+                                            class="h-full w-full rounded-full object-cover ring-1 ring-white/30">
+                                    </div>
+                                @else
+                                    <div class="flex h-9 w-9 items-center justify-center rounded-full bg-[#0F0363] text-sm font-semibold text-white shadow-sm shadow-[#0F0363]/25">
+                                        {{ $navInitials }}
+                                    </div>
+                                @endif
                                 <svg class="h-4 w-4 text-slate-400 transition group-hover:text-[#0F0363]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                                 </svg>
@@ -260,7 +270,7 @@
 
                         <x-slot name="content">
                             <div class="border-b border-slate-100 px-4 py-3">
-                                <p class="font-semibold text-slate-900">{{ $user?->name }}</p>
+                                <p class="font-semibold text-slate-900">{{ $navDisplayName }}</p>
                                 <p class="text-sm text-slate-500">{{ $user?->email }}</p>
                             </div>
 

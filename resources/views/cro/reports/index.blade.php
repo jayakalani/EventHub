@@ -1,329 +1,573 @@
 <x-app-layout>
-    <x-slot name="header">
-        <div class="relative overflow-hidden rounded-3xl bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-500 p-8 shadow-xl">
-            <div class="absolute inset-0 opacity-10">
-                <div class="absolute -right-16 -top-16 h-64 w-64 rounded-full bg-white"></div>
-                <div class="absolute bottom-0 left-1/3 h-40 w-40 rounded-full bg-white"></div>
-            </div>
-
-            <div class="relative flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-                <div>
-                    <h1 class="text-3xl font-bold text-white">CRO Reports</h1>
-                    <p class="mt-2 text-blue-100">
-                        Track inquiry resolution performance and complaint statistics.
-                    </p>
-                </div>
-
-                <div class="flex flex-wrap gap-3">
-                    <a href="{{ route('cro.dashboard') }}"
-                        class="inline-flex items-center gap-2 rounded-2xl border border-white/30 bg-white/10 backdrop-blur-sm px-5 py-3 text-sm font-semibold text-white hover:bg-white/20 transition-all duration-300">
-                        <i class="bi bi-arrow-left"></i>
-                        Back to Dashboard
-                    </a>
-                    <a href="{{ route('cro.inquiries.index') }}"
-                        class="inline-flex items-center gap-2 rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-indigo-600 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-                        <i class="bi bi-chat-left-text"></i>
-                        Manage Inquiries
-                    </a>
-                </div>
-            </div>
-        </div>
-    </x-slot>
-
     @php
         $inquiries = $reports['inquiries'];
         $complaints = $reports['complaints'];
+        $satisfaction = $reports['satisfaction'] ?? ['average' => null, 'reviewCount' => 0, 'distribution' => ['labels' => [], 'counts' => [], 'percents' => [], 'total' => 0], 'trend' => []];
+        $summary = $reports['summary'] ?? [];
+        $activeFilters = $reports['filters'] ?? ['event' => null, 'cro' => null, 'range' => 'month', 'from' => null, 'to' => null];
+        $filterOptions = $reports['filterOptions'] ?? ['events' => [], 'cros' => []];
         $validTabs = ['inquiries', 'complaints'];
         $initialTab = in_array(request('tab'), $validTabs, true) ? request('tab') : 'inquiries';
+        $filterQueryBase = array_filter([
+            'event' => $activeFilters['event'] ?? null,
+            'cro' => $activeFilters['cro'] ?? null,
+            'tab' => $initialTab,
+        ], fn ($value) => $value !== null && $value !== '');
+        $datePresets = [
+            'week' => [
+                'key' => 'week',
+                'label' => 'Weekly',
+                'from' => now()->subDays(6)->toDateString(),
+                'to' => now()->toDateString(),
+            ],
+            'month' => [
+                'key' => 'month',
+                'label' => 'Monthly',
+                'from' => now()->subDays(29)->toDateString(),
+                'to' => now()->toDateString(),
+            ],
+        ];
+        $activeRange = $activeFilters['range'] ?? 'month';
+        $scopeBits = array_filter([
+            $activeFilters['selectedEventName'] ?? null,
+            $activeFilters['selectedCroName'] ?? null,
+            ($activeFilters['from'] ?? null) && ($activeFilters['to'] ?? null)
+                ? ($activeFilters['from'].' → '.$activeFilters['to'])
+                : null,
+        ]);
     @endphp
 
-    <div class="py-8" x-data="{ activeTab: '{{ $initialTab }}' }">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
+    <div class="cro-reports relative isolate overflow-hidden py-5 sm:py-6"
+        x-data="{
+            activeTab: '{{ $initialTab }}',
+            setTab(tab) {
+                this.activeTab = tab;
+                this.$nextTick(() => window.dispatchEvent(new CustomEvent('cro-reports-tab-changed')));
+            },
+        }">
 
-            {{-- Key Visual Insights --}}
-            <div class="rounded-3xl border border-indigo-100 bg-gradient-to-br from-indigo-50 via-white to-cyan-50 p-6 shadow-sm">
-                <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                        <h2 class="text-xl font-bold text-slate-900">Key Visual Insights</h2>
-                        <p class="mt-1 text-sm text-slate-500">Inquiry resolution and complaint submission trends</p>
+        <div class="pointer-events-none absolute inset-0 -z-10">
+            <div class="absolute inset-0 bg-gradient-to-br from-slate-100 via-indigo-50/40 to-cyan-50/50"></div>
+            <div class="absolute -left-24 top-10 h-72 w-72 rounded-full bg-indigo-300/25 blur-3xl"></div>
+            <div class="absolute right-0 top-40 h-80 w-80 rounded-full bg-cyan-300/20 blur-3xl"></div>
+            <div class="absolute bottom-24 left-1/3 h-64 w-64 rounded-full bg-rose-300/15 blur-3xl"></div>
+            <div class="absolute inset-0 bg-grid-slate-100 opacity-60"></div>
+        </div>
+
+        <div class="mx-auto max-w-7xl space-y-5 px-4 sm:px-6 lg:px-8">
+
+            {{-- Header --}}
+            <section class="glass-panel overflow-hidden !rounded-2xl">
+                <div class="relative px-4 py-4 sm:px-6 sm:py-5">
+                    <div class="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-indigo-200/30 blur-2xl"></div>
+                    <div class="relative flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                        <div class="min-w-0">
+                            <p class="text-[11px] font-semibold uppercase tracking-wide text-indigo-600">Analytics</p>
+                            <h1 class="mt-0.5 truncate text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
+                                CRO Reports
+                            </h1>
+                            <p class="mt-1 text-sm text-slate-500">
+                                Inquiry resolution, complaint mix, and satisfaction
+                                @if (count($scopeBits))
+                                    · <span class="font-medium text-slate-700">{{ implode(' · ', $scopeBits) }}</span>
+                                @endif
+                            </p>
+                        </div>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <x-report-export-buttons
+                                excel-route="cro.reports.export.excel"
+                                pdf-route="cro.reports.export.pdf"
+                                scope="cro"
+                                section="inquiries"
+                            />
+                            <a href="{{ route('cro.dashboard') }}"
+                                class="btn-smooth inline-flex items-center gap-1.5 rounded-lg border border-white/70 bg-white/50 px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm backdrop-blur hover:border-indigo-200 hover:bg-white/80 sm:text-sm">
+                                <i class="bi bi-arrow-left"></i>
+                                Dashboard
+                            </a>
+                            <a href="{{ route('cro.inquiries.index') }}"
+                                class="btn-smooth inline-flex items-center gap-1.5 rounded-lg bg-indigo-600/95 px-3 py-2 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 hover:shadow-md sm:text-sm">
+                                <i class="bi bi-chat-left-text"></i>
+                                Inquiries
+                            </a>
+                        </div>
                     </div>
-                    <x-report-export-buttons excel-route="cro.reports.export.excel" pdf-route="cro.reports.export.pdf" scope="cro" section="inquiries" />
                 </div>
-                <div class="grid gap-6 lg:grid-cols-2">
-                    <x-report-chart-card title="Resolution Rate Trend" description="Monthly inquiry resolution percentage" canvas-id="overviewResolutionRateChart" />
-                    <x-report-chart-card title="Complaint Submissions" description="New complaints over the last 6 months" canvas-id="overviewComplaintTrendChart" />
-                </div>
-            </div>
+            </section>
 
-            {{-- Tab Navigation --}}
-            <div class="rounded-3xl border border-slate-200 bg-white p-2 shadow-sm">
-                <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {{-- Filters --}}
+            <section class="glass-panel !rounded-2xl p-4 sm:p-5">
+                <div class="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <h2 class="text-base font-bold text-slate-900">Report filters</h2>
+                        <p class="text-sm text-slate-500">Scope charts, KPIs, and exports</p>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Range</span>
+                        @foreach ($datePresets as $preset)
+                            <a href="{{ route('cro.reports', array_merge($filterQueryBase, ['range' => $preset['key'], 'from' => $preset['from'], 'to' => $preset['to']])) }}"
+                                class="btn-smooth inline-flex rounded-lg px-3 py-1.5 text-xs font-semibold transition
+                                    {{ $activeRange === $preset['key']
+                                        ? 'bg-indigo-600 text-white shadow-sm'
+                                        : 'border border-white/70 bg-white/50 text-slate-600 hover:bg-white/80' }}">
+                                {{ $preset['label'] }}
+                            </a>
+                        @endforeach
+                        <span class="inline-flex rounded-lg px-3 py-1.5 text-xs font-semibold
+                            {{ $activeRange === 'custom'
+                                ? 'bg-indigo-600 text-white shadow-sm'
+                                : 'border border-white/70 bg-white/40 text-slate-500' }}">
+                            Custom
+                        </span>
+                    </div>
+                </div>
+
+                <form method="GET" action="{{ route('cro.reports') }}" class="grid gap-3 lg:grid-cols-12 lg:items-end">
+                    <input type="hidden" name="range" value="custom">
+                    <input type="hidden" name="tab" value="{{ $initialTab }}">
+                    <div class="lg:col-span-3">
+                        <label for="event" class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">Event</label>
+                        <select id="event" name="event"
+                            class="w-full rounded-lg border border-white/70 bg-white/70 px-3 py-2 text-sm text-slate-800 shadow-sm backdrop-blur focus:border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-200">
+                            <option value="">All events</option>
+                            @foreach ($filterOptions['events'] as $eventOption)
+                                <option value="{{ $eventOption['id'] }}" @selected((int) ($activeFilters['event'] ?? 0) === (int) $eventOption['id'])>
+                                    {{ $eventOption['name'] }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="lg:col-span-3">
+                        <label for="cro" class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">CRO</label>
+                        <select id="cro" name="cro"
+                            class="w-full rounded-lg border border-white/70 bg-white/70 px-3 py-2 text-sm text-slate-800 shadow-sm backdrop-blur focus:border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-200">
+                            <option value="">All CROs</option>
+                            @foreach ($filterOptions['cros'] as $croOption)
+                                <option value="{{ $croOption['id'] }}" @selected((int) ($activeFilters['cro'] ?? 0) === (int) $croOption['id'])>
+                                    {{ $croOption['name'] }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="lg:col-span-2">
+                        <label for="from" class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">From</label>
+                        <input type="date" id="from" name="from" value="{{ $activeFilters['from'] }}"
+                            class="w-full rounded-lg border border-white/70 bg-white/70 px-3 py-2 text-sm text-slate-800 shadow-sm backdrop-blur focus:border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-200">
+                    </div>
+                    <div class="lg:col-span-2">
+                        <label for="to" class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">To</label>
+                        <input type="date" id="to" name="to" value="{{ $activeFilters['to'] }}"
+                            class="w-full rounded-lg border border-white/70 bg-white/70 px-3 py-2 text-sm text-slate-800 shadow-sm backdrop-blur focus:border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-200">
+                    </div>
+                    <div class="flex flex-wrap gap-2 lg:col-span-2">
+                        <button type="submit"
+                            class="btn-smooth inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-indigo-600/95 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700">
+                            <i class="bi bi-funnel"></i>
+                            Apply
+                        </button>
+                        <a href="{{ route('cro.reports') }}"
+                            class="btn-smooth inline-flex items-center justify-center rounded-lg border border-white/70 bg-white/50 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-white/80">
+                            Reset
+                        </a>
+                    </div>
+                </form>
+            </section>
+
+            {{-- Summary KPIs --}}
+            <section class="grid grid-cols-2 gap-3 xl:grid-cols-5">
+                @foreach ([
+                    ['label' => 'Resolved', 'value' => number_format($summary['resolved'] ?? 0), 'sub' => 'Closed cases', 'accent' => 'emerald', 'icon' => 'bi-check2-circle'],
+                    ['label' => 'Pending', 'value' => number_format($summary['pending'] ?? 0), 'sub' => 'Still open', 'accent' => 'amber', 'icon' => 'bi-hourglass-split'],
+                    ['label' => 'Avg Response', 'value' => $summary['avgResponseLabel'] ?? '—', 'sub' => 'First reply', 'accent' => 'indigo', 'icon' => 'bi-stopwatch'],
+                    ['label' => 'Resolution Rate', 'value' => ($summary['resolutionRate'] ?? 0) . '%', 'sub' => 'Inquiries', 'accent' => 'cyan', 'icon' => 'bi-graph-up'],
+                    ['label' => 'CSAT', 'value' => isset($summary['csatAverage']) ? number_format($summary['csatAverage'], 1) . '/5' : '—', 'sub' => number_format($satisfaction['reviewCount'] ?? 0) . ' ratings', 'accent' => 'rose', 'icon' => 'bi-star'],
+                ] as $card)
+                    @php
+                        $accent = match ($card['accent']) {
+                            'emerald' => ['top' => 'border-t-emerald-500', 'iconBg' => 'bg-emerald-100/70', 'iconText' => 'text-emerald-600'],
+                            'amber' => ['top' => 'border-t-amber-500', 'iconBg' => 'bg-amber-100/70', 'iconText' => 'text-amber-600'],
+                            'cyan' => ['top' => 'border-t-cyan-500', 'iconBg' => 'bg-cyan-100/70', 'iconText' => 'text-cyan-600'],
+                            'rose' => ['top' => 'border-t-rose-500', 'iconBg' => 'bg-rose-100/70', 'iconText' => 'text-rose-600'],
+                            default => ['top' => 'border-t-indigo-500', 'iconBg' => 'bg-indigo-100/70', 'iconText' => 'text-indigo-600'],
+                        };
+                    @endphp
+                    <div class="glass-card kpi-lift group border-t-4 {{ $accent['top'] }} p-4 sm:p-5">
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="min-w-0">
+                                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ $card['label'] }}</p>
+                                <p class="mt-1 truncate text-2xl font-bold tracking-tight text-slate-900">{{ $card['value'] }}</p>
+                                <p class="mt-1 text-xs font-medium text-slate-500">{{ $card['sub'] }}</p>
+                            </div>
+                            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl {{ $accent['iconBg'] }} transition-transform duration-300 group-hover:scale-110">
+                                <i class="bi {{ $card['icon'] }} text-lg {{ $accent['iconText'] }}"></i>
+                            </div>
+                        </div>
+                    </div>
+                @endforeach
+            </section>
+
+            {{-- Sticky section nav --}}
+            <nav class="sticky top-16 z-30 sm:top-20" aria-label="Report sections">
+                <div class="flex gap-1.5 overflow-x-auto rounded-2xl border border-white/60 bg-white/70 p-1.5 shadow-sm backdrop-blur-xl [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                     @foreach ([
-                        'inquiries' => ['label' => 'Inquiry Resolution', 'icon' => 'bi-chat-left-text', 'desc' => 'Resolution rates & trends'],
-                        'complaints' => ['label' => 'Complaint Statistics', 'icon' => 'bi-exclamation-triangle', 'desc' => 'Status & type breakdown'],
+                        'overview' => ['label' => 'Overview', 'icon' => 'bi-grid-1x2'],
+                        'inquiries' => ['label' => 'Inquiries', 'icon' => 'bi-chat-left-text'],
+                        'complaints' => ['label' => 'Complaints', 'icon' => 'bi-exclamation-triangle'],
                     ] as $key => $tab)
                         <button type="button"
-                            @click="activeTab = '{{ $key }}'; $nextTick(() => window.dispatchEvent(new CustomEvent('cro-reports-tab-changed')))"
-                            :class="activeTab === '{{ $key }}'
-                                ? 'bg-gradient-to-br from-indigo-600 to-blue-600 text-white shadow-lg shadow-indigo-200'
-                                : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900'"
-                            class="group rounded-2xl p-4 text-left transition-all duration-300 hover:-translate-y-0.5">
+                            @click="{{ $key === 'overview' ? "document.getElementById('report-overview')?.scrollIntoView({ behavior: 'smooth', block: 'start' })" : "setTab('".$key."'); document.getElementById('report-details')?.scrollIntoView({ behavior: 'smooth', block: 'start' })" }}"
+                            class="btn-smooth inline-flex shrink-0 items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-semibold transition"
+                            :class="{{ $key === 'overview' ? "'bg-white/40 text-slate-600 hover:bg-white/70 hover:text-slate-900'" : "activeTab === '".$key."' ? 'bg-indigo-600 text-white shadow-sm' : 'bg-white/40 text-slate-600 hover:bg-white/70 hover:text-slate-900'" }}">
+                            <i class="bi {{ $tab['icon'] }}"></i>
+                            {{ $tab['label'] }}
+                        </button>
+                    @endforeach
+                </div>
+            </nav>
+
+            {{-- Overview insights --}}
+            <section id="report-overview" class="glass-panel !rounded-2xl p-4 sm:p-5">
+                <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-900">Visual insights</h2>
+                        <p class="text-sm text-slate-500">Cross-cutting trends for the current filter set</p>
+                    </div>
+                    <x-report-export-buttons
+                        excel-route="cro.reports.export.excel"
+                        pdf-route="cro.reports.export.pdf"
+                        scope="cro"
+                        section="inquiries"
+                    />
+                </div>
+                <div class="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+                    <x-report-chart-card
+                        class="glass-card !shadow-none border-white/50 hover:!-translate-y-1"
+                        title="Inquiry vs Resolution"
+                        description="Submitted vs resolved over time"
+                        canvas-id="overviewInquiryResolutionChart"
+                    />
+                    <x-report-chart-card
+                        class="glass-card !shadow-none border-white/50 hover:!-translate-y-1"
+                        title="Avg Response Time"
+                        description="Minutes to first response"
+                        canvas-id="overviewResponseTimeChart"
+                    />
+                    <x-report-chart-card
+                        class="glass-card !shadow-none border-white/50 hover:!-translate-y-1"
+                        title="Complaint Categories"
+                        description="Payment, tickets, refunds, and more"
+                        canvas-id="overviewComplaintCategoriesChart"
+                    />
+                    <x-report-chart-card
+                        class="glass-card !shadow-none border-white/50 hover:!-translate-y-1"
+                        title="Resolution Rate Trend"
+                        description="Resolution percentage over time"
+                        canvas-id="overviewResolutionRateChart"
+                    />
+                    <x-report-chart-card
+                        class="glass-card !shadow-none border-white/50 hover:!-translate-y-1"
+                        title="CSAT Trend"
+                        description="Average rating over time"
+                        canvas-id="overviewCsatTrendChart"
+                    />
+                    <x-report-chart-card
+                        class="glass-card !shadow-none border-white/50 hover:!-translate-y-1"
+                        title="CSAT Distribution"
+                        description="% of 5-star to 1-star ratings"
+                        canvas-id="overviewCsatDistributionChart"
+                    />
+                </div>
+            </section>
+
+            {{-- Detail tabs --}}
+            <div id="report-details" class="space-y-5">
+                <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    @foreach ([
+                        'inquiries' => ['label' => 'Inquiry Resolution', 'icon' => 'bi-chat-left-text', 'desc' => 'Rates, response time, and events'],
+                        'complaints' => ['label' => 'Complaint Statistics', 'icon' => 'bi-exclamation-triangle', 'desc' => 'Status, categories, and volume'],
+                    ] as $key => $tab)
+                        <button type="button"
+                            @click="setTab('{{ $key }}')"
+                            class="glass-card group !p-4 text-left hover:!-translate-y-1"
+                            :class="activeTab === '{{ $key }}' ? 'ring-2 ring-indigo-400/60' : ''">
                             <div class="flex items-center gap-3">
-                                <div class="flex h-10 w-10 items-center justify-center rounded-xl"
-                                    :class="activeTab === '{{ $key }}' ? 'bg-white/20' : 'bg-white border border-slate-200'">
-                                    <i class="bi {{ $tab['icon'] }} text-lg"
-                                        :class="activeTab === '{{ $key }}' ? 'text-white' : 'text-indigo-600'"></i>
+                                <div class="flex h-10 w-10 items-center justify-center rounded-xl transition"
+                                    :class="activeTab === '{{ $key }}' ? 'bg-indigo-600 text-white' : 'bg-indigo-50 text-indigo-600'">
+                                    <i class="bi {{ $tab['icon'] }} text-lg"></i>
                                 </div>
                                 <div class="min-w-0">
-                                    <p class="text-sm font-semibold truncate">{{ $tab['label'] }}</p>
-                                    <p class="text-xs truncate"
-                                        :class="activeTab === '{{ $key }}' ? 'text-blue-100' : 'text-slate-500'">
-                                        {{ $tab['desc'] }}
-                                    </p>
+                                    <p class="text-sm font-semibold text-slate-900">{{ $tab['label'] }}</p>
+                                    <p class="truncate text-xs text-slate-500">{{ $tab['desc'] }}</p>
                                 </div>
                             </div>
                         </button>
                     @endforeach
                 </div>
-            </div>
 
-            {{-- Inquiry Resolution Report --}}
-            <div x-show="activeTab === 'inquiries'" x-cloak class="space-y-8">
-                <x-report-section-header title="Inquiry Resolution Report" description="Track how well inquiries are handled">
-                    <x-report-export-buttons excel-route="cro.reports.export.excel" pdf-route="cro.reports.export.pdf" scope="cro" section="inquiries" />
-                </x-report-section-header>
-
-                <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
-                    @foreach ([
-                        ['label' => 'Total Inquiries', 'value' => $inquiries['total'], 'color' => 'text-indigo-600', 'bg' => 'bg-indigo-100', 'icon' => 'bi-inbox'],
-                        ['label' => 'Resolution Rate', 'value' => $inquiries['resolutionRate'] . '%', 'color' => 'text-emerald-600', 'bg' => 'bg-emerald-100', 'icon' => 'bi-check2-circle'],
-                        ['label' => 'Active', 'value' => $inquiries['active'], 'color' => 'text-amber-600', 'bg' => 'bg-amber-100', 'icon' => 'bi-hourglass-split'],
-                        ['label' => 'Resolved / Closed', 'value' => $inquiries['resolvedOrClosed'], 'color' => 'text-blue-600', 'bg' => 'bg-blue-100', 'icon' => 'bi-patch-check'],
-                    ] as $card)
-                        <div class="group rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
-                            <div class="flex items-center justify-between">
-                                <div>
-                                    <p class="text-sm font-medium text-slate-500">{{ $card['label'] }}</p>
-                                    <h3 class="mt-2 text-3xl font-bold text-slate-900">{{ $card['value'] }}</h3>
-                                </div>
-                                <div class="flex h-12 w-12 items-center justify-center rounded-2xl {{ $card['bg'] }}">
-                                    <i class="bi {{ $card['icon'] }} text-xl {{ $card['color'] }}"></i>
-                                </div>
+                {{-- Inquiries --}}
+                <div x-show="activeTab === 'inquiries'" x-cloak class="space-y-5">
+                    <section class="glass-panel !rounded-2xl p-4 sm:p-5">
+                        <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                                <h2 class="text-lg font-bold text-slate-900">Inquiry resolution</h2>
+                                <p class="text-sm text-slate-500">Performance for the selected filters</p>
                             </div>
-                        </div>
-                    @endforeach
-                </div>
-
-                <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                    @foreach ($inquiries['statusBreakdown'] as $status)
-                        <div class="rounded-2xl border border-slate-200 bg-white px-4 py-5 text-center shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
-                            <p class="text-2xl font-bold text-slate-900">{{ $status['count'] }}</p>
-                            <p class="mt-1 text-sm font-medium text-slate-500">{{ $status['label'] }}</p>
-                        </div>
-                    @endforeach
-                </div>
-
-                <div class="grid gap-6 xl:grid-cols-3">
-                    <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-                        <h3 class="text-lg font-bold text-slate-900">Status Distribution</h3>
-                        <p class="mt-1 text-sm text-slate-500">Open, in progress, resolved, and closed</p>
-                        <div class="mt-6 h-72">
-                            <canvas id="inquiryStatusChart"></canvas>
-                        </div>
-                    </div>
-
-                    <div class="xl:col-span-2 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-                        <h3 class="text-lg font-bold text-slate-900">Resolution Activity</h3>
-                        <p class="mt-1 text-sm text-slate-500">Inquiries submitted vs resolved over the last 6 months</p>
-                        <div class="mt-6 h-72">
-                            <canvas id="inquiryResolutionTrendChart"></canvas>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="grid gap-6 lg:grid-cols-2">
-                    <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-                        <h3 class="text-lg font-bold text-slate-900">Resolution Rate Trend</h3>
-                        <p class="mt-1 text-sm text-slate-500">Monthly resolution rate percentage</p>
-                        <div class="mt-6 h-64">
-                            <canvas id="inquiryResolutionRateChart"></canvas>
-                        </div>
-                    </div>
-
-                    <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-                        <h3 class="text-lg font-bold text-slate-900">Inquiries by Event</h3>
-                        <p class="mt-1 text-sm text-slate-500">Events generating the most inquiries</p>
-                        <div class="mt-6 h-64">
-                            <canvas id="inquiryByEventChart"></canvas>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 px-6 py-5">
-                        <div>
-                            <h3 class="text-lg font-bold text-slate-900">Recent Inquiries</h3>
-                            <p class="mt-1 text-sm text-slate-500">Latest submissions and their resolution status</p>
-                        </div>
-                        <div class="flex flex-wrap items-center gap-2">
                             <x-report-export-buttons excel-route="cro.reports.export.excel" pdf-route="cro.reports.export.pdf" scope="cro" section="inquiries" />
-                            <a href="{{ route('cro.inquiries.index') }}"
-                                class="inline-flex items-center gap-2 rounded-xl bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-600 transition hover:bg-indigo-100">
-                                View All
-                                <i class="bi bi-arrow-right"></i>
-                            </a>
                         </div>
-                    </div>
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full divide-y divide-slate-100">
-                            <thead class="bg-slate-50">
-                                <tr>
-                                    <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Subject</th>
-                                    <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 hidden md:table-cell">User</th>
-                                    <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 hidden sm:table-cell">Event</th>
-                                    <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Status</th>
-                                    <th class="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-500">When</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-slate-100">
-                                @forelse($inquiries['recentInquiries'] as $inquiry)
-                                    <tr class="transition hover:bg-slate-50">
-                                        <td class="px-6 py-4 text-sm font-medium text-slate-900 max-w-xs truncate">{{ $inquiry['subject'] }}</td>
-                                        <td class="px-6 py-4 text-sm text-slate-500 hidden md:table-cell whitespace-nowrap">{{ $inquiry['user'] }}</td>
-                                        <td class="px-6 py-4 text-sm text-slate-500 hidden sm:table-cell max-w-xs truncate">{{ $inquiry['event'] }}</td>
-                                        <td class="px-6 py-4">
-                                            <span class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium {{ $inquiry['statusClass'] }}">
-                                                {{ $inquiry['status'] }}
-                                            </span>
-                                        </td>
-                                        <td class="px-6 py-4 text-sm text-slate-400 text-right whitespace-nowrap">{{ $inquiry['submitted'] }}</td>
-                                    </tr>
-                                @empty
-                                    <tr>
-                                        <td colspan="5" class="px-6 py-8 text-center text-slate-500">No inquiries yet.</td>
-                                    </tr>
-                                @endforelse
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
 
-            {{-- Complaint Statistics --}}
-            <div x-show="activeTab === 'complaints'" x-cloak class="space-y-8">
-                <x-report-section-header title="Complaint Statistics" description="Counts by status and complaint type">
-                    <x-report-export-buttons excel-route="cro.reports.export.excel" pdf-route="cro.reports.export.pdf" scope="cro" section="complaints" />
-                </x-report-section-header>
+                        <div class="grid grid-cols-2 gap-3 xl:grid-cols-5">
+                            @foreach ([
+                                ['label' => 'Total', 'value' => $inquiries['total'], 'accent' => 'indigo', 'icon' => 'bi-inbox'],
+                                ['label' => 'Resolution', 'value' => $inquiries['resolutionRate'] . '%', 'accent' => 'emerald', 'icon' => 'bi-check2-circle'],
+                                ['label' => 'Active', 'value' => $inquiries['active'], 'accent' => 'amber', 'icon' => 'bi-hourglass-split'],
+                                ['label' => 'Resolved', 'value' => $inquiries['resolvedOrClosed'], 'accent' => 'blue', 'icon' => 'bi-patch-check'],
+                                ['label' => 'Avg Reply', 'value' => $inquiries['avgResponseLabel'] ?? '—', 'accent' => 'cyan', 'icon' => 'bi-stopwatch'],
+                            ] as $card)
+                                @php
+                                    $accent = match ($card['accent']) {
+                                        'emerald' => ['top' => 'border-t-emerald-500', 'iconBg' => 'bg-emerald-100/70', 'iconText' => 'text-emerald-600'],
+                                        'amber' => ['top' => 'border-t-amber-500', 'iconBg' => 'bg-amber-100/70', 'iconText' => 'text-amber-600'],
+                                        'blue' => ['top' => 'border-t-blue-500', 'iconBg' => 'bg-blue-100/70', 'iconText' => 'text-blue-600'],
+                                        'cyan' => ['top' => 'border-t-cyan-500', 'iconBg' => 'bg-cyan-100/70', 'iconText' => 'text-cyan-600'],
+                                        default => ['top' => 'border-t-indigo-500', 'iconBg' => 'bg-indigo-100/70', 'iconText' => 'text-indigo-600'],
+                                    };
+                                @endphp
+                                <div class="glass-card kpi-lift group border-t-4 {{ $accent['top'] }} !p-4">
+                                    <div class="flex items-start justify-between gap-2">
+                                        <div>
+                                            <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{{ $card['label'] }}</p>
+                                            <p class="mt-1 text-xl font-bold text-slate-900">{{ $card['value'] }}</p>
+                                        </div>
+                                        <div class="flex h-9 w-9 items-center justify-center rounded-lg {{ $accent['iconBg'] }} transition-transform group-hover:scale-110">
+                                            <i class="bi {{ $card['icon'] }} {{ $accent['iconText'] }}"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
 
-                <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
-                    @foreach ([
-                        ['label' => 'Total Complaints', 'value' => $complaints['total'], 'color' => 'text-rose-600', 'bg' => 'bg-rose-100', 'icon' => 'bi-exclamation-octagon'],
-                        ['label' => 'Open', 'value' => $complaints['open'], 'color' => 'text-amber-600', 'bg' => 'bg-amber-100', 'icon' => 'bi-envelope-open'],
-                        ['label' => 'In Progress', 'value' => $complaints['inProgress'], 'color' => 'text-blue-600', 'bg' => 'bg-blue-100', 'icon' => 'bi-arrow-repeat'],
-                        ['label' => 'Resolved / Closed', 'value' => $complaints['resolved'] + $complaints['closed'], 'color' => 'text-emerald-600', 'bg' => 'bg-emerald-100', 'icon' => 'bi-check-circle'],
-                    ] as $card)
-                        <div class="group rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
-                            <div class="flex items-center justify-between">
-                                <div>
-                                    <p class="text-sm font-medium text-slate-500">{{ $card['label'] }}</p>
-                                    <h3 class="mt-2 text-3xl font-bold text-slate-900">{{ $card['value'] }}</h3>
+                        <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                            @foreach ($inquiries['statusBreakdown'] as $status)
+                                <div class="glass-card !p-3 text-center hover:!-translate-y-0.5">
+                                    <p class="text-xl font-bold text-slate-900">{{ $status['count'] }}</p>
+                                    <p class="mt-0.5 text-xs font-medium text-slate-500">{{ $status['label'] }}</p>
                                 </div>
-                                <div class="flex h-12 w-12 items-center justify-center rounded-2xl {{ $card['bg'] }}">
-                                    <i class="bi {{ $card['icon'] }} text-xl {{ $card['color'] }}"></i>
-                                </div>
+                            @endforeach
+                        </div>
+                    </section>
+
+                    <div class="grid gap-4 xl:grid-cols-3">
+                        <section class="glass-card p-4 sm:p-5">
+                            <h3 class="text-base font-bold text-slate-900">Status distribution</h3>
+                            <p class="mt-0.5 text-sm text-slate-500">Open through closed</p>
+                            <div class="mt-4 h-64 sm:h-72">
+                                <canvas id="inquiryStatusChart"></canvas>
                             </div>
-                        </div>
-                    @endforeach
-                </div>
-
-                <div class="grid gap-6 xl:grid-cols-3">
-                    <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-                        <h3 class="text-lg font-bold text-slate-900">Complaints by Status</h3>
-                        <p class="mt-1 text-sm text-slate-500">Current status distribution</p>
-                        <div class="mt-6 h-72">
-                            <canvas id="complaintStatusChart"></canvas>
-                        </div>
+                        </section>
+                        <section class="glass-card p-4 sm:p-5 xl:col-span-2">
+                            <h3 class="text-base font-bold text-slate-900">Inquiry vs resolution</h3>
+                            <p class="mt-0.5 text-sm text-slate-500">Submitted vs resolved in range</p>
+                            <div class="mt-4 h-64 sm:h-72">
+                                <canvas id="inquiryResolutionTrendChart"></canvas>
+                            </div>
+                        </section>
                     </div>
 
-                    <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-                        <h3 class="text-lg font-bold text-slate-900">Complaints by Type</h3>
-                        <p class="mt-1 text-sm text-slate-500">Categorized by subject theme</p>
-                        <div class="mt-6 h-72">
-                            <canvas id="complaintTypeChart"></canvas>
-                        </div>
+                    <div class="grid gap-4 lg:grid-cols-2">
+                        <section class="glass-card p-4 sm:p-5">
+                            <h3 class="text-base font-bold text-slate-900">Average response time</h3>
+                            <p class="mt-0.5 text-sm text-slate-500">Minutes to first response</p>
+                            <div class="mt-4 h-60">
+                                <canvas id="inquiryResponseTimeChart"></canvas>
+                            </div>
+                        </section>
+                        <section class="glass-card p-4 sm:p-5">
+                            <h3 class="text-base font-bold text-slate-900">Inquiries by event</h3>
+                            <p class="mt-0.5 text-sm text-slate-500">Highest volume events</p>
+                            <div class="mt-4 h-60">
+                                <canvas id="inquiryByEventChart"></canvas>
+                            </div>
+                        </section>
                     </div>
 
-                    <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-                        <h3 class="text-lg font-bold text-slate-900">Submission Trend</h3>
-                        <p class="mt-1 text-sm text-slate-500">New complaints over the last 6 months</p>
-                        <div class="mt-6 h-72">
-                            <canvas id="complaintSubmissionsChart"></canvas>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-                    <h3 class="text-lg font-bold text-slate-900">Status Breakdown by Type</h3>
-                    <p class="mt-1 text-sm text-slate-500">How each complaint category is being handled</p>
-                    <div class="mt-6 h-80">
-                        <canvas id="complaintStatusByTypeChart"></canvas>
-                    </div>
-                </div>
-
-                <div class="rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 px-6 py-5">
-                        <div>
-                            <h3 class="text-lg font-bold text-slate-900">Recent Complaints</h3>
-                            <p class="mt-1 text-sm text-slate-500">Latest complaints with type and status</p>
-                        </div>
-                        <div class="flex flex-wrap items-center gap-2">
-                            <x-report-export-buttons excel-route="cro.reports.export.excel" pdf-route="cro.reports.export.pdf" scope="cro" section="complaints" />
-                            <a href="{{ route('cro.complaints.index') }}"
-                                class="inline-flex items-center gap-2 rounded-xl bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-600 transition hover:bg-rose-100">
-                                View All
-                                <i class="bi bi-arrow-right"></i>
+                    <section class="glass-card overflow-hidden !p-0">
+                        <div class="flex flex-col gap-3 border-b border-white/50 bg-white/30 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+                            <div>
+                                <h3 class="text-base font-bold text-slate-900">Recent inquiries</h3>
+                                <p class="mt-0.5 text-sm text-slate-500">Latest submissions in scope</p>
+                            </div>
+                            <a href="{{ route('cro.inquiries.index') }}"
+                                class="btn-smooth text-xs font-semibold text-indigo-600 hover:text-indigo-800">
+                                View all →
                             </a>
                         </div>
-                    </div>
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full divide-y divide-slate-100">
-                            <thead class="bg-slate-50">
-                                <tr>
-                                    <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Subject</th>
-                                    <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 hidden md:table-cell">User</th>
-                                    <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 hidden sm:table-cell">Type</th>
-                                    <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Status</th>
-                                    <th class="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-500">When</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-slate-100">
-                                @forelse($complaints['recentComplaints'] as $complaint)
-                                    <tr class="transition hover:bg-slate-50">
-                                        <td class="px-6 py-4 text-sm font-medium text-slate-900 max-w-xs truncate">{{ $complaint['subject'] }}</td>
-                                        <td class="px-6 py-4 text-sm text-slate-500 hidden md:table-cell whitespace-nowrap">{{ $complaint['user'] }}</td>
-                                        <td class="px-6 py-4 text-sm text-slate-500 hidden sm:table-cell">
-                                            <span class="inline-flex rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-700">
-                                                {{ $complaint['type'] }}
-                                            </span>
-                                        </td>
-                                        <td class="px-6 py-4">
-                                            <span class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium {{ $complaint['statusClass'] }}">
-                                                {{ $complaint['status'] }}
-                                            </span>
-                                        </td>
-                                        <td class="px-6 py-4 text-sm text-slate-400 text-right whitespace-nowrap">{{ $complaint['submitted'] }}</td>
-                                    </tr>
-                                @empty
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full text-sm">
+                                <thead class="bg-white/35 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                                     <tr>
-                                        <td colspan="5" class="px-6 py-8 text-center text-slate-500">No complaints yet.</td>
+                                        <th class="px-4 py-2.5 sm:px-5">Subject</th>
+                                        <th class="px-4 py-2.5 sm:px-5 hidden md:table-cell">User</th>
+                                        <th class="px-4 py-2.5 sm:px-5 hidden sm:table-cell">Event</th>
+                                        <th class="px-4 py-2.5 sm:px-5">Status</th>
+                                        <th class="px-4 py-2.5 text-right sm:px-5">When</th>
                                     </tr>
-                                @endforelse
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody class="divide-y divide-white/40">
+                                    @forelse($inquiries['recentInquiries'] as $inquiry)
+                                        <tr class="btn-smooth hover:bg-white/45">
+                                            <td class="max-w-xs truncate px-4 py-3 font-medium text-slate-900 sm:px-5">{{ $inquiry['subject'] }}</td>
+                                            <td class="hidden whitespace-nowrap px-4 py-3 text-slate-500 md:table-cell sm:px-5">{{ $inquiry['user'] }}</td>
+                                            <td class="hidden max-w-xs truncate px-4 py-3 text-slate-500 sm:table-cell sm:px-5">{{ $inquiry['event'] }}</td>
+                                            <td class="px-4 py-3 sm:px-5">
+                                                <span class="inline-flex rounded-md px-2 py-0.5 text-xs font-semibold {{ $inquiry['statusClass'] }}">
+                                                    {{ $inquiry['status'] }}
+                                                </span>
+                                            </td>
+                                            <td class="whitespace-nowrap px-4 py-3 text-right text-xs text-slate-400 sm:px-5">{{ $inquiry['submitted'] }}</td>
+                                        </tr>
+                                    @empty
+                                        <tr>
+                                            <td colspan="5" class="px-4 py-10 text-center text-slate-500">No inquiries for this filter.</td>
+                                        </tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+                </div>
+
+                {{-- Complaints --}}
+                <div x-show="activeTab === 'complaints'" x-cloak class="space-y-5">
+                    <section class="glass-panel !rounded-2xl p-4 sm:p-5">
+                        <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                                <h2 class="text-lg font-bold text-slate-900">Complaint statistics</h2>
+                                <p class="text-sm text-slate-500">Status and category breakdown</p>
+                            </div>
+                            <x-report-export-buttons excel-route="cro.reports.export.excel" pdf-route="cro.reports.export.pdf" scope="cro" section="complaints" />
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3 xl:grid-cols-4">
+                            @foreach ([
+                                ['label' => 'Total', 'value' => $complaints['total'], 'accent' => 'rose', 'icon' => 'bi-exclamation-octagon'],
+                                ['label' => 'Open', 'value' => $complaints['open'], 'accent' => 'amber', 'icon' => 'bi-envelope-open'],
+                                ['label' => 'In Progress', 'value' => $complaints['inProgress'], 'accent' => 'blue', 'icon' => 'bi-arrow-repeat'],
+                                ['label' => 'Resolved', 'value' => $complaints['resolved'] + $complaints['closed'], 'accent' => 'emerald', 'icon' => 'bi-check-circle'],
+                            ] as $card)
+                                @php
+                                    $accent = match ($card['accent']) {
+                                        'rose' => ['top' => 'border-t-rose-500', 'iconBg' => 'bg-rose-100/70', 'iconText' => 'text-rose-600'],
+                                        'amber' => ['top' => 'border-t-amber-500', 'iconBg' => 'bg-amber-100/70', 'iconText' => 'text-amber-600'],
+                                        'blue' => ['top' => 'border-t-blue-500', 'iconBg' => 'bg-blue-100/70', 'iconText' => 'text-blue-600'],
+                                        default => ['top' => 'border-t-emerald-500', 'iconBg' => 'bg-emerald-100/70', 'iconText' => 'text-emerald-600'],
+                                    };
+                                @endphp
+                                <div class="glass-card kpi-lift group border-t-4 {{ $accent['top'] }} !p-4">
+                                    <div class="flex items-start justify-between gap-2">
+                                        <div>
+                                            <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{{ $card['label'] }}</p>
+                                            <p class="mt-1 text-xl font-bold text-slate-900">{{ $card['value'] }}</p>
+                                        </div>
+                                        <div class="flex h-9 w-9 items-center justify-center rounded-lg {{ $accent['iconBg'] }} transition-transform group-hover:scale-110">
+                                            <i class="bi {{ $card['icon'] }} {{ $accent['iconText'] }}"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    </section>
+
+                    <div class="grid gap-4 xl:grid-cols-3">
+                        <section class="glass-card p-4 sm:p-5">
+                            <h3 class="text-base font-bold text-slate-900">By status</h3>
+                            <p class="mt-0.5 text-sm text-slate-500">Current mix</p>
+                            <div class="mt-4 h-64 sm:h-72">
+                                <canvas id="complaintStatusChart"></canvas>
+                            </div>
+                        </section>
+                        <section class="glass-card p-4 sm:p-5">
+                            <h3 class="text-base font-bold text-slate-900">Categories</h3>
+                            <p class="mt-0.5 text-sm text-slate-500">Payment, tickets, refunds…</p>
+                            <div class="mt-4 h-64 sm:h-72">
+                                <canvas id="complaintCategoryPieChart"></canvas>
+                            </div>
+                        </section>
+                        <section class="glass-card p-4 sm:p-5">
+                            <h3 class="text-base font-bold text-slate-900">Submission trend</h3>
+                            <p class="mt-0.5 text-sm text-slate-500">Volume in range</p>
+                            <div class="mt-4 h-64 sm:h-72">
+                                <canvas id="complaintSubmissionsChart"></canvas>
+                            </div>
+                        </section>
                     </div>
+
+                    <div class="grid gap-4 lg:grid-cols-2">
+                        <section class="glass-card p-4 sm:p-5">
+                            <h3 class="text-base font-bold text-slate-900">By type</h3>
+                            <p class="mt-0.5 text-sm text-slate-500">Broader subject themes</p>
+                            <div class="mt-4 h-64">
+                                <canvas id="complaintTypeChart"></canvas>
+                            </div>
+                        </section>
+                        <section class="glass-card p-4 sm:p-5">
+                            <h3 class="text-base font-bold text-slate-900">Status by type</h3>
+                            <p class="mt-0.5 text-sm text-slate-500">Handling progress per category</p>
+                            <div class="mt-4 h-64">
+                                <canvas id="complaintStatusByTypeChart"></canvas>
+                            </div>
+                        </section>
+                    </div>
+
+                    <section class="glass-card overflow-hidden !p-0">
+                        <div class="flex flex-col gap-3 border-b border-white/50 bg-white/30 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+                            <div>
+                                <h3 class="text-base font-bold text-slate-900">Recent complaints</h3>
+                                <p class="mt-0.5 text-sm text-slate-500">Latest cases in scope</p>
+                            </div>
+                            <a href="{{ route('cro.complaints.index') }}"
+                                class="btn-smooth text-xs font-semibold text-rose-600 hover:text-rose-800">
+                                View all →
+                            </a>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full text-sm">
+                                <thead class="bg-white/35 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                                    <tr>
+                                        <th class="px-4 py-2.5 sm:px-5">Subject</th>
+                                        <th class="px-4 py-2.5 sm:px-5 hidden md:table-cell">User</th>
+                                        <th class="px-4 py-2.5 sm:px-5 hidden sm:table-cell">Type</th>
+                                        <th class="px-4 py-2.5 sm:px-5">Status</th>
+                                        <th class="px-4 py-2.5 text-right sm:px-5">When</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-white/40">
+                                    @forelse($complaints['recentComplaints'] as $complaint)
+                                        <tr class="btn-smooth hover:bg-white/45">
+                                            <td class="max-w-xs truncate px-4 py-3 font-medium text-slate-900 sm:px-5">{{ $complaint['subject'] }}</td>
+                                            <td class="hidden whitespace-nowrap px-4 py-3 text-slate-500 md:table-cell sm:px-5">{{ $complaint['user'] }}</td>
+                                            <td class="hidden px-4 py-3 sm:table-cell sm:px-5">
+                                                <span class="inline-flex rounded-md bg-slate-100/80 px-2 py-0.5 text-xs font-semibold text-slate-700">
+                                                    {{ $complaint['type'] }}
+                                                </span>
+                                            </td>
+                                            <td class="px-4 py-3 sm:px-5">
+                                                <span class="inline-flex rounded-md px-2 py-0.5 text-xs font-semibold {{ $complaint['statusClass'] }}">
+                                                    {{ $complaint['status'] }}
+                                                </span>
+                                            </td>
+                                            <td class="whitespace-nowrap px-4 py-3 text-right text-xs text-slate-400 sm:px-5">{{ $complaint['submitted'] }}</td>
+                                        </tr>
+                                    @empty
+                                        <tr>
+                                            <td colspan="5" class="px-4 py-10 text-center text-slate-500">No complaints for this filter.</td>
+                                        </tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
                 </div>
             </div>
-
         </div>
     </div>
 

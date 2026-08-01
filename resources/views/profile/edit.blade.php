@@ -19,13 +19,19 @@
                 <div
                     class="border-b border-gray-100 bg-gradient-to-r from-indigo-600 via-indigo-500 to-sky-500 px-6 py-8 text-white sm:px-8">
                     <div class="flex items-center gap-4">
-                        <div
-                            class="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/15 text-2xl font-bold uppercase shadow-inner ring-1 ring-white/25">
-                            {{ strtoupper(substr($user->first_name, 0, 1) . substr($user->last_name, 0, 1)) }}
-                        </div>
+                        @if ($user->profile_photo)
+                            <img src="{{ asset('uploads/users-profile-photos/' . $user->profile_photo) }}"
+                                alt="{{ $user->full_name }}"
+                                class="h-16 w-16 rounded-2xl object-cover shadow-inner ring-1 ring-white/25">
+                        @else
+                            <div
+                                class="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/15 text-2xl font-bold uppercase shadow-inner ring-1 ring-white/25">
+                                {{ strtoupper(substr($user->first_name, 0, 1) . substr($user->last_name, 0, 1)) }}
+                            </div>
+                        @endif
                         <div>
                             <h3 class="text-2xl font-bold tracking-tight">
-                                {{ $user->first_name }} {{ $user->last_name }}
+                                {{ $user->full_name }}
                             </h3>
                             <p class="mt-1 text-sm text-indigo-50">
                                 {{ $user->email }}

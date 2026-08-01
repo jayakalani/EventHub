@@ -57,107 +57,109 @@
         <div class="mx-auto max-w-7xl space-y-5 px-4 sm:px-6 lg:px-8">
 
             {{-- 1. Header --}}
-            <section class="glass-panel overflow-hidden !rounded-2xl">
-                <div class="relative px-4 py-4 sm:px-6 sm:py-5">
-                    <div class="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-indigo-200/30 blur-2xl"></div>
+            <section class="relative overflow-hidden rounded-3xl bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-500 p-6 shadow-xl sm:p-8">
+                <div class="absolute inset-0 opacity-10">
+                    <div class="absolute -right-16 -top-16 h-64 w-64 rounded-full bg-white"></div>
+                    <div class="absolute bottom-0 left-1/3 h-40 w-40 rounded-full bg-white"></div>
+                </div>
 
-                    <div class="relative flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <div class="min-w-0">
-                            <div class="flex items-center gap-2.5">
-                                @if ($user?->profile_photo)
-                                    <img src="{{ asset('uploads/users-profile-photos/' . $user->profile_photo) }}"
-                                        alt="{{ $displayName }}"
-                                        class="h-9 w-9 rounded-full object-cover ring-2 ring-white/80 shadow-sm sm:h-10 sm:w-10">
-                                @else
-                                    <div class="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-600/90 text-xs font-bold text-white shadow-sm ring-2 ring-white/70 sm:h-10 sm:w-10 sm:text-sm">
-                                        {{ $initials }}
-                                    </div>
-                                @endif
-                                <div class="min-w-0">
-                                    <p class="truncate text-sm font-semibold text-slate-700">
-                                        {{ $greeting }}, {{ $displayName }}
-                                    </p>
-                                    <h1 class="truncate text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
-                                        CRO Dashboard
-                                    </h1>
+                <div class="relative flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+                    <div class="min-w-0">
+                        <div class="flex items-center gap-3">
+                            @if ($user?->profile_photo)
+                                <img src="{{ asset('uploads/users-profile-photos/' . $user->profile_photo) }}"
+                                    alt="{{ $displayName }}"
+                                    class="h-11 w-11 rounded-full object-cover ring-2 ring-white/40 shadow-sm sm:h-12 sm:w-12">
+                            @else
+                                <div class="flex h-11 w-11 items-center justify-center rounded-full bg-white/20 text-sm font-bold text-white ring-2 ring-white/30 sm:h-12 sm:w-12 sm:text-base">
+                                    {{ $initials }}
                                 </div>
+                            @endif
+                            <div class="min-w-0">
+                                <p class="truncate text-sm font-semibold text-blue-100">
+                                    {{ $greeting }}, {{ $displayName }}
+                                </p>
+                                <h1 class="truncate text-2xl font-bold tracking-tight text-white sm:text-3xl">
+                                    CRO Dashboard
+                                </h1>
                             </div>
-                            <p class="mt-1.5 hidden text-sm text-slate-500 sm:block">
-                                Customer relations workspace · {{ now()->format('l, M j, Y') }}
-                            </p>
                         </div>
-
-                        <div class="flex flex-wrap gap-2 sm:shrink-0 sm:justify-end">
-                            <x-dashboard-export-pdf
-                                route="cro.dashboard.export.pdf"
-                                :params="request()->only(['event', 'from', 'to'])"
-                                :charts="[
-                                    ['canvasId' => 'croSupportTrendChart', 'title' => 'Support Trends'],
-                                    ['canvasId' => 'croComplaintStatusChart', 'title' => 'Complaint Resolution Status'],
-                                    ['canvasId' => 'croSatisfactionDistributionChart', 'title' => 'Satisfaction Distribution'],
-                                    ['canvasId' => 'croSupportCategoriesChart', 'title' => 'Feedback Themes'],
-                                ]"
-                            />
-                            <a href="{{ route('cro.inquiries.index') }}"
-                                class="btn-smooth inline-flex items-center gap-1.5 rounded-lg bg-indigo-600/95 px-3 py-2 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 hover:shadow-md sm:text-sm">
-                                <i class="bi bi-chat-dots"></i>
-                                Inquiries
-                            </a>
-                            <a href="{{ route('cro.complaints.index') }}"
-                                class="btn-smooth inline-flex items-center gap-1.5 rounded-lg border border-white/70 bg-white/50 px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm hover:border-indigo-200 hover:bg-white/80 sm:text-sm">
-                                <i class="bi bi-exclamation-triangle"></i>
-                                Complaints
-                            </a>
-                            <a href="{{ route('cro.refund-requests.index') }}"
-                                class="btn-smooth inline-flex items-center gap-1.5 rounded-lg border border-white/70 bg-white/50 px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm hover:border-indigo-200 hover:bg-white/80 sm:text-sm">
-                                <i class="bi bi-arrow-counterclockwise"></i>
-                                Refunds
-                            </a>
-                            <a href="{{ route('cro.reports') }}"
-                                class="btn-smooth inline-flex items-center gap-1.5 rounded-lg border border-white/70 bg-white/50 px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm hover:border-indigo-200 hover:bg-white/80 sm:text-sm">
-                                <i class="bi bi-bar-chart-line"></i>
-                                Reports
-                            </a>
-                        </div>
+                        <p class="mt-2 text-sm text-blue-100">
+                            Customer relations workspace · {{ now()->format('l, M j, Y') }}
+                        </p>
                     </div>
 
-                    {{-- Today strip --}}
-                    <div class="relative mt-3 flex flex-col gap-2 rounded-xl border border-white/70 bg-white/45 px-3 py-2.5 shadow-sm backdrop-blur-md sm:flex-row sm:items-center sm:gap-4 sm:px-4">
-                        <div class="shrink-0 sm:border-r sm:border-slate-200/60 sm:pr-4">
-                            <p class="text-[11px] font-semibold uppercase tracking-wide text-indigo-600">Today</p>
-                            <p class="text-xs text-slate-500">{{ now()->format('D, M j') }}</p>
-                        </div>
-                        <div class="grid min-w-0 flex-1 grid-cols-2 gap-2 sm:grid-cols-4">
-                            @foreach ([
-                                ['label' => 'New Inquiries', 'value' => $todayTasks['newInquiries'], 'href' => route('cro.inquiries.index'), 'icon' => 'bi-envelope', 'bg' => 'bg-indigo-50/60', 'iconBg' => 'bg-indigo-100/80', 'iconColor' => 'text-indigo-600'],
-                                ['label' => 'Refunds', 'value' => $todayTasks['refundRequests'], 'href' => route('cro.refund-requests.index'), 'icon' => 'bi-arrow-counterclockwise', 'bg' => 'bg-amber-50/60', 'iconBg' => 'bg-amber-100/80', 'iconColor' => 'text-amber-600'],
-                                ['label' => 'Urgent Complaints', 'value' => $todayTasks['urgentComplaints'], 'href' => route('cro.complaints.index'), 'icon' => 'bi-exclamation-octagon', 'bg' => 'bg-rose-50/60', 'iconBg' => 'bg-rose-100/80', 'iconColor' => 'text-rose-600'],
-                                ['label' => 'Events Today', 'value' => $todayTasks['eventsToday'], 'href' => null, 'icon' => 'bi-calendar-event', 'bg' => 'bg-cyan-50/60', 'iconBg' => 'bg-cyan-100/80', 'iconColor' => 'text-cyan-600'],
-                            ] as $task)
-                                @if ($task['href'])
-                                    <a href="{{ $task['href'] }}"
-                                        class="btn-smooth flex items-center gap-2 rounded-lg border border-white/50 {{ $task['bg'] }} px-2 py-1.5 backdrop-blur-sm hover:-translate-y-0.5 hover:bg-white/70 sm:px-2.5">
-                                        <span class="hidden h-7 w-7 items-center justify-center rounded-md {{ $task['iconBg'] }} text-sm {{ $task['iconColor'] }} sm:flex">
-                                            <i class="bi {{ $task['icon'] }}"></i>
-                                        </span>
-                                        <div class="min-w-0">
-                                            <p class="truncate text-sm font-bold text-slate-900">{{ number_format($task['value']) }}</p>
-                                            <p class="truncate text-[10px] font-medium text-slate-500 sm:text-xs">{{ $task['label'] }}</p>
-                                        </div>
-                                    </a>
-                                @else
-                                    <div class="btn-smooth flex items-center gap-2 rounded-lg border border-white/50 {{ $task['bg'] }} px-2 py-1.5 backdrop-blur-sm sm:px-2.5">
-                                        <span class="hidden h-7 w-7 items-center justify-center rounded-md {{ $task['iconBg'] }} text-sm {{ $task['iconColor'] }} sm:flex">
-                                            <i class="bi {{ $task['icon'] }}"></i>
-                                        </span>
-                                        <div class="min-w-0">
-                                            <p class="truncate text-sm font-bold text-slate-900">{{ number_format($task['value']) }}</p>
-                                            <p class="truncate text-[10px] font-medium text-slate-500 sm:text-xs">{{ $task['label'] }}</p>
-                                        </div>
+                    <div class="flex flex-wrap gap-2 sm:gap-3">
+                        <x-dashboard-export-pdf
+                            route="cro.dashboard.export.pdf"
+                            :params="request()->only(['event', 'from', 'to'])"
+                            :charts="[
+                                ['canvasId' => 'croSupportTrendChart', 'title' => 'Support Trends'],
+                                ['canvasId' => 'croComplaintStatusChart', 'title' => 'Complaint Resolution Status'],
+                                ['canvasId' => 'croSatisfactionDistributionChart', 'title' => 'Satisfaction Distribution'],
+                                ['canvasId' => 'croSupportCategoriesChart', 'title' => 'Feedback Themes'],
+                            ]"
+                            class="!rounded-2xl !border-white/30 !bg-white/10 !px-4 !py-2.5 !text-white hover:!bg-white/20"
+                        />
+                        <a href="{{ route('cro.inquiries.index') }}"
+                            class="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2.5 text-sm font-semibold text-indigo-600 shadow-lg transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl">
+                            <i class="bi bi-chat-dots"></i>
+                            Inquiries
+                        </a>
+                        <a href="{{ route('cro.complaints.index') }}"
+                            class="inline-flex items-center gap-2 rounded-2xl border border-white/30 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white backdrop-blur-sm transition-all duration-300 hover:bg-white/20">
+                            <i class="bi bi-exclamation-triangle"></i>
+                            Complaints
+                        </a>
+                        <a href="{{ route('cro.refund-requests.index') }}"
+                            class="inline-flex items-center gap-2 rounded-2xl border border-white/30 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white backdrop-blur-sm transition-all duration-300 hover:bg-white/20">
+                            <i class="bi bi-arrow-counterclockwise"></i>
+                            Refunds
+                        </a>
+                        <a href="{{ route('cro.reports') }}"
+                            class="inline-flex items-center gap-2 rounded-2xl border border-white/30 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white backdrop-blur-sm transition-all duration-300 hover:bg-white/20">
+                            <i class="bi bi-bar-chart-line"></i>
+                            Reports
+                        </a>
+                    </div>
+                </div>
+
+                {{-- Today strip --}}
+                <div class="relative mt-5 flex flex-col gap-2 rounded-2xl border border-white/20 bg-white/10 px-3 py-2.5 backdrop-blur-md sm:flex-row sm:items-center sm:gap-4 sm:px-4">
+                    <div class="shrink-0 sm:border-r sm:border-white/20 sm:pr-4">
+                        <p class="text-[11px] font-semibold uppercase tracking-wide text-blue-100">Today</p>
+                        <p class="text-xs text-blue-50/80">{{ now()->format('D, M j') }}</p>
+                    </div>
+                    <div class="grid min-w-0 flex-1 grid-cols-2 gap-2 sm:grid-cols-4">
+                        @foreach ([
+                            ['label' => 'New Inquiries', 'value' => $todayTasks['newInquiries'], 'href' => route('cro.inquiries.index'), 'icon' => 'bi-envelope'],
+                            ['label' => 'Refunds', 'value' => $todayTasks['refundRequests'], 'href' => route('cro.refund-requests.index'), 'icon' => 'bi-arrow-counterclockwise'],
+                            ['label' => 'Urgent Complaints', 'value' => $todayTasks['urgentComplaints'], 'href' => route('cro.complaints.index'), 'icon' => 'bi-exclamation-octagon'],
+                            ['label' => 'Events Today', 'value' => $todayTasks['eventsToday'], 'href' => null, 'icon' => 'bi-calendar-event'],
+                        ] as $task)
+                            @if ($task['href'])
+                                <a href="{{ $task['href'] }}"
+                                    class="btn-smooth flex items-center gap-2 rounded-xl border border-white/15 bg-white/10 px-2 py-1.5 hover:bg-white/20 sm:px-2.5">
+                                    <span class="hidden h-7 w-7 items-center justify-center rounded-md bg-white/15 text-sm text-white sm:flex">
+                                        <i class="bi {{ $task['icon'] }}"></i>
+                                    </span>
+                                    <div class="min-w-0">
+                                        <p class="truncate text-sm font-bold text-white">{{ number_format($task['value']) }}</p>
+                                        <p class="truncate text-[10px] font-medium text-blue-100 sm:text-xs">{{ $task['label'] }}</p>
                                     </div>
-                                @endif
-                            @endforeach
-                        </div>
+                                </a>
+                            @else
+                                <div class="btn-smooth flex items-center gap-2 rounded-xl border border-white/15 bg-white/10 px-2 py-1.5 sm:px-2.5">
+                                    <span class="hidden h-7 w-7 items-center justify-center rounded-md bg-white/15 text-sm text-white sm:flex">
+                                        <i class="bi {{ $task['icon'] }}"></i>
+                                    </span>
+                                    <div class="min-w-0">
+                                        <p class="truncate text-sm font-bold text-white">{{ number_format($task['value']) }}</p>
+                                        <p class="truncate text-[10px] font-medium text-blue-100 sm:text-xs">{{ $task['label'] }}</p>
+                                    </div>
+                                </div>
+                            @endif
+                        @endforeach
                     </div>
                 </div>
             </section>

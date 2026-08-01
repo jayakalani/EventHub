@@ -14,6 +14,8 @@
         'status' => request('status'),
         'organizer' => request('organizer'),
         'event' => request('event'),
+        'cro' => request('cro'),
+        'range' => request('range'),
     ], fn ($value) => $value !== null && $value !== '');
 
     $chartMaps = [
@@ -125,8 +127,28 @@
             ],
         ],
         'cro' => [
-            'inquiries' => [],
-            'complaints' => [],
+            'inquiries' => [
+                ['canvasId' => 'overviewResolutionRateChart', 'title' => 'Resolution Rate Trend'],
+                ['canvasId' => 'overviewInquiryResolutionChart', 'title' => 'Inquiry vs Resolution Trend'],
+                ['canvasId' => 'overviewResponseTimeChart', 'title' => 'Average Response Time'],
+                ['canvasId' => 'overviewComplaintCategoriesChart', 'title' => 'Complaint Categories'],
+                ['canvasId' => 'overviewCsatTrendChart', 'title' => 'CSAT Trend'],
+                ['canvasId' => 'overviewCsatDistributionChart', 'title' => 'CSAT Distribution'],
+                ['canvasId' => 'inquiryStatusChart', 'title' => 'Inquiry Status Distribution'],
+                ['canvasId' => 'inquiryResolutionTrendChart', 'title' => 'Inquiry Submitted vs Resolved'],
+                ['canvasId' => 'inquiryResponseTimeChart', 'title' => 'Inquiry Response Time Trend'],
+                ['canvasId' => 'inquiryByEventChart', 'title' => 'Inquiries by Event'],
+            ],
+            'complaints' => [
+                ['canvasId' => 'overviewComplaintCategoriesChart', 'title' => 'Complaint Categories'],
+                ['canvasId' => 'overviewCsatTrendChart', 'title' => 'CSAT Trend'],
+                ['canvasId' => 'overviewCsatDistributionChart', 'title' => 'CSAT Distribution'],
+                ['canvasId' => 'complaintStatusChart', 'title' => 'Complaints by Status'],
+                ['canvasId' => 'complaintTypeChart', 'title' => 'Complaints by Type'],
+                ['canvasId' => 'complaintCategoryPieChart', 'title' => 'Complaint Categories Breakdown'],
+                ['canvasId' => 'complaintSubmissionsChart', 'title' => 'Complaint Submission Trend'],
+                ['canvasId' => 'complaintStatusByTypeChart', 'title' => 'Status Breakdown by Type'],
+            ],
         ],
     ];
 

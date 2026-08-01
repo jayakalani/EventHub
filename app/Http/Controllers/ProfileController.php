@@ -46,10 +46,19 @@ class ProfileController extends Controller
             $file = $request->file('profile_photo');
             $fileName = time().'.'.$file->getClientOriginalExtension();
             $file->move(public_path('uploads/users-profile-photos'), $fileName);
+
+            if ($user->profile_photo) {
+                $oldPath = public_path('uploads/users-profile-photos/'.$user->profile_photo);
+                if (is_file($oldPath)) {
+                    @unlink($oldPath);
+                }
+            }
+
             $user->profile_photo = $fileName;
         }
 
         $user->save();
+        $user->refresh();
 
         return Redirect::route('profile.edit')->with('status', 'profile-updated');
     }

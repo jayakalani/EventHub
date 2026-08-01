@@ -175,7 +175,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
         // Reports & Analytics
         Route::get('/reports', [ReportController::class, 'index'])->name('reports');
         Route::get('/reports/export/excel', [ReportController::class, 'exportExcel'])->name('reports.export.excel');
-        Route::get('/reports/export/pdf', [ReportController::class, 'exportPdf'])->name('reports.export.pdf');
+        Route::post('/reports/export/pdf', [ReportController::class, 'exportPdf'])->name('reports.export.pdf');
+
+        Route::post('/dashboard/export/pdf', [DashboardController::class, 'exportAdminPdf'])->name('dashboard.export.pdf');
 
     });
 });
@@ -187,6 +189,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
 */
 Route::prefix('organizer')->name('organizer.')->middleware(['auth', 'verified', 'prevent-back', 'role:'.UserRole::ORGANIZER])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'organizer'])->name('dashboard');
+    Route::post('/dashboard/export/pdf', [DashboardController::class, 'exportOrganizerPdf'])->name('dashboard.export.pdf');
 
     // Event routes
     Route::get('/events', [EventController::class, 'index'])->name('events.index');
@@ -224,7 +227,7 @@ Route::prefix('organizer')->name('organizer.')->middleware(['auth', 'verified', 
     // Reports & Analytics
     Route::get('/reports', [OrganizerReportController::class, 'index'])->name('reports');
     Route::get('/reports/export/excel', [OrganizerReportController::class, 'exportExcel'])->name('reports.export.excel');
-    Route::get('/reports/export/pdf', [OrganizerReportController::class, 'exportPdf'])->name('reports.export.pdf');
+    Route::post('/reports/export/pdf', [OrganizerReportController::class, 'exportPdf'])->name('reports.export.pdf');
 
     // Calendar
     Route::get('/calendar', [CalendarController::class, 'organizer'])->name('calendar.index');
@@ -252,7 +255,7 @@ Route::prefix('cro')->name('cro.')->middleware(['auth', 'verified', 'prevent-bac
     // Reports & Analytics
     Route::get('/reports', [CroReportController::class, 'index'])->name('reports');
     Route::get('/reports/export/excel', [CroReportController::class, 'exportExcel'])->name('reports.export.excel');
-    Route::get('/reports/export/pdf', [CroReportController::class, 'exportPdf'])->name('reports.export.pdf');
+    Route::post('/reports/export/pdf', [CroReportController::class, 'exportPdf'])->name('reports.export.pdf');
 });
 
 /*

@@ -21,7 +21,8 @@ class OrganizerReportExportBuilder
         $reports = $this->reportService->getAllReports($organizerId, $filters);
         $labels = $reports['chartLabels'];
 
-        return match ($section) {
+        $payload = match ($section) {
+            'full' => $this->buildFull($reports, $labels),
             'overview' => $this->buildOverview($reports, $labels),
             'revenue' => $this->buildRevenue($reports, $labels),
             'tickets' => $this->buildTickets($reports, $labels),
@@ -34,6 +35,74 @@ class OrganizerReportExportBuilder
             'attendees' => $this->buildAudience($reports),
             default => abort(404),
         };
+
+        $payload['summary'] = [
+            ...$this->filterSummary($reports['filters'] ?? $filters, $reports['filterOptions']['events'] ?? []),
+            ...($payload['summary'] ?? []),
+        ];
+
+        return $payload;
+    }
+
+    /**
+     * @param  array{from?: string|null, to?: string|null, event_id?: int|string|null, status?: string|null}  $filters
+     * @param  list<array{id: int, name: string}>  $events
+     * @return list<array{label: string, value: string}>
+     */
+    private function filterSummary(array $filters, array $events): array
+    {
+        $eventId = $filters['event_id'] ?? null;
+        $eventName = 'All Events';
+
+        if ($eventId) {
+            $match = collect($events)->firstWhere('id', (int) $eventId);
+            $eventName = $match['name'] ?? ('Event #'.$eventId);
+        }
+
+        $from = $filters['from'] ?? null;
+        $to = $filters['to'] ?? null;
+        $dateRange = ($from || $to)
+            ? trim(($from ?: '…').' → '.($to ?: '…'))
+            : 'All dates';
+
+        $status = $filters['status'] ?? null;
+
+        return [
+            ['label' => 'Event filter', 'value' => $eventName],
+            ['label' => 'Date range', 'value' => $dateRange],
+            ['label' => 'Status filter', 'value' => $status ? ucfirst((string) $status) : 'All statuses'],
+        ];
+    }
+
+    private function buildFull(array $reports, array $labels): array
+    {
+        $overview = $this->buildOverview($reports, $labels);
+        $sections = [
+            $this->buildRevenue($reports, $labels),
+            $this->buildTickets($reports, $labels),
+            $this->buildEvents($reports),
+            $this->buildAudience($reports),
+            $this->buildEngagement($reports, $labels),
+            $this->buildActivity($reports),
+        ];
+
+        $tables = [];
+        foreach ($sections as $sectionPayload) {
+            $sectionTitle = $sectionPayload['title'] ?? 'Section';
+            foreach ($sectionPayload['tables'] ?? [] as $table) {
+                $tables[] = [
+                    'heading' => $sectionTitle.' — '.($table['heading'] ?? 'Data'),
+                    'headers' => $table['headers'] ?? [],
+                    'rows' => $table['rows'] ?? [],
+                ];
+            }
+        }
+
+        return [
+            'title' => 'Organizer Reports — Full Report',
+            'summary' => $overview['summary'] ?? [],
+            'tables' => $tables,
+        ];
     }
 
     private function buildOverview(array $reports, array $labels): array

@@ -9,9 +9,26 @@
         $todaySummary = $dashboard['todaySummary'];
         $organizerPerformance = $dashboard['organizerPerformance'];
         $platformAnalytics = $dashboard['platformAnalytics'];
-        $growth = $dashboard['userGrowthPercent'];
-        $growthClass = $growth >= 0 ? 'text-emerald-600' : 'text-rose-600';
-        $growthPrefix = $growth >= 0 ? '+' : '';
+        $scopeFilter = $dashboard['scopeFilter'] ?? [
+            'scope' => 'global',
+            'organizers' => [],
+            'events' => [],
+            'selectedOrganizerId' => null,
+            'selectedOrganizerName' => null,
+            'selectedEventId' => null,
+            'selectedEventName' => null,
+        ];
+        $paymentScopeFilter = $dashboard['paymentScopeFilter'] ?? $scopeFilter;
+        $supportScopeFilter = $dashboard['supportScopeFilter'] ?? [
+            'scope' => 'global',
+            'cros' => [],
+            'events' => [],
+            'selectedCroId' => null,
+            'selectedCroName' => null,
+            'selectedEventId' => null,
+            'selectedEventName' => null,
+        ];
+        $kpis = $dashboard['kpis'] ?? [];
         $user = Auth::user();
         $hour = (int) now()->format('G');
         $greeting = $hour < 12 ? 'Good Morning' : ($hour < 17 ? 'Good Afternoon' : 'Good Evening');
@@ -25,6 +42,21 @@
                 'percent' => round(($role['count'] / $totalUsersForRoles) * 100, 1),
             ];
         });
+        $scopeCaption = match ($scopeFilter['scope'] ?? 'global') {
+            'event' => 'Event totals for '.$scopeFilter['selectedEventName'],
+            'organizer' => 'Organizer totals for '.$scopeFilter['selectedOrganizerName'],
+            default => 'Platform-wide overview',
+        };
+        $paymentScopeCaption = match ($paymentScopeFilter['scope'] ?? 'global') {
+            'event' => 'Payments for '.$paymentScopeFilter['selectedEventName'],
+            'organizer' => 'Payments for '.$paymentScopeFilter['selectedOrganizerName'],
+            default => 'Transaction status mix',
+        };
+        $supportScopeCaption = match ($supportScopeFilter['scope'] ?? 'global') {
+            'event' => 'Support for '.$supportScopeFilter['selectedEventName'],
+            'cro' => 'Assigned to '.$supportScopeFilter['selectedCroName'],
+            default => 'CRO module',
+        };
     @endphp
 
     <div class="admin-dashboard relative isolate overflow-hidden py-5 sm:py-6"
@@ -62,9 +94,9 @@
             <div class="absolute inset-0 bg-grid-slate-100 opacity-60"></div>
         </div>
 
-        <div class="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
+        <div class="mx-auto max-w-7xl space-y-5 px-4 sm:px-6 lg:px-8">
 
-            {{-- Header --}}
+            {{-- 1. Hero --}}
             <section class="glass-panel overflow-hidden !rounded-2xl">
                 <div class="relative px-4 py-4 sm:px-6 sm:py-5">
                     <div class="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-indigo-200/30 blur-2xl"></div>
@@ -83,7 +115,7 @@
                                 @endif
                                 <div class="min-w-0">
                                     <p class="truncate text-sm font-semibold text-slate-700">
-                                        {{ $greeting }}, {{ $displayName }} <span aria-hidden="true">👋</span>
+                                        {{ $greeting }}, {{ $displayName }}
                                     </p>
                                     <h1 class="truncate text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
                                         Administrator Dashboard
@@ -91,11 +123,30 @@
                                 </div>
                             </div>
                             <p class="mt-1.5 hidden text-sm text-slate-500 sm:block">
-                                Platform overview for users, events, revenue, and support.
+                                Users, events, revenue, and support · {{ now()->format('l, M j, Y') }}
                             </p>
                         </div>
 
                         <div class="flex flex-wrap gap-2 sm:shrink-0 sm:justify-end">
+                            <x-dashboard-export-pdf
+                                route="admin.dashboard.export.pdf"
+                                :params="request()->only([
+                                    'organizer',
+                                    'event',
+                                    'payment_organizer',
+                                    'payment_event',
+                                    'support_cro',
+                                    'support_event',
+                                ])"
+                                :charts="[
+                                    ['canvasId' => 'dashboardUserGrowthChart', 'title' => 'User Growth'],
+                                    ['canvasId' => 'dashboardUserDistributionChart', 'title' => 'User Distribution'],
+                                    ['canvasId' => 'dashboardRevenueChart', 'title' => 'Revenue Trend'],
+                                    ['canvasId' => 'dashboardTicketSalesChart', 'title' => 'Ticket Sales'],
+                                    ['canvasId' => 'dashboardPaymentOverviewChart', 'title' => 'Payment Overview'],
+                                    ['canvasId' => 'dashboardEventsByCategoryChart', 'title' => 'Events by Category'],
+                                ]"
+                            />
                             <a href="{{ route('admin.reports') }}"
                                 class="btn-smooth inline-flex items-center gap-1.5 rounded-lg bg-indigo-600/95 px-3 py-2 text-xs font-semibold text-white shadow-sm backdrop-blur hover:bg-indigo-700 hover:shadow-md sm:text-sm">
                                 <i class="bi bi-graph-up-arrow"></i>
@@ -158,39 +209,87 @@
                 </div>
             </section>
 
-            {{-- Primary KPIs --}}
-            <section class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                @foreach ([
-                    ['label' => 'Total Users', 'value' => number_format($users['total']), 'sub' => $growthPrefix . $growth . '% vs last month', 'subClass' => $growthClass, 'icon' => 'bi-people', 'accent' => 'indigo'],
-                    ['label' => 'Total Events', 'value' => number_format($events['total']), 'sub' => $events['ongoing'] . ' ongoing · ' . $events['completed'] . ' done', 'subClass' => 'text-slate-500', 'icon' => 'bi-calendar-event', 'accent' => 'blue'],
-                    ['label' => 'Platform Revenue', 'value' => 'LKR ' . number_format($revenue['gross'], 0), 'sub' => 'Net LKR ' . number_format($revenue['net'], 0), 'subClass' => 'text-slate-500', 'icon' => 'bi-cash-stack', 'accent' => 'emerald'],
-                    ['label' => 'Tickets Sold', 'value' => number_format($tickets['sold']), 'sub' => $tickets['reserved'] . ' reserved in carts', 'subClass' => 'text-slate-500', 'icon' => 'bi-ticket-perforated', 'accent' => 'cyan'],
-                ] as $kpi)
-                    @php
-                        $accent = match ($kpi['accent']) {
-                            'indigo' => ['top' => 'border-t-indigo-500', 'iconBg' => 'bg-indigo-100/70', 'iconText' => 'text-indigo-600'],
-                            'blue' => ['top' => 'border-t-blue-500', 'iconBg' => 'bg-blue-100/70', 'iconText' => 'text-blue-600'],
-                            'emerald' => ['top' => 'border-t-emerald-500', 'iconBg' => 'bg-emerald-100/70', 'iconText' => 'text-emerald-600'],
-                            default => ['top' => 'border-t-cyan-500', 'iconBg' => 'bg-cyan-100/70', 'iconText' => 'text-cyan-600'],
-                        };
-                    @endphp
-                    <div class="glass-card kpi-lift group border-t-4 {{ $accent['top'] }} p-4 sm:p-5">
-                        <div class="flex items-start justify-between gap-3">
-                            <div class="min-w-0">
-                                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ $kpi['label'] }}</p>
-                                <p class="mt-1 truncate text-2xl font-bold tracking-tight text-slate-900">{{ $kpi['value'] }}</p>
-                                <p class="mt-1 text-xs font-medium {{ $kpi['subClass'] }}">{{ $kpi['sub'] }}</p>
-                            </div>
-                            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl {{ $accent['iconBg'] }} backdrop-blur-sm transition-transform duration-300 group-hover:scale-110">
-                                <i class="bi {{ $kpi['icon'] }} text-lg {{ $accent['iconText'] }}"></i>
+{{-- 2. Platform snapshot --}}
+            <section class="space-y-3">
+                <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                    <div class="min-w-0">
+                        <h2 class="text-sm font-semibold text-slate-900">Platform snapshot</h2>
+                        <p class="text-xs text-slate-500">{{ $scopeCaption }}</p>
+                    </div>
+
+                    <form method="GET" action="{{ route('dashboard') }}"
+                        class="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-end lg:w-auto">
+                        @if ($paymentScopeFilter['selectedOrganizerId'])
+                            <input type="hidden" name="payment_organizer" value="{{ $paymentScopeFilter['selectedOrganizerId'] }}">
+                        @endif
+                        @if ($paymentScopeFilter['selectedEventId'])
+                            <input type="hidden" name="payment_event" value="{{ $paymentScopeFilter['selectedEventId'] }}">
+                        @endif
+                        @if ($supportScopeFilter['selectedCroId'])
+                            <input type="hidden" name="support_cro" value="{{ $supportScopeFilter['selectedCroId'] }}">
+                        @endif
+                        @if ($supportScopeFilter['selectedEventId'])
+                            <input type="hidden" name="support_event" value="{{ $supportScopeFilter['selectedEventId'] }}">
+                        @endif
+                        <label for="admin_organizer" class="sr-only">Filter by organizer</label>
+                        <select
+                            id="admin_organizer"
+                            name="organizer"
+                            class="block w-full rounded-xl border-white/70 bg-white/60 text-sm font-medium text-slate-700 shadow-sm backdrop-blur-md focus:border-indigo-500 focus:ring-indigo-500 sm:w-56"
+                        >
+                            <option value="">All Events</option>
+                            @foreach ($scopeFilter['organizers'] as $organizerOption)
+                                <option value="{{ $organizerOption['id'] }}"
+                                    @selected((int) ($scopeFilter['selectedOrganizerId'] ?? 0) === (int) $organizerOption['id'])>
+                                    {{ $organizerOption['name'] }}
+                                </option>
+                            @endforeach
+                        </select>
+
+                        @if ($scopeFilter['selectedOrganizerId'])
+                            <label for="admin_event" class="sr-only">Filter by event</label>
+                            <select
+                                id="admin_event"
+                                name="event"
+                                class="block w-full rounded-xl border-white/70 bg-white/60 text-sm font-medium text-slate-700 shadow-sm backdrop-blur-md focus:border-indigo-500 focus:ring-indigo-500 sm:w-56"
+                            >
+                                <option value="">All Events</option>
+                                @foreach ($scopeFilter['events'] as $eventOption)
+                                    <option value="{{ $eventOption['id'] }}"
+                                        @selected((int) ($scopeFilter['selectedEventId'] ?? 0) === (int) $eventOption['id'])>
+                                        {{ $eventOption['name'] }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        @endif
+                    </form>
+                </div>
+
+                <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                    @foreach ($kpis as $kpi)
+                        @php
+                            $accent = match ($kpi['accent']) {
+                                'indigo' => ['top' => 'border-t-indigo-500', 'iconBg' => 'bg-indigo-100/70', 'iconText' => 'text-indigo-600'],
+                                'blue' => ['top' => 'border-t-blue-500', 'iconBg' => 'bg-blue-100/70', 'iconText' => 'text-blue-600'],
+                                'emerald' => ['top' => 'border-t-emerald-500', 'iconBg' => 'bg-emerald-100/70', 'iconText' => 'text-emerald-600'],
+                                default => ['top' => 'border-t-cyan-500', 'iconBg' => 'bg-cyan-100/70', 'iconText' => 'text-cyan-600'],
+                            };
+                        @endphp
+                        <div class="glass-card kpi-lift group border-t-4 {{ $accent['top'] }} p-4 sm:p-5">
+                            <div class="flex items-start justify-between gap-3">
+                                <div class="min-w-0">
+                                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ $kpi['label'] }}</p>
+                                    <p class="mt-1 truncate text-2xl font-bold tracking-tight text-slate-900">{{ $kpi['value'] }}</p>
+                                    <p class="mt-1 text-xs font-medium {{ $kpi['subClass'] }}">{{ $kpi['sub'] }}</p>
+                                </div>
+                                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl {{ $accent['iconBg'] }} backdrop-blur-sm transition-transform duration-300 group-hover:scale-110">
+                                    <i class="bi {{ $kpi['icon'] }} text-lg {{ $accent['iconText'] }}"></i>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                @endforeach
-            </section>
-
-            {{-- Event lifecycle --}}
-            <section class="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                    @endforeach
+                </div>
+<div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
                 @foreach ([
                     ['label' => 'Active', 'value' => $platformAnalytics['active'], 'color' => 'text-cyan-700', 'bg' => 'bg-cyan-50/55', 'border' => 'border-cyan-200/50'],
                     ['label' => 'Upcoming', 'value' => $platformAnalytics['upcoming'], 'color' => 'text-amber-700', 'bg' => 'bg-amber-50/55', 'border' => 'border-amber-200/50'],
@@ -202,45 +301,186 @@
                         <p class="mt-0.5 text-xl font-bold {{ $item['color'] }} sm:text-2xl">{{ number_format($item['value']) }}</p>
                     </div>
                 @endforeach
+            </div>
             </section>
 
-            {{-- Analytics charts --}}
-            <section class="glass-panel !rounded-2xl p-4 sm:p-5">
-                <div class="mb-4 flex items-end justify-between gap-3">
-                    <div>
-                        <h2 class="text-lg font-bold text-slate-900">Analytics</h2>
-                        <p class="text-sm text-slate-500">Click a chart to open fullscreen</p>
+            {{-- 3. Analytics + calendar --}}
+            <div class="grid grid-cols-1 gap-4 xl:grid-cols-12 xl:items-stretch">
+                <div class="xl:col-span-8">
+    {{-- 3. Analytics --}}
+                <section class="glass-panel !rounded-2xl p-4 sm:p-5">
+                    <div class="mb-4 flex items-end justify-between gap-3">
+                        <div>
+                            <h2 class="text-lg font-bold text-slate-900">Analytics</h2>
+                            <p class="text-sm text-slate-500">Click a chart to open fullscreen</p>
+                        </div>
+                        <a href="{{ route('admin.reports') }}" class="btn-smooth text-sm font-semibold text-indigo-600 hover:text-indigo-700">
+                            Open full reports →
+                        </a>
                     </div>
-                    <a href="{{ route('admin.reports') }}" class="btn-smooth text-sm font-semibold text-indigo-600 hover:text-indigo-700">
-                        Open full reports →
-                    </a>
+                    <div class="grid gap-4 lg:grid-cols-3">
+                        <x-report-chart-card
+                            class="glass-card !shadow-none border-white/50 hover:!-translate-y-1"
+                            title="User Growth"
+                            description="New registrations over time"
+                            canvas-id="dashboardUserGrowthChart"
+                            expand-key="userGrowth"
+                        />
+                        <x-report-chart-card
+                            class="glass-card !shadow-none border-white/50 hover:!-translate-y-1"
+                            title="Revenue Trend"
+                            description="Monthly platform revenue"
+                            canvas-id="dashboardRevenueChart"
+                            expand-key="revenue"
+                        />
+                        <x-report-chart-card
+                            class="glass-card !shadow-none border-white/50 hover:!-translate-y-1"
+                            title="Ticket Sales"
+                            description="Weekly confirmed sales"
+                            canvas-id="dashboardTicketSalesChart"
+                            expand-key="ticketSales"
+                        />
+                    </div>
+                </section>
                 </div>
-                <div class="grid gap-4 lg:grid-cols-3">
-                    <x-report-chart-card
-                        class="glass-card !shadow-none border-white/50 hover:!-translate-y-1"
-                        title="User Growth"
-                        description="New registrations over time"
-                        canvas-id="dashboardUserGrowthChart"
-                        expand-key="userGrowth"
-                    />
-                    <x-report-chart-card
-                        class="glass-card !shadow-none border-white/50 hover:!-translate-y-1"
-                        title="Revenue Trend"
-                        description="Monthly platform revenue"
-                        canvas-id="dashboardRevenueChart"
-                        expand-key="revenue"
-                    />
-                    <x-report-chart-card
-                        class="glass-card !shadow-none border-white/50 hover:!-translate-y-1"
-                        title="Ticket Sales"
-                        description="Weekly confirmed sales"
-                        canvas-id="dashboardTicketSalesChart"
-                        expand-key="ticketSales"
-                    />
+                <div class="xl:col-span-4">
+{{-- Mini calendar --}}
+                <section class="h-full">
+                    <x-dashboard-mini-calendar :calendar="$dashboard['miniCalendar']" class="h-full" />
+                </section>
                 </div>
-            </section>
+            </div>
 
-            {{-- Users: distribution + recent --}}
+{{-- 4. Performance + payments --}}
+            <div class="grid gap-4 lg:grid-cols-5">
+                <section class="glass-card lg:col-span-3 overflow-hidden !p-0">
+                    <div class="border-b border-white/50 bg-white/30 px-4 py-3.5 backdrop-blur-sm sm:px-5">
+                        <h2 class="text-base font-bold text-slate-900">Organizer Performance</h2>
+                        <p class="mt-0.5 text-sm text-slate-500">Top organizers by revenue</p>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full text-sm">
+                            <thead class="bg-white/35 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500 backdrop-blur-sm">
+                                <tr>
+                                    <th class="px-4 py-2.5 sm:px-5">Organizer</th>
+                                    <th class="px-4 py-2.5 text-right sm:px-5">Events</th>
+                                    <th class="px-4 py-2.5 text-right sm:px-5">Revenue</th>
+                                    <th class="px-4 py-2.5 text-right sm:px-5">Tickets</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-white/40">
+                                @forelse ($organizerPerformance as $index => $organizer)
+                                    <tr class="btn-smooth hover:bg-white/45">
+                                        <td class="px-4 py-3 sm:px-5">
+                                            <div class="flex items-center gap-2.5">
+                                                <span class="flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-bold backdrop-blur-sm
+                                                    {{ $index === 0 ? 'bg-amber-100/80 text-amber-700' : ($index === 1 ? 'bg-slate-200/80 text-slate-700' : ($index === 2 ? 'bg-orange-100/80 text-orange-700' : 'bg-white/60 text-slate-600')) }}">
+                                                    {{ $index + 1 }}
+                                                </span>
+                                                <span class="font-semibold text-slate-900">{{ $organizer['name'] }}</span>
+                                            </div>
+                                        </td>
+                                        <td class="px-4 py-3 text-right text-slate-700 sm:px-5">{{ number_format($organizer['events']) }}</td>
+                                        <td class="px-4 py-3 text-right font-semibold text-emerald-700 sm:px-5">{{ $organizer['revenueLabel'] }}</td>
+                                        <td class="px-4 py-3 text-right text-slate-700 sm:px-5">{{ number_format($organizer['ticketsSold']) }}</td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="4" class="px-4 py-8">
+                                            <x-report-empty-state class="!min-h-[8rem] border-0 bg-transparent shadow-none" />
+                                        </td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <section class="glass-card lg:col-span-2 p-4 sm:p-5">
+                    <div class="mb-3 flex items-start justify-between gap-3">
+                        <div class="min-w-0">
+                            <h2 class="text-base font-bold text-slate-900">Payment Overview</h2>
+                            <p class="mt-0.5 text-sm text-slate-500">{{ $paymentScopeCaption }}</p>
+                        </div>
+                        <button type="button"
+                            @click="openChart('payments', @js('Payment Overview'), @js('Successful, pending, refunded, and failed payments'))"
+                            class="btn-smooth flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/60 bg-emerald-50/70 text-emerald-600 backdrop-blur hover:bg-emerald-100/90 hover:shadow-sm"
+                            title="View fullscreen"
+                            aria-label="View Payment Overview fullscreen">
+                            <i class="bi bi-arrows-fullscreen text-xs"></i>
+                        </button>
+                    </div>
+
+                    <form method="GET" action="{{ route('dashboard') }}" class="mb-3 flex flex-col gap-2">
+                        @if ($scopeFilter['selectedOrganizerId'])
+                            <input type="hidden" name="organizer" value="{{ $scopeFilter['selectedOrganizerId'] }}">
+                        @endif
+                        @if ($scopeFilter['selectedEventId'])
+                            <input type="hidden" name="event" value="{{ $scopeFilter['selectedEventId'] }}">
+                        @endif
+                        @if ($supportScopeFilter['selectedCroId'])
+                            <input type="hidden" name="support_cro" value="{{ $supportScopeFilter['selectedCroId'] }}">
+                        @endif
+                        @if ($supportScopeFilter['selectedEventId'])
+                            <input type="hidden" name="support_event" value="{{ $supportScopeFilter['selectedEventId'] }}">
+                        @endif
+                        <label for="payment_organizer" class="sr-only">Filter payments by organizer</label>
+                        <select
+                            id="payment_organizer"
+                            name="payment_organizer"
+                            class="block w-full rounded-xl border-white/70 bg-white/60 text-sm font-medium text-slate-700 shadow-sm backdrop-blur-md focus:border-emerald-500 focus:ring-emerald-500"
+                        >
+                            <option value="">All Events</option>
+                            @foreach ($paymentScopeFilter['organizers'] as $organizerOption)
+                                <option value="{{ $organizerOption['id'] }}"
+                                    @selected((int) ($paymentScopeFilter['selectedOrganizerId'] ?? 0) === (int) $organizerOption['id'])>
+                                    {{ $organizerOption['name'] }}
+                                </option>
+                            @endforeach
+                        </select>
+
+                        @if ($paymentScopeFilter['selectedOrganizerId'])
+                            <label for="payment_event" class="sr-only">Filter payments by event</label>
+                            <select
+                                id="payment_event"
+                                name="payment_event"
+                                class="block w-full rounded-xl border-white/70 bg-white/60 text-sm font-medium text-slate-700 shadow-sm backdrop-blur-md focus:border-emerald-500 focus:ring-emerald-500"
+                            >
+                                <option value="">All Events</option>
+                                @foreach ($paymentScopeFilter['events'] as $eventOption)
+                                    <option value="{{ $eventOption['id'] }}"
+                                        @selected((int) ($paymentScopeFilter['selectedEventId'] ?? 0) === (int) $eventOption['id'])>
+                                        {{ $eventOption['name'] }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        @endif
+                    </form>
+
+                    <button type="button"
+                        @click="openChart('payments', @js('Payment Overview'), @js('Successful, pending, refunded, and failed payments'))"
+                        class="btn-smooth mx-auto block h-40 w-full max-w-[200px] cursor-pointer rounded-xl hover:bg-white/40 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                        aria-label="Open Payment Overview fullscreen">
+                        <canvas id="dashboardPaymentOverviewChart" class="pointer-events-none"></canvas>
+                    </button>
+
+                    <div class="mt-4 grid grid-cols-2 gap-2">
+                        @foreach ([
+                            ['Successful', $payments['completed'], 'text-emerald-700', 'bg-emerald-50/55 border-emerald-200/50'],
+                            ['Pending', $payments['pending'], 'text-amber-700', 'bg-amber-50/55 border-amber-200/50'],
+                            ['Refunded', $payments['refunded'], 'text-purple-700', 'bg-purple-50/55 border-purple-200/50'],
+                            ['Failed', $payments['failed'], 'text-rose-700', 'bg-rose-50/55 border-rose-200/50'],
+                        ] as [$label, $value, $color, $bg])
+                            <div class="btn-smooth rounded-xl border {{ $bg }} px-2.5 py-2.5 text-center backdrop-blur-sm hover:-translate-y-0.5 hover:bg-white/70 hover:shadow-sm">
+                                <p class="text-[11px] font-medium text-slate-500">{{ $label }}</p>
+                                <p class="mt-0.5 text-lg font-bold {{ $color }}">{{ number_format($value) }}</p>
+                            </div>
+                        @endforeach
+                    </div>
+                </section>
+            </div>
+
+            {{-- 5. Users --}}
             <div class="grid gap-4 lg:grid-cols-2">
                 <section class="glass-card p-4 sm:p-5">
                     <div class="mb-3 flex items-start justify-between gap-3">
@@ -313,100 +553,65 @@
                 </section>
             </div>
 
-            {{-- Performance + payments --}}
-            <div class="grid gap-4 lg:grid-cols-5">
-                <section class="glass-card lg:col-span-3 overflow-hidden !p-0">
-                    <div class="border-b border-white/50 bg-white/30 px-4 py-3.5 backdrop-blur-sm sm:px-5">
-                        <h2 class="text-base font-bold text-slate-900">Organizer Performance</h2>
-                        <p class="mt-0.5 text-sm text-slate-500">Top organizers by revenue</p>
-                    </div>
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full text-sm">
-                            <thead class="bg-white/35 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500 backdrop-blur-sm">
-                                <tr>
-                                    <th class="px-4 py-2.5 sm:px-5">Organizer</th>
-                                    <th class="px-4 py-2.5 text-right sm:px-5">Events</th>
-                                    <th class="px-4 py-2.5 text-right sm:px-5">Revenue</th>
-                                    <th class="px-4 py-2.5 text-right sm:px-5">Tickets</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-white/40">
-                                @forelse ($organizerPerformance as $index => $organizer)
-                                    <tr class="btn-smooth hover:bg-white/45">
-                                        <td class="px-4 py-3 sm:px-5">
-                                            <div class="flex items-center gap-2.5">
-                                                <span class="flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-bold backdrop-blur-sm
-                                                    {{ $index === 0 ? 'bg-amber-100/80 text-amber-700' : ($index === 1 ? 'bg-slate-200/80 text-slate-700' : ($index === 2 ? 'bg-orange-100/80 text-orange-700' : 'bg-white/60 text-slate-600')) }}">
-                                                    {{ $index + 1 }}
-                                                </span>
-                                                <span class="font-semibold text-slate-900">{{ $organizer['name'] }}</span>
-                                            </div>
-                                        </td>
-                                        <td class="px-4 py-3 text-right text-slate-700 sm:px-5">{{ number_format($organizer['events']) }}</td>
-                                        <td class="px-4 py-3 text-right font-semibold text-emerald-700 sm:px-5">{{ $organizer['revenueLabel'] }}</td>
-                                        <td class="px-4 py-3 text-right text-slate-700 sm:px-5">{{ number_format($organizer['ticketsSold']) }}</td>
-                                    </tr>
-                                @empty
-                                    <tr>
-                                        <td colspan="4" class="px-4 py-10 text-center text-slate-500">No organizer performance data yet.</td>
-                                    </tr>
-                                @endforelse
-                            </tbody>
-                        </table>
-                    </div>
-                </section>
-
-                <section class="glass-card lg:col-span-2 p-4 sm:p-5">
-                    <div class="mb-3 flex items-start justify-between gap-3">
-                        <div>
-                            <h2 class="text-base font-bold text-slate-900">Payment Overview</h2>
-                            <p class="mt-0.5 text-sm text-slate-500">Transaction status mix</p>
-                        </div>
-                        <button type="button"
-                            @click="openChart('payments', @js('Payment Overview'), @js('Successful, pending, refunded, and failed payments'))"
-                            class="btn-smooth flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/60 bg-emerald-50/70 text-emerald-600 backdrop-blur hover:bg-emerald-100/90 hover:shadow-sm"
-                            title="View fullscreen"
-                            aria-label="View Payment Overview fullscreen">
-                            <i class="bi bi-arrows-fullscreen text-xs"></i>
-                        </button>
-                    </div>
-
-                    <button type="button"
-                        @click="openChart('payments', @js('Payment Overview'), @js('Successful, pending, refunded, and failed payments'))"
-                        class="btn-smooth mx-auto block h-40 w-full max-w-[200px] cursor-pointer rounded-xl hover:bg-white/40 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-                        aria-label="Open Payment Overview fullscreen">
-                        <canvas id="dashboardPaymentOverviewChart" class="pointer-events-none"></canvas>
-                    </button>
-
-                    <div class="mt-4 grid grid-cols-2 gap-2">
-                        @foreach ([
-                            ['Successful', $payments['completed'], 'text-emerald-700', 'bg-emerald-50/55 border-emerald-200/50'],
-                            ['Pending', $payments['pending'], 'text-amber-700', 'bg-amber-50/55 border-amber-200/50'],
-                            ['Refunded', $payments['refunded'], 'text-purple-700', 'bg-purple-50/55 border-purple-200/50'],
-                            ['Failed', $payments['failed'], 'text-rose-700', 'bg-rose-50/55 border-rose-200/50'],
-                        ] as [$label, $value, $color, $bg])
-                            <div class="btn-smooth rounded-xl border {{ $bg }} px-2.5 py-2.5 text-center backdrop-blur-sm hover:-translate-y-0.5 hover:bg-white/70 hover:shadow-sm">
-                                <p class="text-[11px] font-medium text-slate-500">{{ $label }}</p>
-                                <p class="mt-0.5 text-lg font-bold {{ $color }}">{{ number_format($value) }}</p>
-                            </div>
-                        @endforeach
-                    </div>
-                </section>
-            </div>
-
-            {{-- Support + categories --}}
+            {{-- 6. Support + categories --}}
             <div class="grid gap-4 lg:grid-cols-5">
                 <section class="glass-card lg:col-span-2 overflow-hidden !p-0">
                     <div class="flex items-center justify-between gap-3 border-b border-white/50 bg-white/30 px-4 py-3.5 backdrop-blur-sm sm:px-5">
-                        <div>
+                        <div class="min-w-0">
                             <h2 class="text-base font-bold text-slate-900">Support Overview</h2>
-                            <p class="mt-0.5 text-sm text-slate-500">CRO module</p>
+                            <p class="mt-0.5 text-sm text-slate-500">{{ $supportScopeCaption }}</p>
                         </div>
                         <a href="{{ route('admin.support-reports') }}" class="btn-smooth text-xs font-semibold text-indigo-600 hover:text-indigo-800 whitespace-nowrap">
                             View all →
                         </a>
                     </div>
                     <div class="space-y-2.5 p-4 sm:p-5">
+                        <form method="GET" action="{{ route('dashboard') }}" class="flex flex-col gap-2">
+                            @if ($scopeFilter['selectedOrganizerId'])
+                                <input type="hidden" name="organizer" value="{{ $scopeFilter['selectedOrganizerId'] }}">
+                            @endif
+                            @if ($scopeFilter['selectedEventId'])
+                                <input type="hidden" name="event" value="{{ $scopeFilter['selectedEventId'] }}">
+                            @endif
+                            @if ($paymentScopeFilter['selectedOrganizerId'])
+                                <input type="hidden" name="payment_organizer" value="{{ $paymentScopeFilter['selectedOrganizerId'] }}">
+                            @endif
+                            @if ($paymentScopeFilter['selectedEventId'])
+                                <input type="hidden" name="payment_event" value="{{ $paymentScopeFilter['selectedEventId'] }}">
+                            @endif
+                            <label for="support_cro" class="sr-only">Filter support by CRO</label>
+                            <select
+                                id="support_cro"
+                                name="support_cro"
+                                class="block w-full rounded-xl border-white/70 bg-white/60 text-sm font-medium text-slate-700 shadow-sm backdrop-blur-md focus:border-amber-500 focus:ring-amber-500"
+                            >
+                                <option value="">All Events</option>
+                                @foreach ($supportScopeFilter['cros'] as $croOption)
+                                    <option value="{{ $croOption['id'] }}"
+                                        @selected((int) ($supportScopeFilter['selectedCroId'] ?? 0) === (int) $croOption['id'])>
+                                        {{ $croOption['name'] }}
+                                    </option>
+                                @endforeach
+                            </select>
+
+                            @if ($supportScopeFilter['selectedCroId'])
+                                <label for="support_event" class="sr-only">Filter support by event</label>
+                                <select
+                                    id="support_event"
+                                    name="support_event"
+                                    class="block w-full rounded-xl border-white/70 bg-white/60 text-sm font-medium text-slate-700 shadow-sm backdrop-blur-md focus:border-amber-500 focus:ring-amber-500"
+                                >
+                                    <option value="">All Events</option>
+                                    @foreach ($supportScopeFilter['events'] as $eventOption)
+                                        <option value="{{ $eventOption['id'] }}"
+                                            @selected((int) ($supportScopeFilter['selectedEventId'] ?? 0) === (int) $eventOption['id'])>
+                                            {{ $eventOption['name'] }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            @endif
+                        </form>
+
                         @foreach ([
                             ['label' => 'Open Inquiries', 'value' => $support['openInquiries'], 'icon' => 'bi-chat-left-text', 'color' => 'text-amber-700', 'bg' => 'bg-amber-50/55', 'border' => 'border-amber-200/50', 'iconBg' => 'bg-amber-100/80'],
                             ['label' => 'Open Complaints', 'value' => $support['openComplaints'], 'icon' => 'bi-exclamation-triangle', 'color' => 'text-rose-700', 'bg' => 'bg-rose-50/55', 'border' => 'border-rose-200/50', 'iconBg' => 'bg-rose-100/80'],
@@ -436,38 +641,7 @@
                 </section>
             </div>
 
-            {{-- Audit Logs --}}
-            <section class="glass-card overflow-hidden !p-0">
-                <div class="flex items-center justify-between gap-3 border-b border-white/50 bg-white/30 px-4 py-3.5 backdrop-blur-sm sm:px-5">
-                    <div>
-                        <h2 class="text-base font-bold text-slate-900">Audit Logs</h2>
-                        <p class="mt-0.5 text-sm text-slate-500">Recent platform activity</p>
-                    </div>
-                    <a href="{{ route('admin.audit-logs') }}" class="btn-smooth text-xs font-semibold text-indigo-600 hover:text-indigo-800 whitespace-nowrap">
-                        View Audit Logs →
-                    </a>
-                </div>
-                <div class="grid divide-y divide-white/40 sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-3">
-                    @forelse ($dashboard['recentActivity'] as $log)
-                        <div class="btn-smooth flex items-start gap-3 px-4 py-3.5 sm:px-5 hover:bg-white/45">
-                            <div class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/60 bg-white/50 backdrop-blur-sm">
-                                <i class="bi bi-activity text-sm text-slate-600"></i>
-                            </div>
-                            <div class="min-w-0 flex-1">
-                                <p class="text-sm font-medium text-slate-900">
-                                    {{ $log['user'] }} {{ strtolower($log['action']) }}
-                                    @if (!empty($log['model']) && $log['model'] !== 'N/A')
-                                        {{ strtolower($log['model']) }}
-                                    @endif
-                                </p>
-                                <p class="mt-0.5 text-xs text-slate-500">{{ $log['time'] }}</p>
-                            </div>
-                        </div>
-                    @empty
-                        <p class="col-span-full px-4 py-10 text-center text-sm text-slate-500">No recent activity recorded.</p>
-                    @endforelse
-                </div>
-            </section>
+            
 
         </div>
 
@@ -522,6 +696,64 @@
     @push('scripts')
         <script>
             window.adminDashboardData = @json($dashboard);
+            (function () {
+                var key = 'admin-dashboard-scroll';
+                var parentChild = {
+                    organizer: '#admin_event',
+                    payment_organizer: '#payment_event',
+                    support_cro: '#support_event',
+                };
+
+                function currentScrollY() {
+                    return window.scrollY || window.pageYOffset || document.documentElement.scrollTop || 0;
+                }
+
+                function restoreScroll(y) {
+                    window.scrollTo(0, y);
+                }
+
+                try {
+                    var saved = sessionStorage.getItem(key);
+                    if (saved !== null) {
+                        sessionStorage.removeItem(key);
+                        if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+                        var y = Number(saved);
+                        if (Number.isFinite(y)) {
+                            restoreScroll(y);
+                            requestAnimationFrame(function () { restoreScroll(y); });
+                            window.addEventListener('load', function () { restoreScroll(y); }, { once: true });
+                            setTimeout(function () { restoreScroll(y); }, 50);
+                            setTimeout(function () { restoreScroll(y); }, 250);
+                            setTimeout(function () { restoreScroll(y); }, 600);
+                        }
+                    }
+                } catch (e) {}
+
+                document.addEventListener('DOMContentLoaded', function () {
+                    document.querySelectorAll(
+                        '.admin-dashboard select[name="organizer"],' +
+                        '.admin-dashboard select[name="event"],' +
+                        '.admin-dashboard select[name="payment_organizer"],' +
+                        '.admin-dashboard select[name="payment_event"],' +
+                        '.admin-dashboard select[name="support_cro"],' +
+                        '.admin-dashboard select[name="support_event"]'
+                    ).forEach(function (select) {
+                        select.addEventListener('change', function () {
+                            try {
+                                sessionStorage.setItem(key, String(currentScrollY()));
+                            } catch (e) {}
+
+                            var childSelector = parentChild[this.name];
+                            if (childSelector && this.form) {
+                                var eventSelect = this.form.querySelector(childSelector);
+                                if (eventSelect) eventSelect.selectedIndex = 0;
+                            }
+
+                            if (this.form) this.form.submit();
+                        });
+                    });
+                });
+            })();
         </script>
         @vite('resources/js/admin-dashboard.js')
     @endpush

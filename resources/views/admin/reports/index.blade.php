@@ -136,13 +136,19 @@
                             </p>
                         </div>
 
-                        <div class="flex flex-wrap gap-2 sm:shrink-0 sm:justify-end">
-                            <a href="{{ route('dashboard') }}"
-                                class="btn-smooth inline-flex items-center gap-1.5 rounded-lg border border-white/70 bg-white/50 px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm backdrop-blur hover:border-indigo-200 hover:bg-white/80 sm:text-sm">
-                                <i class="bi bi-speedometer2"></i>
-                                Dashboard
-                            </a>
-                            <x-report-export-buttons excel-route="admin.reports.export.excel" pdf-route="admin.reports.export.pdf" section="admin" />
+                        <div class="flex flex-col items-stretch gap-2 sm:shrink-0 sm:items-end sm:justify-end">
+                            <p class="inline-flex items-center justify-end gap-1.5 text-xs font-medium text-slate-500">
+                                <span class="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden="true"></span>
+                                Updated {{ now()->diffForHumans() }}
+                            </p>
+                            <div class="flex flex-wrap gap-2 sm:justify-end">
+                                <a href="{{ route('dashboard') }}"
+                                    class="btn-smooth inline-flex items-center gap-1.5 rounded-lg border border-white/70 bg-white/50 px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm backdrop-blur hover:border-indigo-200 hover:bg-white/80 sm:text-sm">
+                                    <i class="bi bi-speedometer2"></i>
+                                    Dashboard
+                                </a>
+                                <x-report-export-buttons excel-route="admin.reports.export.excel" pdf-route="admin.reports.export.pdf" scope="admin" section="admin" />
+                            </div>
                         </div>
                     </div>
 
@@ -509,7 +515,9 @@
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="4" class="px-4 py-10 text-center text-slate-500">No organizer performance data yet.</td>
+                                        <td colspan="4" class="px-4 py-8">
+                                            <x-report-empty-state class="!min-h-[8rem] border-0 bg-transparent shadow-none" />
+                                        </td>
                                     </tr>
                                 @endforelse
                             </tbody>
@@ -562,7 +570,9 @@
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="3" class="px-4 py-10 text-center text-slate-500">No recent registrations.</td>
+                                        <td colspan="3" class="px-4 py-8">
+                                            <x-report-empty-state class="!min-h-[8rem] border-0 bg-transparent shadow-none" />
+                                        </td>
                                     </tr>
                                 @endforelse
                             </tbody>
@@ -612,7 +622,9 @@
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="4" class="px-4 py-10 text-center text-slate-500">No payments recorded yet.</td>
+                                        <td colspan="4" class="px-4 py-8">
+                                            <x-report-empty-state class="!min-h-[8rem] border-0 bg-transparent shadow-none" />
+                                        </td>
                                     </tr>
                                 @endforelse
                             </tbody>
@@ -650,7 +662,9 @@
                                 </div>
                             </div>
                         @empty
-                            <p class="col-span-full px-4 py-10 text-center text-sm text-slate-500">No activity logs yet.</p>
+                            <div class="col-span-full p-4">
+                                <x-report-empty-state class="!min-h-[8rem] border-0 bg-transparent shadow-none" />
+                            </div>
                         @endforelse
                     </div>
             </section>
@@ -743,7 +757,7 @@
             <div x-show="activeTab === 'admin'" x-cloak class="space-y-5">
                 <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <p class="text-sm text-slate-500">Event status mix and platform summary metrics</p>
-                    <x-report-export-buttons excel-route="admin.reports.export.excel" pdf-route="admin.reports.export.pdf" section="admin" />
+                    <x-report-export-buttons excel-route="admin.reports.export.excel" pdf-route="admin.reports.export.pdf" scope="admin" section="admin" />
                 </div>
 
                 <div class="grid gap-4 lg:grid-cols-2">
@@ -792,7 +806,7 @@
             <div x-show="activeTab === 'users'" x-cloak class="space-y-5">
                 <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <p class="text-sm text-slate-500">Account health and latest registrations</p>
-                    <x-report-export-buttons excel-route="admin.reports.export.excel" pdf-route="admin.reports.export.pdf" section="users" />
+                    <x-report-export-buttons excel-route="admin.reports.export.excel" pdf-route="admin.reports.export.pdf" scope="admin" section="users" />
                 </div>
 
                 <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -856,7 +870,9 @@
                                     </div>
                                 </div>
                             @empty
-                                <p class="px-6 py-8 text-center text-slate-500">No users found.</p>
+                                <div class="p-4">
+                                    <x-report-empty-state class="!min-h-[8rem] border-0 bg-transparent shadow-none" />
+                                </div>
                             @endforelse
                         </div>
                     </div>
@@ -871,7 +887,7 @@
             <div x-show="activeTab === 'payments'" x-cloak class="space-y-5">
                 <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <p class="text-sm text-slate-500">Payment status, methods, and recent transactions</p>
-                    <x-report-export-buttons excel-route="admin.reports.export.excel" pdf-route="admin.reports.export.pdf" section="payments" />
+                    <x-report-export-buttons excel-route="admin.reports.export.excel" pdf-route="admin.reports.export.pdf" scope="admin" section="payments" />
                 </div>
 
                 <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -958,7 +974,9 @@
                                 </div>
                             </div>
                         @empty
-                            <p class="px-6 py-8 text-center text-slate-500">No payments recorded yet.</p>
+                            <div class="p-4">
+                                <x-report-empty-state class="!min-h-[8rem] border-0 bg-transparent shadow-none" />
+                            </div>
                         @endforelse
                     </div>
                 </div>
@@ -970,7 +988,7 @@
             {{-- System Reports --}}
             <div x-show="activeTab === 'system'" x-cloak class="space-y-6">
                 <x-report-section-header title="System Reports" description="Platform performance, usage trends, and activity logs">
-                    <x-report-export-buttons excel-route="admin.reports.export.excel" pdf-route="admin.reports.export.pdf" section="system" />
+                    <x-report-export-buttons excel-route="admin.reports.export.excel" pdf-route="admin.reports.export.pdf" scope="admin" section="system" />
                 </x-report-section-header>
 
                 <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -1037,7 +1055,7 @@
                             </p>
                         </div>
                         <div class="flex flex-wrap items-center gap-2">
-                            <x-report-export-buttons excel-route="admin.reports.export.excel" pdf-route="admin.reports.export.pdf" section="system" />
+                            <x-report-export-buttons excel-route="admin.reports.export.excel" pdf-route="admin.reports.export.pdf" scope="admin" section="system" />
                             <a href="{{ route('admin.audit-logs') }}"
                                 class="inline-flex items-center gap-2 rounded-xl bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-600 transition hover:bg-indigo-100">
                                 View All Logs
@@ -1067,7 +1085,9 @@
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="5" class="px-6 py-8 text-center text-slate-500">No activity logs yet.</td>
+                                        <td colspan="5" class="px-6 py-8">
+                                            <x-report-empty-state class="!min-h-[8rem] border-0 bg-transparent shadow-none" />
+                                        </td>
                                     </tr>
                                 @endforelse
                             </tbody>

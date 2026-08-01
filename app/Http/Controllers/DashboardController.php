@@ -10,10 +10,14 @@ use App\Models\UserRole;
 use App\Services\AdminReportService;
 use App\Services\CroDashboardService;
 use App\Services\EventCompletionService;
+use App\Services\Exports\AdminDashboardExportBuilder;
+use App\Services\Exports\OrganizerDashboardExportBuilder;
 use App\Services\OrganizerDashboardService;
+use App\Services\ReportExportService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class DashboardController extends Controller
@@ -23,6 +27,9 @@ class DashboardController extends Controller
         protected AdminReportService $adminReportService,
         protected OrganizerDashboardService $organizerDashboardService,
         protected CroDashboardService $croDashboardService,
+        protected ReportExportService $exportService,
+        protected AdminDashboardExportBuilder $adminDashboardExportBuilder,
+        protected OrganizerDashboardExportBuilder $organizerDashboardExportBuilder,
     ) {}
 
     /**
@@ -44,7 +51,7 @@ class DashboardController extends Controller
         }
 
         return match ($roleName) {
-            UserRole::ADMIN => $this->admin(),
+            UserRole::ADMIN => $this->admin(request()),
             UserRole::ORGANIZER => $this->organizer(request()),
             UserRole::CRO => $this->cro(),
             default => redirect()->route('login')->with('error', 'Invalid role'),
@@ -54,11 +61,36 @@ class DashboardController extends Controller
     /**
      * Admin Dashboard
      */
-    public function admin(): View
+    public function admin(Request $request): View
     {
-        $dashboard = $this->adminReportService->getDashboardData();
+        $filters = $this->validatedAdminDashboardFilters($request);
+        $dashboard = $this->adminReportService->getDashboardData(
+            $filters['organizer'],
+            $filters['event'],
+            $filters['payment_organizer'],
+            $filters['payment_event'],
+            $filters['support_cro'],
+            $filters['support_event'],
+        );
 
         return view('admin.dashboard', compact('dashboard'));
+    }
+
+    /**
+     * Export the admin dashboard as PDF (respects current dropdown filters).
+     */
+    public function exportAdminPdf(Request $request)
+    {
+        abort_unless(Auth::user()?->userRole?->name_en === UserRole::ADMIN, 403);
+
+        $filters = $this->validatedAdminDashboardFilters($request);
+        $payload = $this->adminDashboardExportBuilder->build($filters);
+        $payload['charts'] = $this->validatedDashboardChartImages($request);
+
+        return $this->exportService->downloadPdf(
+            $payload,
+            sprintf('admin-dashboard-%s.pdf', now()->format('Y-m-d-His')),
+        );
     }
 
     /**
@@ -70,19 +102,33 @@ class DashboardController extends Controller
 
         $this->organizerDashboardService->syncLowInventoryNotifications($organizerId);
 
-        $kpiEventId = $request->filled('kpi_event') ? $request->integer('kpi_event') : null;
-        $goalEventId = $request->filled('goal_event') ? $request->integer('goal_event') : null;
-        $chartEventId = $request->filled('chart_event') ? $request->integer('chart_event') : null;
-        $engagementEventId = $request->filled('engagement_event') ? $request->integer('engagement_event') : null;
+        $filters = $this->validatedOrganizerDashboardFilters($request);
         $dashboard = $this->organizerDashboardService->getDashboardData(
             $organizerId,
-            $kpiEventId,
-            $goalEventId,
-            $chartEventId,
-            $engagementEventId,
+            $filters['kpi_event'],
+            $filters['goal_event'],
+            $filters['chart_event'],
+            $filters['engagement_event'],
         );
 
         return view('organizer.dashboard', compact('dashboard'));
+    }
+
+    /**
+     * Export the organizer dashboard as PDF (respects current event filters).
+     */
+    public function exportOrganizerPdf(Request $request)
+    {
+        abort_unless(Auth::user()?->userRole?->name_en === UserRole::ORGANIZER, 403);
+
+        $filters = $this->validatedOrganizerDashboardFilters($request);
+        $payload = $this->organizerDashboardExportBuilder->build((int) Auth::id(), $filters);
+        $payload['charts'] = $this->validatedDashboardChartImages($request);
+
+        return $this->exportService->downloadPdf(
+            $payload,
+            sprintf('organizer-dashboard-%s.pdf', now()->format('Y-m-d-His')),
+        );
     }
 
     /**
@@ -179,6 +225,112 @@ class DashboardController extends Controller
             'selectedCategory',
             'selectedHost'
         ));
+    }
+
+    /**
+     * @return list<array{title: string, image: string}>
+     */
+    private function validatedDashboardChartImages(Request $request): array
+    {
+        $validated = $request->validate([
+            'charts' => ['nullable', 'array', 'max:12'],
+            'charts.*.title' => ['required', 'string', 'max:120'],
+            'charts.*.image' => ['required', 'string', 'max:5000000'],
+        ]);
+
+        return collect($validated['charts'] ?? [])
+            ->filter(function (array $chart) {
+                $image = $chart['image'] ?? '';
+
+                return is_string($image)
+                    && preg_match('/^data:image\/(png|jpeg|jpg);base64,/', $image) === 1;
+            })
+            ->map(fn (array $chart) => [
+                'title' => (string) $chart['title'],
+                'image' => (string) $chart['image'],
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return array{
+     *     organizer: int|null,
+     *     event: int|null,
+     *     payment_organizer: int|null,
+     *     payment_event: int|null,
+     *     support_cro: int|null,
+     *     support_event: int|null
+     * }
+     */
+    private function validatedAdminDashboardFilters(Request $request): array
+    {
+        $request->merge([
+            'organizer' => $request->filled('organizer') ? $request->input('organizer') : null,
+            'event' => $request->filled('event') ? $request->input('event') : null,
+            'payment_organizer' => $request->filled('payment_organizer') ? $request->input('payment_organizer') : null,
+            'payment_event' => $request->filled('payment_event') ? $request->input('payment_event') : null,
+            'support_cro' => $request->filled('support_cro') ? $request->input('support_cro') : null,
+            'support_event' => $request->filled('support_event') ? $request->input('support_event') : null,
+        ]);
+
+        $validated = $request->validate([
+            'organizer' => ['nullable', 'integer', 'exists:users,id'],
+            'event' => ['nullable', 'integer', 'exists:events,id'],
+            'payment_organizer' => ['nullable', 'integer', 'exists:users,id'],
+            'payment_event' => ['nullable', 'integer', 'exists:events,id'],
+            'support_cro' => ['nullable', 'integer', 'exists:users,id'],
+            'support_event' => ['nullable', 'integer', 'exists:events,id'],
+        ]);
+
+        return [
+            'organizer' => isset($validated['organizer']) ? (int) $validated['organizer'] : null,
+            'event' => isset($validated['event']) ? (int) $validated['event'] : null,
+            'payment_organizer' => isset($validated['payment_organizer']) ? (int) $validated['payment_organizer'] : null,
+            'payment_event' => isset($validated['payment_event']) ? (int) $validated['payment_event'] : null,
+            'support_cro' => isset($validated['support_cro']) ? (int) $validated['support_cro'] : null,
+            'support_event' => isset($validated['support_event']) ? (int) $validated['support_event'] : null,
+        ];
+    }
+
+    /**
+     * @return array{
+     *     kpi_event: int|null,
+     *     goal_event: int|null,
+     *     chart_event: int|null,
+     *     engagement_event: int|null
+     * }
+     */
+    private function validatedOrganizerDashboardFilters(Request $request): array
+    {
+        $organizerId = (int) Auth::id();
+
+        $request->merge([
+            'kpi_event' => $request->filled('kpi_event') ? $request->input('kpi_event') : null,
+            'goal_event' => $request->filled('goal_event') ? $request->input('goal_event') : null,
+            'chart_event' => $request->filled('chart_event') ? $request->input('chart_event') : null,
+            'engagement_event' => $request->filled('engagement_event') ? $request->input('engagement_event') : null,
+        ]);
+
+        $eventRule = [
+            'nullable',
+            'integer',
+            Rule::exists('events', 'id')->where(fn ($query) => $query->where('created_by', $organizerId)),
+        ];
+
+        $validated = $request->validate([
+            'kpi_event' => $eventRule,
+            'goal_event' => $eventRule,
+            'chart_event' => $eventRule,
+            'engagement_event' => $eventRule,
+        ]);
+
+        return [
+            'kpi_event' => isset($validated['kpi_event']) ? (int) $validated['kpi_event'] : null,
+            'goal_event' => isset($validated['goal_event']) ? (int) $validated['goal_event'] : null,
+            'chart_event' => isset($validated['chart_event']) ? (int) $validated['chart_event'] : null,
+            'engagement_event' => isset($validated['engagement_event']) ? (int) $validated['engagement_event'] : null,
+        ];
     }
 
     private function pastEventsQuery(Request $request)

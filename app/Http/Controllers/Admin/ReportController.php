@@ -44,6 +44,7 @@ class ReportController extends Controller
     {
         $section = $this->validatedSection($request, self::SECTIONS);
         $payload = $this->exportBuilder->build($section);
+        $payload['charts'] = $this->validatedChartImages($request);
 
         return $this->exportService->downloadPdf(
             $payload,

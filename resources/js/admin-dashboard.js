@@ -13,6 +13,13 @@ import {
     PointElement,
     Tooltip,
 } from 'chart.js';
+import {
+    clearChartEmptyState,
+    isEmptyChartInput,
+    isEmptySeries,
+    showChartEmptyState,
+} from './report-empty-state';
+import { bindDashboardPdfExportButtons } from './dashboard-pdf-export';
 
 Chart.register(
     ArcElement,
@@ -90,11 +97,29 @@ function fontFor(fullscreen = false) {
     };
 }
 
+function isEmptyLineChart(labels, datasets) {
+    if (!Array.isArray(labels) || labels.length === 0) {
+        return true;
+    }
+
+    if (!Array.isArray(datasets) || datasets.length === 0) {
+        return true;
+    }
+
+    return datasets.every((dataset) => isEmptySeries(dataset.data ?? []));
+}
+
 function createLineChart(canvasId, labels, datasets, options = {}) {
     const canvas = document.getElementById(canvasId);
-    if (!canvas || !labels.length) return null;
+    if (!canvas) return null;
 
     destroyChartOn(canvasId);
+
+    if (isEmptyLineChart(labels, datasets)) {
+        return showChartEmptyState(canvas);
+    }
+
+    clearChartEmptyState(canvas);
 
     const fullscreen = Boolean(options.fullscreen);
 
@@ -139,9 +164,15 @@ function createLineChart(canvasId, labels, datasets, options = {}) {
 
 function createBarChart(canvasId, labels, data, options = {}) {
     const canvas = document.getElementById(canvasId);
-    if (!canvas || !labels.length) return null;
+    if (!canvas) return null;
 
     destroyChartOn(canvasId);
+
+    if (isEmptyChartInput(labels, data)) {
+        return showChartEmptyState(canvas);
+    }
+
+    clearChartEmptyState(canvas);
 
     const fullscreen = Boolean(options.fullscreen);
 
@@ -187,9 +218,15 @@ function createBarChart(canvasId, labels, data, options = {}) {
 
 function createDoughnutChart(canvasId, labels, data, colors = null, options = {}) {
     const canvas = document.getElementById(canvasId);
-    if (!canvas || !labels.length) return null;
+    if (!canvas) return null;
 
     destroyChartOn(canvasId);
+
+    if (isEmptyChartInput(labels, data)) {
+        return showChartEmptyState(canvas);
+    }
+
+    clearChartEmptyState(canvas);
 
     const fullscreen = Boolean(options.fullscreen);
 
@@ -234,12 +271,15 @@ function createDoughnutChart(canvasId, labels, data, colors = null, options = {}
 
 function createPieChart(canvasId, labels, data, colors = null, options = {}) {
     const canvas = document.getElementById(canvasId);
-    if (!canvas || !labels.length) return null;
-
-    const hasData = data.some((value) => Number(value) > 0);
-    if (!hasData) return null;
+    if (!canvas) return null;
 
     destroyChartOn(canvasId);
+
+    if (isEmptyChartInput(labels, data)) {
+        return showChartEmptyState(canvas);
+    }
+
+    clearChartEmptyState(canvas);
 
     const fullscreen = Boolean(options.fullscreen);
 
@@ -418,6 +458,8 @@ function initAdminDashboard() {
         chartInstances.forEach((chart) => chart.resize());
         if (fullscreenChart) fullscreenChart.resize();
     });
+
+    bindDashboardPdfExportButtons();
 }
 
 document.addEventListener('DOMContentLoaded', initAdminDashboard);

@@ -47,7 +47,7 @@
                         <h2 class="text-xl font-bold text-slate-900">Key Visual Insights</h2>
                         <p class="mt-1 text-sm text-slate-500">Inquiry resolution and complaint submission trends</p>
                     </div>
-                    <x-report-export-buttons excel-route="cro.reports.export.excel" pdf-route="cro.reports.export.pdf" section="inquiries" />
+                    <x-report-export-buttons excel-route="cro.reports.export.excel" pdf-route="cro.reports.export.pdf" scope="cro" section="inquiries" />
                 </div>
                 <div class="grid gap-6 lg:grid-cols-2">
                     <x-report-chart-card title="Resolution Rate Trend" description="Monthly inquiry resolution percentage" canvas-id="overviewResolutionRateChart" />
@@ -90,7 +90,7 @@
             {{-- Inquiry Resolution Report --}}
             <div x-show="activeTab === 'inquiries'" x-cloak class="space-y-8">
                 <x-report-section-header title="Inquiry Resolution Report" description="Track how well inquiries are handled">
-                    <x-report-export-buttons excel-route="cro.reports.export.excel" pdf-route="cro.reports.export.pdf" section="inquiries" />
+                    <x-report-export-buttons excel-route="cro.reports.export.excel" pdf-route="cro.reports.export.pdf" scope="cro" section="inquiries" />
                 </x-report-section-header>
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
@@ -166,7 +166,7 @@
                             <p class="mt-1 text-sm text-slate-500">Latest submissions and their resolution status</p>
                         </div>
                         <div class="flex flex-wrap items-center gap-2">
-                            <x-report-export-buttons excel-route="cro.reports.export.excel" pdf-route="cro.reports.export.pdf" section="inquiries" />
+                            <x-report-export-buttons excel-route="cro.reports.export.excel" pdf-route="cro.reports.export.pdf" scope="cro" section="inquiries" />
                             <a href="{{ route('cro.inquiries.index') }}"
                                 class="inline-flex items-center gap-2 rounded-xl bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-600 transition hover:bg-indigo-100">
                                 View All
@@ -212,7 +212,7 @@
             {{-- Complaint Statistics --}}
             <div x-show="activeTab === 'complaints'" x-cloak class="space-y-8">
                 <x-report-section-header title="Complaint Statistics" description="Counts by status and complaint type">
-                    <x-report-export-buttons excel-route="cro.reports.export.excel" pdf-route="cro.reports.export.pdf" section="complaints" />
+                    <x-report-export-buttons excel-route="cro.reports.export.excel" pdf-route="cro.reports.export.pdf" scope="cro" section="complaints" />
                 </x-report-section-header>
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
@@ -277,7 +277,7 @@
                             <p class="mt-1 text-sm text-slate-500">Latest complaints with type and status</p>
                         </div>
                         <div class="flex flex-wrap items-center gap-2">
-                            <x-report-export-buttons excel-route="cro.reports.export.excel" pdf-route="cro.reports.export.pdf" section="complaints" />
+                            <x-report-export-buttons excel-route="cro.reports.export.excel" pdf-route="cro.reports.export.pdf" scope="cro" section="complaints" />
                             <a href="{{ route('cro.complaints.index') }}"
                                 class="inline-flex items-center gap-2 rounded-xl bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-600 transition hover:bg-rose-100">
                                 View All

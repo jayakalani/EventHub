@@ -12,6 +12,7 @@ import {
     PointElement,
     Tooltip,
 } from 'chart.js';
+import { bindDashboardPdfExportButtons } from './dashboard-pdf-export';
 
 Chart.register(
     ArcElement,
@@ -307,6 +308,8 @@ function initCroReports() {
     const resizeCharts = () => charts.forEach((chart) => chart.resize());
     window.addEventListener('cro-reports-tab-changed', resizeCharts);
     window.addEventListener('resize', resizeCharts);
+
+    bindDashboardPdfExportButtons();
 }
 
 document.addEventListener('DOMContentLoaded', initCroReports);

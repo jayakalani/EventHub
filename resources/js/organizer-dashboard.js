@@ -10,6 +10,12 @@ import {
     PointElement,
     Tooltip,
 } from 'chart.js';
+import {
+    clearChartEmptyState,
+    isEmptyChartInput,
+    showChartEmptyState,
+} from './report-empty-state';
+import { bindDashboardPdfExportButtons } from './dashboard-pdf-export';
 
 Chart.register(
     BarElement,
@@ -41,6 +47,10 @@ const chartConfigs = {
         fill: 'rgba(16, 185, 129, 0.12)',
         canvasId: 'organizerRevenueChart',
         yTickCallback: (value) => Number(value).toLocaleString(),
+        tooltipValue: (value) => `LKR ${Number(value).toLocaleString(undefined, {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 2,
+        })}`,
     },
     tickets: {
         label: 'Tickets Sold',
@@ -48,6 +58,7 @@ const chartConfigs = {
         fill: 'rgba(37, 99, 235, 0.12)',
         canvasId: 'organizerTicketSalesChart',
         yTickCallback: (value) => value,
+        tooltipValue: (value) => `${Number(value).toLocaleString()} tickets`,
     },
 };
 
@@ -59,6 +70,15 @@ function createTrendChart(canvasId, labels, data, options = {}) {
     if (existing) {
         existing.destroy();
     }
+
+    if (isEmptyChartInput(labels, data)) {
+        return showChartEmptyState(canvas);
+    }
+
+    clearChartEmptyState(canvas);
+
+    const formatTooltipValue = options.tooltipValue
+        ?? ((value) => Number(value).toLocaleString());
 
     return new Chart(canvas, {
         type: 'line',
@@ -84,7 +104,10 @@ function createTrendChart(canvasId, labels, data, options = {}) {
                 duration: 900,
                 easing: 'easeOutQuart',
             },
-            interaction: { mode: 'index', intersect: false },
+            interaction: {
+                mode: 'index',
+                intersect: false,
+            },
             plugins: {
                 legend: {
                     display: options.showLegend ?? false,
@@ -92,11 +115,27 @@ function createTrendChart(canvasId, labels, data, options = {}) {
                     labels: { font: defaultFont, padding: 16, usePointStyle: true },
                 },
                 tooltip: {
-                    backgroundColor: 'rgba(15, 23, 42, 0.92)',
-                    titleFont: { size: 13, weight: 'bold' },
-                    bodyFont: { size: 12 },
-                    padding: 12,
+                    enabled: true,
+                    backgroundColor: 'rgba(15, 23, 42, 0.94)',
+                    titleFont: { size: options.fullscreen ? 15 : 13, weight: 'bold' },
+                    bodyFont: { size: options.fullscreen ? 14 : 12 },
+                    padding: options.fullscreen ? 14 : 12,
                     cornerRadius: 8,
+                    displayColors: true,
+                    caretPadding: 8,
+                    callbacks: {
+                        title(items) {
+                            return items[0]?.label ?? '';
+                        },
+                        label(context) {
+                            const raw = context.parsed?.y;
+                            if (raw === null || raw === undefined) {
+                                return `${context.dataset.label}: —`;
+                            }
+
+                            return `${context.dataset.label}: ${formatTooltipValue(raw)}`;
+                        },
+                    },
                 },
             },
             scales: {
@@ -196,6 +235,7 @@ function initOrganizerDashboard() {
                         pointHoverRadius: 9,
                         borderWidth: 3,
                         tickSize: 13,
+                        fullscreen: true,
                     },
                 );
             }
@@ -239,19 +279,20 @@ function initOrganizerDashboard() {
         }
 
         requestAnimationFrame(() => {
-            fullscreenChart = createTrendChart(
-                'organizerChartFullscreen',
-                metric.labels ?? [],
-                metric.series ?? [],
-                {
-                    ...config,
-                    showLegend: true,
-                    pointRadius: 6,
-                    pointHoverRadius: 9,
-                    borderWidth: 3,
-                    tickSize: 13,
-                },
-            );
+                fullscreenChart = createTrendChart(
+                    'organizerChartFullscreen',
+                    metric.labels ?? [],
+                    metric.series ?? [],
+                    {
+                        ...config,
+                        showLegend: true,
+                        pointRadius: 6,
+                        pointHoverRadius: 9,
+                        borderWidth: 3,
+                        tickSize: 13,
+                        fullscreen: true,
+                    },
+                );
         });
     });
 
@@ -261,6 +302,8 @@ function initOrganizerDashboard() {
         Object.values(chartInstances).forEach((chart) => chart?.resize());
         if (fullscreenChart) fullscreenChart.resize();
     });
+
+    bindDashboardPdfExportButtons();
 }
 
 document.addEventListener('DOMContentLoaded', initOrganizerDashboard);

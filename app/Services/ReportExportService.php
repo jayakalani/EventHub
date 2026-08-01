@@ -86,7 +86,12 @@ class ReportExportService
     }
 
     /**
-     * @param  array{title: string, summary?: list<array{label: string, value: string|int|float}>, tables: list<array{heading: string, headers: list<string>, rows: list<list<string|int|float|null>>}>}  $payload
+     * @param  array{
+     *     title: string,
+     *     summary?: list<array{label: string, value: string|int|float}>,
+     *     tables: list<array{heading: string, headers: list<string>, rows: list<list<string|int|float|null>>}>,
+     *     charts?: list<array{title: string, image: string}>
+     * }  $payload
      */
     public function downloadPdf(array $payload, string $filename)
     {
@@ -94,6 +99,7 @@ class ReportExportService
             'title' => $payload['title'],
             'summary' => $payload['summary'] ?? [],
             'tables' => $payload['tables'],
+            'charts' => $payload['charts'] ?? [],
             'generatedAt' => now()->format('d M Y, H:i'),
         ])->setPaper('a4', 'landscape');
 

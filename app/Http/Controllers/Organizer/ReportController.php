@@ -19,6 +19,7 @@ class ReportController extends Controller
 
     /** Matches sticky nav sections on the reports page. */
     private const SECTIONS = [
+        'full',
         'overview',
         'revenue',
         'tickets',
@@ -59,13 +60,13 @@ class ReportController extends Controller
 
     public function exportPdf(Request $request)
     {
-        $section = $this->validatedSection($request, self::SECTIONS);
         $filters = $this->validatedFilters($request);
-        $payload = $this->exportBuilder->build((int) Auth::id(), $section, $filters);
+        $payload = $this->exportBuilder->build((int) Auth::id(), 'full', $filters);
+        $payload['charts'] = $this->validatedChartImages($request);
 
         return $this->exportService->downloadPdf(
             $payload,
-            $this->exportFilename('organizer-report', $section, 'pdf'),
+            $this->exportFilename('organizer-report', 'full', 'pdf'),
         );
     }
 

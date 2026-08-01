@@ -12,6 +12,13 @@ import {
     PointElement,
     Tooltip,
 } from 'chart.js';
+import {
+    clearChartEmptyState,
+    isEmptyChartInput,
+    isEmptySeries,
+    showChartEmptyState,
+} from './report-empty-state';
+import { bindDashboardPdfExportButtons } from './dashboard-pdf-export';
 
 Chart.register(
     ArcElement,
@@ -63,10 +70,28 @@ function destroyChartOn(canvasOrId) {
     if (existing) existing.destroy();
 }
 
+function isEmptyLineChart(labels, datasets) {
+    if (!Array.isArray(labels) || labels.length === 0) {
+        return true;
+    }
+
+    if (!Array.isArray(datasets) || datasets.length === 0) {
+        return true;
+    }
+
+    return datasets.every((dataset) => isEmptySeries(dataset.data ?? []));
+}
+
 function createLineChart(canvasId, labels, datasets, options = {}) {
     const canvas = document.getElementById(canvasId);
     if (!canvas) return null;
     destroyChartOn(canvas);
+
+    if (isEmptyLineChart(labels, datasets)) {
+        return showChartEmptyState(canvas);
+    }
+
+    clearChartEmptyState(canvas);
 
     const fullscreen = Boolean(options.fullscreen);
 
@@ -107,8 +132,14 @@ function createLineChart(canvasId, labels, datasets, options = {}) {
 
 function createBarChart(canvasId, labels, data, options = {}) {
     const canvas = document.getElementById(canvasId);
-    if (!canvas || !labels.length) return null;
+    if (!canvas) return null;
     destroyChartOn(canvas);
+
+    if (isEmptyChartInput(labels, data)) {
+        return showChartEmptyState(canvas);
+    }
+
+    clearChartEmptyState(canvas);
 
     return new Chart(canvas, {
         type: 'bar',
@@ -150,8 +181,14 @@ function createBarChart(canvasId, labels, data, options = {}) {
 
 function createDoughnutChart(canvasId, labels, data, options = {}) {
     const canvas = document.getElementById(canvasId);
-    if (!canvas || !labels.length) return null;
+    if (!canvas) return null;
     destroyChartOn(canvas);
+
+    if (isEmptyChartInput(labels, data)) {
+        return showChartEmptyState(canvas);
+    }
+
+    clearChartEmptyState(canvas);
 
     const fullscreen = Boolean(options.fullscreen);
 
@@ -442,6 +479,8 @@ function initAdminReports() {
 
     window.addEventListener('admin-reports-tab-changed', resizeCharts);
     window.addEventListener('resize', resizeCharts);
+
+    bindDashboardPdfExportButtons();
 }
 
 document.addEventListener('DOMContentLoaded', initAdminReports);

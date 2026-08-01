@@ -112,6 +112,19 @@
                         </div>
 
                         <div class="flex flex-wrap gap-2 sm:shrink-0 sm:justify-end">
+                            <x-dashboard-export-pdf
+                                route="organizer.dashboard.export.pdf"
+                                :params="request()->only([
+                                    'kpi_event',
+                                    'goal_event',
+                                    'chart_event',
+                                    'engagement_event',
+                                ])"
+                                :charts="[
+                                    ['canvasId' => 'organizerRevenueChart', 'title' => 'Revenue'],
+                                    ['canvasId' => 'organizerTicketSalesChart', 'title' => 'Ticket Sales'],
+                                ]"
+                            />
                             <a href="{{ route('organizer.events.create') }}"
                                 class="btn-smooth inline-flex items-center gap-1.5 rounded-lg bg-indigo-600/95 px-3 py-2 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 hover:shadow-md sm:text-sm">
                                 <i class="bi bi-plus-lg"></i>
@@ -208,7 +221,6 @@
                         <select
                             id="kpi_event"
                             name="kpi_event"
-                            onchange="this.form.submit()"
                             class="block w-full rounded-xl border-white/70 bg-white/60 text-sm font-medium text-slate-700 shadow-sm backdrop-blur-md focus:border-indigo-500 focus:ring-indigo-500"
                         >
                             <option value="">All Events</option>
@@ -327,7 +339,6 @@
                             <select
                                 id="goal_event"
                                 name="goal_event"
-                                onchange="this.form.submit()"
                                 class="block w-full rounded-xl border-white/70 bg-white/60 text-sm font-medium text-slate-700 shadow-sm backdrop-blur-md focus:border-emerald-500 focus:ring-emerald-500"
                             >
                                 <option value="">All Events</option>
@@ -449,7 +460,6 @@
                             <select
                                 id="chart_event"
                                 name="chart_event"
-                                onchange="this.form.submit()"
                                 class="block w-full rounded-xl border-white/70 bg-white/60 text-sm font-medium text-slate-700 shadow-sm backdrop-blur-md focus:border-indigo-500 focus:ring-indigo-500"
                             >
                                 <option value="">All Events</option>
@@ -532,251 +542,15 @@
                                 </button>
                             </div>
 
-                            <button type="button"
-                                @click="openChart('{{ $chart['key'] }}', '{{ $chart['modalTitle'] }}', '{{ $chart['modalDesc'] }}')"
-                                class="mt-4 block h-56 w-full cursor-pointer rounded-xl text-left transition hover:bg-white/40 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:h-64">
-                                <canvas id="{{ $chart['canvas'] }}" class="pointer-events-none"></canvas>
-                            </button>
+                            <div class="mt-4 h-56 w-full rounded-xl sm:h-64">
+                                <canvas id="{{ $chart['canvas'] }}"></canvas>
+                            </div>
                         </div>
                     @endforeach
                 </div>
             </section>
 
-            {{-- 5. Performance + status --}}
-            <section class="grid gap-5 xl:grid-cols-12">
-                <div class="glass-panel overflow-hidden xl:col-span-8">
-                    <div class="flex flex-col gap-3 border-b border-white/50 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-                        <div>
-                            <h2 class="text-lg font-bold text-slate-900">Event Performance</h2>
-                            <p class="text-sm text-slate-500">Sales, fill rate, and revenue by event</p>
-                        </div>
-                        <a href="{{ route('organizer.events.index') }}"
-                            class="btn-smooth inline-flex items-center gap-1 text-sm font-semibold text-indigo-600 hover:text-indigo-700">
-                            Manage events
-                            <i class="bi bi-arrow-right"></i>
-                        </a>
-                    </div>
-
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full divide-y divide-slate-100 text-left text-sm">
-                            <thead class="bg-white/40 text-xs font-semibold uppercase tracking-wide text-slate-500 backdrop-blur-sm">
-                                <tr>
-                                    <th class="px-5 py-3 sm:px-6">Event</th>
-                                    <th class="px-3 py-3">Status</th>
-                                    <th class="px-3 py-3">Sold</th>
-                                    <th class="px-3 py-3">Remaining Tickets</th>
-                                    <th class="px-3 py-3">Fill</th>
-                                    <th class="px-5 py-3 text-right sm:px-6">Revenue</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-slate-100">
-                                @forelse($performance as $row)
-                                    @php
-                                        $statusClass = match ($row['status']) {
-                                            'upcoming' => 'bg-emerald-100 text-emerald-800',
-                                            'ongoing' => 'bg-blue-100 text-blue-800',
-                                            'completed' => 'bg-slate-200 text-slate-700',
-                                            'cancelled' => 'bg-rose-100 text-rose-800',
-                                            'unpublished' => 'bg-amber-100 text-amber-800',
-                                            default => 'bg-slate-100 text-slate-700',
-                                        };
-                                        $fillBarClass = match ($row['status']) {
-                                            'upcoming' => 'bg-emerald-500',
-                                            'ongoing' => 'bg-blue-500',
-                                            'completed' => 'bg-slate-400',
-                                            'cancelled' => 'bg-rose-500',
-                                            'unpublished' => 'bg-amber-400',
-                                            default => 'bg-indigo-500',
-                                        };
-                                        $remainingClass = match (true) {
-                                            $row['remaining'] === 0 => 'text-rose-600',
-                                            $row['remaining'] <= 10 => 'text-amber-700',
-                                            default => 'text-slate-900',
-                                        };
-                                    @endphp
-                                    <tr class="btn-smooth hover:bg-white/45">
-                                        <td class="px-5 py-3.5 sm:px-6">
-                                            <a href="{{ $row['url'] }}" class="group block min-w-[11rem]">
-                                                <p class="font-semibold text-slate-900 group-hover:text-indigo-700">
-                                                    {{ $row['name'] }}
-                                                    @if($row['is_low_inventory'])
-                                                        <i class="bi bi-exclamation-triangle-fill text-amber-500" title="Low inventory"></i>
-                                                    @endif
-                                                </p>
-                                                <p class="mt-0.5 text-xs text-slate-500">
-                                                    {{ $row['date'] }}
-                                                    @if($row['host']) · {{ $row['host'] }} @endif
-                                                </p>
-                                            </a>
-                                        </td>
-                                        <td class="px-3 py-3.5">
-                                            <span class="inline-flex rounded-full px-3 py-1.5 text-sm font-semibold capitalize {{ $statusClass }}">
-                                                {{ $row['status'] }}
-                                            </span>
-                                        </td>
-                                        <td class="whitespace-nowrap px-3 py-3.5 text-slate-700">
-                                            <span class="font-medium">{{ number_format($row['sold']) }}</span>
-                                            <span class="text-slate-400">/ {{ number_format($row['capacity']) }}</span>
-                                        </td>
-                                        <td class="whitespace-nowrap px-3 py-3.5">
-                                            <span class="font-semibold {{ $remainingClass }}">
-                                                {{ number_format($row['remaining']) }}
-                                            </span>
-                                        </td>
-                                        <td class="px-3 py-3.5">
-                                            <div class="flex min-w-[4.5rem] items-center gap-1.5">
-                                                <div class="h-1 w-14 overflow-hidden rounded-full bg-slate-100">
-                                                    <div class="progress-fill h-full rounded-full {{ $fillBarClass }}"
-                                                        style="--progress: {{ min(100, $row['fill_rate']) }}%; --progress-delay: {{ 80 + ($loop->index * 40) }}ms"></div>
-                                                </div>
-                                                <span class="text-[11px] font-semibold text-slate-600">{{ $row['fill_rate'] }}%</span>
-                                            </div>
-                                        </td>
-                                        <td class="whitespace-nowrap px-5 py-3.5 text-right font-semibold text-slate-900 sm:px-6">
-                                            LKR {{ number_format($row['revenue'], 0) }}
-                                        </td>
-                                    </tr>
-                                @empty
-                                    <tr>
-                                        <td colspan="6" class="px-6 py-14 text-center">
-                                            <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
-                                                <i class="bi bi-calendar-plus text-xl"></i>
-                                            </div>
-                                            <p class="mt-3 text-sm font-semibold text-slate-800">No events yet</p>
-                                            <a href="{{ route('organizer.events.create') }}"
-                                                class="mt-2 inline-flex text-sm font-semibold text-indigo-600 hover:text-indigo-700">
-                                                Create your first event
-                                            </a>
-                                        </td>
-                                    </tr>
-                                @endforelse
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <aside class="space-y-5 xl:col-span-4">
-                    <div class="glass-panel p-5 sm:p-6">
-                        <h2 class="text-lg font-bold text-slate-900">Event Status</h2>
-                        <p class="mt-0.5 text-sm text-slate-500">How your catalog is distributed</p>
-
-                        <div class="mt-5 space-y-2.5">
-                            @foreach($statusSummary as $status)
-                                @php
-                                    $pct = round(($status['count'] / $totalEvents) * 100);
-                                    $bar = match ($status['color']) {
-                                        'emerald' => 'bg-emerald-500',
-                                        'blue' => 'bg-blue-500',
-                                        'amber' => 'bg-amber-400',
-                                        'rose' => 'bg-rose-500',
-                                        'slate' => 'bg-slate-400',
-                                        default => 'bg-slate-400',
-                                    };
-                                    $text = match ($status['color']) {
-                                        'emerald' => 'text-emerald-700',
-                                        'blue' => 'text-blue-700',
-                                        'amber' => 'text-amber-700',
-                                        'rose' => 'text-rose-700',
-                                        'slate' => 'text-slate-600',
-                                        default => 'text-slate-600',
-                                    };
-                                    $track = match ($status['color']) {
-                                        'emerald' => 'bg-emerald-100',
-                                        'blue' => 'bg-blue-100',
-                                        'amber' => 'bg-amber-100',
-                                        'rose' => 'bg-rose-100',
-                                        'slate' => 'bg-slate-200',
-                                        default => 'bg-slate-100',
-                                    };
-                                @endphp
-                                <div class="flex items-center gap-3">
-                                    <span class="w-24 shrink-0 text-xs font-semibold text-slate-600">{{ $status['label'] }}</span>
-                                    <div class="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full {{ $track }}">
-                                        <div class="progress-fill h-full rounded-full {{ $bar }}"
-                                            style="--progress: {{ $pct }}%; --progress-delay: {{ 100 + ($loop->index * 60) }}ms"></div>
-                                    </div>
-                                    <span class="w-14 shrink-0 text-right text-xs font-bold {{ $text }}">
-                                        {{ $status['count'] }}
-                                        <span class="font-medium text-slate-400">{{ $pct }}%</span>
-                                    </span>
-                                </div>
-                            @endforeach
-                        </div>
-                    </div>
-
-                    <div class="glass-panel p-5 sm:p-6">
-                        <div class="flex items-start justify-between gap-3">
-                            <div>
-                                <h2 class="text-lg font-bold text-slate-900">Next Up</h2>
-                                @if($nextUpcomingEvent)
-                                    <p class="mt-0.5 text-sm font-semibold text-indigo-600">{{ $nextUpcomingEvent['day_label'] }}</p>
-                                @else
-                                    <p class="mt-0.5 text-sm text-slate-500">Nothing scheduled yet</p>
-                                @endif
-                            </div>
-                            <a href="{{ route('organizer.calendar.index') }}"
-                                class="btn-smooth text-xs font-semibold text-indigo-600 hover:text-indigo-700">
-                                Calendar
-                            </a>
-                        </div>
-
-                        @if($nextUpcomingEvent)
-                            <div class="mt-4">
-                                <h3 class="text-base font-bold text-slate-900">{{ $nextUpcomingEvent['name'] }}</h3>
-                                <p class="mt-1 text-sm text-slate-500">
-                                    <i class="bi bi-clock"></i> {{ $nextUpcomingEvent['time'] }}
-                                    @if($nextUpcomingEvent['place'])
-                                        · {{ $nextUpcomingEvent['place'] }}
-                                    @endif
-                                </p>
-
-                                <div class="mt-4 space-y-2.5">
-                                    @foreach($nextUpcomingEvent['categories'] as $category)
-                                        @php
-                                            $categoryColor = $category['color'] ?? '#6366f1';
-                                        @endphp
-                                        <div class="btn-smooth flex items-center justify-between gap-3 rounded-xl border border-white/60 bg-white/50 px-3.5 py-2.5 backdrop-blur-sm hover:bg-white/75"
-                                            style="border-left: 3px solid {{ $categoryColor }};">
-                                            <div class="flex min-w-0 items-center gap-2.5">
-                                                <span class="h-2.5 w-2.5 shrink-0 rounded-full"
-                                                    style="background-color: {{ $categoryColor }}"></span>
-                                                <p class="truncate text-sm font-semibold text-slate-800">
-                                                    {{ $category['name'] }}
-                                                </p>
-                                            </div>
-                                            <p @class([
-                                                'shrink-0 text-sm font-bold',
-                                                'text-rose-600' => $category['remaining'] === 0,
-                                                'text-amber-700' => $category['remaining'] > 0 && $category['remaining'] <= 10,
-                                                'text-slate-800' => $category['remaining'] > 10,
-                                            ])>
-                                                {{ number_format($category['remaining']) }}
-                                                <span class="font-medium text-slate-500">Remaining</span>
-                                            </p>
-                                        </div>
-                                    @endforeach
-                                </div>
-
-                                <a href="{{ $nextUpcomingEvent['manage_url'] }}"
-                                    class="btn-smooth mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600/95 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 hover:shadow-md">
-                                    Manage
-                                    <i class="bi bi-arrow-right"></i>
-                                </a>
-                            </div>
-                        @else
-                            <div class="mt-6 rounded-xl border border-dashed border-white/70 bg-white/40 px-4 py-8 text-center backdrop-blur-sm">
-                                <p class="text-sm text-slate-500">No upcoming events to manage.</p>
-                                <a href="{{ route('organizer.events.create') }}"
-                                    class="mt-3 inline-flex text-sm font-semibold text-indigo-600 hover:text-indigo-700">
-                                    Create an event
-                                </a>
-                            </div>
-                        @endif
-                    </div>
-                </aside>
-            </section>
-
-            {{-- 6. Engagement --}}
+            {{-- 5. Engagement --}}
             <section class="glass-panel overflow-hidden p-4 sm:p-5">
                 <div class="flex flex-wrap items-center justify-between gap-3">
                     <div>
@@ -806,7 +580,6 @@
                             <select
                                 id="engagement_event"
                                 name="engagement_event"
-                                onchange="this.form.submit()"
                                 class="block w-full rounded-xl border-white/70 bg-white/60 text-sm font-medium text-slate-700 shadow-sm backdrop-blur-md focus:border-indigo-500 focus:ring-indigo-500"
                             >
                                 <option value="">All Events</option>
@@ -889,6 +662,244 @@
                 </div>
             </section>
 
+            {{-- 6. Performance + status --}}
+            <section class="grid gap-5 xl:grid-cols-12">
+                <div class="glass-panel overflow-hidden xl:col-span-8">
+                    <div class="flex flex-col gap-3 border-b border-white/50 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+                        <div>
+                            <h2 class="text-lg font-bold text-slate-900">Event Performance</h2>
+                            <p class="text-sm text-slate-500">Sales, fill rate, and revenue by event</p>
+                        </div>
+                        <a href="{{ route('organizer.events.index') }}"
+                            class="btn-smooth inline-flex items-center gap-1 text-sm font-semibold text-indigo-600 hover:text-indigo-700">
+                            Manage events
+                            <i class="bi bi-arrow-right"></i>
+                        </a>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-slate-100 text-left text-sm">
+                            <thead class="bg-white/40 text-xs font-semibold uppercase tracking-wide text-slate-500 backdrop-blur-sm">
+                                <tr>
+                                    <th class="px-5 py-3 sm:px-6">Event</th>
+                                    <th class="px-3 py-3">Status</th>
+                                    <th class="px-3 py-3">Sold</th>
+                                    <th class="px-3 py-3">Remaining Tickets</th>
+                                    <th class="px-3 py-3">Fill</th>
+                                    <th class="bg-rose-50/70 px-5 py-3 text-right font-semibold text-rose-700 sm:px-6">Revenue</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+                                @forelse($performance as $row)
+                                    @php
+                                        $statusClass = match ($row['status']) {
+                                            'upcoming' => 'bg-emerald-100 text-emerald-800',
+                                            'ongoing' => 'bg-blue-100 text-blue-800',
+                                            'completed' => 'bg-slate-200 text-slate-700',
+                                            'cancelled' => 'bg-rose-100 text-rose-800',
+                                            'unpublished' => 'bg-amber-100 text-amber-800',
+                                            default => 'bg-slate-100 text-slate-700',
+                                        };
+                                        $fillBarClass = match ($row['status']) {
+                                            'upcoming' => 'bg-emerald-500',
+                                            'ongoing' => 'bg-blue-500',
+                                            'completed' => 'bg-slate-400',
+                                            'cancelled' => 'bg-rose-500',
+                                            'unpublished' => 'bg-amber-400',
+                                            default => 'bg-indigo-500',
+                                        };
+                                        $remainingClass = match (true) {
+                                            $row['remaining'] === 0 => 'text-rose-600',
+                                            $row['remaining'] <= 10 => 'text-amber-700',
+                                            default => 'text-slate-900',
+                                        };
+                                    @endphp
+                                    <tr class="btn-smooth hover:bg-white/45">
+                                        <td class="px-5 py-3.5 sm:px-6">
+                                            <a href="{{ $row['url'] }}" class="group block min-w-[11rem]">
+                                                <p class="font-semibold text-slate-900 group-hover:text-indigo-700">
+                                                    {{ $row['name'] }}
+                                                    @if($row['is_low_inventory'])
+                                                        <i class="bi bi-exclamation-triangle-fill text-amber-500" title="Low inventory"></i>
+                                                    @endif
+                                                </p>
+                                                <p class="mt-0.5 text-xs text-slate-500">
+                                                    {{ $row['date'] }}
+                                                    @if($row['host']) · {{ $row['host'] }} @endif
+                                                </p>
+                                            </a>
+                                        </td>
+                                        <td class="px-3 py-3.5">
+                                            <span class="inline-flex rounded-full px-3 py-1.5 text-sm font-semibold capitalize {{ $statusClass }}">
+                                                {{ $row['status'] }}
+                                            </span>
+                                        </td>
+                                        <td class="whitespace-nowrap px-3 py-3.5 text-slate-700">
+                                            <span class="font-medium">{{ number_format($row['sold']) }}</span>
+                                            <span class="text-slate-400">/ {{ number_format($row['capacity']) }}</span>
+                                        </td>
+                                        <td class="whitespace-nowrap px-3 py-3.5">
+                                            <span class="font-semibold {{ $remainingClass }}">
+                                                {{ number_format($row['remaining']) }}
+                                            </span>
+                                        </td>
+                                        <td class="px-3 py-3.5">
+                                            <div class="flex min-w-[4.5rem] items-center gap-1.5">
+                                                <div class="h-1 w-14 overflow-hidden rounded-full bg-slate-100">
+                                                    <div class="progress-fill h-full rounded-full {{ $fillBarClass }}"
+                                                        style="--progress: {{ min(100, $row['fill_rate']) }}%; --progress-delay: {{ 80 + ($loop->index * 40) }}ms"></div>
+                                                </div>
+                                                <span class="text-[11px] font-semibold text-slate-600">{{ $row['fill_rate'] }}%</span>
+                                            </div>
+                                        </td>
+                                        <td class="whitespace-nowrap bg-rose-50/50 px-5 py-3.5 text-right sm:px-6">
+                                            <span class="font-bold text-rose-700">
+                                                LKR {{ number_format($row['revenue'], 0) }}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="6" class="px-6 py-14 text-center">
+                                            <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
+                                                <i class="bi bi-calendar-plus text-xl"></i>
+                                            </div>
+                                            <p class="mt-3 text-sm font-semibold text-slate-800">No events yet</p>
+                                            <a href="{{ route('organizer.events.create') }}"
+                                                class="mt-2 inline-flex text-sm font-semibold text-indigo-600 hover:text-indigo-700">
+                                                Create your first event
+                                            </a>
+                                        </td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <aside class="space-y-5 xl:col-span-4">
+                    <div class="glass-panel p-5 sm:p-6">
+                        <h2 class="text-lg font-bold text-slate-900">Event Status</h2>
+                        <p class="mt-0.5 text-sm text-slate-500">How your catalog is distributed</p>
+
+                        <div class="mt-5 space-y-2.5">
+                            @foreach($statusSummary as $status)
+                                @php
+                                    $pct = round(($status['count'] / $totalEvents) * 100);
+                                    $bar = match ($status['color']) {
+                                        'emerald' => 'bg-emerald-500',
+                                        'blue' => 'bg-blue-500',
+                                        'amber' => 'bg-amber-400',
+                                        'rose' => 'bg-rose-500',
+                                        'slate' => 'bg-slate-400',
+                                        default => 'bg-slate-400',
+                                    };
+                                    $text = match ($status['color']) {
+                                        'emerald' => 'text-emerald-700',
+                                        'blue' => 'text-blue-700',
+                                        'amber' => 'text-amber-700',
+                                        'rose' => 'text-rose-700',
+                                        'slate' => 'text-slate-600',
+                                        default => 'text-slate-600',
+                                    };
+                                    $track = match ($status['color']) {
+                                        'emerald' => 'bg-emerald-100',
+                                        'blue' => 'bg-blue-100',
+                                        'amber' => 'bg-amber-100',
+                                        'rose' => 'bg-rose-100',
+                                        'slate' => 'bg-slate-200',
+                                        default => 'bg-slate-100',
+                                    };
+                                @endphp
+                                <div class="flex items-center gap-3">
+                                    <span class="w-24 shrink-0 text-xs font-semibold text-slate-600">{{ $status['label'] }}</span>
+                                    <div class="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full {{ $track }}">
+                                        <div class="progress-fill h-full rounded-full {{ $bar }}"
+                                            style="--progress: {{ $pct }}%; --progress-delay: {{ 100 + ($loop->index * 60) }}ms"></div>
+                                    </div>
+                                    <span class="w-14 shrink-0 text-right text-xs font-bold {{ $text }}">
+                                        {{ $status['count'] }}
+                                        <span class="font-medium text-slate-400">{{ $pct }}%</span>
+                                    </span>
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+
+                    <x-dashboard-mini-calendar :calendar="$dashboard['miniCalendar']" />
+
+                    <div class="glass-panel p-5 sm:p-6">
+                        <div class="flex items-start justify-between gap-3">
+                            <div>
+                                <h2 class="text-lg font-bold text-slate-900">Next Up</h2>
+                                @if($nextUpcomingEvent)
+                                    <p class="mt-0.5 text-sm font-semibold text-indigo-600">{{ $nextUpcomingEvent['day_label'] }}</p>
+                                @else
+                                    <p class="mt-0.5 text-sm text-slate-500">Nothing scheduled yet</p>
+                                @endif
+                            </div>
+                            <a href="{{ route('organizer.calendar.index') }}"
+                                class="btn-smooth text-xs font-semibold text-indigo-600 hover:text-indigo-700">
+                                Calendar
+                            </a>
+                        </div>
+
+                        @if($nextUpcomingEvent)
+                            <div class="mt-4">
+                                <h3 class="text-base font-bold text-slate-900">{{ $nextUpcomingEvent['name'] }}</h3>
+                                <p class="mt-1 text-sm text-slate-500">
+                                    <i class="bi bi-clock"></i> {{ $nextUpcomingEvent['time'] }}
+                                    @if($nextUpcomingEvent['place'])
+                                        · {{ $nextUpcomingEvent['place'] }}
+                                    @endif
+                                </p>
+
+                                <div class="mt-4 space-y-2.5">
+                                    @foreach($nextUpcomingEvent['categories'] as $category)
+                                        @php
+                                            $categoryColor = $category['color'] ?? '#6366f1';
+                                        @endphp
+                                        <div class="btn-smooth flex items-center justify-between gap-3 rounded-xl border border-white/60 bg-white/50 px-3.5 py-2.5 backdrop-blur-sm hover:bg-white/75"
+                                            style="border-left: 3px solid {{ $categoryColor }};">
+                                            <div class="flex min-w-0 items-center gap-2.5">
+                                                <span class="h-2.5 w-2.5 shrink-0 rounded-full"
+                                                    style="background-color: {{ $categoryColor }}"></span>
+                                                <p class="truncate text-sm font-semibold text-slate-800">
+                                                    {{ $category['name'] }}
+                                                </p>
+                                            </div>
+                                            <p @class([
+                                                'shrink-0 text-sm font-bold',
+                                                'text-rose-600' => $category['remaining'] === 0,
+                                                'text-amber-700' => $category['remaining'] > 0 && $category['remaining'] <= 10,
+                                                'text-slate-800' => $category['remaining'] > 10,
+                                            ])>
+                                                {{ number_format($category['remaining']) }}
+                                                <span class="font-medium text-slate-500">Remaining</span>
+                                            </p>
+                                        </div>
+                                    @endforeach
+                                </div>
+
+                                <a href="{{ $nextUpcomingEvent['manage_url'] }}"
+                                    class="btn-smooth mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600/95 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 hover:shadow-md">
+                                    Manage
+                                    <i class="bi bi-arrow-right"></i>
+                                </a>
+                            </div>
+                        @else
+                            <div class="mt-6 rounded-xl border border-dashed border-white/70 bg-white/40 px-4 py-8 text-center backdrop-blur-sm">
+                                <p class="text-sm text-slate-500">No upcoming events to manage.</p>
+                                <a href="{{ route('organizer.events.create') }}"
+                                    class="mt-3 inline-flex text-sm font-semibold text-indigo-600 hover:text-indigo-700">
+                                    Create an event
+                                </a>
+                            </div>
+                        @endif
+                    </div>
+                </aside>
+            </section>
+
             {{-- 7. Operations --}}
             <section class="grid gap-5 lg:grid-cols-3">
                 <div class="glass-panel overflow-hidden">
@@ -963,7 +974,9 @@
                                 </div>
                             </a>
                         @empty
-                            <p class="px-5 py-10 text-center text-sm text-slate-500">No ticket purchases yet.</p>
+                            <div class="p-4">
+                                <x-report-empty-state class="!min-h-[8rem] border-0 bg-transparent shadow-none" />
+                            </div>
                         @endforelse
                     </div>
                 </div>
@@ -972,19 +985,42 @@
                     <div class="border-b border-white/50 px-5 py-4">
                         <h2 class="text-base font-bold text-slate-900">Recent Activity</h2>
                         <p class="text-xs text-slate-500">Updates and bookings</p>
+                        <div class="mt-2.5 flex flex-wrap gap-x-3 gap-y-1">
+                            @foreach ([
+                                ['dot' => 'bg-emerald-500', 'label' => 'Ticket Purchased'],
+                                ['dot' => 'bg-blue-500', 'label' => 'Event Updated'],
+                                ['dot' => 'bg-violet-500', 'label' => 'Event Created'],
+                                ['dot' => 'bg-amber-500', 'label' => 'Ticket Refunded'],
+                            ] as $legend)
+                                <div class="flex items-center gap-1.5">
+                                    <span class="h-1.5 w-1.5 rounded-full {{ $legend['dot'] }}"></span>
+                                    <span class="text-[10px] font-medium text-slate-500">{{ $legend['label'] }}</span>
+                                </div>
+                            @endforeach
+                        </div>
                     </div>
                     <div class="max-h-[28rem] space-y-0 overflow-y-auto px-5 py-2">
                         @forelse($recentActivity as $item)
                             @php
                                 $iconStyles = match ($item['color']) {
-                                    'emerald' => 'bg-emerald-100/80 text-emerald-600 ring-emerald-200/70',
-                                    'rose' => 'bg-rose-100/80 text-rose-600 ring-rose-200/70',
-                                    'blue' => 'bg-blue-100/80 text-blue-600 ring-blue-200/70',
-                                    'indigo' => 'bg-indigo-100/80 text-indigo-600 ring-indigo-200/70',
-                                    'amber' => 'bg-amber-100/80 text-amber-600 ring-amber-200/70',
-                                    'violet' => 'bg-violet-100/80 text-violet-600 ring-violet-200/70',
-                                    'cyan' => 'bg-cyan-100/80 text-cyan-600 ring-cyan-200/70',
-                                    default => 'bg-slate-100/80 text-slate-600 ring-slate-200/70',
+                                    'emerald' => 'bg-emerald-100/90 text-emerald-600 ring-emerald-200/80',
+                                    'rose' => 'bg-rose-100/90 text-rose-600 ring-rose-200/80',
+                                    'blue' => 'bg-blue-100/90 text-blue-600 ring-blue-200/80',
+                                    'indigo' => 'bg-indigo-100/90 text-indigo-600 ring-indigo-200/80',
+                                    'amber' => 'bg-amber-100/90 text-amber-600 ring-amber-200/80',
+                                    'violet' => 'bg-violet-100/90 text-violet-600 ring-violet-200/80',
+                                    'cyan' => 'bg-cyan-100/90 text-cyan-600 ring-cyan-200/80',
+                                    default => 'bg-slate-100/90 text-slate-600 ring-slate-200/80',
+                                };
+                                $titleStyles = match ($item['color']) {
+                                    'emerald' => 'text-emerald-700',
+                                    'rose' => 'text-rose-700',
+                                    'blue' => 'text-blue-700',
+                                    'indigo' => 'text-indigo-700',
+                                    'amber' => 'text-amber-700',
+                                    'violet' => 'text-violet-700',
+                                    'cyan' => 'text-cyan-700',
+                                    default => 'text-slate-900',
                                 };
                             @endphp
                             <a href="{{ $item['url'] }}" class="btn-smooth group relative flex gap-3 rounded-xl py-3.5 hover:bg-white/45">
@@ -996,7 +1032,7 @@
                                 </div>
                                 <div class="min-w-0 flex-1">
                                     <div class="flex items-start justify-between gap-2">
-                                        <p class="text-sm font-semibold text-slate-900 group-hover:text-indigo-700">{{ $item['title'] }}</p>
+                                        <p class="text-sm font-bold {{ $titleStyles }}">{{ $item['title'] }}</p>
                                         <span class="shrink-0 text-[11px] text-slate-400">{{ $item['time'] }}</span>
                                     </div>
                                     <p class="mt-0.5 truncate text-xs text-slate-500">{{ $item['description'] }}</p>
@@ -1063,6 +1099,15 @@
             window.organizerDashboardData = @json($dashboard);
             (function () {
                 var key = 'organizer-dashboard-scroll';
+
+                function currentScrollY() {
+                    return window.scrollY || window.pageYOffset || document.documentElement.scrollTop || 0;
+                }
+
+                function restoreScroll(y) {
+                    window.scrollTo(0, y);
+                }
+
                 try {
                     var saved = sessionStorage.getItem(key);
                     if (saved !== null) {
@@ -1070,12 +1115,12 @@
                         if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
                         var y = Number(saved);
                         if (Number.isFinite(y)) {
-                            var restore = function () { window.scrollTo(0, y); };
-                            restore();
-                            requestAnimationFrame(restore);
-                            window.addEventListener('load', restore, { once: true });
-                            setTimeout(restore, 50);
-                            setTimeout(restore, 250);
+                            restoreScroll(y);
+                            requestAnimationFrame(function () { restoreScroll(y); });
+                            window.addEventListener('load', function () { restoreScroll(y); }, { once: true });
+                            setTimeout(function () { restoreScroll(y); }, 50);
+                            setTimeout(function () { restoreScroll(y); }, 250);
+                            setTimeout(function () { restoreScroll(y); }, 600);
                         }
                     }
                 } catch (e) {}
@@ -1089,8 +1134,9 @@
                     ).forEach(function (select) {
                         select.addEventListener('change', function () {
                             try {
-                                sessionStorage.setItem(key, String(window.scrollY));
+                                sessionStorage.setItem(key, String(currentScrollY()));
                             } catch (e) {}
+                            if (this.form) this.form.submit();
                         });
                     });
                 });

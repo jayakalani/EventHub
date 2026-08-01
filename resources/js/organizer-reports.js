@@ -14,6 +14,13 @@ import {
     ScatterController,
     Tooltip,
 } from 'chart.js';
+import {
+    clearChartEmptyState,
+    isEmptyChartInput,
+    isEmptySeries,
+    showChartEmptyState,
+} from './report-empty-state';
+import { bindDashboardPdfExportButtons } from './dashboard-pdf-export';
 
 Chart.register(
     ArcElement,
@@ -64,10 +71,24 @@ function destroyChartOn(canvas) {
     if (existing) existing.destroy();
 }
 
-function createLineChart(canvasId, labels, datasets) {
+function prepareCanvas(canvasId) {
     const canvas = document.getElementById(canvasId);
     if (!canvas) return null;
     destroyChartOn(canvas);
+    clearChartEmptyState(canvas);
+    return canvas;
+}
+
+function createLineChart(canvasId, labels, datasets) {
+    const canvas = prepareCanvas(canvasId);
+    if (!canvas) return null;
+
+    const hasData = Array.isArray(datasets)
+        && datasets.some((dataset) => !isEmptySeries(dataset.data ?? []));
+
+    if (!labels?.length || !hasData) {
+        return showChartEmptyState(canvas);
+    }
 
     return new Chart(canvas, {
         type: 'line',
@@ -95,20 +116,20 @@ function createLineChart(canvasId, labels, datasets) {
 }
 
 function createBarChart(canvasId, labels, data, options = {}) {
-    const canvas = document.getElementById(canvasId);
+    const canvas = prepareCanvas(canvasId);
     if (!canvas) return null;
-    destroyChartOn(canvas);
 
-    const safeLabels = labels.length ? labels : ['No data'];
-    const safeData = labels.length ? data : [0];
+    if (isEmptyChartInput(labels, data)) {
+        return showChartEmptyState(canvas);
+    }
 
     return new Chart(canvas, {
         type: 'bar',
         data: {
-            labels: safeLabels,
+            labels,
             datasets: [{
                 label: options.label ?? 'Count',
-                data: safeData,
+                data,
                 backgroundColor: options.color
                     ?? options.colors
                     ?? chartColors.map((c) => c.replace('rgb', 'rgba').replace(')', ', 0.75)')),
@@ -142,19 +163,22 @@ function createBarChart(canvasId, labels, data, options = {}) {
 }
 
 function createStackedBarChart(canvasId, labels, datasets) {
-    const canvas = document.getElementById(canvasId);
+    const canvas = prepareCanvas(canvasId);
     if (!canvas) return null;
-    destroyChartOn(canvas);
 
-    const safeLabels = labels.length ? labels : ['No data'];
+    const hasData = Array.isArray(datasets)
+        && datasets.some((dataset) => !isEmptySeries(dataset.data ?? []));
+
+    if (!labels?.length || !hasData) {
+        return showChartEmptyState(canvas);
+    }
 
     return new Chart(canvas, {
         type: 'bar',
         data: {
-            labels: safeLabels,
+            labels,
             datasets: datasets.map((dataset) => ({
                 ...dataset,
-                data: labels.length ? dataset.data : [0],
                 stack: 'revenue',
                 borderRadius: 6,
                 borderSkipped: false,
@@ -196,13 +220,12 @@ function createStackedBarChart(canvasId, labels, datasets) {
 }
 
 function createScatterChart(canvasId, points, options = {}) {
-    const canvas = document.getElementById(canvasId);
+    const canvas = prepareCanvas(canvasId);
     if (!canvas) return null;
-    destroyChartOn(canvas);
 
-    const safePoints = points.length
-        ? points
-        : [{ x: 0, y: 0, name: 'No events' }];
+    if (!Array.isArray(points) || points.length === 0) {
+        return showChartEmptyState(canvas);
+    }
 
     const xLabel = options.xLabel ?? 'Fill rate (%)';
     const yLabel = options.yLabel ?? 'Revenue (LKR)';
@@ -238,7 +261,7 @@ function createScatterChart(canvasId, points, options = {}) {
         data: {
             datasets: [{
                 label: options.datasetLabel ?? 'Events',
-                data: safePoints,
+                data: points,
                 backgroundColor: pointColor,
                 borderColor: pointBorder,
                 pointRadius: 8,
@@ -277,26 +300,23 @@ function createScatterChart(canvasId, points, options = {}) {
 }
 
 function createDoughnutChart(canvasId, labels, data, percentages = []) {
-    const canvas = document.getElementById(canvasId);
+    const canvas = prepareCanvas(canvasId);
     if (!canvas) return null;
-    destroyChartOn(canvas);
 
-    const safeLabels = labels.length ? labels : ['No data'];
-    const safeData = labels.length ? data : [1];
-    const safePercentages = labels.length ? percentages : [];
+    if (isEmptyChartInput(labels, data)) {
+        return showChartEmptyState(canvas);
+    }
 
     return new Chart(canvas, {
         type: 'doughnut',
         data: {
-            labels: safeLabels,
+            labels,
             datasets: [{
-                data: safeData,
-                backgroundColor: labels.length
-                    ? chartColors.slice(0, labels.length)
-                    : ['rgba(148, 163, 184, 0.35)'],
+                data,
+                backgroundColor: chartColors.slice(0, labels.length),
                 borderWidth: 2,
                 borderColor: '#ffffff',
-                hoverOffset: labels.length ? 8 : 0,
+                hoverOffset: 8,
             }],
         },
         options: {
@@ -313,7 +333,7 @@ function createDoughnutChart(canvasId, labels, data, percentages = []) {
                         generateLabels(chart) {
                             const dataset = chart.data.datasets[0] ?? {};
                             return (chart.data.labels ?? []).map((label, index) => {
-                                const percentage = safePercentages[index] ?? null;
+                                const percentage = percentages[index] ?? null;
                                 const text = percentage == null
                                     ? String(label)
                                     : `${label} (${percentage}%)`;
@@ -335,7 +355,6 @@ function createDoughnutChart(canvasId, labels, data, percentages = []) {
                 tooltip: {
                     callbacks: {
                         label(context) {
-                            if (!labels.length) return 'No data';
                             const label = context.label ?? '';
                             const value = context.parsed ?? 0;
                             const percentage = percentages[context.dataIndex];
@@ -449,15 +468,7 @@ function buildChartSpecs(data) {
             render: (targetId) => {
                 const series = data.ticketTypeTrend ?? [];
                 if (!series.length) {
-                    return createLineChart(targetId, chartLabels, [{
-                        label: 'No ticket types',
-                        data: chartLabels.map(() => 0),
-                        borderColor: palette.slate,
-                        backgroundColor: 'rgba(100, 116, 139, 0.08)',
-                        fill: false,
-                        tension: 0.3,
-                        pointRadius: 3,
-                    }]);
+                    return createLineChart(targetId, [], []);
                 }
 
                 const colors = [
@@ -942,6 +953,8 @@ function initOrganizerReports() {
             setTimeout(resizeCharts, 80);
         });
     });
+
+    bindDashboardPdfExportButtons();
 }
 
 document.addEventListener('DOMContentLoaded', initOrganizerReports);

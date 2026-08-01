@@ -95,6 +95,7 @@ class OrganizerDashboardService
             'nextUpcomingEvent' => $nextUpcomingEvent,
             'recentPurchases' => $recentPurchases,
             'recentActivity' => $recentActivity,
+            'miniCalendar' => app(DashboardCalendarWidgetService::class)->forOrganizer($organizerId),
         ];
     }
 
@@ -1058,20 +1059,19 @@ class OrganizerDashboardService
                 $isEvent = $log->model_type === Event::class;
                 $label = $isEvent ? 'Event' : 'Host';
                 $name = $this->resolveAuditSubjectName($log);
+                $action = strtolower((string) $log->action);
+
+                [$icon, $color, $title] = match ($action) {
+                    'created' => ['bi-plus-circle-fill', 'violet', "{$label} Created"],
+                    'deleted' => ['bi-trash-fill', 'rose', "{$label} Deleted"],
+                    default => ['bi-pencil-square', 'blue', "{$label} Updated"],
+                };
 
                 return [
-                    'type' => 'audit',
-                    'icon' => match (strtolower($log->action)) {
-                        'created' => 'bi-plus-circle',
-                        'deleted' => 'bi-trash',
-                        default => 'bi-pencil-square',
-                    },
-                    'color' => match (strtolower($log->action)) {
-                        'created' => 'emerald',
-                        'deleted' => 'rose',
-                        default => 'blue',
-                    },
-                    'title' => "{$label} {$log->action}",
+                    'type' => $action === 'created' ? 'created' : ($action === 'deleted' ? 'deleted' : 'updated'),
+                    'icon' => $icon,
+                    'color' => $color,
+                    'title' => $title,
                     'description' => $name,
                     'time' => $log->created_at?->diffForHumans(),
                     'timestamp' => $log->created_at?->timestamp ?? 0,
@@ -1086,8 +1086,8 @@ class OrganizerDashboardService
             ->map(fn (array $purchase) => [
                 'type' => 'purchase',
                 'icon' => 'bi-ticket-perforated-fill',
-                'color' => 'violet',
-                'title' => 'Ticket purchased',
+                'color' => 'emerald',
+                'title' => 'Ticket Purchased',
                 'description' => "{$purchase['buyer']} · {$purchase['event']}",
                 'time' => $purchase['booked_at'],
                 'timestamp' => isset($purchase['booked_raw'])
@@ -1096,8 +1096,34 @@ class OrganizerDashboardService
                 'url' => $purchase['url'],
             ]);
 
+        $refundItems = ticketBooking::query()
+            ->with(['user', 'event'])
+            ->where('status', BookingStatusEnum::Refunded)
+            ->whereHas('event', fn ($query) => $query->createdByOrganizer($organizerId))
+            ->latest('updated_at')
+            ->limit(6)
+            ->get()
+            ->map(function (ticketBooking $booking) {
+                $buyer = $booking->user?->full_name ?? 'Attendee';
+                $eventName = $booking->event?->name ?? 'Event';
+
+                return [
+                    'type' => 'refund',
+                    'icon' => 'bi-arrow-counterclockwise',
+                    'color' => 'amber',
+                    'title' => 'Ticket Refunded',
+                    'description' => "{$buyer} · {$eventName}",
+                    'time' => $booking->updated_at?->diffForHumans(),
+                    'timestamp' => $booking->updated_at?->timestamp ?? 0,
+                    'url' => $booking->event_id
+                        ? route('organizer.events.show', $booking->event_id)
+                        : route('organizer.events.index'),
+                ];
+            });
+
         return $auditItems
             ->concat($purchaseItems)
+            ->concat($refundItems)
             ->sortByDesc('timestamp')
             ->take(10)
             ->values()

@@ -17,6 +17,10 @@
             || filled($activeFilters['to'] ?? null)
             || filled($activeFilters['event_id'] ?? null)
             || filled($activeFilters['status'] ?? null);
+        $hasReportData = ((int) ($sales['totalTicketsSold'] ?? 0) > 0)
+            || ((float) ($revenue['grossRevenue'] ?? 0) > 0)
+            || count($eventPerformance) > 0
+            || count($recentTransactions) > 0;
         $ticketTypeTrend = $reports['ticketTypeTrend'] ?? [];
         $conversionFunnel = $reports['conversionFunnel'] ?? [];
         $funnelViews = (int) ($conversionFunnel[0]['count'] ?? 0);
@@ -174,29 +178,23 @@
                             <h1 class="mt-0.5 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Organizer Reports</h1>
                             <p class="mt-1 text-sm text-slate-500">Performance insights for your events · click charts for fullscreen</p>
                         </div>
-                        <div class="flex flex-wrap items-center gap-2">
-                            <a href="{{ route('dashboard') }}"
-                                class="btn-smooth inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 sm:text-sm">
-                                <i class="bi bi-speedometer2"></i>
-                                Dashboard
-                            </a>
-                            <div x-show="activeSection === 'revenue'">
-                                <x-report-export-buttons excel-route="organizer.reports.export.excel" pdf-route="organizer.reports.export.pdf" section="revenue" class="!gap-2" />
-                            </div>
-                            <div x-show="activeSection === 'tickets'" x-cloak>
-                                <x-report-export-buttons excel-route="organizer.reports.export.excel" pdf-route="organizer.reports.export.pdf" section="tickets" class="!gap-2" />
-                            </div>
-                            <div x-show="activeSection === 'events'" x-cloak>
-                                <x-report-export-buttons excel-route="organizer.reports.export.excel" pdf-route="organizer.reports.export.pdf" section="events" class="!gap-2" />
-                            </div>
-                            <div x-show="activeSection === 'audience'" x-cloak>
-                                <x-report-export-buttons excel-route="organizer.reports.export.excel" pdf-route="organizer.reports.export.pdf" section="audience" class="!gap-2" />
-                            </div>
-                            <div x-show="activeSection === 'engagement'" x-cloak>
-                                <x-report-export-buttons excel-route="organizer.reports.export.excel" pdf-route="organizer.reports.export.pdf" section="engagement" class="!gap-2" />
-                            </div>
-                            <div x-show="activeSection === 'activity'" x-cloak>
-                                <x-report-export-buttons excel-route="organizer.reports.export.excel" pdf-route="organizer.reports.export.pdf" section="activity" class="!gap-2" />
+                        <div class="flex flex-col items-stretch gap-2 sm:items-end">
+                            <p class="inline-flex items-center justify-end gap-1.5 text-xs font-medium text-slate-500">
+                                <span class="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden="true"></span>
+                                Updated {{ now()->diffForHumans() }}
+                            </p>
+                            <div class="flex flex-wrap items-center gap-2 sm:justify-end">
+                                <a href="{{ route('dashboard') }}"
+                                    class="btn-smooth inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 sm:text-sm">
+                                    <i class="bi bi-speedometer2"></i>
+                                    Dashboard
+                                </a>
+                                <x-report-export-buttons
+                                    excel-route="organizer.reports.export.excel"
+                                    pdf-route="organizer.reports.export.pdf"
+                                    section="full"
+                                    class="!gap-2"
+                                />
                             </div>
                         </div>
                     </div>
@@ -388,6 +386,15 @@
                 </div>
             </nav>
 
+            @if (! $hasReportData)
+                <x-report-empty-state
+                    class="!min-h-[10rem] border-slate-200 bg-white shadow-sm"
+                    :hint="$hasActiveFilters
+                        ? 'Try another date range or event.'
+                        : 'Once tickets are sold, insights will appear here.'"
+                />
+            @endif
+
             {{-- Revenue tab --}}
             <div x-show="activeSection === 'revenue'"
                 x-cloak
@@ -558,7 +565,7 @@
                                 @endforeach
                             </div>
                         @else
-                            <p class="mt-4 text-center text-sm text-slate-500">No category sales for this filter.</p>
+                            <x-report-empty-state class="mt-4 !min-h-[6rem]" />
                         @endif
                     </div>
 
@@ -581,7 +588,7 @@
                             <canvas id="ticketTypeTrendChart"></canvas>
                         </div>
                         @if (count($ticketTypeTrend) === 0)
-                            <p class="mt-2 text-center text-xs text-slate-500">No ticket-type sales in this period.</p>
+                            <x-report-empty-state class="mt-2 !min-h-[5rem]" />
                         @endif
                     </div>
 
@@ -694,7 +701,9 @@
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="6" class="px-5 py-10 text-center text-sm text-slate-500">No event performance data for this filter.</td>
+                                            <td colspan="6" class="px-5 py-8">
+                                                <x-report-empty-state class="!min-h-[8rem] border-0 bg-transparent shadow-none" />
+                                            </td>
                                         </tr>
                                     @endforelse
                                 </tbody>
@@ -818,58 +827,62 @@
                                 @endif
                             </div>
 
-                            <div class="mt-4 overflow-x-auto">
-                                <div class="min-w-[36rem]">
-                                    <div class="mb-1 grid gap-1" style="grid-template-columns: 3.25rem repeat(7, minmax(0, 1fr));">
-                                        <span></span>
-                                        @foreach ($peakSalesHeatmap['day_labels'] as $dayLabel)
-                                            <span class="text-center text-[10px] font-semibold uppercase tracking-wide text-slate-400">{{ $dayLabel }}</span>
-                                        @endforeach
-                                    </div>
+                            @if ((int) ($peakSalesHeatmap['max_sales'] ?? 0) > 0)
+                                <div class="mt-4 overflow-x-auto">
+                                    <div class="min-w-[36rem]">
+                                        <div class="mb-1 grid gap-1" style="grid-template-columns: 3.25rem repeat(7, minmax(0, 1fr));">
+                                            <span></span>
+                                            @foreach ($peakSalesHeatmap['day_labels'] as $dayLabel)
+                                                <span class="text-center text-[10px] font-semibold uppercase tracking-wide text-slate-400">{{ $dayLabel }}</span>
+                                            @endforeach
+                                        </div>
 
-                                    <div class="space-y-1">
-                                        @foreach ($peakSalesHeatmap['matrix'] as $hour => $dayCounts)
-                                            @if ($hour % 2 === 0)
-                                                <div class="grid gap-1" style="grid-template-columns: 3.25rem repeat(7, minmax(0, 1fr));">
-                                                    <span class="flex items-center text-[10px] font-medium text-slate-400">{{ sprintf('%02d:00', $hour) }}</span>
-                                                    @foreach ($dayCounts as $dayIndex => $count)
-                                                        @php
-                                                            $intensity = $count > 0 ? $count / $peakHeatmapMax : 0;
-                                                            $tone = match (true) {
-                                                                $intensity <= 0 => 'bg-slate-100 text-slate-400',
-                                                                $intensity < 0.25 => 'bg-indigo-100 text-indigo-700',
-                                                                $intensity < 0.5 => 'bg-indigo-200 text-indigo-800',
-                                                                $intensity < 0.75 => 'bg-indigo-400 text-white',
-                                                                default => 'bg-indigo-600 text-white',
-                                                            };
-                                                            $dayName = $peakSalesHeatmap['day_labels'][$dayIndex] ?? '';
-                                                        @endphp
-                                                        <div class="flex h-5 items-center justify-center rounded-sm {{ $tone }} text-[9px] font-semibold"
-                                                            title="{{ $dayName }} {{ sprintf('%02d:00', $hour) }} · {{ number_format($count) }} tickets">
-                                                            @if ($count > 0 && $intensity >= 0.5)
-                                                                {{ $count }}
-                                                            @endif
-                                                        </div>
-                                                    @endforeach
-                                                </div>
-                                            @endif
-                                        @endforeach
+                                        <div class="space-y-1">
+                                            @foreach ($peakSalesHeatmap['matrix'] as $hour => $dayCounts)
+                                                @if ($hour % 2 === 0)
+                                                    <div class="grid gap-1" style="grid-template-columns: 3.25rem repeat(7, minmax(0, 1fr));">
+                                                        <span class="flex items-center text-[10px] font-medium text-slate-400">{{ sprintf('%02d:00', $hour) }}</span>
+                                                        @foreach ($dayCounts as $dayIndex => $count)
+                                                            @php
+                                                                $intensity = $count > 0 ? $count / $peakHeatmapMax : 0;
+                                                                $tone = match (true) {
+                                                                    $intensity <= 0 => 'bg-slate-100 text-slate-400',
+                                                                    $intensity < 0.25 => 'bg-indigo-100 text-indigo-700',
+                                                                    $intensity < 0.5 => 'bg-indigo-200 text-indigo-800',
+                                                                    $intensity < 0.75 => 'bg-indigo-400 text-white',
+                                                                    default => 'bg-indigo-600 text-white',
+                                                                };
+                                                                $dayName = $peakSalesHeatmap['day_labels'][$dayIndex] ?? '';
+                                                            @endphp
+                                                            <div class="flex h-5 items-center justify-center rounded-sm {{ $tone }} text-[9px] font-semibold"
+                                                                title="{{ $dayName }} {{ sprintf('%02d:00', $hour) }} · {{ number_format($count) }} tickets">
+                                                                @if ($count > 0 && $intensity >= 0.5)
+                                                                    {{ $count }}
+                                                                @endif
+                                                            </div>
+                                                        @endforeach
+                                                    </div>
+                                                @endif
+                                            @endforeach
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
 
-                            <div class="mt-4 flex items-center justify-between gap-3 text-[11px] text-slate-500">
-                                <div class="flex items-center gap-1">
-                                    <span>Less</span>
-                                    <span class="h-3 w-3 rounded-sm bg-slate-100"></span>
-                                    <span class="h-3 w-3 rounded-sm bg-indigo-100"></span>
-                                    <span class="h-3 w-3 rounded-sm bg-indigo-200"></span>
-                                    <span class="h-3 w-3 rounded-sm bg-indigo-400"></span>
-                                    <span class="h-3 w-3 rounded-sm bg-indigo-600"></span>
-                                    <span>More</span>
+                                <div class="mt-4 flex items-center justify-between gap-3 text-[11px] text-slate-500">
+                                    <div class="flex items-center gap-1">
+                                        <span>Less</span>
+                                        <span class="h-3 w-3 rounded-sm bg-slate-100"></span>
+                                        <span class="h-3 w-3 rounded-sm bg-indigo-100"></span>
+                                        <span class="h-3 w-3 rounded-sm bg-indigo-200"></span>
+                                        <span class="h-3 w-3 rounded-sm bg-indigo-400"></span>
+                                        <span class="h-3 w-3 rounded-sm bg-indigo-600"></span>
+                                        <span>More</span>
+                                    </div>
+                                    <span>Even hours shown · max {{ number_format($peakHeatmapMax) }} / slot</span>
                                 </div>
-                                <span>Even hours shown · max {{ number_format($peakHeatmapMax) }} / slot</span>
-                            </div>
+                            @else
+                                <x-report-empty-state class="mt-4 !min-h-[10rem]" />
+                            @endif
                         </div>
                     </div>
                 </div>
@@ -1228,7 +1241,7 @@
                                     </div>
                                 </div>
                             @empty
-                                <div class="px-5 py-10 text-center text-sm text-slate-500">No customer purchases yet.</div>
+                                <x-report-empty-state class="!min-h-[8rem] m-4 border-0 bg-transparent shadow-none" />
                             @endforelse
                         </div>
                     </div>
@@ -1345,7 +1358,9 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="6" class="px-5 py-10 text-center text-sm text-slate-500">No transactions for this filter.</td>
+                                    <td colspan="6" class="px-5 py-8">
+                                        <x-report-empty-state class="!min-h-[8rem] border-0 bg-transparent shadow-none" />
+                                    </td>
                                 </tr>
                             @endforelse
                         </tbody>

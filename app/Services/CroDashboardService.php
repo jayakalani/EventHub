@@ -10,53 +10,96 @@ use App\Models\Complaint;
 use App\Models\Event;
 use App\Models\Inquiry;
 use App\Models\InquiryResponse;
+use App\Models\Rating;
 use App\Models\RefundRequest;
 use App\Models\ticketBooking;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class CroDashboardService
 {
     /**
+     * @param  array{
+     *     event?: int|null,
+     *     from?: string|null,
+     *     to?: string|null
+     * }  $filters
      * @return array<string, mixed>
      */
-    public function getDashboardData(): array
+    public function getDashboardData(array $filters = []): array
     {
-        $openInquiryCount = Inquiry::where('status', SupportTicketStatusEnum::Open)->count();
-        $openComplaintCount = Complaint::where('status', SupportTicketStatusEnum::Open)->count();
-        $inProgressComplaintCount = Complaint::where('status', SupportTicketStatusEnum::InProgress)->count();
+        $eventId = isset($filters['event']) ? (int) $filters['event'] : null;
+        $from = $this->parseDate($filters['from'] ?? null)?->startOfDay();
+        $to = $this->parseDate($filters['to'] ?? null)?->endOfDay();
+
+        if ($from && $to && $from->gt($to)) {
+            [$from, $to] = [$to->copy()->startOfDay(), $from->copy()->endOfDay()];
+        }
+
+        if (! $from && ! $to) {
+            $from = now()->subDays(29)->startOfDay();
+            $to = now()->endOfDay();
+        } elseif ($from && ! $to) {
+            $to = now()->endOfDay();
+        } elseif (! $from && $to) {
+            $from = $to->copy()->subDays(29)->startOfDay();
+        }
+
+        $eventFilter = $this->eventFilterOptions($eventId);
+        $selectedEventId = $eventFilter['selectedEventId'];
+
+        $openInquiryCount = $this->inquiryQuery($selectedEventId)
+            ->where('status', SupportTicketStatusEnum::Open)
+            ->count();
+        $openComplaintCount = $this->complaintQuery($selectedEventId)
+            ->where('status', SupportTicketStatusEnum::Open)
+            ->count();
+        $inProgressComplaintCount = $this->complaintQuery($selectedEventId)
+            ->where('status', SupportTicketStatusEnum::InProgress)
+            ->count();
         $activeComplaintCount = $openComplaintCount + $inProgressComplaintCount;
 
-        $resolvedToday = Inquiry::query()
-            ->whereIn('status', [SupportTicketStatusEnum::Resolved, SupportTicketStatusEnum::Closed])
+        $resolvedStatuses = [SupportTicketStatusEnum::Resolved, SupportTicketStatusEnum::Closed];
+        $resolvedToday = $this->inquiryQuery($selectedEventId)
+            ->whereIn('status', $resolvedStatuses)
             ->whereDate('updated_at', today())
             ->count()
-            + Complaint::query()
-                ->whereIn('status', [SupportTicketStatusEnum::Resolved, SupportTicketStatusEnum::Closed])
+            + $this->complaintQuery($selectedEventId)
+                ->whereIn('status', $resolvedStatuses)
                 ->whereDate('updated_at', today())
                 ->count();
 
-        $pendingRefundCount = RefundRequest::query()
+        $pendingRefundCount = $this->refundQuery($selectedEventId)
             ->where('status', RefundRequestStatusEnum::Pending)
             ->count();
 
-        $newInquiriesToday = Inquiry::whereDate('created_at', today())->count();
-        $urgentComplaintCount = $this->urgentOpenComplaintCount();
+        $newInquiriesToday = $this->inquiryQuery($selectedEventId)
+            ->whereDate('created_at', today())
+            ->count();
+        $urgentComplaintCount = $this->urgentOpenComplaintCount($selectedEventId);
         $eventsToday = Event::query()
             ->visibleToAttendees()
             ->whereDate('date', today())
             ->where('status', '!=', Event::STATUS_CANCELLED)
+            ->when($selectedEventId, fn (Builder $q) => $q->where('id', $selectedEventId))
             ->count();
 
-        $complaintByStatus = $this->complaintStatusBreakdown();
+        $complaintByStatus = $this->complaintStatusBreakdown($selectedEventId);
 
         return [
+            'filters' => [
+                'event' => $selectedEventId,
+                'from' => $from?->toDateString(),
+                'to' => $to?->toDateString(),
+            ],
+            'eventFilter' => $eventFilter,
             'kpis' => [
                 'openInquiries' => $openInquiryCount,
                 'activeComplaints' => $activeComplaintCount,
                 'resolvedToday' => $resolvedToday,
-                'avgResponseMinutes' => $this->averageResponseMinutes(),
-                'avgResponseLabel' => $this->formatResponseTime($this->averageResponseMinutes()),
+                'avgResponseMinutes' => $this->averageResponseMinutes($selectedEventId),
+                'avgResponseLabel' => $this->formatResponseTime($this->averageResponseMinutes($selectedEventId)),
             ],
             'todayTasks' => [
                 'newInquiries' => $newInquiriesToday,
@@ -65,57 +108,190 @@ class CroDashboardService
                 'eventsToday' => $eventsToday,
             ],
             'charts' => [
-                'inquiryTrend' => $this->weeklyInquiryTrend(),
+                'defaultPeriod' => 'week',
+                'periods' => [
+                    'week' => $this->supportTrend('week', $selectedEventId, $from, $to),
+                    'month' => $this->supportTrend('month', $selectedEventId, $from, $to),
+                ],
                 'complaintStatus' => $complaintByStatus,
-                'supportCategories' => $this->supportCategories(),
+                'supportCategories' => $this->supportCategories($selectedEventId, $from, $to),
+                'satisfactionDistribution' => $this->satisfactionDistribution($selectedEventId),
             ],
-            'recentInquiries' => $this->recentInquiries(6),
-            'highPriority' => $this->highPriorityCases(6),
-            'pendingRefunds' => $this->pendingRefundRequests(5),
-            'satisfaction' => $this->customerSatisfaction(),
-            'recentActivity' => $this->recentActivity(8),
-            'eventsToday' => $this->eventsSupportOverview(),
+            'recentInquiries' => $this->recentInquiries(6, $selectedEventId, $from, $to),
+            'highPriority' => $this->highPriorityCases(6, $selectedEventId),
+            'pendingRefunds' => $this->pendingRefundRequests(5, $selectedEventId),
+            'satisfaction' => $this->customerSatisfaction($selectedEventId),
+            'feedbackThemes' => $this->topFeedbackThemes($selectedEventId, $from, $to, 5),
+            'recentActivity' => $this->recentActivity(8, $selectedEventId),
+            'eventsToday' => $this->eventsSupportOverview($selectedEventId),
+            'miniCalendar' => app(DashboardCalendarWidgetService::class)->forCro(),
             'counts' => [
                 'pendingRefunds' => $pendingRefundCount,
                 'openInquiries' => $openInquiryCount,
                 'openComplaints' => $openComplaintCount,
-                'inProgress' => Inquiry::where('status', SupportTicketStatusEnum::InProgress)->count()
-                    + Complaint::where('status', SupportTicketStatusEnum::InProgress)->count(),
+                'inProgress' => $this->inquiryQuery($selectedEventId)
+                    ->where('status', SupportTicketStatusEnum::InProgress)
+                    ->count()
+                    + $this->complaintQuery($selectedEventId)
+                        ->where('status', SupportTicketStatusEnum::InProgress)
+                        ->count(),
             ],
         ];
     }
 
     /**
-     * @return array{labels: list<string>, counts: list<int>}
+     * @return array{selectedEventId: int|null, selectedEventName: string|null, events: list<array{id: int, name: string}>}
      */
-    private function weeklyInquiryTrend(): array
+    private function eventFilterOptions(?int $eventId): array
     {
-        $days = collect(range(6, 0))->map(fn (int $i) => today()->subDays($i));
+        $events = Event::query()
+            ->where(function (Builder $query) {
+                $query->whereIn('id', Inquiry::query()->whereNotNull('event_id')->select('event_id'))
+                    ->orWhereIn('id', ticketBooking::query()
+                        ->whereIn('id', RefundRequest::query()->select('ticket_booking_id'))
+                        ->select('event_id'))
+                    ->orWhere(function (Builder $upcoming) {
+                        $upcoming->visibleToAttendees()
+                            ->whereDate('date', '>=', today()->subMonths(1))
+                            ->whereDate('date', '<=', today()->addMonths(2));
+                    });
+            })
+            ->orderByDesc('date')
+            ->limit(100)
+            ->get(['id', 'name', 'date'])
+            ->map(fn (Event $event) => [
+                'id' => $event->id,
+                'name' => $event->name,
+                'date' => $event->date ? Carbon::parse($event->date)->format('M j, Y') : null,
+            ])
+            ->values()
+            ->all();
 
-        $counts = Inquiry::query()
-            ->where('created_at', '>=', today()->subDays(6)->startOfDay())
-            ->selectRaw('DATE(created_at) as day, COUNT(*) as count')
-            ->groupBy('day')
-            ->pluck('count', 'day');
+        $selected = collect($events)->firstWhere('id', $eventId);
+
+        if ($eventId && ! $selected) {
+            $fallback = Event::query()->find($eventId);
+            if ($fallback) {
+                $selected = [
+                    'id' => $fallback->id,
+                    'name' => $fallback->name,
+                    'date' => $fallback->date ? Carbon::parse($fallback->date)->format('M j, Y') : null,
+                ];
+                array_unshift($events, $selected);
+            }
+        }
 
         return [
-            'labels' => $days->map(fn (Carbon $day) => $day->format('D'))->values()->all(),
-            'counts' => $days->map(function (Carbon $day) use ($counts) {
-                return (int) ($counts[$day->toDateString()] ?? 0);
-            })->values()->all(),
+            'selectedEventId' => $selected['id'] ?? null,
+            'selectedEventName' => $selected['name'] ?? null,
+            'events' => $events,
+        ];
+    }
+
+    private function inquiryQuery(?int $eventId): Builder
+    {
+        return Inquiry::query()->when($eventId, fn (Builder $q) => $q->where('event_id', $eventId));
+    }
+
+    private function complaintQuery(?int $eventId): Builder
+    {
+        return Complaint::query()->when($eventId, function (Builder $q) use ($eventId) {
+            $q->whereIn('user_id', ticketBooking::query()
+                ->where('event_id', $eventId)
+                ->select('user_id'));
+        });
+    }
+
+    private function refundQuery(?int $eventId): Builder
+    {
+        return RefundRequest::query()->when($eventId, function (Builder $q) use ($eventId) {
+            $q->whereHas('ticketBooking', fn (Builder $booking) => $booking->where('event_id', $eventId));
+        });
+    }
+
+    /**
+     * @return array{label: string, labels: list<string>, inquiries: list<int>, complaints: list<int>, refunds: list<int>}
+     */
+    private function supportTrend(string $period, ?int $eventId, Carbon $from, Carbon $to): array
+    {
+        if ($period === 'month') {
+            $start = $from->copy()->startOfMonth()->max(now()->subMonths(5)->startOfMonth());
+            $end = $to->copy()->endOfMonth()->min(now()->endOfMonth());
+            if ($start->gt($end)) {
+                $start = now()->subMonths(5)->startOfMonth();
+                $end = now()->endOfMonth();
+            }
+
+            $months = collect();
+            $cursor = $start->copy()->startOfMonth();
+            while ($cursor->lte($end)) {
+                $months->push($cursor->copy());
+                $cursor->addMonth();
+            }
+
+            return [
+                'label' => 'Monthly',
+                'labels' => $months->map(fn (Carbon $m) => $m->format('M Y'))->all(),
+                'inquiries' => $months->map(fn (Carbon $m) => $this->inquiryQuery($eventId)
+                    ->whereBetween('created_at', [$m->copy()->startOfMonth(), $m->copy()->endOfMonth()])
+                    ->count())->all(),
+                'complaints' => $months->map(fn (Carbon $m) => $this->complaintQuery($eventId)
+                    ->whereBetween('created_at', [$m->copy()->startOfMonth(), $m->copy()->endOfMonth()])
+                    ->count())->all(),
+                'refunds' => $months->map(fn (Carbon $m) => $this->refundQuery($eventId)
+                    ->whereBetween('created_at', [$m->copy()->startOfMonth(), $m->copy()->endOfMonth()])
+                    ->count())->all(),
+            ];
+        }
+
+        $start = $from->copy()->startOfDay()->max(now()->subDays(6)->startOfDay());
+        $end = $to->copy()->endOfDay()->min(now()->endOfDay());
+        if ($start->gt($end)) {
+            $start = now()->subDays(6)->startOfDay();
+            $end = now()->endOfDay();
+        }
+
+        // Prefer a full week window when the filter still covers it.
+        if ($from->lte(now()->subDays(6)->startOfDay()) && $to->gte(now()->startOfDay())) {
+            $start = now()->subDays(6)->startOfDay();
+            $end = now()->endOfDay();
+        }
+
+        $days = collect();
+        $cursor = $start->copy()->startOfDay();
+        while ($cursor->lte($end)) {
+            $days->push($cursor->copy());
+            $cursor->addDay();
+            if ($days->count() > 31) {
+                break;
+            }
+        }
+
+        return [
+            'label' => 'Weekly',
+            'labels' => $days->map(fn (Carbon $d) => $d->format('D j'))->all(),
+            'inquiries' => $days->map(fn (Carbon $d) => $this->inquiryQuery($eventId)
+                ->whereDate('created_at', $d->toDateString())
+                ->count())->all(),
+            'complaints' => $days->map(fn (Carbon $d) => $this->complaintQuery($eventId)
+                ->whereDate('created_at', $d->toDateString())
+                ->count())->all(),
+            'refunds' => $days->map(fn (Carbon $d) => $this->refundQuery($eventId)
+                ->whereDate('created_at', $d->toDateString())
+                ->count())->all(),
         ];
     }
 
     /**
      * @return array{labels: list<string>, counts: list<int>, percents: list<float>}
      */
-    private function complaintStatusBreakdown(): array
+    private function complaintStatusBreakdown(?int $eventId): array
     {
-        $resolved = Complaint::query()
+        $resolved = $this->complaintQuery($eventId)
             ->whereIn('status', [SupportTicketStatusEnum::Resolved, SupportTicketStatusEnum::Closed])
             ->count();
-        $pending = Complaint::where('status', SupportTicketStatusEnum::Open)->count();
-        $inProgress = Complaint::where('status', SupportTicketStatusEnum::InProgress)->count();
+        $pending = $this->complaintQuery($eventId)->where('status', SupportTicketStatusEnum::Open)->count();
+        $inProgress = $this->complaintQuery($eventId)->where('status', SupportTicketStatusEnum::InProgress)->count();
 
         $counts = [$resolved, $pending, $inProgress];
         $total = max(1, array_sum($counts));
@@ -133,9 +309,11 @@ class CroDashboardService
     /**
      * @return list<array{customer: string, subject: string, event: string, status: string, statusClass: string, time: string}>
      */
-    private function recentInquiries(int $limit = 6): array
+    private function recentInquiries(int $limit, ?int $eventId, Carbon $from, Carbon $to): array
     {
-        return Inquiry::with(['user', 'event'])
+        return $this->inquiryQuery($eventId)
+            ->with(['user', 'event'])
+            ->whereBetween('created_at', [$from, $to])
             ->latest()
             ->limit($limit)
             ->get()
@@ -155,11 +333,11 @@ class CroDashboardService
     /**
      * @return list<array{title: string, meta: string, href: string, type: string}>
      */
-    private function highPriorityCases(int $limit = 6): array
+    private function highPriorityCases(int $limit, ?int $eventId): array
     {
         $cases = collect();
 
-        RefundRequest::query()
+        $this->refundQuery($eventId)
             ->with(['user', 'ticketBooking.event'])
             ->where('status', RefundRequestStatusEnum::Pending)
             ->latest()
@@ -177,7 +355,7 @@ class CroDashboardService
 
         $openStatuses = [SupportTicketStatusEnum::Open, SupportTicketStatusEnum::InProgress];
 
-        Complaint::query()
+        $this->complaintQuery($eventId)
             ->with('user')
             ->whereIn('status', $openStatuses)
             ->latest()
@@ -194,7 +372,7 @@ class CroDashboardService
                 ]);
             });
 
-        Inquiry::query()
+        $this->inquiryQuery($eventId)
             ->with(['user', 'event'])
             ->whereIn('status', $openStatuses)
             ->latest()
@@ -219,9 +397,9 @@ class CroDashboardService
             ->all();
     }
 
-    private function urgentOpenComplaintCount(): int
+    private function urgentOpenComplaintCount(?int $eventId): int
     {
-        return Complaint::query()
+        return $this->complaintQuery($eventId)
             ->whereIn('status', [SupportTicketStatusEnum::Open, SupportTicketStatusEnum::InProgress])
             ->where(function ($query) {
                 foreach (['payment', 'refund', 'duplicate', 'cancel', 'urgent', 'failed', 'fraud'] as $term) {
@@ -267,9 +445,9 @@ class CroDashboardService
     /**
      * @return list<array{customer: string, event: string, amount: string, status: string, statusClass: string}>
      */
-    private function pendingRefundRequests(int $limit = 5): array
+    private function pendingRefundRequests(int $limit, ?int $eventId): array
     {
-        return RefundRequest::query()
+        return $this->refundQuery($eventId)
             ->with(['user', 'ticketBooking.event'])
             ->where('status', RefundRequestStatusEnum::Pending)
             ->latest()
@@ -286,18 +464,41 @@ class CroDashboardService
     }
 
     /**
-     * @return array{average: float|null, reviewCount: int, happyPercent: float, label: string}
+     * @return array{
+     *     average: float|null,
+     *     reviewCount: int,
+     *     happyPercent: float,
+     *     label: string,
+     *     source: string
+     * }
      */
-    private function customerSatisfaction(): array
+    private function customerSatisfaction(?int $eventId): array
     {
-        $resolvedStatuses = [SupportTicketStatusEnum::Resolved, SupportTicketStatusEnum::Closed];
+        $ratingsQuery = Rating::query()
+            ->when($eventId, fn (Builder $q) => $q->where('event_id', $eventId));
 
-        $inquiryTotal = Inquiry::count();
-        $complaintTotal = Complaint::count();
+        $reviewCount = (clone $ratingsQuery)->count();
+
+        if ($reviewCount > 0) {
+            $average = round((float) (clone $ratingsQuery)->avg('score'), 1);
+            $happy = (clone $ratingsQuery)->where('score', '>=', 4)->count();
+
+            return [
+                'average' => $average,
+                'reviewCount' => $reviewCount,
+                'happyPercent' => round(($happy / $reviewCount) * 100, 1),
+                'label' => 'Based on '.$reviewCount.' event rating'.($reviewCount === 1 ? '' : 's'),
+                'source' => 'ratings',
+            ];
+        }
+
+        $resolvedStatuses = [SupportTicketStatusEnum::Resolved, SupportTicketStatusEnum::Closed];
+        $inquiryTotal = $this->inquiryQuery($eventId)->count();
+        $complaintTotal = $this->complaintQuery($eventId)->count();
         $total = $inquiryTotal + $complaintTotal;
 
-        $resolved = Inquiry::whereIn('status', $resolvedStatuses)->count()
-            + Complaint::whereIn('status', $resolvedStatuses)->count();
+        $resolved = $this->inquiryQuery($eventId)->whereIn('status', $resolvedStatuses)->count()
+            + $this->complaintQuery($eventId)->whereIn('status', $resolvedStatuses)->count();
 
         $happyPercent = $total > 0 ? round(($resolved / $total) * 100, 1) : 0.0;
         $average = $total > 0 ? round(($happyPercent / 100) * 5, 1) : null;
@@ -307,15 +508,64 @@ class CroDashboardService
             'reviewCount' => $resolved,
             'happyPercent' => $happyPercent,
             'label' => $resolved > 0
-                ? 'Based on '.$resolved.' resolved cases'
-                : 'No resolved cases yet',
+                ? 'Estimated from '.$resolved.' resolved support cases'
+                : 'No ratings or resolved cases yet',
+            'source' => 'support',
         ];
+    }
+
+    /**
+     * @return array{labels: list<string>, counts: list<int>, percents: list<float>}
+     */
+    private function satisfactionDistribution(?int $eventId): array
+    {
+        $ratings = Rating::query()
+            ->when($eventId, fn (Builder $q) => $q->where('event_id', $eventId))
+            ->selectRaw('score, COUNT(*) as count')
+            ->groupBy('score')
+            ->pluck('count', 'score');
+
+        $labels = ['5 stars', '4 stars', '3 stars', '2 stars', '1 star'];
+        $scores = [5, 4, 3, 2, 1];
+        $counts = collect($scores)->map(fn (int $score) => (int) ($ratings[$score] ?? 0))->all();
+        $total = max(1, array_sum($counts));
+
+        return [
+            'labels' => $labels,
+            'counts' => $counts,
+            'percents' => collect($counts)
+                ->map(fn (int $count) => round(($count / $total) * 100, 1))
+                ->values()
+                ->all(),
+            'total' => array_sum($counts),
+        ];
+    }
+
+    /**
+     * @return list<array{label: string, count: int, percent: float}>
+     */
+    private function topFeedbackThemes(?int $eventId, Carbon $from, Carbon $to, int $limit = 5): array
+    {
+        $categories = $this->supportCategories($eventId, $from, $to);
+        $total = max(1, array_sum($categories['counts']));
+
+        return collect($categories['labels'])
+            ->map(fn (string $label, int $index) => [
+                'label' => $label,
+                'count' => (int) ($categories['counts'][$index] ?? 0),
+                'percent' => round((((int) ($categories['counts'][$index] ?? 0)) / $total) * 100, 1),
+            ])
+            ->filter(fn (array $row) => $row['count'] > 0)
+            ->sortByDesc('count')
+            ->take($limit)
+            ->values()
+            ->all();
     }
 
     /**
      * @return list<array{time: string, title: string, meta: string, icon: string, color: string}>
      */
-    private function recentActivity(int $limit = 8): array
+    private function recentActivity(int $limit, ?int $eventId): array
     {
         $activities = collect();
 
@@ -336,7 +586,7 @@ class CroDashboardService
                 ]);
             });
 
-        Complaint::query()
+        $this->complaintQuery($eventId)
             ->whereIn('status', [SupportTicketStatusEnum::Resolved, SupportTicketStatusEnum::Closed])
             ->latest('updated_at')
             ->limit(4)
@@ -352,7 +602,7 @@ class CroDashboardService
                 ]);
             });
 
-        Inquiry::query()
+        $this->inquiryQuery($eventId)
             ->whereNotNull('assigned_to')
             ->latest('updated_at')
             ->limit(4)
@@ -368,7 +618,7 @@ class CroDashboardService
                 ]);
             });
 
-        RefundRequest::query()
+        $this->refundQuery($eventId)
             ->where('status', RefundRequestStatusEnum::Approved)
             ->latest('reviewed_at')
             ->limit(4)
@@ -397,24 +647,35 @@ class CroDashboardService
     /**
      * @return array{labels: list<string>, counts: list<int>}
      */
-    private function supportCategories(): array
+    private function supportCategories(?int $eventId, Carbon $from, Carbon $to): array
     {
         $categories = [
             'Payment Issues' => 0,
             'Ticket Issues' => 0,
-            'Refund Requests' => 0,
+            'Refund Delays' => 0,
             'Event Information' => 0,
             'Account Issues' => 0,
         ];
 
-        Inquiry::query()
+        $this->inquiryQuery($eventId)
+            ->whereBetween('created_at', [$from, $to])
             ->get(['subject'])
             ->each(function (Inquiry $inquiry) use (&$categories) {
                 $label = $this->classifyInquiryCategory($inquiry->subject);
                 $categories[$label] = ($categories[$label] ?? 0) + 1;
             });
 
-        $categories['Refund Requests'] += RefundRequest::count();
+        $this->complaintQuery($eventId)
+            ->whereBetween('created_at', [$from, $to])
+            ->get(['subject'])
+            ->each(function (Complaint $complaint) use (&$categories) {
+                $label = $this->classifyInquiryCategory($complaint->subject);
+                $categories[$label] = ($categories[$label] ?? 0) + 1;
+            });
+
+        $categories['Refund Delays'] += $this->refundQuery($eventId)
+            ->whereBetween('created_at', [$from, $to])
+            ->count();
 
         return [
             'labels' => array_keys($categories),
@@ -425,12 +686,13 @@ class CroDashboardService
     /**
      * @return list<array{name: string, attendees: int, openInquiries: int, pendingRefunds: int}>
      */
-    private function eventsSupportOverview(): array
+    private function eventsSupportOverview(?int $eventId): array
     {
         $events = Event::query()
             ->visibleToAttendees()
             ->whereDate('date', today())
             ->where('status', '!=', Event::STATUS_CANCELLED)
+            ->when($eventId, fn (Builder $q) => $q->where('id', $eventId))
             ->orderBy('time')
             ->get(['id', 'name']);
 
@@ -473,8 +735,8 @@ class CroDashboardService
     {
         $subject = strtolower($subject);
 
-        if (str_contains($subject, 'refund') || str_contains($subject, 'money back')) {
-            return 'Refund Requests';
+        if (str_contains($subject, 'refund') || str_contains($subject, 'money back') || str_contains($subject, 'delay')) {
+            return 'Refund Delays';
         }
 
         if (str_contains($subject, 'payment') || str_contains($subject, 'billing') || str_contains($subject, 'charge') || str_contains($subject, 'failed')) {
@@ -534,15 +796,17 @@ class CroDashboardService
         return $time->format('M j');
     }
 
-    private function averageResponseMinutes(): ?float
+    private function averageResponseMinutes(?int $eventId): ?float
     {
         $firstResponses = InquiryResponse::query()
             ->select('inquiry_id', DB::raw('MIN(created_at) as first_response_at'))
             ->groupBy('inquiry_id');
 
-        $avg = DB::table('inquiries as i')
+        $query = DB::table('inquiries as i')
             ->joinSub($firstResponses, 'fr', 'fr.inquiry_id', '=', 'i.id')
-            ->avg(DB::raw('TIMESTAMPDIFF(MINUTE, i.created_at, fr.first_response_at)'));
+            ->when($eventId, fn ($q) => $q->where('i.event_id', $eventId));
+
+        $avg = $query->avg(DB::raw('TIMESTAMPDIFF(MINUTE, i.created_at, fr.first_response_at)'));
 
         return $avg !== null ? round((float) $avg, 1) : null;
     }
@@ -561,5 +825,18 @@ class CroDashboardService
         $mins = (int) round($minutes % 60);
 
         return $mins > 0 ? "{$hours}h {$mins}m" : "{$hours}h";
+    }
+
+    private function parseDate(?string $value): ?Carbon
+    {
+        if (! filled($value)) {
+            return null;
+        }
+
+        try {
+            return Carbon::parse($value);
+        } catch (\Throwable) {
+            return null;
+        }
     }
 }

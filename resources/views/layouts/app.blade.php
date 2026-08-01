@@ -26,6 +26,7 @@
         $isAttendee = $userRoleName === \App\Models\UserRole::ATTENDEE;
         $isOrganizer = $userRoleName === \App\Models\UserRole::ORGANIZER;
         $isAdmin = $userRoleName === \App\Models\UserRole::ADMIN;
+        $isCro = $userRoleName === \App\Models\UserRole::CRO;
     @endphp
 
     <div class="flex min-h-screen flex-col bg-[#F0F8FF]">
@@ -51,6 +52,8 @@
             @include('partials.organizer-footer')
         @elseif ($isAdmin)
             @include('partials.admin-footer')
+        @elseif ($isCro)
+            @include('partials.cro-footer')
         @endif
     </div>
     @stack('scripts')

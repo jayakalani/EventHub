@@ -241,6 +241,7 @@ Route::prefix('organizer')->name('organizer.')->middleware(['auth', 'verified', 
 */
 Route::prefix('cro')->name('cro.')->middleware(['auth', 'verified', 'prevent-back', 'role:'.UserRole::CRO])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'cro'])->name('dashboard');
+    Route::post('/dashboard/export/pdf', [DashboardController::class, 'exportCroPdf'])->name('dashboard.export.pdf');
     Route::get('/refund-requests', [CroRefundRequestController::class, 'index'])->name('refund-requests.index');
     Route::post('/refund-requests/{refundRequest}/approve', [CroRefundRequestController::class, 'approve'])->name('refund-requests.approve');
     Route::post('/refund-requests/{refundRequest}/decline', [CroRefundRequestController::class, 'decline'])->name('refund-requests.decline');

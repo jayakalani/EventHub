@@ -10,9 +10,11 @@ import {
     LineController,
     LineElement,
     LinearScale,
+    PieController,
     PointElement,
     Tooltip,
 } from 'chart.js';
+import { bindDashboardPdfExportButtons } from './dashboard-pdf-export';
 
 Chart.register(
     ArcElement,
@@ -25,6 +27,7 @@ Chart.register(
     LineController,
     LineElement,
     LinearScale,
+    PieController,
     PointElement,
     Tooltip,
 );
@@ -69,9 +72,12 @@ function fontFor(fullscreen = false) {
     };
 }
 
-function createLineChart(canvasId, labels, data, options = {}) {
+function createSupportTrendChart(canvasId, periodData, options = {}) {
     const canvas = document.getElementById(canvasId);
-    if (!canvas || !labels.length) return null;
+    if (!canvas) return null;
+
+    const labels = periodData?.labels ?? [];
+    if (!labels.length) return null;
 
     destroyChartOn(canvasId);
 
@@ -81,18 +87,41 @@ function createLineChart(canvasId, labels, data, options = {}) {
         type: 'line',
         data: {
             labels,
-            datasets: [{
-                label: 'Inquiries',
-                data,
-                borderColor: palette.indigo,
-                backgroundColor: 'rgba(79, 70, 229, 0.12)',
-                fill: true,
-                tension: 0.4,
-                pointRadius: fullscreen ? 6 : 5,
-                pointHoverRadius: fullscreen ? 9 : 8,
-                pointBackgroundColor: palette.indigo,
-                borderWidth: fullscreen ? 3 : 2,
-            }],
+            datasets: [
+                {
+                    label: 'Inquiries',
+                    data: periodData.inquiries ?? [],
+                    borderColor: palette.indigo,
+                    backgroundColor: 'rgba(79, 70, 229, 0.10)',
+                    fill: false,
+                    tension: 0.4,
+                    pointRadius: fullscreen ? 5 : 4,
+                    pointHoverRadius: fullscreen ? 8 : 7,
+                    borderWidth: fullscreen ? 3 : 2,
+                },
+                {
+                    label: 'Complaints',
+                    data: periodData.complaints ?? [],
+                    borderColor: palette.rose,
+                    backgroundColor: 'rgba(244, 63, 94, 0.10)',
+                    fill: false,
+                    tension: 0.4,
+                    pointRadius: fullscreen ? 5 : 4,
+                    pointHoverRadius: fullscreen ? 8 : 7,
+                    borderWidth: fullscreen ? 3 : 2,
+                },
+                {
+                    label: 'Refunds',
+                    data: periodData.refunds ?? [],
+                    borderColor: palette.amber,
+                    backgroundColor: 'rgba(245, 158, 11, 0.10)',
+                    fill: false,
+                    tension: 0.4,
+                    pointRadius: fullscreen ? 5 : 4,
+                    pointHoverRadius: fullscreen ? 8 : 7,
+                    borderWidth: fullscreen ? 3 : 2,
+                },
+            ],
         },
         options: {
             responsive: true,
@@ -100,7 +129,9 @@ function createLineChart(canvasId, labels, data, options = {}) {
             interaction: { mode: 'index', intersect: false },
             plugins: {
                 legend: {
-                    display: false,
+                    display: true,
+                    position: 'bottom',
+                    labels: { font: fontFor(fullscreen), padding: fullscreen ? 18 : 12, usePointStyle: true },
                 },
                 tooltip: {
                     backgroundColor: 'rgba(15, 23, 42, 0.9)',
@@ -138,19 +169,21 @@ function createDoughnutChart(canvasId, labels, data, options = {}) {
     destroyChartOn(canvasId);
 
     const fullscreen = Boolean(options.fullscreen);
-    const colors = [
+    const colors = options.colors ?? [
         palette.emerald,
         palette.amber,
         palette.blue,
+        palette.rose,
+        palette.indigo,
     ];
 
     return new Chart(canvas, {
-        type: 'doughnut',
+        type: options.type ?? 'doughnut',
         data: {
             labels,
             datasets: [{
                 data,
-                backgroundColor: colors,
+                backgroundColor: colors.slice(0, labels.length),
                 borderWidth: 2,
                 borderColor: '#ffffff',
                 hoverOffset: fullscreen ? 12 : 8,
@@ -159,7 +192,7 @@ function createDoughnutChart(canvasId, labels, data, options = {}) {
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            cutout: '65%',
+            cutout: options.type === 'pie' ? 0 : '65%',
             plugins: {
                 legend: {
                     position: 'bottom',
@@ -242,22 +275,27 @@ function initCroDashboard() {
     const data = window.croDashboardData;
     if (!data) return;
 
-    const inquiryTrend = data.charts?.inquiryTrend ?? { labels: [], counts: [] };
+    const periods = data.charts?.periods ?? {};
+    let currentPeriod = data.charts?.defaultPeriod ?? 'week';
     const complaintStatus = data.charts?.complaintStatus ?? { labels: [], counts: [] };
     const supportCategories = data.charts?.supportCategories ?? { labels: [], counts: [] };
+    const satisfactionDistribution = data.charts?.satisfactionDistribution ?? { labels: [], counts: [] };
 
     const chartBuilders = {
-        inquiryTrend: (canvasId, options = {}) => createLineChart(
+        supportTrend: (canvasId, options = {}) => createSupportTrendChart(
             canvasId,
-            inquiryTrend.labels ?? [],
-            inquiryTrend.counts ?? [],
+            periods[options.period ?? currentPeriod] ?? { labels: [] },
             options,
         ),
         complaintStatus: (canvasId, options = {}) => createDoughnutChart(
             canvasId,
             complaintStatus.labels ?? [],
             complaintStatus.counts ?? [],
-            options,
+            {
+                ...options,
+                type: 'pie',
+                colors: [palette.emerald, palette.amber, palette.blue],
+            },
         ),
         supportCategories: (canvasId, options = {}) => createBarChart(
             canvasId,
@@ -265,17 +303,45 @@ function initCroDashboard() {
             supportCategories.counts ?? [],
             options,
         ),
+        satisfactionDistribution: (canvasId, options = {}) => createDoughnutChart(
+            canvasId,
+            satisfactionDistribution.labels ?? [],
+            satisfactionDistribution.counts ?? [],
+            {
+                ...options,
+                type: 'pie',
+                colors: [palette.emerald, palette.cyan, palette.amber, palette.rose, palette.indigo],
+            },
+        ),
     };
 
-    const cardTargets = {
-        inquiryTrend: 'croInquiryTrendChart',
-        complaintStatus: 'croComplaintStatusChart',
-        supportCategories: 'croSupportCategoriesChart',
-    };
+    let supportTrendChart = chartBuilders.supportTrend('croSupportTrendChart');
+    const complaintChart = chartBuilders.complaintStatus('croComplaintStatusChart');
+    const categoriesChart = chartBuilders.supportCategories('croSupportCategoriesChart');
+    const satisfactionChart = chartBuilders.satisfactionDistribution('croSatisfactionDistributionChart');
+    const chartInstances = [supportTrendChart, complaintChart, categoriesChart, satisfactionChart].filter(Boolean);
 
-    const chartInstances = Object.entries(cardTargets)
-        .map(([key, canvasId]) => chartBuilders[key]?.(canvasId))
-        .filter(Boolean);
+    document.querySelectorAll('[data-cro-period]').forEach((button) => {
+        button.addEventListener('click', () => {
+            const period = button.getAttribute('data-cro-period');
+            if (!period || period === currentPeriod) return;
+
+            currentPeriod = period;
+            document.querySelectorAll('[data-cro-period]').forEach((el) => {
+                const active = el.getAttribute('data-cro-period') === period;
+                el.classList.toggle('bg-indigo-600', active);
+                el.classList.toggle('text-white', active);
+                el.classList.toggle('bg-white/60', !active);
+                el.classList.toggle('text-slate-600', !active);
+            });
+
+            document.querySelectorAll('[data-cro-period-label]').forEach((el) => {
+                el.textContent = periods[period]?.label ?? period;
+            });
+
+            supportTrendChart = chartBuilders.supportTrend('croSupportTrendChart', { period });
+        });
+    });
 
     let fullscreenChart = null;
 
@@ -296,16 +362,22 @@ function initCroDashboard() {
         destroyFullscreenChart();
 
         requestAnimationFrame(() => {
-            fullscreenChart = builder('croChartFullscreen', { fullscreen: true });
+            fullscreenChart = builder('croChartFullscreen', {
+                fullscreen: true,
+                period: currentPeriod,
+            });
         });
     });
 
     window.addEventListener('cro-chart-collapse', destroyFullscreenChart);
 
     window.addEventListener('resize', () => {
-        chartInstances.forEach((chart) => chart.resize());
+        chartInstances.forEach((chart) => chart?.resize?.());
+        supportTrendChart?.resize?.();
         if (fullscreenChart) fullscreenChart.resize();
     });
+
+    bindDashboardPdfExportButtons();
 }
 
 document.addEventListener('DOMContentLoaded', initCroDashboard);

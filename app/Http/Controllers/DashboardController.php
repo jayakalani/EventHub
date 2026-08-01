@@ -11,6 +11,7 @@ use App\Services\AdminReportService;
 use App\Services\CroDashboardService;
 use App\Services\EventCompletionService;
 use App\Services\Exports\AdminDashboardExportBuilder;
+use App\Services\Exports\CroDashboardExportBuilder;
 use App\Services\Exports\OrganizerDashboardExportBuilder;
 use App\Services\OrganizerDashboardService;
 use App\Services\ReportExportService;
@@ -30,6 +31,7 @@ class DashboardController extends Controller
         protected ReportExportService $exportService,
         protected AdminDashboardExportBuilder $adminDashboardExportBuilder,
         protected OrganizerDashboardExportBuilder $organizerDashboardExportBuilder,
+        protected CroDashboardExportBuilder $croDashboardExportBuilder,
     ) {}
 
     /**
@@ -53,7 +55,7 @@ class DashboardController extends Controller
         return match ($roleName) {
             UserRole::ADMIN => $this->admin(request()),
             UserRole::ORGANIZER => $this->organizer(request()),
-            UserRole::CRO => $this->cro(),
+            UserRole::CRO => $this->cro(request()),
             default => redirect()->route('login')->with('error', 'Invalid role'),
         };
     }
@@ -175,11 +177,29 @@ class DashboardController extends Controller
     /**
      * CRO Dashboard
      */
-    public function cro(): View
+    public function cro(Request $request): View
     {
-        $dashboard = $this->croDashboardService->getDashboardData();
+        $filters = $this->validatedCroDashboardFilters($request);
+        $dashboard = $this->croDashboardService->getDashboardData($filters);
 
         return view('cro.dashboard', compact('dashboard'));
+    }
+
+    /**
+     * Export the CRO dashboard as PDF.
+     */
+    public function exportCroPdf(Request $request)
+    {
+        abort_unless(Auth::user()?->userRole?->name_en === UserRole::CRO, 403);
+
+        $filters = $this->validatedCroDashboardFilters($request);
+        $payload = $this->croDashboardExportBuilder->build($filters);
+        $payload['charts'] = $this->validatedDashboardChartImages($request);
+
+        return $this->exportService->downloadPdf(
+            $payload,
+            sprintf('cro-dashboard-%s.pdf', now()->format('Y-m-d-His')),
+        );
     }
 
     /**
@@ -330,6 +350,30 @@ class DashboardController extends Controller
             'goal_event' => isset($validated['goal_event']) ? (int) $validated['goal_event'] : null,
             'chart_event' => isset($validated['chart_event']) ? (int) $validated['chart_event'] : null,
             'engagement_event' => isset($validated['engagement_event']) ? (int) $validated['engagement_event'] : null,
+        ];
+    }
+
+    /**
+     * @return array{event: int|null, from: string|null, to: string|null}
+     */
+    private function validatedCroDashboardFilters(Request $request): array
+    {
+        $request->merge([
+            'event' => $request->filled('event') ? $request->input('event') : null,
+            'from' => $request->filled('from') ? $request->input('from') : null,
+            'to' => $request->filled('to') ? $request->input('to') : null,
+        ]);
+
+        $validated = $request->validate([
+            'event' => ['nullable', 'integer', 'exists:events,id'],
+            'from' => ['nullable', 'date'],
+            'to' => ['nullable', 'date', 'after_or_equal:from'],
+        ]);
+
+        return [
+            'event' => isset($validated['event']) ? (int) $validated['event'] : null,
+            'from' => $validated['from'] ?? null,
+            'to' => $validated['to'] ?? null,
         ];
     }
 

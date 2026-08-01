@@ -2,7 +2,11 @@
 
 namespace App\Services;
 
+use App\Enums\RefundRequestStatusEnum;
+use App\Enums\SupportTicketStatusEnum;
 use App\Models\Event;
+use App\Models\Inquiry;
+use App\Models\RefundRequest;
 use Carbon\Carbon;
 
 class DashboardCalendarWidgetService
@@ -61,6 +65,79 @@ class DashboardCalendarWidgetService
             createUrl: null,
             includeOrganizerName: true,
         );
+    }
+
+    /**
+     * @return array{
+     *     title: string,
+     *     subtitle: string,
+     *     today: string,
+     *     initialMonth: string,
+     *     calendarUrl: string|null,
+     *     createUrl: string|null,
+     *     statusColors: array<string, string>,
+     *     events: list<array<string, mixed>>
+     * }
+     */
+    public function forCro(): array
+    {
+        $payload = $this->build(
+            title: 'Support Calendar',
+            subtitle: 'Event dates with support activity',
+            eventsQuery: Event::query()
+                ->visibleToAttendees()
+                ->where('status', '!=', Event::STATUS_CANCELLED)
+                ->with('organizer'),
+            eventUrlResolver: fn (Event $event) => route('cro.dashboard', ['event' => $event->id]),
+            calendarUrl: null,
+            createUrl: null,
+            includeOrganizerName: true,
+        );
+
+        $eventIds = collect($payload['events'])->pluck('id')->filter()->all();
+        if ($eventIds === []) {
+            return $payload;
+        }
+
+        $openInquiries = Inquiry::query()
+            ->whereIn('event_id', $eventIds)
+            ->whereIn('status', [SupportTicketStatusEnum::Open, SupportTicketStatusEnum::InProgress])
+            ->selectRaw('event_id, COUNT(*) as count')
+            ->groupBy('event_id')
+            ->pluck('count', 'event_id');
+
+        $pendingRefunds = RefundRequest::query()
+            ->where('status', RefundRequestStatusEnum::Pending)
+            ->whereHas('ticketBooking', fn ($q) => $q->whereIn('event_id', $eventIds))
+            ->with('ticketBooking:id,event_id')
+            ->get()
+            ->countBy(fn (RefundRequest $refund) => $refund->ticketBooking?->event_id);
+
+        $payload['events'] = collect($payload['events'])
+            ->map(function (array $event) use ($openInquiries, $pendingRefunds) {
+                $inquiries = (int) ($openInquiries[$event['id']] ?? 0);
+                $refunds = (int) ($pendingRefunds[$event['id']] ?? 0);
+                $supportTotal = $inquiries + $refunds;
+
+                $metaParts = [];
+                if ($inquiries > 0) {
+                    $metaParts[] = $inquiries.' open inquir'.($inquiries === 1 ? 'y' : 'ies');
+                }
+                if ($refunds > 0) {
+                    $metaParts[] = $refunds.' pending refund'.($refunds === 1 ? '' : 's');
+                }
+
+                $event['supportCount'] = $supportTotal;
+                $event['place'] = $metaParts !== []
+                    ? implode(' · ', $metaParts).($event['place'] ? ' · '.$event['place'] : '')
+                    : $event['place'];
+
+                return $event;
+            })
+            ->values()
+            ->all();
+
+        return $payload;
     }
 
     /**

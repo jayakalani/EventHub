@@ -1,5 +1,5 @@
 <x-public-layout :with-login-modal="true">
-    @include('partials.events-carousel')
+    @include('partials.events-carousel', ['carouselEvents' => $carouselEvents])
 
     {{-- Events browse --}}
     <section id="events" class="scroll-mt-24 mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">

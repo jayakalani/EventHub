@@ -132,6 +132,8 @@
     </style>
 
     {{ $scripts ?? '' }}
+
+    <x-scroll-to-top />
 </body>
 
 </html>

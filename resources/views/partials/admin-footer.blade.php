@@ -1,54 +1,60 @@
-@php
-    $footerLink = 'text-slate-600 transition hover:text-indigo-600';
-    $footerActive = 'font-medium text-indigo-600';
-@endphp
+<x-site-footer :home-href="route('dashboard')">
+    <x-slot:explore>
+        <li>
+            <x-footer-link :href="route('admin.users')" :active="request()->routeIs('admin.users', 'admin.user.*', 'admin.employees.*', 'admin.employee.*')">
+                {{ t(['en' => 'Users', 'si' => 'පරිශීලකයන්']) }}
+            </x-footer-link>
+        </li>
+        <li>
+            <x-footer-link :href="route('admin.event-categories')" :active="request()->routeIs('admin.event-categories', 'admin.event-categories.*', 'admin.event.category.*')">
+                {{ t(['en' => 'Categories', 'si' => 'ප්‍රවර්ග']) }}
+            </x-footer-link>
+        </li>
+        <li>
+            <x-footer-link :href="route('admin.reports')" :active="request()->routeIs('admin.reports', 'admin.reports.*')">
+                {{ t(['en' => 'Reports', 'si' => 'වාර්තා']) }}
+            </x-footer-link>
+        </li>
+        <li>
+            <x-footer-link :href="route('admin.support-reports')" :active="request()->routeIs('admin.support-reports', 'admin.support-reports.*')">
+                {{ t(['en' => 'Support', 'si' => 'සහාය']) }}
+            </x-footer-link>
+        </li>
+        <li>
+            <x-footer-link :href="route('admin.audit-logs')" :active="request()->routeIs('admin.audit-logs', 'admin.audit-logs.*')">
+                {{ t(['en' => 'Audit Logs', 'si' => 'විගණන ලොග']) }}
+            </x-footer-link>
+        </li>
+    </x-slot:explore>
 
-<footer class="mt-auto border-t border-slate-200/80 bg-white/70 backdrop-blur-md">
-    <div class="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-4 py-6 sm:flex-row sm:px-6 lg:px-8">
-        <div class="flex items-center gap-2 text-sm text-slate-500">
-            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
-                <i class="bi bi-shield-lock"></i>
-            </span>
-            &copy; {{ date('Y') }} {{ config('app.name') }}. All rights reserved.
-        </div>
+    <x-slot:legal>
+        <li>
+            <x-footer-link :href="route('about')" :active="request()->routeIs('about')">
+                {{ t(['en' => 'About', 'si' => 'අපි ගැන']) }}
+            </x-footer-link>
+        </li>
+        <li>
+            <x-footer-link :href="route('terms')" :active="request()->routeIs('terms')">
+                {{ t(['en' => 'Terms of Service', 'si' => 'සේවා කොන්දේසි']) }}
+            </x-footer-link>
+        </li>
+        <li>
+            <x-footer-link :href="route('privacy')" :active="request()->routeIs('privacy')">
+                {{ t(['en' => 'Privacy Policy', 'si' => 'රහස්‍යතා ප්‍රතිපත්තිය']) }}
+            </x-footer-link>
+        </li>
+    </x-slot:legal>
 
-        <div class="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm">
-            <a href="{{ route('dashboard') }}"
-                class="{{ request()->routeIs('dashboard') ? $footerActive : $footerLink }}">
-                Dashboard
-            </a>
-            <a href="{{ route('admin.users') }}"
-                class="{{ request()->routeIs('admin.users', 'admin.user.*', 'admin.employees.*', 'admin.employee.*') ? $footerActive : $footerLink }}">
-                Users
-            </a>
-            <a href="{{ route('admin.event-categories') }}"
-                class="{{ request()->routeIs('admin.event-categories', 'admin.event-categories.*', 'admin.event.category.*') ? $footerActive : $footerLink }}">
-                Categories
-            </a>
-            <a href="{{ route('admin.reports') }}"
-                class="{{ request()->routeIs('admin.reports', 'admin.reports.*') ? $footerActive : $footerLink }}">
-                Reports
-            </a>
-            <a href="{{ route('admin.support-reports') }}"
-                class="{{ request()->routeIs('admin.support-reports', 'admin.support-reports.*') ? $footerActive : $footerLink }}">
-                Support
-            </a>
-            <a href="{{ route('admin.audit-logs') }}"
-                class="{{ request()->routeIs('admin.audit-logs', 'admin.audit-logs.*') ? $footerActive : $footerLink }}">
-                Audit Logs
-            </a>
-            <a href="{{ route('about') }}"
-                class="{{ request()->routeIs('about') ? $footerActive : $footerLink }}">
-                About
-            </a>
-            <a href="{{ route('terms') }}"
-                class="{{ request()->routeIs('terms') ? $footerActive : $footerLink }}">
-                Terms
-            </a>
-            <a href="{{ route('privacy') }}"
-                class="{{ request()->routeIs('privacy') ? $footerActive : $footerLink }}">
-                Privacy
-            </a>
-        </div>
-    </div>
-</footer>
+    <x-slot:account>
+        <li>
+            <x-footer-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
+                {{ t(['en' => 'Dashboard', 'si' => 'විස්තර පුවරුව']) }}
+            </x-footer-link>
+        </li>
+        <li>
+            <x-footer-link :href="route('profile.edit')" :active="request()->routeIs('profile.*')">
+                {{ t(['en' => 'Profile', 'si' => 'පැතිකඩ']) }}
+            </x-footer-link>
+        </li>
+    </x-slot:account>
+</x-site-footer>

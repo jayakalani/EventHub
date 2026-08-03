@@ -1,50 +1,55 @@
-@php
-    $footerLink = 'text-slate-600 transition hover:text-indigo-600';
-    $footerActive = 'font-medium text-indigo-600';
-@endphp
+<x-site-footer :home-href="route('cro.dashboard')">
+    <x-slot:explore>
+        <li>
+            <x-footer-link :href="route('cro.inquiries.index')" :active="request()->routeIs('cro.inquiries.*')">
+                {{ t(['en' => 'Inquiries', 'si' => 'විමසුම්']) }}
+            </x-footer-link>
+        </li>
+        <li>
+            <x-footer-link :href="route('cro.complaints.index')" :active="request()->routeIs('cro.complaints.*')">
+                {{ t(['en' => 'Complaints', 'si' => 'පැමිණිලි']) }}
+            </x-footer-link>
+        </li>
+        <li>
+            <x-footer-link :href="route('cro.refund-requests.index')" :active="request()->routeIs('cro.refund-requests.*')">
+                {{ t(['en' => 'Refunds', 'si' => 'ආපසු ගෙවීම්']) }}
+            </x-footer-link>
+        </li>
+        <li>
+            <x-footer-link :href="route('cro.reports')" :active="request()->routeIs('cro.reports', 'cro.reports.*')">
+                {{ t(['en' => 'Reports', 'si' => 'වාර්තා']) }}
+            </x-footer-link>
+        </li>
+    </x-slot:explore>
 
-<footer class="mt-auto border-t border-slate-200 bg-white">
-    <div class="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-4 py-6 sm:flex-row sm:px-6 lg:px-8">
-        <div class="flex items-center gap-2 text-sm text-slate-500">
-            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
-                <i class="bi bi-headset"></i>
-            </span>
-            &copy; {{ date('Y') }} {{ config('app.name') }}. All rights reserved.
-        </div>
+    <x-slot:legal>
+        <li>
+            <x-footer-link :href="route('about')" :active="request()->routeIs('about')">
+                {{ t(['en' => 'About', 'si' => 'අපි ගැන']) }}
+            </x-footer-link>
+        </li>
+        <li>
+            <x-footer-link :href="route('terms')" :active="request()->routeIs('terms')">
+                {{ t(['en' => 'Terms of Service', 'si' => 'සේවා කොන්දේසි']) }}
+            </x-footer-link>
+        </li>
+        <li>
+            <x-footer-link :href="route('privacy')" :active="request()->routeIs('privacy')">
+                {{ t(['en' => 'Privacy Policy', 'si' => 'රහස්‍යතා ප්‍රතිපත්තිය']) }}
+            </x-footer-link>
+        </li>
+    </x-slot:legal>
 
-        <div class="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm">
-            <a href="{{ route('cro.dashboard') }}"
-                class="{{ request()->routeIs('cro.dashboard') ? $footerActive : $footerLink }}">
-                Dashboard
-            </a>
-            <a href="{{ route('cro.inquiries.index') }}"
-                class="{{ request()->routeIs('cro.inquiries.*') ? $footerActive : $footerLink }}">
-                Inquiries
-            </a>
-            <a href="{{ route('cro.complaints.index') }}"
-                class="{{ request()->routeIs('cro.complaints.*') ? $footerActive : $footerLink }}">
-                Complaints
-            </a>
-            <a href="{{ route('cro.refund-requests.index') }}"
-                class="{{ request()->routeIs('cro.refund-requests.*') ? $footerActive : $footerLink }}">
-                Refunds
-            </a>
-            <a href="{{ route('cro.reports') }}"
-                class="{{ request()->routeIs('cro.reports', 'cro.reports.*') ? $footerActive : $footerLink }}">
-                Reports
-            </a>
-            <a href="{{ route('about') }}"
-                class="{{ request()->routeIs('about') ? $footerActive : $footerLink }}">
-                About
-            </a>
-            <a href="{{ route('terms') }}"
-                class="{{ request()->routeIs('terms') ? $footerActive : $footerLink }}">
-                Terms
-            </a>
-            <a href="{{ route('privacy') }}"
-                class="{{ request()->routeIs('privacy') ? $footerActive : $footerLink }}">
-                Privacy
-            </a>
-        </div>
-    </div>
-</footer>
+    <x-slot:account>
+        <li>
+            <x-footer-link :href="route('cro.dashboard')" :active="request()->routeIs('cro.dashboard')">
+                {{ t(['en' => 'Dashboard', 'si' => 'විස්තර පුවරුව']) }}
+            </x-footer-link>
+        </li>
+        <li>
+            <x-footer-link :href="route('profile.edit')" :active="request()->routeIs('profile.*')">
+                {{ t(['en' => 'Profile', 'si' => 'පැතිකඩ']) }}
+            </x-footer-link>
+        </li>
+    </x-slot:account>
+</x-site-footer>

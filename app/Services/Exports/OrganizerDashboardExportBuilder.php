@@ -58,6 +58,22 @@ class OrganizerDashboardExportBuilder
 
         return [
             'title' => 'Organizer Dashboard',
+            'subtitle' => 'Events, ticket sales, revenue, and engagement snapshot',
+            'filters' => [
+                ['label' => 'KPI scope', 'value' => $kpiScope],
+                ['label' => 'Analytics scope', 'value' => $chartScope],
+                ['label' => 'Engagement scope', 'value' => $engagementScope],
+                ['label' => 'Revenue goal scope', 'value' => $goalScope],
+            ],
+            'kpis' => [
+                ['label' => 'Today — Events', 'value' => $today['eventsToday'] ?? 0],
+                ['label' => 'Today — Tickets', 'value' => $today['ticketsSold'] ?? 0],
+                ['label' => 'Today — Revenue', 'value' => 'LKR '.number_format((float) ($today['revenue'] ?? 0), 0)],
+                ...collect($kpis)->take(5)->map(fn ($kpi) => [
+                    'label' => $kpi['label'] ?? 'KPI',
+                    'value' => $kpi['value'] ?? '—',
+                ])->all(),
+            ],
             'summary' => [
                 ['label' => 'KPI scope', 'value' => $kpiScope],
                 ['label' => 'Analytics scope', 'value' => $chartScope],

@@ -130,6 +130,7 @@ class DashboardController extends Controller
         return $this->exportService->downloadPdf(
             $payload,
             sprintf('organizer-dashboard-%s.pdf', now()->format('Y-m-d-His')),
+            'organizer.exports.dashboard-pdf',
         );
     }
 
@@ -210,11 +211,15 @@ class DashboardController extends Controller
         $this->eventCompletionService->completePastEvents();
 
         $events = $this->withUserEventFlags($this->filteredEventsQuery($request))->get();
+        $carouselEvents = $this->withUserEventFlags(
+            Event::query()->activeForAttendees()->withCount('likes')
+        )->get();
         $eventCategories = EventCategory::where('is_active', 1)->get();
         $selectedCategory = $request->category ?? null;
 
         return view('welcome', compact(
             'events',
+            'carouselEvents',
             'eventCategories',
             'selectedCategory'
         ));

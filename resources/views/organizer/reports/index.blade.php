@@ -42,6 +42,14 @@
             'status' => $activeFilters['status'] ?? null,
         ], fn ($value) => filled($value));
 
+        // Passed to Excel/PDF so exports match the on-screen filtered (or unfiltered) dataset.
+        $exportFilters = array_filter([
+            'from' => $activeFilters['from'] ?? null,
+            'to' => $activeFilters['to'] ?? null,
+            'event_id' => $activeFilters['event_id'] ?? null,
+            'status' => $activeFilters['status'] ?? null,
+        ], fn ($value) => filled($value));
+
         $datePresets = [
             [
                 'key' => '7d',
@@ -183,18 +191,29 @@
                                 <span class="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden="true"></span>
                                 Updated {{ now()->diffForHumans() }}
                             </p>
-                            <div class="flex flex-wrap items-center gap-2 sm:justify-end">
-                                <a href="{{ route('dashboard') }}"
-                                    class="btn-smooth inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 sm:text-sm">
-                                    <i class="bi bi-speedometer2"></i>
-                                    Dashboard
-                                </a>
-                                <x-report-export-buttons
-                                    excel-route="organizer.reports.export.excel"
-                                    pdf-route="organizer.reports.export.pdf"
-                                    section="full"
-                                    class="!gap-2"
-                                />
+                            <div class="flex flex-col items-stretch gap-1.5 sm:items-end">
+                                <div class="flex flex-wrap items-center gap-2 sm:justify-end">
+                                    <a href="{{ route('dashboard') }}"
+                                        class="btn-smooth inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 sm:text-sm">
+                                        <i class="bi bi-speedometer2"></i>
+                                        Dashboard
+                                    </a>
+                                    <x-report-export-buttons
+                                        excel-route="organizer.reports.export.excel"
+                                        pdf-route="organizer.reports.export.pdf"
+                                        section="full"
+                                        :filters="$exportFilters"
+                                        filter-form-id="organizer-reports-filters"
+                                        class="!gap-2"
+                                    />
+                                </div>
+                                <p class="text-[11px] text-slate-500 sm:text-right">
+                                    @if ($hasActiveFilters)
+                                        Excel exports the <span class="font-semibold text-slate-700">filtered</span> report (event, dates, status).
+                                    @else
+                                        Excel exports <span class="font-semibold text-slate-700">all</span> report data (no filters applied).
+                                    @endif
+                                </p>
                             </div>
                         </div>
                     </div>
@@ -220,7 +239,7 @@
                         </div>
                     </div>
 
-                    <form method="GET" action="{{ route('organizer.reports') }}" class="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+                    <form id="organizer-reports-filters" method="GET" action="{{ route('organizer.reports') }}" class="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
                         <div>
                             <label for="from" class="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-400">From</label>
                             <input type="date" id="from" name="from" value="{{ $activeFilters['from'] }}"
@@ -410,13 +429,40 @@
                 <div class="grid gap-4 lg:grid-cols-5">
                     <div class="report-chart chart-expand-hit group relative p-4 sm:p-5 lg:col-span-5"
                         @click="openChart('revenueTrend', 'Revenue trend', 'Income over time from confirmed sales on your events')">
-                        <div class="flex items-start justify-between gap-3">
-                            <div>
-                                <h3 class="text-base font-bold text-slate-900">Revenue trend</h3>
+                        @php
+                            $revenueTrendMeta = $summaryTrends['netRevenue'] ?? ['percent' => 0, 'up' => true, 'label' => 'vs last month'];
+                            $revenueTrendUp = (bool) ($revenueTrendMeta['up'] ?? true);
+                            $revenueTrendPercent = abs((float) ($revenueTrendMeta['percent'] ?? 0));
+                            $revenueTrendArrow = $revenueTrendUp ? '▲' : '▼';
+                            $revenueTrendPrefix = $revenueTrendUp ? '+' : '−';
+                            $revenueTrendTone = $revenueTrendUp ? 'text-emerald-600' : 'text-rose-600';
+                            $revenueTrendBadge = $revenueTrendUp
+                                ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100'
+                                : 'bg-rose-50 text-rose-700 ring-1 ring-rose-100';
+                        @endphp
+                        <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                            <div class="min-w-0">
+                                <h3 class="text-base font-bold text-slate-900">Revenue Trend</h3>
                                 <p class="mt-0.5 text-sm text-slate-500">Income over time from confirmed sales</p>
+
+                                <div class="mt-4 flex flex-wrap items-end gap-x-5 gap-y-2">
+                                    <div>
+                                        <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Total Revenue</p>
+                                        <p class="mt-0.5 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+                                            LKR {{ number_format($revenue['netRevenue'], 0) }}
+                                        </p>
+                                    </div>
+                                    <div class="pb-1">
+                                        <span class="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-sm font-semibold {{ $revenueTrendBadge }}">
+                                            <span aria-hidden="true" class="{{ $revenueTrendTone }}">{{ $revenueTrendArrow }}</span>
+                                            {{ $revenueTrendPrefix }}{{ number_format($revenueTrendPercent, $revenueTrendPercent == floor($revenueTrendPercent) ? 0 : 1) }}%
+                                        </span>
+                                        <p class="mt-1 text-xs text-slate-500">Compared to Previous Month</p>
+                                    </div>
+                                </div>
                             </div>
                             <button type="button"
-                                class="btn-smooth flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 opacity-80 transition group-hover:bg-emerald-100 group-hover:opacity-100"
+                                class="btn-smooth flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 opacity-80 transition group-hover:bg-emerald-100 group-hover:opacity-100"
                                 title="View fullscreen"
                                 aria-label="View revenue trend fullscreen"
                                 @click.stop="openChart('revenueTrend', 'Revenue trend', 'Income over time from confirmed sales on your events')">

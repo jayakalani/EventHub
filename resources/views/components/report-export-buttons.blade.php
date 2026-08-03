@@ -3,11 +3,14 @@
     'pdfRoute',
     'section',
     'scope' => 'organizer',
+    /** @var array<string, mixed>|null Explicit filters; null falls back to the current request query. */
+    'filters' => null,
+    /** Optional filter form id — Excel/PDF pick up live field values on click. */
+    'filterFormId' => null,
 ])
 
 @php
-    $exportQuery = array_filter([
-        'section' => $section,
+    $filterSource = is_array($filters) ? $filters : [
         'from' => request('from'),
         'to' => request('to'),
         'event_id' => request('event_id'),
@@ -16,6 +19,19 @@
         'event' => request('event'),
         'cro' => request('cro'),
         'range' => request('range'),
+    ];
+
+    // Empty / missing filters → export all data. Any set filter → export that scoped slice.
+    $exportQuery = array_filter([
+        'section' => $section,
+        'from' => $filterSource['from'] ?? null,
+        'to' => $filterSource['to'] ?? null,
+        'event_id' => $filterSource['event_id'] ?? null,
+        'status' => $filterSource['status'] ?? null,
+        'organizer' => $filterSource['organizer'] ?? null,
+        'event' => $filterSource['event'] ?? null,
+        'cro' => $filterSource['cro'] ?? null,
+        'range' => $filterSource['range'] ?? null,
     ], fn ($value) => $value !== null && $value !== '');
 
     $chartMaps = [
@@ -155,8 +171,10 @@
     $charts = $chartMaps[$scope][$section] ?? [];
 @endphp
 
-<div {{ $attributes->merge(['class' => 'flex flex-wrap items-center gap-2']) }}>
+<div {{ $attributes->merge(['class' => 'flex flex-wrap items-center gap-2']) }}
+    @if ($filterFormId) data-report-filter-form="{{ $filterFormId }}" @endif>
     <a href="{{ route($excelRoute, $exportQuery) }}"
+        data-report-excel-export
         class="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all duration-300 hover:bg-emerald-700 hover:shadow-md hover:-translate-y-0.5">
         <i class="bi bi-file-earmark-excel"></i>
         <span class="hidden sm:inline">Export Excel</span>
@@ -173,3 +191,78 @@
         <span class="sm:hidden">PDF</span>
     </button>
 </div>
+
+@once
+    @push('scripts')
+        <script>
+            (function () {
+                const FILTER_KEYS = ['from', 'to', 'event_id', 'status', 'organizer', 'event', 'cro', 'range'];
+
+                function readFormFilters(formId) {
+                    if (!formId) return {};
+                    const form = document.getElementById(formId);
+                    if (!form) return {};
+
+                    const params = {};
+                    FILTER_KEYS.forEach((key) => {
+                        const field = form.elements.namedItem(key);
+                        if (!field || typeof field.value !== 'string') return;
+                        const value = field.value.trim();
+                        if (value !== '') {
+                            params[key] = value;
+                        }
+                    });
+                    return params;
+                }
+
+                function mergeExportParams(baseParams, formParams) {
+                    const merged = { ...(baseParams || {}) };
+                    FILTER_KEYS.forEach((key) => {
+                        delete merged[key];
+                    });
+                    return { ...merged, ...formParams };
+                }
+
+                document.addEventListener('click', function (event) {
+                    const excelLink = event.target.closest('[data-report-excel-export]');
+                    if (!excelLink) return;
+
+                    const wrapper = excelLink.closest('[data-report-filter-form]');
+                    const formId = wrapper?.getAttribute('data-report-filter-form');
+                    if (!formId) return;
+
+                    event.preventDefault();
+
+                    const url = new URL(excelLink.href, window.location.origin);
+                    const formParams = readFormFilters(formId);
+                    FILTER_KEYS.forEach((key) => url.searchParams.delete(key));
+                    Object.entries(formParams).forEach(([key, value]) => {
+                        url.searchParams.set(key, value);
+                    });
+
+                    window.location.href = url.toString();
+                });
+
+                document.addEventListener('click', function (event) {
+                    const pdfButton = event.target.closest('[data-dashboard-pdf-export]');
+                    if (!pdfButton) return;
+
+                    const wrapper = pdfButton.closest('[data-report-filter-form]');
+                    const formId = wrapper?.getAttribute('data-report-filter-form');
+                    if (!formId) return;
+
+                    try {
+                        const baseParams = JSON.parse(pdfButton.getAttribute('data-export-params') || '{}');
+                        const formParams = readFormFilters(formId);
+                        pdfButton.setAttribute(
+                            'data-export-params',
+                            JSON.stringify(mergeExportParams(baseParams, formParams))
+                        );
+                    } catch (error) {
+                        // Keep baked-in params if live merge fails.
+                    }
+                }, true);
+            })();
+        </script>
+    @endpush
+@endonce

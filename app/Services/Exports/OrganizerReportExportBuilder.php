@@ -14,12 +14,21 @@ class OrganizerReportExportBuilder
 
     /**
      * @param  array{from?: string|null, to?: string|null, event_id?: int|string|null, status?: string|null}  $filters
-     * @return array{title: string, summary: list<array{label: string, value: string|int|float}>, tables: list<array{heading: string, headers: list<string>, rows: list<list<string|int|float|null>>}>}
+     * @return array{
+     *     title: string,
+     *     subtitle?: string,
+     *     summary: list<array{label: string, value: string|int|float}>,
+     *     filters: list<array{label: string, value: string}>,
+     *     kpis: list<array{label: string, value: string|int|float}>,
+     *     sections: list<array{key: string, title: string, summary: list<array{label: string, value: string|int|float}>, tables: list<array{heading: string, headers: list<string>, rows: list<list<string|int|float|null>>}>}>,
+     *     tables: list<array{heading: string, headers: list<string>, rows: list<list<string|int|float|null>>}>
+     * }
      */
     public function build(int $organizerId, string $section, array $filters = []): array
     {
         $reports = $this->reportService->getAllReports($organizerId, $filters);
         $labels = $reports['chartLabels'];
+        $filterMeta = $this->filterSummary($reports['filters'] ?? $filters, $reports['filterOptions']['events'] ?? []);
 
         $payload = match ($section) {
             'full' => $this->buildFull($reports, $labels),
@@ -36,10 +45,37 @@ class OrganizerReportExportBuilder
             default => abort(404),
         };
 
+        $kpis = $payload['summary'] ?? [];
+        $sections = $payload['sections'] ?? [[
+            'key' => $section,
+            'title' => $this->shortSectionLabel($payload['title'] ?? 'Report'),
+            'summary' => $kpis,
+            'tables' => $payload['tables'] ?? [],
+        ]];
+
+        $payload['filters'] = $filterMeta;
+        $payload['kpis'] = $kpis;
+        $payload['sections'] = $sections;
+        $payload['subtitle'] = $payload['subtitle'] ?? 'Organizer performance analytics';
         $payload['summary'] = [
-            ...$this->filterSummary($reports['filters'] ?? $filters, $reports['filterOptions']['events'] ?? []),
-            ...($payload['summary'] ?? []),
+            ...$filterMeta,
+            ...$kpis,
         ];
+
+        if (! isset($payload['tables'])) {
+            $payload['tables'] = collect($sections)
+                ->flatMap(function (array $sectionPayload) {
+                    $sectionTitle = $sectionPayload['title'] ?? 'Section';
+
+                    return collect($sectionPayload['tables'] ?? [])->map(fn (array $table) => [
+                        'heading' => $sectionTitle.' — '.($table['heading'] ?? 'Data'),
+                        'headers' => $table['headers'] ?? [],
+                        'rows' => $table['rows'] ?? [],
+                    ]);
+                })
+                ->values()
+                ->all();
+        }
 
         return $payload;
     }
@@ -77,19 +113,31 @@ class OrganizerReportExportBuilder
     private function buildFull(array $reports, array $labels): array
     {
         $overview = $this->buildOverview($reports, $labels);
-        $sections = [
-            $this->buildRevenue($reports, $labels),
-            $this->buildTickets($reports, $labels),
-            $this->buildEvents($reports),
-            $this->buildAudience($reports),
-            $this->buildEngagement($reports, $labels),
-            $this->buildActivity($reports),
+        $sectionBuilders = [
+            'overview' => $overview,
+            'revenue' => $this->buildRevenue($reports, $labels),
+            'tickets' => $this->buildTickets($reports, $labels),
+            'events' => $this->buildEvents($reports),
+            'audience' => $this->buildAudience($reports),
+            'engagement' => $this->buildEngagement($reports, $labels),
+            'activity' => $this->buildActivity($reports),
         ];
 
+        $sections = [];
         $tables = [];
-        foreach ($sections as $sectionPayload) {
-            $sectionTitle = $sectionPayload['title'] ?? 'Section';
-            foreach ($sectionPayload['tables'] ?? [] as $table) {
+
+        foreach ($sectionBuilders as $key => $sectionPayload) {
+            $sectionTitle = $this->shortSectionLabel($sectionPayload['title'] ?? 'Section');
+            $sectionTables = $sectionPayload['tables'] ?? [];
+
+            $sections[] = [
+                'key' => $key,
+                'title' => $sectionTitle,
+                'summary' => $sectionPayload['summary'] ?? [],
+                'tables' => $sectionTables,
+            ];
+
+            foreach ($sectionTables as $table) {
                 $tables[] = [
                     'heading' => $sectionTitle.' — '.($table['heading'] ?? 'Data'),
                     'headers' => $table['headers'] ?? [],
@@ -100,9 +148,16 @@ class OrganizerReportExportBuilder
 
         return [
             'title' => 'Organizer Reports — Full Report',
+            'subtitle' => 'Complete performance analytics across revenue, tickets, events, audience, and engagement',
             'summary' => $overview['summary'] ?? [],
+            'sections' => $sections,
             'tables' => $tables,
         ];
+    }
+
+    private function shortSectionLabel(string $title): string
+    {
+        return trim(str_ireplace('Organizer Reports — ', '', $title)) ?: $title;
     }
 
     private function buildOverview(array $reports, array $labels): array

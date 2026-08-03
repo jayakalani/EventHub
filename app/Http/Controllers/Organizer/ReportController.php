@@ -67,6 +67,7 @@ class ReportController extends Controller
         return $this->exportService->downloadPdf(
             $payload,
             $this->exportFilename('organizer-report', 'full', 'pdf'),
+            'organizer.exports.report-pdf',
         );
     }
 

@@ -187,6 +187,7 @@
                                     @csrf
 
                                     <button type="submit"
+                                        onclick="return confirm('Are you sure you want to {{ $host->is_active ? 'deactivate' : 'activate' }} this host?')"
                                         class="w-full py-2 rounded-xl text-xs font-medium transition
                                         {{ $host->is_active
                                             ? 'bg-green-100 text-green-700 hover:bg-green-200'

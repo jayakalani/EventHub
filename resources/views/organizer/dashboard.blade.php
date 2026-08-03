@@ -121,8 +121,8 @@
                                     'engagement_event',
                                 ])"
                                 :charts="[
-                                    ['canvasId' => 'organizerRevenueChart', 'title' => 'Revenue'],
-                                    ['canvasId' => 'organizerTicketSalesChart', 'title' => 'Ticket Sales'],
+                                    ['canvasId' => 'organizerRevenueChart', 'title' => 'Analytics — Revenue'],
+                                    ['canvasId' => 'organizerTicketSalesChart', 'title' => 'Analytics — Ticket Sales'],
                                 ]"
                             />
                             <a href="{{ route('organizer.events.create') }}"

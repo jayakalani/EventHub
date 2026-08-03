@@ -56,6 +56,7 @@
             @include('partials.cro-footer')
         @endif
     </div>
+    <x-scroll-to-top />
     @stack('scripts')
 </body>
 

@@ -1,50 +1,55 @@
-@php
-    $footerLink = 'text-slate-600 transition hover:text-indigo-600';
-    $footerActive = 'font-medium text-indigo-600';
-@endphp
+<x-site-footer :home-href="route('organizer.dashboard')">
+    <x-slot:explore>
+        <li>
+            <x-footer-link :href="route('organizer.events.index')" :active="request()->routeIs('organizer.events.*')">
+                {{ t(['en' => 'Events', 'si' => 'ප්‍රසංග']) }}
+            </x-footer-link>
+        </li>
+        <li>
+            <x-footer-link :href="route('organizer.hosts')" :active="request()->routeIs('organizer.hosts', 'organizer.hosts.*', 'organizer.host.*')">
+                {{ t(['en' => 'Hosts', 'si' => 'සත්කාරක']) }}
+            </x-footer-link>
+        </li>
+        <li>
+            <x-footer-link :href="route('organizer.calendar.index')" :active="request()->routeIs('organizer.calendar.*')">
+                {{ t(['en' => 'Calendar', 'si' => 'දින දසුන']) }}
+            </x-footer-link>
+        </li>
+        <li>
+            <x-footer-link :href="route('organizer.reports')" :active="request()->routeIs('organizer.reports', 'organizer.reports.*')">
+                {{ t(['en' => 'Reports', 'si' => 'වාර්තා']) }}
+            </x-footer-link>
+        </li>
+    </x-slot:explore>
 
-<footer class="mt-auto border-t border-slate-200 bg-white">
-    <div class="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-4 py-6 sm:flex-row sm:px-6 lg:px-8">
-        <div class="flex items-center gap-2 text-sm text-slate-500">
-            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
-                <i class="bi bi-calendar-event"></i>
-            </span>
-            &copy; {{ date('Y') }} {{ config('app.name') }}. All rights reserved.
-        </div>
+    <x-slot:legal>
+        <li>
+            <x-footer-link :href="route('about')" :active="request()->routeIs('about')">
+                {{ t(['en' => 'About', 'si' => 'අපි ගැන']) }}
+            </x-footer-link>
+        </li>
+        <li>
+            <x-footer-link :href="route('terms')" :active="request()->routeIs('terms')">
+                {{ t(['en' => 'Terms of Service', 'si' => 'සේවා කොන්දේසි']) }}
+            </x-footer-link>
+        </li>
+        <li>
+            <x-footer-link :href="route('privacy')" :active="request()->routeIs('privacy')">
+                {{ t(['en' => 'Privacy Policy', 'si' => 'රහස්‍යතා ප්‍රතිපත්තිය']) }}
+            </x-footer-link>
+        </li>
+    </x-slot:legal>
 
-        <div class="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm">
-            <a href="{{ route('dashboard') }}"
-                class="{{ request()->routeIs('dashboard') ? $footerActive : $footerLink }}">
-                Dashboard
-            </a>
-            <a href="{{ route('organizer.events.index') }}"
-                class="{{ request()->routeIs('organizer.events.*') ? $footerActive : $footerLink }}">
-                Events
-            </a>
-            <a href="{{ route('organizer.hosts') }}"
-                class="{{ request()->routeIs('organizer.hosts', 'organizer.hosts.*', 'organizer.host.*') ? $footerActive : $footerLink }}">
-                Hosts
-            </a>
-            <a href="{{ route('organizer.calendar.index') }}"
-                class="{{ request()->routeIs('organizer.calendar.*') ? $footerActive : $footerLink }}">
-                Calendar
-            </a>
-            <a href="{{ route('organizer.reports') }}"
-                class="{{ request()->routeIs('organizer.reports', 'organizer.reports.*') ? $footerActive : $footerLink }}">
-                Reports
-            </a>
-            <a href="{{ route('about') }}"
-                class="{{ request()->routeIs('about') ? $footerActive : $footerLink }}">
-                About
-            </a>
-            <a href="{{ route('terms') }}"
-                class="{{ request()->routeIs('terms') ? $footerActive : $footerLink }}">
-                Terms
-            </a>
-            <a href="{{ route('privacy') }}"
-                class="{{ request()->routeIs('privacy') ? $footerActive : $footerLink }}">
-                Privacy
-            </a>
-        </div>
-    </div>
-</footer>
+    <x-slot:account>
+        <li>
+            <x-footer-link :href="route('organizer.dashboard')" :active="request()->routeIs('organizer.dashboard')">
+                {{ t(['en' => 'Dashboard', 'si' => 'විස්තර පුවරුව']) }}
+            </x-footer-link>
+        </li>
+        <li>
+            <x-footer-link :href="route('profile.edit')" :active="request()->routeIs('profile.*')">
+                {{ t(['en' => 'Profile', 'si' => 'පැතිකඩ']) }}
+            </x-footer-link>
+        </li>
+    </x-slot:account>
+</x-site-footer>

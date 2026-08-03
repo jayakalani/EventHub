@@ -88,10 +88,12 @@ function isCanvasMarkedEmpty(canvas) {
  * @param {import('chart.js').Chart} chart
  */
 function chartHasDrawableData(chart) {
+    const labels = chart?.data?.labels ?? [];
     const datasets = chart?.data?.datasets ?? [];
     if (!datasets.length) return false;
 
-    return datasets.some((dataset) => {
+    // Prefer charts with real plotted values…
+    const hasNonZero = datasets.some((dataset) => {
         const values = dataset.data ?? [];
         if (!Array.isArray(values) || values.length === 0) return false;
 
@@ -100,11 +102,43 @@ function chartHasDrawableData(chart) {
             if (typeof value === 'object') {
                 const x = Number(value.x ?? 0);
                 const y = Number(value.y ?? value.value ?? 0);
-                return x !== 0 || y !== 0;
+                return Number.isFinite(x) && Number.isFinite(y) && (x !== 0 || y !== 0);
             }
-            return Number(value) !== 0;
+            const numeric = Number(value);
+            return Number.isFinite(numeric) && numeric !== 0;
         });
     });
+
+    if (hasNonZero) return true;
+
+    // …but still export flat/zero series when axes exist (visible chart on dashboard).
+    return labels.length > 0 && datasets.some((dataset) => Array.isArray(dataset.data) && dataset.data.length > 0);
+}
+
+/**
+ * Export chart canvas onto a solid white background for clean PDF pages.
+ * Uses JPEG so DomPDF does not require the PHP GD extension (needed for PNG).
+ * @param {import('chart.js').Chart} chart
+ * @returns {string}
+ */
+function chartToWhiteBackgroundImage(chart) {
+    const source = chart.canvas;
+    const maxWidth = 1100;
+    const scale = source.width > maxWidth ? maxWidth / source.width : 1;
+    const exportCanvas = document.createElement('canvas');
+    exportCanvas.width = Math.max(Math.round(source.width * scale), 1);
+    exportCanvas.height = Math.max(Math.round(source.height * scale), 1);
+
+    const ctx = exportCanvas.getContext('2d');
+    if (!ctx) {
+        return chart.toBase64Image('image/jpeg', 0.82);
+    }
+
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
+    ctx.drawImage(source, 0, 0, exportCanvas.width, exportCanvas.height);
+
+    return exportCanvas.toDataURL('image/jpeg', 0.82);
 }
 
 /**
@@ -128,7 +162,9 @@ export function captureDashboardChartImages(targets = []) {
                 }
 
                 const previousAnimation = chart.options.animation;
+                const previousBg = chart.options.backgroundColor;
                 chart.options.animation = false;
+                chart.options.backgroundColor = '#ffffff';
                 chart.resize();
                 chart.update('none');
 
@@ -140,8 +176,9 @@ export function captureDashboardChartImages(targets = []) {
                     chart.update('none');
                 }
 
-                const image = chart.toBase64Image('image/jpeg', 0.85);
+                const image = chartToWhiteBackgroundImage(chart);
                 chart.options.animation = previousAnimation;
+                chart.options.backgroundColor = previousBg;
 
                 return {
                     title: title || 'Chart',

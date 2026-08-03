@@ -1,10 +1,10 @@
 @php
-    $bannerEvents = $events
+    $bannerEvents = $carouselEvents
         ->filter(fn ($event) => filled($event->cover))
         ->values();
 
     if ($bannerEvents->isEmpty()) {
-        $bannerEvents = $events->values();
+        $bannerEvents = $carouselEvents->values();
     }
 
     $bannerCount = $bannerEvents->count();

@@ -37,6 +37,8 @@
         @include('partials.public-footer')
     </div>
 
+    <x-scroll-to-top />
+
     <script>
         (function() {
             const html = document.documentElement;

@@ -97,6 +97,7 @@ class ReportController extends Controller
                 Rule::in([
                     Event::STATUS_UPCOMING,
                     Event::STATUS_ONGOING,
+                    Event::STATUS_POSTPONED,
                     Event::STATUS_COMPLETED,
                     Event::STATUS_CANCELLED,
                 ]),

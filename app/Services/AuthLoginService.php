@@ -41,6 +41,7 @@ class AuthLoginService
         Auth::login($user, $remember);
         $request->session()->put('two_factor_verified', true);
         $request->session()->regenerate();
+        $request->session()->forget('postponement_alerts_shown');
 
         return redirect()->intended(route('dashboard'))
             ->with('welcome_back', true);

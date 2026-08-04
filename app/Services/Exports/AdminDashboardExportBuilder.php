@@ -77,6 +77,7 @@ class AdminDashboardExportBuilder
                 ])->all(),
                 ['label' => 'Active events', 'value' => $platformAnalytics['active'] ?? 0],
                 ['label' => 'Upcoming events', 'value' => $platformAnalytics['upcoming'] ?? 0],
+                ['label' => 'Postponed events', 'value' => $platformAnalytics['postponed'] ?? 0],
                 ['label' => 'Completed events', 'value' => $platformAnalytics['completed'] ?? 0],
                 ['label' => 'Cancelled events', 'value' => $platformAnalytics['cancelled'] ?? 0],
                 ['label' => 'Payments — Successful', 'value' => $payments['completed'] ?? 0],

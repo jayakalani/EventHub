@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\ticketBooking;
+use App\Services\PostponementAlertService;
 use App\Services\TicketPdfService;
 use App\Services\TicketQrService;
 use Illuminate\Support\Facades\Auth;
@@ -13,7 +14,8 @@ class TicketBookingController extends Controller
 {
     public function __construct(
         protected TicketQrService $ticketQrService,
-        protected TicketPdfService $ticketPdfService
+        protected TicketPdfService $ticketPdfService,
+        protected PostponementAlertService $postponementAlertService,
     ) {}
 
     /**
@@ -36,7 +38,11 @@ class TicketBookingController extends Controller
             ->where('user_id', Auth::id())
             ->count();
 
-        return view('attendee.bookings.index', compact('bookings', 'bookingCount'));
+        $hasUnresolvedPostponement = $this->postponementAlertService
+            ->undismissedAlertsFor(Auth::user())
+            ->isNotEmpty();
+
+        return view('attendee.bookings.index', compact('bookings', 'bookingCount', 'hasUnresolvedPostponement'));
     }
 
     /**

@@ -22,6 +22,38 @@
             return;
         }
 
+        if (select.value === 'postponed' && currentStatus !== 'postponed') {
+            select.value = currentStatus;
+
+            if (currentStatus !== 'upcoming') {
+                window.alert('Only upcoming events can be postponed.');
+                return;
+            }
+
+            if (!window.confirm('Are you sure you want to postpone this event?')) {
+                return;
+            }
+
+            if (data) {
+                data.postponeModal = {
+                    open: true,
+                    eventId: eventId,
+                    action: (data.eventsBaseUrl || '') + '/' + eventId + '/postpone',
+                    name: eventName,
+                    date: select.dataset.eventDate || '',
+                    time: select.dataset.eventTime || '',
+                    place: select.dataset.eventPlace || '',
+                };
+            }
+            return;
+        }
+
+        if (currentStatus === 'postponed' && select.value === 'upcoming') {
+            select.value = currentStatus;
+            window.alert('Postponed events cannot be changed to Upcoming. Status stays Postponed — set a new date/time, or cancel if the event will not happen.');
+            return;
+        }
+
         if (currentStatus === 'cancelled' || select.value === currentStatus) {
             select.value = currentStatus;
             return;

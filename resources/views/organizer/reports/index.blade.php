@@ -6,7 +6,9 @@
         $engagement = $reports['engagement'];
         $salesByCategory = $reports['salesByCategory'] ?? [];
         $eventPerformance = $reports['eventPerformance'] ?? [];
+        $eventsByStatus = $reports['eventsByStatus'] ?? [];
         $recentTransactions = $reports['recentTransactions'] ?? [];
+        $postponedEventsCount = (int) (collect($eventsByStatus)->firstWhere('key', 'postponed')['count'] ?? 0);
         $filterOptions = $reports['filterOptions'] ?? ['events' => [], 'statuses' => []];
         $activeFilters = $reports['filters'] ?? ['from' => null, 'to' => null, 'event_id' => null, 'status' => null];
 
@@ -680,13 +682,35 @@
             {{-- Events tab --}}
             <div x-show="activeSection === 'events'" x-cloak role="tabpanel" class="space-y-5">
             <section id="report-events" class="space-y-5">
+                <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+                    @foreach ($eventsByStatus as $statusRow)
+                        <div @class([
+                            'rounded-xl border px-3 py-3',
+                            'border-orange-200 bg-orange-50/60' => ($statusRow['key'] ?? '') === 'postponed',
+                            'border-slate-200 bg-white' => ($statusRow['key'] ?? '') !== 'postponed',
+                        ])>
+                            <p class="text-xs font-medium text-slate-500">{{ $statusRow['label'] }} Events</p>
+                            <p @class([
+                                'mt-0.5 text-xl font-bold tabular-nums',
+                                'text-orange-700' => ($statusRow['key'] ?? '') === 'postponed',
+                                'text-slate-900' => ($statusRow['key'] ?? '') !== 'postponed',
+                            ])>
+                                {{ number_format($statusRow['count']) }}
+                            </p>
+                        </div>
+                    @endforeach
+                </div>
+
                 {{-- Performance table --}}
                 <div class="report-section p-5 sm:p-6">
                     <div class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                         <div>
                             <p class="text-[11px] font-semibold uppercase tracking-wide text-indigo-600">Events</p>
                             <h2 class="mt-0.5 text-lg font-bold text-slate-900">Event performance</h2>
-                            <p class="mt-1 text-sm text-slate-500">Tickets, revenue, fill rate, rating, and status</p>
+                            <p class="mt-1 text-sm text-slate-500">
+                                Tickets, revenue, fill rate, rating, and status
+                                · {{ number_format($postponedEventsCount) }} postponed
+                            </p>
                         </div>
                         <div class="relative">
                             <i class="bi bi-search pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400"></i>
@@ -737,9 +761,10 @@
                                                     'inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold',
                                                     'bg-blue-100 text-blue-700' => ($event['status_key'] ?? '') === 'upcoming',
                                                     'bg-emerald-100 text-emerald-700' => ($event['status_key'] ?? '') === 'ongoing',
+                                                    'bg-amber-100 text-amber-800' => ($event['status_key'] ?? '') === 'postponed',
                                                     'bg-slate-100 text-slate-600' => ($event['status_key'] ?? '') === 'completed',
                                                     'bg-rose-100 text-rose-700' => ($event['status_key'] ?? '') === 'cancelled',
-                                                    'bg-indigo-100 text-indigo-700' => ! in_array(($event['status_key'] ?? ''), ['upcoming', 'ongoing', 'completed', 'cancelled'], true),
+                                                    'bg-indigo-100 text-indigo-700' => ! in_array(($event['status_key'] ?? ''), ['upcoming', 'ongoing', 'postponed', 'completed', 'cancelled'], true),
                                                 ])>
                                                     {{ $event['status'] }}
                                                 </span>

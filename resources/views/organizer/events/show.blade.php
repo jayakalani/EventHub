@@ -9,6 +9,7 @@
         'ongoing' => 'bg-emerald-400/20 text-white ring-emerald-100/40',
         'completed' => 'bg-white/15 text-white ring-white/25',
         'cancelled' => 'bg-rose-400/20 text-white ring-rose-100/40',
+        'postponed' => 'bg-amber-400/20 text-white ring-amber-100/40',
     ];
     $statusClass = $statusStyles[$event->status ?? 'upcoming'] ?? $statusStyles['upcoming'];
 @endphp
@@ -64,6 +65,22 @@
                 'date' => $event->date,
                 'time' => $event->time,
                 'place' => $event->place,
+            ],
+            'postponeModal' => [
+                'open' => $errors->has('postponement_reason') || ($errors->has('new_date') && ! $errors->has('schedule_date')) || ($errors->has('new_time') && ! $errors->has('schedule_time')),
+                'eventId' => $event->id,
+                'action' => route('organizer.events.postpone', $event->id),
+                'name' => $event->name,
+                'date' => $event->date,
+                'time' => $event->time,
+                'place' => $event->place,
+            ],
+            'scheduleModal' => [
+                'open' => $errors->has('schedule_date') || $errors->has('schedule_time') || $errors->has('schedule_place'),
+                'mode' => $event->isUpcomingScheduleTba() ? 'upcoming' : 'postponed',
+                'eventId' => $event->id,
+                'action' => route('organizer.events.postponed-schedule', $event->id),
+                'name' => $event->name,
             ],
             'eventsBaseUrl' => url('organizer/events'),
         ];
@@ -179,7 +196,7 @@
                                 <div class="flex flex-wrap gap-2">
                                     <span
                                         class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ring-1 {{ $statusClass }}">
-                                        {{ ucfirst($event->status ?? 'upcoming') }}
+                                        {{ $event->isPostponed() ? 'POSTPONED' : ucfirst($event->status ?? 'upcoming') }}
                                     </span>
                                     @if ($event->eventCategory)
                                         <span
@@ -215,7 +232,7 @@
                             <div class="flex flex-wrap gap-2">
                                 <span
                                     class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ring-1 {{ $statusClass }}">
-                                    {{ ucfirst($event->status ?? 'upcoming') }}
+                                    {{ $event->isPostponed() ? 'POSTPONED' : ucfirst($event->status ?? 'upcoming') }}
                                 </span>
                                 @if ($event->eventCategory)
                                     <span
@@ -791,6 +808,86 @@
                                     {{ __('This event has ended. Status, cancellation, and publication settings are locked. Post-event analytics are available above.') }}
                                 </p>
                             </div>
+                        @elseif ($event->isPostponed())
+                            <div class="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2.5">
+                                <button type="button"
+                                    class="text-sm font-semibold uppercase tracking-wide text-amber-800 underline decoration-amber-400 underline-offset-2 hover:text-amber-950"
+                                    title="{{ __('Set new date and time') }}"
+                                    @click="scheduleModal = {
+                                        open: true,
+                                        mode: 'postponed',
+                                        eventId: {{ $event->id }},
+                                        action: '{{ route('organizer.events.postponed-schedule', $event->id) }}',
+                                        name: @js($event->name),
+                                    }">
+                                    {{ __('POSTPONED') }}
+                                </button>
+                                <p class="mt-1.5 text-sm font-medium text-amber-700">{{ $event->postponementScheduleLabel() }}</p>
+                                <p class="mt-1 text-xs text-amber-600">{{ __('Click POSTPONED to set place, date and time. Status stays Postponed.') }}</p>
+                                @if ($event->postponement_reason)
+                                    <p class="mt-1.5 text-sm leading-relaxed text-amber-800">{{ $event->postponement_reason }}</p>
+                                @endif
+                                @if ($event->postponed_at)
+                                    <p class="mt-1.5 text-xs text-amber-600">
+                                        {{ __('Postponed on') }} {{ $event->postponed_at->format('M j, Y g:i A') }}
+                                    </p>
+                                @endif
+                            </div>
+                            <form action="{{ route('organizer.events.updateStatus', $event->id) }}" method="POST"
+                                class="mt-3">
+                                @csrf
+                                @method('PATCH')
+                                <select name="status"
+                                    data-event-id="{{ $event->id }}"
+                                    data-event-name="{{ $event->name }}"
+                                    data-event-date="{{ $event->date }}"
+                                    data-event-time="{{ $event->time }}"
+                                    data-event-place="{{ $event->place }}"
+                                    data-current-status="{{ $event->status }}"
+                                    onchange="window.organizerHandleEventStatusChange(this)"
+                                    class="block w-full rounded-xl border-gray-200 bg-white text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                    <option value="postponed" selected>{{ __('Postponed') }}</option>
+                                    <option value="cancelled">{{ __('Cancel Event') }}</option>
+                                </select>
+                                <p class="mt-2 text-xs text-gray-500">
+                                    {{ __('Status stays Postponed. Use the POSTPONED badge to set place/date/time, or cancel if the event will not happen.') }}
+                                </p>
+                            </form>
+                        @elseif ($event->status === 'upcoming' && $event->hasDateYetToBeScheduled())
+                            <div class="mt-3 rounded-xl border border-sky-200 bg-sky-50 px-3.5 py-2.5">
+                                <button type="button"
+                                    class="text-sm font-semibold uppercase tracking-wide text-sky-800 underline decoration-sky-400 underline-offset-2 hover:text-sky-950"
+                                    title="{{ __('Confirm place, date and time') }}"
+                                    @click="scheduleModal = {
+                                        open: true,
+                                        mode: 'upcoming',
+                                        eventId: {{ $event->id }},
+                                        action: '{{ route('organizer.events.postponed-schedule', $event->id) }}',
+                                        name: @js($event->name),
+                                    }">
+                                    {{ __('UPCOMING · TBA') }}
+                                </button>
+                                <p class="mt-1.5 text-sm font-medium text-sky-700">{{ __('Place, date & time not decided yet') }}</p>
+                                <p class="mt-1 text-xs text-sky-600">{{ __('Click to confirm the schedule. Status stays Upcoming.') }}</p>
+                            </div>
+                            <form action="{{ route('organizer.events.updateStatus', $event->id) }}" method="POST"
+                                class="mt-3">
+                                @csrf
+                                @method('PATCH')
+                                <select name="status"
+                                    data-event-id="{{ $event->id }}"
+                                    data-event-name="{{ $event->name }}"
+                                    data-event-date="{{ $event->date }}"
+                                    data-event-time="{{ $event->time }}"
+                                    data-event-place="{{ $event->place }}"
+                                    data-current-status="{{ $event->status }}"
+                                    onchange="window.organizerHandleEventStatusChange(this)"
+                                    class="block w-full rounded-xl border-gray-200 bg-white text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                    <option value="upcoming" selected>{{ __('Upcoming') }}</option>
+                                    <option value="postponed">{{ __('Postpone Event') }}</option>
+                                    <option value="cancelled">{{ __('Cancel Event') }}</option>
+                                </select>
+                            </form>
                         @else
                             <form action="{{ route('organizer.events.updateStatus', $event->id) }}" method="POST"
                                 class="mt-3">
@@ -815,6 +912,9 @@
                                     <option value="ongoing" {{ ($event->status ?? '') == 'ongoing' ? 'selected' : '' }}>
                                         {{ __('Ongoing') }}
                                     </option>
+                                    @if (($event->status ?? '') === 'upcoming')
+                                        <option value="postponed">{{ __('Postpone Event') }}</option>
+                                    @endif
                                     <option value="cancelled">{{ __('Cancel Event') }}</option>
                                 </select>
                                 <p class="mt-2 text-xs text-gray-500">
@@ -839,11 +939,29 @@
                             </div>
                             <div class="flex items-center justify-between gap-4">
                                 <dt class="text-gray-500">{{ __('Date') }}</dt>
-                                <dd class="font-semibold text-gray-900">{{ $event->date }}</dd>
+                                <dd class="font-semibold text-gray-900">
+                                    @if ($event->hasDateYetToBeScheduled())
+                                        {{ __('Not decided yet') }}
+                                    @else
+                                        {{ $event->date }}
+                                    @endif
+                                </dd>
                             </div>
                             <div class="flex items-center justify-between gap-4">
                                 <dt class="text-gray-500">{{ __('Time') }}</dt>
-                                <dd class="font-semibold text-gray-900">{{ $event->time }}</dd>
+                                <dd class="font-semibold text-gray-900">
+                                    @if ($event->hasDateYetToBeScheduled())
+                                        —
+                                    @else
+                                        {{ $event->time }}
+                                    @endif
+                                </dd>
+                            </div>
+                            <div class="flex items-center justify-between gap-4">
+                                <dt class="text-gray-500">{{ __('Place') }}</dt>
+                                <dd class="font-semibold text-gray-900 text-right">
+                                    {{ $event->displayPlace() }}
+                                </dd>
                             </div>
                             <div class="flex items-center justify-between gap-4">
                                 <dt class="text-gray-500">{{ __('Created') }}</dt>
@@ -876,6 +994,8 @@
         </div>
 
         @include('organizer.events.partials.cancel-event-modal')
+        @include('organizer.events.partials.postpone-event-modal')
+        @include('organizer.events.partials.postponed-schedule-modal')
     </div>
 
     @push('scripts')

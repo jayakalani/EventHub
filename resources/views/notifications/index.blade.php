@@ -42,6 +42,12 @@
                                     <span class="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-700">Event reminder</span>
                                 @elseif($data['type'] === 'ticket_expiry')
                                     <span class="inline-flex items-center rounded-full bg-orange-100 px-2.5 py-0.5 text-xs font-semibold text-orange-700">Reservation expiring</span>
+                                @elseif($data['type'] === 'event_postponed')
+                                    <span class="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800">Event Postponed</span>
+                                @elseif($data['type'] === 'event_rescheduled')
+                                    <span class="inline-flex items-center rounded-full bg-indigo-100 px-2.5 py-0.5 text-xs font-semibold text-indigo-700">Event Rescheduled</span>
+                                @elseif($data['type'] === 'event_schedule_announced')
+                                    <span class="inline-flex items-center rounded-full bg-sky-100 px-2.5 py-0.5 text-xs font-semibold text-sky-800">Date Announced</span>
                                 @else
                                     <span class="inline-flex items-center rounded-full bg-sky-100 px-2.5 py-0.5 text-xs font-semibold text-sky-700">Event updated</span>
                                 @endif

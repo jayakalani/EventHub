@@ -289,10 +289,11 @@
                         </div>
                     @endforeach
                 </div>
-<div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
+<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
                 @foreach ([
                     ['label' => 'Active', 'value' => $platformAnalytics['active'], 'color' => 'text-cyan-700', 'bg' => 'bg-cyan-50/55', 'border' => 'border-cyan-200/50'],
                     ['label' => 'Upcoming', 'value' => $platformAnalytics['upcoming'], 'color' => 'text-amber-700', 'bg' => 'bg-amber-50/55', 'border' => 'border-amber-200/50'],
+                    ['label' => 'Postponed', 'value' => $platformAnalytics['postponed'] ?? 0, 'color' => 'text-orange-700', 'bg' => 'bg-orange-50/55', 'border' => 'border-orange-200/50'],
                     ['label' => 'Completed', 'value' => $platformAnalytics['completed'], 'color' => 'text-emerald-700', 'bg' => 'bg-emerald-50/55', 'border' => 'border-emerald-200/50'],
                     ['label' => 'Cancelled', 'value' => $platformAnalytics['cancelled'], 'color' => 'text-rose-700', 'bg' => 'bg-rose-50/55', 'border' => 'border-rose-200/50'],
                 ] as $item)

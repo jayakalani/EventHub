@@ -695,6 +695,7 @@
                                         $statusClass = match ($row['status']) {
                                             'upcoming' => 'bg-emerald-100 text-emerald-800',
                                             'ongoing' => 'bg-blue-100 text-blue-800',
+                                            'postponed' => 'bg-orange-100 text-orange-800',
                                             'completed' => 'bg-slate-200 text-slate-700',
                                             'cancelled' => 'bg-rose-100 text-rose-800',
                                             'unpublished' => 'bg-amber-100 text-amber-800',
@@ -703,6 +704,7 @@
                                         $fillBarClass = match ($row['status']) {
                                             'upcoming' => 'bg-emerald-500',
                                             'ongoing' => 'bg-blue-500',
+                                            'postponed' => 'bg-orange-500',
                                             'completed' => 'bg-slate-400',
                                             'cancelled' => 'bg-rose-500',
                                             'unpublished' => 'bg-amber-400',
@@ -790,6 +792,7 @@
                                         'emerald' => 'bg-emerald-500',
                                         'blue' => 'bg-blue-500',
                                         'amber' => 'bg-amber-400',
+                                        'orange' => 'bg-orange-500',
                                         'rose' => 'bg-rose-500',
                                         'slate' => 'bg-slate-400',
                                         default => 'bg-slate-400',
@@ -798,6 +801,7 @@
                                         'emerald' => 'text-emerald-700',
                                         'blue' => 'text-blue-700',
                                         'amber' => 'text-amber-700',
+                                        'orange' => 'text-orange-700',
                                         'rose' => 'text-rose-700',
                                         'slate' => 'text-slate-600',
                                         default => 'text-slate-600',
@@ -806,6 +810,7 @@
                                         'emerald' => 'bg-emerald-100',
                                         'blue' => 'bg-blue-100',
                                         'amber' => 'bg-amber-100',
+                                        'orange' => 'bg-orange-100',
                                         'rose' => 'bg-rose-100',
                                         'slate' => 'bg-slate-200',
                                         default => 'bg-slate-100',
@@ -914,15 +919,32 @@
                     <div class="max-h-[28rem] divide-y divide-white/40 overflow-y-auto">
                         @forelse($upcomingEvents as $event)
                             <a href="{{ $event['url'] }}" class="btn-smooth flex gap-3 px-5 py-4 hover:bg-white/45">
-                                <div class="flex h-11 w-11 shrink-0 flex-col items-center justify-center rounded-xl border border-white/60 bg-indigo-50/80 text-indigo-700 backdrop-blur-sm">
-                                    <span class="text-[10px] font-semibold uppercase leading-none">{{ $event['month'] }}</span>
-                                    <span class="mt-0.5 text-base font-bold leading-none">{{ $event['day'] }}</span>
+                                <div @class([
+                                    'flex h-11 w-11 shrink-0 flex-col items-center justify-center rounded-xl border backdrop-blur-sm',
+                                    'border-orange-200/80 bg-orange-50/80 text-orange-700' => ($event['status'] ?? '') === 'postponed',
+                                    'border-white/60 bg-indigo-50/80 text-indigo-700' => ($event['status'] ?? '') !== 'postponed',
+                                ])>
+                                    @if (($event['status'] ?? '') === 'postponed' && ($event['date_tba'] ?? false))
+                                        <span class="text-[9px] font-bold uppercase leading-none">TBA</span>
+                                    @else
+                                        <span class="text-[10px] font-semibold uppercase leading-none">{{ $event['month'] }}</span>
+                                        <span class="mt-0.5 text-base font-bold leading-none">{{ $event['day'] }}</span>
+                                    @endif
                                 </div>
                                 <div class="min-w-0">
-                                    <p class="truncate text-sm font-semibold text-slate-900">{{ $event['name'] }}</p>
+                                    <div class="flex items-center gap-2">
+                                        <p class="truncate text-sm font-semibold text-slate-900">{{ $event['name'] }}</p>
+                                        @if (($event['status'] ?? '') === 'postponed')
+                                            <span class="shrink-0 rounded-full bg-orange-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-orange-700">Postponed</span>
+                                        @endif
+                                    </div>
                                     <p class="mt-0.5 truncate text-xs text-slate-500">
-                                        @if($event['time']) {{ $event['time'] }} · @endif
-                                        {{ $event['place'] ?? 'Venue TBD' }}
+                                        @if (($event['status'] ?? '') === 'postponed' && ($event['date_tba'] ?? false))
+                                            Date yet to be scheduled
+                                        @else
+                                            @if($event['time']) {{ $event['time'] }} · @endif
+                                            {{ $event['place'] ?? 'Venue TBD' }}
+                                        @endif
                                     </p>
                                     <p class="mt-1 text-[11px] text-slate-400">
                                         {{ number_format($event['sold']) }}/{{ number_format($event['capacity']) }} sold

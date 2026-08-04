@@ -43,6 +43,7 @@
                     @foreach([
                         'upcoming' => 'Upcoming',
                         'ongoing' => 'Ongoing',
+                        'postponed' => 'Postponed',
                         'completed' => 'Completed',
                         'cancelled' => 'Cancelled',
                         'unpublished' => 'Unpublished',

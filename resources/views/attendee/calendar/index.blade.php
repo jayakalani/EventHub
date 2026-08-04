@@ -33,6 +33,7 @@
                     @foreach([
                         'upcoming' => t(['en' => 'Upcoming', 'si' => 'ඉදිරියට']),
                         'ongoing' => t(['en' => 'Ongoing', 'si' => 'පවතින']),
+                        'postponed' => t(['en' => 'Postponed', 'si' => 'කල් දමා ඇත']),
                         'completed' => t(['en' => 'Completed', 'si' => 'අවසන්']),
                         'cancelled' => t(['en' => 'Cancelled', 'si' => 'අවලංගු']),
                     ] as $key => $label)
@@ -61,7 +62,11 @@
                         </div>
 
                         @forelse($upcomingEvents as $event)
-                            @php $status = $event->calendarDisplayStatus(); @endphp
+                            @php
+                                $status = ($event->isPostponed() && ! $event->shouldRevealPostponementTo(Auth::user()))
+                                    ? 'upcoming'
+                                    : $event->calendarDisplayStatus();
+                            @endphp
                             <a href="{{ route('attendee.events.show', $event) }}"
                                 class="block mb-3 rounded-2xl border border-slate-100 p-4 hover:border-indigo-200 hover:bg-indigo-50/40 transition">
                                 <div class="flex items-start justify-between gap-2">
@@ -72,7 +77,14 @@
                                     </span>
                                 </div>
                                 <p class="mt-1 text-sm text-slate-500">
-                                    <i class="bi bi-calendar3"></i> {{ $event->date }} {{ t(['en' => 'at', 'si' => 'දී']) }} {{ $event->time }}
+                                    <i class="bi bi-calendar3"></i>
+                                    @if ($event->hasDateYetToBeScheduled() && $event->shouldRevealPostponementTo(Auth::user()))
+                                        {{ t(['en' => 'Date Yet To Be Scheduled', 'si' => 'දිනය තවම නියම වී නැත']) }}
+                                    @elseif ($event->hasDateYetToBeScheduled())
+                                        {{ t(['en' => 'Date & time not chosen yet', 'si' => 'දිනය සහ වේලාව තවම තෝරා නැත']) }}
+                                    @else
+                                        {{ $event->date }} {{ t(['en' => 'at', 'si' => 'දී']) }} {{ $event->time }}
+                                    @endif
                                 </p>
                                 <p class="mt-1 text-sm text-slate-500 line-clamp-1">
                                     <i class="bi bi-geo-alt"></i> {{ $event->place }}

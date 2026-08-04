@@ -40,6 +40,22 @@
                 'time' => old('_cancel_event_time', ''),
                 'place' => old('_cancel_event_place', ''),
             ],
+            'postponeModal' => [
+                'open' => $errors->has('postponement_reason') || ($errors->has('new_date') && old('_postpone_event_id')) || ($errors->has('new_time') && old('_postpone_event_id')),
+                'eventId' => old('_postpone_event_id'),
+                'action' => old('_postpone_event_id') ? route('organizer.events.postpone', old('_postpone_event_id')) : '',
+                'name' => old('_postpone_event_name', ''),
+                'date' => old('_postpone_event_date', ''),
+                'time' => old('_postpone_event_time', ''),
+                'place' => old('_postpone_event_place', ''),
+            ],
+            'scheduleModal' => [
+                'open' => $errors->has('schedule_date') || $errors->has('schedule_time') || $errors->has('schedule_place'),
+                'mode' => 'postponed',
+                'eventId' => old('_schedule_event_id'),
+                'action' => old('_schedule_event_id') ? route('organizer.events.postponed-schedule', old('_schedule_event_id')) : '',
+                'name' => old('_schedule_event_name', ''),
+            ],
             'eventsBaseUrl' => url('organizer/events'),
         ];
     @endphp
@@ -88,6 +104,8 @@
                         <option value="upcoming" {{ request('status') == 'upcoming' ? 'selected' : '' }}>Upcoming
                         </option>
                         <option value="ongoing" {{ request('status') == 'ongoing' ? 'selected' : '' }}>Ongoing
+                        </option>
+                        <option value="postponed" {{ request('status') == 'postponed' ? 'selected' : '' }}>Postponed
                         </option>
                         <option value="completed" {{ request('status') == 'completed' ? 'selected' : '' }}>Completed
                         </option>
@@ -204,11 +222,18 @@
                                     </td>
 
                                     <td class="px-4 py-3 text-sm text-slate-600">
-                                        {{ $event->date }}
+                                        @if ($event->hasDateYetToBeScheduled())
+                                            <span class="font-medium text-amber-700">Not decided yet</span>
+                                        @elseif ($event->isPostponed())
+                                            <span class="font-medium text-amber-700">{{ $event->date }}</span>
+                                            <span class="mt-0.5 block text-[11px] text-amber-600">Rescheduled</span>
+                                        @else
+                                            {{ $event->date }}
+                                        @endif
                                     </td>
 
                                     <td class="px-4 py-3 text-sm text-slate-600">
-                                        {{ $event->place }}
+                                        {{ $event->displayPlace() }}
                                     </td>
 
                                     <td class="px-4 py-3 text-sm text-slate-600">
@@ -224,6 +249,80 @@
                                             <span class="inline-flex rounded-lg bg-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-700">
                                                 Completed
                                             </span>
+                                        @elseif ($event->status === 'postponed')
+                                            <div class="space-y-1.5">
+                                                <button type="button"
+                                                    class="inline-flex rounded-lg bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800 transition hover:bg-amber-200"
+                                                    title="Set new date and time"
+                                                    @click="scheduleModal = {
+                                                        open: true,
+                                                        mode: 'postponed',
+                                                        eventId: {{ $event->id }},
+                                                        action: '{{ route('organizer.events.postponed-schedule', $event->id) }}',
+                                                        name: @js($event->name),
+                                                    }">
+                                                    POSTPONED
+                                                </button>
+                                                <p class="text-[11px] leading-snug text-amber-700">
+                                                    {{ $event->postponementScheduleLabel() }}
+                                                </p>
+                                                <p class="text-[10px] text-slate-400">Click POSTPONED to set place/date/time</p>
+                                                <form action="{{ route('organizer.events.updateStatus', $event->id) }}"
+                                                    method="POST">
+                                                    @csrf
+                                                    @method('PATCH')
+                                                    <select name="status"
+                                                        data-event-id="{{ $event->id }}"
+                                                        data-event-name="{{ $event->name }}"
+                                                        data-event-date="{{ $event->date }}"
+                                                        data-event-time="{{ $event->time }}"
+                                                        data-event-place="{{ $event->place }}"
+                                                        data-current-status="{{ $event->status }}"
+                                                        onchange="window.organizerHandleEventStatusChange(this)"
+                                                        class="rounded-lg border-slate-300 text-xs focus:border-indigo-500 focus:ring-indigo-500">
+                                                        <option value="postponed" selected>Postponed</option>
+                                                        <option value="cancelled">Cancel Event</option>
+                                                    </select>
+                                                </form>
+                                                <p class="text-[10px] text-slate-400">Status stays Postponed. Cancel only if the event will not happen.</p>
+                                            </div>
+                                        @elseif ($event->status === 'upcoming' && $event->hasDateYetToBeScheduled())
+                                            <div class="space-y-1.5">
+                                                <button type="button"
+                                                    class="inline-flex rounded-lg bg-sky-100 px-2.5 py-1 text-xs font-semibold text-sky-800 transition hover:bg-sky-200"
+                                                    title="Confirm place, date and time"
+                                                    @click="scheduleModal = {
+                                                        open: true,
+                                                        mode: 'upcoming',
+                                                        eventId: {{ $event->id }},
+                                                        action: '{{ route('organizer.events.postponed-schedule', $event->id) }}',
+                                                        name: @js($event->name),
+                                                    }">
+                                                    UPCOMING · TBA
+                                                </button>
+                                                <p class="text-[11px] leading-snug text-sky-700">
+                                                    Place, date &amp; time not decided yet
+                                                </p>
+                                                <p class="text-[10px] text-slate-400">Click to confirm schedule</p>
+                                                <form action="{{ route('organizer.events.updateStatus', $event->id) }}"
+                                                    method="POST">
+                                                    @csrf
+                                                    @method('PATCH')
+                                                    <select name="status"
+                                                        data-event-id="{{ $event->id }}"
+                                                        data-event-name="{{ $event->name }}"
+                                                        data-event-date="{{ $event->date }}"
+                                                        data-event-time="{{ $event->time }}"
+                                                        data-event-place="{{ $event->place }}"
+                                                        data-current-status="{{ $event->status }}"
+                                                        onchange="window.organizerHandleEventStatusChange(this)"
+                                                        class="rounded-lg border-slate-300 text-xs focus:border-indigo-500 focus:ring-indigo-500">
+                                                        <option value="upcoming" selected>Upcoming</option>
+                                                        <option value="postponed">Postpone Event</option>
+                                                        <option value="cancelled">Cancel Event</option>
+                                                    </select>
+                                                </form>
+                                            </div>
                                         @else
                                             <form action="{{ route('organizer.events.updateStatus', $event->id) }}"
                                                 method="POST">
@@ -251,6 +350,9 @@
                                                     <option value="ongoing"
                                                         {{ $event->status == 'ongoing' ? 'selected' : '' }}>Ongoing
                                                     </option>
+                                                    @if ($event->status === 'upcoming')
+                                                        <option value="postponed">Postpone Event</option>
+                                                    @endif
                                                     <option value="cancelled">Cancel Event</option>
                                                 </select>
                                             </form>
@@ -300,6 +402,8 @@
         </div>
 
         @include('organizer.events.partials.cancel-event-modal')
+        @include('organizer.events.partials.postpone-event-modal')
+        @include('organizer.events.partials.postponed-schedule-modal')
     </div>
 
     @push('scripts')

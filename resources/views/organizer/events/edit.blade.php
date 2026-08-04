@@ -43,6 +43,16 @@
                 </div>
             @endif
 
+            @if ($event->isPostponed())
+                <div class="mb-4 overflow-hidden rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 shadow-sm">
+                    <p class="text-sm font-semibold uppercase tracking-wide text-amber-800">POSTPONED</p>
+                    <p class="mt-1 text-sm text-amber-700">{{ $event->postponementScheduleLabel() }}</p>
+                    <p class="mt-1 text-sm text-amber-700">
+                        Changing the event date or time will update the postponed schedule. Status stays <strong>Postponed</strong>. Cancel the event only if it will not happen.
+                    </p>
+                </div>
+            @endif
+
             <div
                 class="overflow-hidden rounded-2xl border border-white/70 bg-white/90 shadow-lg shadow-indigo-100/40 backdrop-blur">
                 <div
@@ -137,31 +147,52 @@
                                     <x-input-error :messages="$errors->get('category_id')" class="mt-1" />
                                 </div>
 
-                                <div
-                                    class="rounded-xl border border-gray-100 bg-gray-50/70 p-3 transition focus-within:border-indigo-200 focus-within:bg-white focus-within:shadow-sm">
-                                    <x-input-label for="date" value="Date" />
-                                    <x-text-input id="date"
-                                        class="mt-1.5 block w-full rounded-xl border-gray-200 bg-white text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                        type="date" name="date" :value="old('date', $event->date)" required />
-                                    <x-input-error :messages="$errors->get('date')" class="mt-1" />
-                                </div>
+                                <div class="md:col-span-2 rounded-xl border border-indigo-100 bg-indigo-50/40 p-3"
+                                    x-data="{ scheduleTba: {{ old('schedule_tba', $event->isUpcomingScheduleTba() ? '1' : '0') == '1' ? 'true' : 'false' }} }">
+                                    @unless ($event->isPostponed())
+                                        <label class="flex items-start gap-3 text-sm text-slate-700">
+                                            <input type="hidden" name="schedule_tba" value="0">
+                                            <input type="checkbox"
+                                                name="schedule_tba"
+                                                value="1"
+                                                class="mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                                x-model="scheduleTba"
+                                                @checked(old('schedule_tba', $event->isUpcomingScheduleTba() ? '1' : '0') == '1')>
+                                            <span>
+                                                <span class="font-semibold">Place, date &amp; time not decided yet</span>
+                                                <span class="mt-0.5 block text-xs text-slate-500">Leave schedule undecided (same idea as postponed TBA).</span>
+                                            </span>
+                                        </label>
+                                    @endunless
 
-                                <div
-                                    class="rounded-xl border border-gray-100 bg-gray-50/70 p-3 transition focus-within:border-indigo-200 focus-within:bg-white focus-within:shadow-sm">
-                                    <x-input-label for="time" value="Time" />
-                                    <x-text-input id="time"
-                                        class="mt-1.5 block w-full rounded-xl border-gray-200 bg-white text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                        type="time" name="time" :value="old('time', $event->time)" required />
-                                    <x-input-error :messages="$errors->get('time')" class="mt-1" />
-                                </div>
+                                    <div class="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2" @unless($event->isPostponed()) x-show="!scheduleTba" x-cloak @endunless>
+                                        <div
+                                            class="rounded-xl border border-gray-100 bg-gray-50/70 p-3 transition focus-within:border-indigo-200 focus-within:bg-white focus-within:shadow-sm">
+                                            <x-input-label for="date" value="Date" />
+                                            <x-text-input id="date"
+                                                class="mt-1.5 block w-full rounded-xl border-gray-200 bg-white text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                                type="date" name="date" :value="old('date', $event->date)" />
+                                            <x-input-error :messages="$errors->get('date')" class="mt-1" />
+                                        </div>
 
-                                <div
-                                    class="rounded-xl border border-gray-100 bg-gray-50/70 p-3 transition focus-within:border-indigo-200 focus-within:bg-white focus-within:shadow-sm md:col-span-2">
-                                    <x-input-label for="place" value="Place / Venue" />
-                                    <x-text-input id="place"
-                                        class="mt-1.5 block w-full rounded-xl border-gray-200 bg-white text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                        type="text" name="place" :value="old('place', $event->place)" required :title-case="true" />
-                                    <x-input-error :messages="$errors->get('place')" class="mt-1" />
+                                        <div
+                                            class="rounded-xl border border-gray-100 bg-gray-50/70 p-3 transition focus-within:border-indigo-200 focus-within:bg-white focus-within:shadow-sm">
+                                            <x-input-label for="time" value="Time" />
+                                            <x-text-input id="time"
+                                                class="mt-1.5 block w-full rounded-xl border-gray-200 bg-white text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                                type="time" name="time" :value="old('time', $event->time)" />
+                                            <x-input-error :messages="$errors->get('time')" class="mt-1" />
+                                        </div>
+
+                                        <div
+                                            class="rounded-xl border border-gray-100 bg-gray-50/70 p-3 transition focus-within:border-indigo-200 focus-within:bg-white focus-within:shadow-sm md:col-span-2">
+                                            <x-input-label for="place" value="Place / Venue" />
+                                            <x-text-input id="place"
+                                                class="mt-1.5 block w-full rounded-xl border-gray-200 bg-white text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                                type="text" name="place" :value="old('place', $event->place)" :title-case="true" />
+                                            <x-input-error :messages="$errors->get('place')" class="mt-1" />
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <div

@@ -21,6 +21,7 @@ class OrganizerCalendarService
             'completed' => '#64748b',
             'cancelled' => '#f43f5e',
             'unpublished' => '#f59e0b',
+            'postponed' => '#ea580c',
         ];
     }
 
@@ -44,7 +45,7 @@ class OrganizerCalendarService
     public function getUpcomingEvents(int $organizerId): Collection
     {
         return $this->eventsQuery($organizerId)
-            ->whereIn('status', [Event::STATUS_UPCOMING, Event::STATUS_ONGOING])
+            ->whereIn('status', [Event::STATUS_UPCOMING, Event::STATUS_ONGOING, Event::STATUS_POSTPONED])
             ->orderBy('date')
             ->orderBy('time')
             ->get();
@@ -106,7 +107,7 @@ class OrganizerCalendarService
             'borderColor' => $color,
             'extendedProps' => [
                 'status' => $status,
-                'statusLabel' => ucfirst($status),
+                'statusLabel' => $event->isPostponed() ? 'POSTPONED' : ucfirst($status),
                 'place' => $event->place,
                 'host' => $event->host?->name,
                 'ticketCount' => (int) ($event->tickets_sold ?? 0),

@@ -57,6 +57,7 @@
         @endif
     </div>
     <x-scroll-to-top />
+    @include('partials.postponement-login-alert')
     @stack('scripts')
 </body>
 

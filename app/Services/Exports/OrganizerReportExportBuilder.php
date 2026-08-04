@@ -292,6 +292,8 @@ class OrganizerReportExportBuilder
     private function buildEvents(array $reports): array
     {
         $performance = $reports['eventPerformance'] ?? [];
+        $eventsByStatus = $reports['eventsByStatus'] ?? [];
+        $postponedCount = (int) (collect($eventsByStatus)->firstWhere('key', 'postponed')['count'] ?? 0);
         $top = collect($performance)
             ->sortByDesc(fn ($event) => ((float) $event['revenue']) + ((int) $event['tickets_sold'] * 100))
             ->take(10)
@@ -301,10 +303,19 @@ class OrganizerReportExportBuilder
             'title' => 'Organizer Reports — Events',
             'summary' => [
                 ['label' => 'Events Listed', 'value' => count($performance)],
+                ['label' => 'Postponed Events', 'value' => $postponedCount],
                 ['label' => 'Total Tickets Sold', 'value' => collect($performance)->sum('tickets_sold')],
                 ['label' => 'Total Revenue (LKR)', 'value' => number_format((float) collect($performance)->sum('revenue'), 2)],
             ],
             'tables' => [
+                [
+                    'heading' => 'Events by Status',
+                    'headers' => ['Status', 'Count'],
+                    'rows' => collect($eventsByStatus)->map(fn ($row) => [
+                        $row['label'] ?? '',
+                        $row['count'] ?? 0,
+                    ])->all(),
+                ],
                 [
                     'heading' => 'Event Performance',
                     'headers' => ['Event', 'Tickets Sold', 'Revenue (LKR)', 'Fill Rate %', 'Rating', 'Status'],

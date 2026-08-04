@@ -1,17 +1,23 @@
 <x-app-layout>
 
     @php
-        $eventStatus = $event->status ?? 'upcoming';
+        $viewer = Auth::user();
+        $revealPostponement = $event->shouldRevealPostponementTo($viewer);
+        $eventStatus = $event->publicFacingStatus($viewer);
         $isCancelled = $event->isCancelled();
         $isCompleted = $event->isCompleted();
+        $isPostponed = $revealPostponement;
         $statusStyles = [
             'upcoming' => 'bg-blue-500/90 text-white border-blue-400/30',
             'ongoing' => 'bg-emerald-500 text-white border-emerald-400/30',
             'completed' => 'bg-slate-500 text-white border-slate-400/30',
             'cancelled' => 'bg-rose-500 text-white border-rose-400/30',
+            'postponed' => 'bg-amber-500 text-white border-amber-400/30',
         ];
         $statusClass = $statusStyles[$eventStatus] ?? $statusStyles['upcoming'];
-        $formattedDate = \Carbon\Carbon::parse($event->date)->format('D, M j, Y');
+        $formattedDate = $event->hasDateYetToBeScheduled()
+            ? null
+            : \Carbon\Carbon::parse($event->date)->format('D, M j, Y');
     @endphp
 
     <x-slot name="header">
@@ -103,6 +109,50 @@
                             </div>
                         </div>
                     </div>
+                @elseif ($isPostponed)
+                    <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+                        <div class="flex gap-3">
+                            <i class="bi bi-exclamation-triangle-fill shrink-0 text-amber-500 mt-0.5" aria-hidden="true"></i>
+                            <div class="text-sm">
+                                <p class="font-semibold text-amber-900">{{ t(['en' => '⚠ Event Postponed', 'si' => '⚠ ප්‍රසංගය කල් දමා ඇත']) }}</p>
+                                <p class="mt-1 text-amber-800">
+                                    {{ t(['en' => 'This event has been postponed.', 'si' => 'මෙම ප්‍රසංගය කල් දමා ඇත.']) }}
+                                </p>
+                                @if ($event->hasDateYetToBeScheduled())
+                                    <p class="mt-1 text-amber-700">
+                                        {{ t(['en' => 'The new date will be announced soon.', 'si' => 'නව දිනය ඉක්මනින් නිවේදනය කෙරේ.']) }}
+                                    </p>
+                                @else
+                                    <p class="mt-2 text-xs font-semibold uppercase tracking-wide text-amber-600">
+                                        {{ t(['en' => 'New Date', 'si' => 'නව දිනය']) }}
+                                    </p>
+                                    <p class="mt-0.5 font-semibold text-amber-900">
+                                        {{ $event->formattedScheduleDate('d M Y') }}
+                                        @if ($event->time)
+                                            • {{ $event->time }}
+                                        @endif
+                                    </p>
+                                @endif
+                                @if ($event->postponement_reason)
+                                    <p class="mt-2 text-amber-800">{{ $event->postponement_reason }}</p>
+                                @endif
+                            </div>
+                        </div>
+                    </div>
+                @elseif ($event->hasDateYetToBeScheduled())
+                    <div class="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3">
+                        <div class="flex gap-3">
+                            <i class="bi bi-calendar-event shrink-0 text-sky-500 mt-0.5" aria-hidden="true"></i>
+                            <div class="text-sm">
+                                <p class="font-semibold text-sky-900">
+                                    {{ t(['en' => 'Schedule coming soon', 'si' => 'කාලසටහන ඉක්මනින්']) }}
+                                </p>
+                                <p class="mt-1 text-sky-800">
+                                    {{ t(['en' => 'The event place, date and time have not been chosen yet. We will inform you when it is scheduled.', 'si' => 'ප්‍රසංග ස්ථානය, දිනය සහ වේලාව තවම තෝරා නැත. නියම වූ විට අපි ඔබට දැනුම් දෙන්නෙමු.']) }}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
                 @elseif ($isCompleted)
                     <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
                         <div class="flex gap-3">
@@ -156,7 +206,7 @@
                                         {{ $event->eventCategory->name ?? t(['en' => 'Event', 'si' => 'ප්‍රසංගය']) }}
                                     </span>
                                     <span class="inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide {{ $statusClass }}">
-                                        {{ $isCancelled ? t(['en' => 'Cancelled', 'si' => 'අවලංගුයි']) : ($isCompleted ? t(['en' => 'Completed', 'si' => 'අවසන්']) : ucfirst($eventStatus)) }}
+                                        {{ $isCancelled ? t(['en' => 'Cancelled', 'si' => 'අවලංගුයි']) : ($isCompleted ? t(['en' => 'Completed', 'si' => 'අවසන්']) : ($isPostponed ? t(['en' => 'POSTPONED', 'si' => 'කල් දමා ඇත']) : ucfirst($eventStatus))) }}
                                     </span>
                                 </div>
 
@@ -167,13 +217,21 @@
                                 <div class="flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-500">
                                     <span class="inline-flex items-center gap-1.5">
                                         <i class="bi bi-geo-alt text-slate-400" aria-hidden="true"></i>
-                                        {{ $event->place }}
+                                        {{ $event->displayPlace() }}
                                     </span>
                                     <span class="inline-flex items-center gap-1.5">
                                         <i class="bi bi-calendar3 text-slate-400" aria-hidden="true"></i>
-                                        {{ $formattedDate }}
+                                        @if ($event->hasDateYetToBeScheduled())
+                                            @if ($revealPostponement)
+                                                {{ t(['en' => 'Date Yet To Be Scheduled', 'si' => 'දිනය තවම නියම වී නැත']) }}
+                                            @else
+                                                {{ t(['en' => 'Date & time not chosen yet', 'si' => 'දිනය සහ වේලාව තවම තෝරා නැත']) }}
+                                            @endif
+                                        @else
+                                            {{ $formattedDate }}
+                                        @endif
                                     </span>
-                                    @if ($event->time)
+                                    @if ($event->time && ! $event->hasDateYetToBeScheduled())
                                         <span class="inline-flex items-center gap-1.5">
                                             <i class="bi bi-clock text-slate-400" aria-hidden="true"></i>
                                             {{ $event->time }}

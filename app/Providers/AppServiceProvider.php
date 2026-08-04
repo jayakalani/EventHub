@@ -4,6 +4,8 @@ namespace App\Providers;
 
 use App\Models\CartItem;
 use App\Models\ticketBooking;
+use App\Models\UserRole;
+use App\Services\PostponementAlertService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
@@ -45,6 +47,24 @@ class AppServiceProvider extends ServiceProvider
                 'unreadNotificationCount' => $user->unreadNotifications()->count(),
                 'recentNotifications' => $user->notifications()->latest()->limit(5)->get(),
             ]);
+        });
+
+        View::composer('layouts.app', function ($view) {
+            $alerts = collect();
+
+            if (Auth::check()) {
+                $user = Auth::user()->loadMissing('userRole');
+
+                if ($user->userRole?->name_en === UserRole::ATTENDEE) {
+                    // After login, postponement_alerts_shown is cleared so the popup can show once.
+                    if (! session()->has('postponement_alerts_shown')) {
+                        $alerts = app(PostponementAlertService::class)->undismissedAlertsFor($user);
+                        session()->put('postponement_alerts_shown', true);
+                    }
+                }
+            }
+
+            $view->with('postponementLoginAlerts', $alerts);
         });
     }
 }

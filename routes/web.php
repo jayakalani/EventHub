@@ -32,6 +32,7 @@ use App\Http\Controllers\Cro\RefundRequestController as CroRefundRequestControll
 use App\Http\Controllers\Organizer\ReportController as OrganizerReportController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\InquiryController;
+use App\Http\Controllers\PostponementAlertController;
 use App\Http\Controllers\RefundRequestController;
 use App\Http\Controllers\SupportController;
 use App\Http\Controllers\TicketBookingController;
@@ -203,6 +204,8 @@ Route::prefix('organizer')->name('organizer.')->middleware(['auth', 'verified', 
     Route::get('/events/export/pdf', [EventController::class, 'exportPdf'])->name('events.export.pdf');
     Route::patch('/events/{event}/status', [EventController::class, 'updateStatus'])->name('events.updateStatus');
     Route::post('/events/{event}/cancel', [EventController::class, 'cancel'])->name('events.cancel');
+    Route::post('/events/{event}/postpone', [EventController::class, 'postpone'])->name('events.postpone');
+    Route::post('/events/{event}/postponed-schedule', [EventController::class, 'updatePostponedSchedule'])->name('events.postponed-schedule');
     Route::get('/events/{event}/export-pdf', [EventController::class, 'showexportPdf'])->name('events.exportPdf');
 
     // ticket category routes
@@ -274,6 +277,8 @@ Route::post('/stripe/webhook', [CheckoutController::class, 'webhook'])->name('st
 
 Route::prefix('attendee')->name('attendee.')->middleware(['auth'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'attendee'])->name('dashboard');
+    Route::post('/postponement-alerts/dismiss', [PostponementAlertController::class, 'dismiss'])->name('postponement-alerts.dismiss');
+    Route::post('/bookings/{ticketBooking}/keep-postponement', [PostponementAlertController::class, 'keepTicket'])->name('bookings.keep-postponement');
     Route::get('/hosts', [HostController::class, 'attendeeIndex'])->name('hosts.index');
     Route::get('/hosts/{host}', [HostController::class, 'attendeeShow'])->name('hosts.show');
     Route::post('/hosts/{host}/like', [HostLikeController::class, 'toggle'])->name('hosts.like');
@@ -300,6 +305,7 @@ Route::prefix('attendee')->name('attendee.')->middleware(['auth'])->group(functi
     Route::get('/bookings/{ticketBooking}/download', [TicketBookingController::class, 'download'])->name('bookings.download');
     Route::get('/bookings/{ticketBooking}/refund', [RefundRequestController::class, 'create'])->name('bookings.refund.create');
     Route::post('/bookings/{ticketBooking}/refund', [RefundRequestController::class, 'store'])->name('bookings.refund.store');
+    Route::post('/bookings/{ticketBooking}/postponement-refund', [RefundRequestController::class, 'storePostponementRefund'])->name('bookings.postponement-refund');
     Route::get('/wallet', [WalletController::class, 'index'])->name('wallet.index');
     Route::post('/wallet/topup', [WalletController::class, 'topup'])->name('wallet.topup');
     Route::get('/wallet/topup/success', [WalletController::class, 'topupSuccess'])->name('wallet.topup.success');

@@ -13,10 +13,12 @@ use App\Models\UserRole;
 use App\Services\EventCancellationService;
 use App\Services\EventCompletionService;
 use App\Services\EventNotificationService;
+use App\Services\EventPostponementService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use RuntimeException;
 
 class EventController extends Controller
 {
@@ -24,6 +26,7 @@ class EventController extends Controller
         protected EventCancellationService $eventCancellationService,
         protected EventCompletionService $eventCompletionService,
         protected EventNotificationService $eventNotificationService,
+        protected EventPostponementService $eventPostponementService,
     ) {}
 
     /**
@@ -111,13 +114,16 @@ class EventController extends Controller
      */
     public function store(Request $request)
     {
+        $scheduleTba = $request->boolean('schedule_tba');
+
         $validatedData = $request->validate([
             'name' => 'required|string|max:255',
             'hosted_by' => 'required|exists:users,id',
             'category_id' => 'required|exists:event_categories,id',
-            'date' => 'required|date',
-            'time' => 'required',
-            'place' => 'required|string|max:255',
+            'schedule_tba' => 'sometimes|boolean',
+            'date' => ($scheduleTba ? 'nullable' : 'required').'|date',
+            'time' => ($scheduleTba ? 'nullable' : 'required'),
+            'place' => ($scheduleTba ? 'nullable' : 'required').'|string|max:255',
             'no_of_tickets' => 'required|integer|min:1',
             'description' => 'required|string',
             'contact_person' => 'required|exists:users,id',
@@ -141,9 +147,10 @@ class EventController extends Controller
             'name' => $validatedData['name'],
             'hosted_by' => $validatedData['hosted_by'],
             'category_id' => $validatedData['category_id'],
-            'date' => $validatedData['date'],
-            'time' => $validatedData['time'],
-            'place' => $validatedData['place'],
+            'date' => $scheduleTba ? null : $validatedData['date'],
+            'time' => $scheduleTba ? null : $validatedData['time'],
+            'place' => $scheduleTba ? null : $validatedData['place'],
+            'date_tba' => $scheduleTba,
             'no_of_tickets' => $validatedData['no_of_tickets'],
             'description' => $validatedData['description'],
             'contact_person' => $validatedData['contact_person'],
@@ -170,12 +177,18 @@ class EventController extends Controller
         $this->authorizeOrganizerEvent($event);
 
         $request->validate([
-            'status' => 'required|in:unpublished,upcoming,ongoing,completed,cancelled',
+            'status' => 'required|in:unpublished,upcoming,ongoing,completed,cancelled,postponed',
         ]);
 
         if ($request->status === Event::STATUS_CANCELLED) {
             return back()->withErrors([
                 'status' => 'Please use the cancel event option to provide a cancellation reason.',
+            ]);
+        }
+
+        if ($request->status === Event::STATUS_POSTPONED) {
+            return back()->withErrors([
+                'status' => 'Please use the postpone event option to provide postponement details.',
             ]);
         }
 
@@ -197,6 +210,12 @@ class EventController extends Controller
             ]);
         }
 
+        if ($event->isPostponed()) {
+            return back()->withErrors([
+                'status' => 'Postponed events cannot be changed to Upcoming. Status stays Postponed — set a new date/time, or cancel the event if it will not happen.',
+            ]);
+        }
+
         if ($request->status === Event::STATUS_COMPLETED && ! $event->hasPassed()) {
             return back()->withErrors([
                 'status' => 'Events can only be marked completed after the event date has passed.',
@@ -214,6 +233,84 @@ class EventController extends Controller
         }
 
         return back()->with('success', 'Event status updated successfully.');
+    }
+
+    public function postpone(Request $request, Event $event)
+    {
+        $this->authorizeOrganizerEvent($event);
+
+        if (! $event->canBePostponed()) {
+            return back()->withErrors([
+                'status' => 'Only upcoming events can be postponed. Cancelled, completed, and ongoing events cannot be postponed.',
+            ]);
+        }
+
+        $validated = $request->validate([
+            'postponement_reason' => ['required', 'string', 'min:10', 'max:2000'],
+            'new_date' => ['nullable', 'date', 'after_or_equal:today'],
+            'new_time' => ['nullable', 'regex:/^\d{2}:\d{2}(:\d{2})?$/'],
+            'notify_email' => ['sometimes', 'boolean'],
+            'notify_in_app' => ['sometimes', 'boolean'],
+        ]);
+
+        try {
+            $this->eventPostponementService->postpone(
+                $event,
+                $validated['postponement_reason'],
+                $validated['new_date'] ?? null,
+                ! empty($validated['new_date']) ? ($validated['new_time'] ?? null) : null,
+                $request->boolean('notify_email'),
+                $request->boolean('notify_in_app'),
+            );
+        } catch (RuntimeException $e) {
+            return back()->withErrors(['status' => $e->getMessage()])->withInput();
+        }
+
+        return back()->with('success', 'Event postponed successfully. Confirmed ticket holders have been notified as selected.');
+    }
+
+    public function updatePostponedSchedule(Request $request, Event $event)
+    {
+        $this->authorizeOrganizerEvent($event);
+
+        $validated = $request->validate([
+            'schedule_date' => ['required', 'date', 'after_or_equal:today'],
+            'schedule_time' => ['nullable', 'regex:/^\d{2}:\d{2}(:\d{2})?$/'],
+            'schedule_place' => ['required', 'string', 'max:255'],
+            'notify_attendees' => ['sometimes', 'boolean'],
+        ]);
+
+        try {
+            if ($event->isPostponed()) {
+                $this->eventPostponementService->setPostponedSchedule(
+                    $event,
+                    $validated['schedule_date'],
+                    $validated['schedule_time'] ?? null,
+                    $validated['schedule_place'],
+                    $request->boolean('notify_attendees', true),
+                );
+
+                return back()->with('success', 'Postponed event schedule updated. Status remains Postponed.');
+            }
+
+            if ($event->isUpcomingScheduleTba() || ($event->status === Event::STATUS_UPCOMING && $event->date_tba)) {
+                $this->eventPostponementService->confirmUpcomingSchedule(
+                    $event,
+                    $validated['schedule_date'],
+                    $validated['schedule_time'] ?? null,
+                    $validated['schedule_place'],
+                    $request->boolean('notify_attendees', true),
+                );
+
+                return back()->with('success', 'Upcoming event schedule confirmed. Place, date and time are now set.');
+            }
+        } catch (RuntimeException $e) {
+            return back()->withErrors(['schedule_date' => $e->getMessage()])->withInput();
+        }
+
+        return back()->withErrors([
+            'schedule_date' => 'Only postponed events or upcoming events without a confirmed schedule can use this action.',
+        ]);
     }
 
     public function cancel(Request $request, Event $event)
@@ -265,14 +362,16 @@ class EventController extends Controller
         $this->authorizeOrganizerEvent($event);
 
         $policyLocked = $event->hasSoldTickets();
+        $scheduleTba = $request->boolean('schedule_tba');
 
         $rules = [
             'name' => 'required|string|max:255',
             'hosted_by' => 'required|exists:users,id',
             'category_id' => 'required|exists:event_categories,id',
-            'date' => 'required|date',
-            'time' => 'required',
-            'place' => 'required|string|max:255',
+            'schedule_tba' => 'sometimes|boolean',
+            'date' => ($scheduleTba ? 'nullable' : 'required').'|date',
+            'time' => ($scheduleTba ? 'nullable' : 'required'),
+            'place' => ($scheduleTba ? 'nullable' : 'required').'|string|max:255',
             'no_of_tickets' => 'required|integer|min:1',
             'description' => 'required|string',
             'contact_person' => 'required|exists:users,id',
@@ -296,13 +395,27 @@ class EventController extends Controller
         }
 
         $original = $event->only(EventNotificationService::UPDATABLE_FIELDS);
+        $wasPostponed = $event->isPostponed();
+        $originalDate = (string) $event->date;
+        $originalTime = (string) $event->time;
 
         $event->name = $validatedData['name'];
         $event->hosted_by = $validatedData['hosted_by'];
         $event->category_id = $validatedData['category_id'];
-        $event->date = $validatedData['date'];
-        $event->time = $validatedData['time'];
-        $event->place = $validatedData['place'];
+
+        if ($scheduleTba && ! $wasPostponed) {
+            $event->date = null;
+            $event->time = null;
+            $event->place = null;
+            $event->date_tba = true;
+        } else {
+            $event->date = $validatedData['date'];
+            $event->time = $validatedData['time'];
+            $event->place = $validatedData['place'];
+            if (! $wasPostponed) {
+                $event->date_tba = false;
+            }
+        }
         $event->no_of_tickets = $validatedData['no_of_tickets'];
         $event->description = $validatedData['description'];
         $event->contact_person = $validatedData['contact_person'];
@@ -324,10 +437,26 @@ class EventController extends Controller
 
         $event->save();
 
-        $changes = EventNotificationService::buildChangesFromEvent($event, $original);
+        $dateChanged = ! $scheduleTba && (
+            (string) ($validatedData['date'] ?? '') !== $originalDate
+            || (string) ($validatedData['time'] ?? '') !== $originalTime
+            || (string) ($validatedData['place'] ?? '') !== (string) ($original['place'] ?? '')
+        );
 
-        if ($changes !== []) {
-            $this->eventNotificationService->notifyEventUpdated($event, $changes);
+        if ($wasPostponed && $dateChanged) {
+            $this->eventPostponementService->setPostponedSchedule(
+                $event->fresh(),
+                $validatedData['date'],
+                $validatedData['time'],
+                $validatedData['place'],
+                notify: true,
+            );
+        } else {
+            $changes = EventNotificationService::buildChangesFromEvent($event, $original);
+
+            if ($changes !== []) {
+                $this->eventNotificationService->notifyEventUpdated($event, $changes);
+            }
         }
 
         return redirect()->route('organizer.events.index')->with('success', 'Event updated successfully.');

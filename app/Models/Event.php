@@ -32,6 +32,8 @@ class Event extends Model
 
     public const STATUS_CANCELLED = 'cancelled';
 
+    public const STATUS_POSTPONED = 'postponed';
+
     protected $fillable = [
         'name',
         'hosted_by',
@@ -47,6 +49,9 @@ class Event extends Model
         'status',
         'cancellation_reason',
         'cancelled_at',
+        'postponement_reason',
+        'postponed_at',
+        'date_tba',
         'refunds_allowed',
         'refund_full_days_before_close',
         'refund_full_percentage',
@@ -58,6 +63,8 @@ class Event extends Model
     {
         return [
             'cancelled_at' => 'datetime',
+            'postponed_at' => 'datetime',
+            'date_tba' => 'boolean',
             'refunds_allowed' => 'boolean',
             'refund_full_days_before_close' => 'integer',
             'refund_full_percentage' => 'integer',
@@ -93,19 +100,155 @@ class Event extends Model
         return $this->status === self::STATUS_COMPLETED;
     }
 
+    public function isPostponed(): bool
+    {
+        return $this->status === self::STATUS_POSTPONED;
+    }
+
+    public function isPurchasedBy(?User $user): bool
+    {
+        if (! $user) {
+            return false;
+        }
+
+        return $this->ticketBookings()
+            ->where('user_id', $user->id)
+            ->where('status', BookingStatusEnum::Confirmed)
+            ->exists();
+    }
+
+    /**
+     * Confirmed ticket purchased at or before the current postponement timestamp.
+     */
+    public function hasPrePostponementPurchaseBy(?User $user): bool
+    {
+        if (! $user || ! $this->isPostponed() || ! $this->postponed_at) {
+            return false;
+        }
+
+        return $this->ticketBookings()
+            ->where('user_id', $user->id)
+            ->where('status', BookingStatusEnum::Confirmed)
+            ->where('created_at', '<=', $this->postponed_at)
+            ->exists();
+    }
+
+    /**
+     * Status shown on public/browse surfaces.
+     * Non-ticket holders (and buyers after postponement) see postponed events as upcoming.
+     */
+    public function publicFacingStatus(?User $user = null): string
+    {
+        if ($this->isPostponed() && ! $this->shouldRevealPostponementTo($user)) {
+            return self::STATUS_UPCOMING;
+        }
+
+        return $this->status ?? self::STATUS_UPCOMING;
+    }
+
+    public function shouldRevealPostponementTo(?User $user = null): bool
+    {
+        return $this->isPostponed() && $this->hasPrePostponementPurchaseBy($user);
+    }
+
+    /**
+     * Date, time, and/or place are not confirmed yet (upcoming TBA or postponed TBA).
+     */
+    public function hasDateYetToBeScheduled(): bool
+    {
+        if (! (bool) $this->date_tba) {
+            return false;
+        }
+
+        return in_array($this->status, [
+            self::STATUS_UPCOMING,
+            self::STATUS_POSTPONED,
+            self::STATUS_UNPUBLISHED,
+        ], true);
+    }
+
+    /**
+     * Upcoming (or unpublished) event with place/date/time still undecided.
+     */
+    public function isUpcomingScheduleTba(): bool
+    {
+        return (bool) $this->date_tba
+            && in_array($this->status, [self::STATUS_UPCOMING, self::STATUS_UNPUBLISHED], true);
+    }
+
+    public function hasConfirmedSchedule(): bool
+    {
+        return ! $this->hasDateYetToBeScheduled()
+            && filled($this->date)
+            && filled($this->place);
+    }
+
+    public function displayPlace(): string
+    {
+        if ($this->hasDateYetToBeScheduled() || blank($this->place)) {
+            return 'Place yet to be announced';
+        }
+
+        return (string) $this->place;
+    }
+
+    public function scheduleStatusLabel(): string
+    {
+        if ($this->hasDateYetToBeScheduled()) {
+            return 'Place, date & time not decided yet';
+        }
+
+        $date = $this->formattedScheduleDate();
+
+        if ($this->isPostponed()) {
+            return $date ? 'Rescheduled to '.$date : 'Date Yet To Be Scheduled';
+        }
+
+        return $date ? 'Confirmed for '.$date : 'Schedule confirmed';
+    }
+
+    public function canBePostponed(): bool
+    {
+        return $this->status === self::STATUS_UPCOMING;
+    }
+
     public function hasPassed(): bool
     {
+        if ($this->hasDateYetToBeScheduled() || blank($this->date)) {
+            return false;
+        }
+
         return now()->gt(Carbon::parse($this->date)->endOfDay());
     }
 
     public function startsAt(): Carbon
     {
-        return Carbon::parse($this->date.' '.$this->time);
+        if (blank($this->date)) {
+            return now()->startOfDay();
+        }
+
+        $time = filled($this->time) ? $this->time : '00:00:00';
+
+        return Carbon::parse($this->date.' '.$time);
     }
 
     public function isLocked(): bool
     {
         return $this->isCompleted() || $this->isCancelled();
+    }
+
+    public function formattedScheduleDate(?string $format = 'd M Y'): ?string
+    {
+        if ($this->hasDateYetToBeScheduled() || blank($this->date)) {
+            return null;
+        }
+
+        return Carbon::parse($this->date)->format($format);
+    }
+
+    public function postponementScheduleLabel(): string
+    {
+        return $this->scheduleStatusLabel();
     }
 
     public function scopeActiveForAttendees($query)
@@ -139,6 +282,10 @@ class Event extends Model
 
         if ($this->isCompleted()) {
             return 'completed';
+        }
+
+        if ($this->isPostponed()) {
+            return 'postponed';
         }
 
         if ($this->status === self::STATUS_ONGOING) {
@@ -299,6 +446,11 @@ class Event extends Model
     public function cartItems()
     {
         return $this->hasMany(CartItem::class, 'event_id');
+    }
+
+    public function postponementAlertDismissals()
+    {
+        return $this->hasMany(PostponementAlertDismissal::class, 'event_id');
     }
     
     public function getTotalTicketsAttribute()

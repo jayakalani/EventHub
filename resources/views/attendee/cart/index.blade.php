@@ -180,7 +180,12 @@
                                     <div class="flex flex-wrap gap-x-3 gap-y-1 mt-1 text-xs text-slate-500">
 
                                         <span>
-                                            📅 {{ $event->date }}
+                                            📅
+                                            @if ($event->hasDateYetToBeScheduled())
+                                                {{ t(['en' => 'Date & time not chosen yet', 'si' => 'දිනය සහ වේලාව තවම තෝරා නැත']) }}
+                                            @else
+                                                {{ $event->formattedScheduleDate('Y-m-d') ?? $event->date }}
+                                            @endif
                                         </span>
 
                                         <span>

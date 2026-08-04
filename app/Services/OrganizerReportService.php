@@ -36,6 +36,7 @@ class OrganizerReportService
             'ticketTypeTrend' => $this->getTicketTypeTrend($organizerId, $filters),
             'conversionFunnel' => $this->getConversionFunnel($organizerId, $filters),
             'eventPerformance' => $this->getEventPerformance($organizerId, $filters),
+            'eventsByStatus' => $this->getEventsByStatus($organizerId, $filters),
             'salesHeatmap' => $this->getSalesHeatmap($organizerId, $filters),
             'peakSalesHeatmap' => $this->getPeakSalesHeatmap($organizerId, $filters),
             'recentTransactions' => $this->getRecentTransactions($organizerId, $filters),
@@ -800,6 +801,38 @@ class OrganizerReportService
 
     /**
      * @param  array{from?: string|null, to?: string|null, event_id?: int|string|null, status?: string|null}  $filters
+     * @return list<array{key: string, label: string, count: int}>
+     */
+    public function getEventsByStatus(int $organizerId, array $filters = []): array
+    {
+        $filters = $this->normalizeFilters($filters);
+
+        $order = [
+            Event::STATUS_UPCOMING,
+            Event::STATUS_ONGOING,
+            Event::STATUS_POSTPONED,
+            Event::STATUS_COMPLETED,
+            Event::STATUS_CANCELLED,
+            Event::STATUS_UNPUBLISHED,
+        ];
+
+        $counts = $this->organizerEventsQuery($organizerId, $filters)
+            ->select('status', DB::raw('COUNT(*) as count'))
+            ->groupBy('status')
+            ->pluck('count', 'status');
+
+        return collect($order)
+            ->map(fn (string $status) => [
+                'key' => $status,
+                'label' => ucfirst($status),
+                'count' => (int) ($counts[$status] ?? 0),
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  array{from?: string|null, to?: string|null, event_id?: int|string|null, status?: string|null}  $filters
      * @return list<array<string, mixed>>
      */
     public function getEventPerformance(int $organizerId, array $filters = []): array
@@ -1016,6 +1049,7 @@ class OrganizerReportService
             'statuses' => [
                 Event::STATUS_UPCOMING,
                 Event::STATUS_ONGOING,
+                Event::STATUS_POSTPONED,
                 Event::STATUS_COMPLETED,
                 Event::STATUS_CANCELLED,
             ],

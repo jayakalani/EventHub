@@ -16,7 +16,9 @@ class EventCompletionService
         $today = Carbon::today()->toDateString();
 
         return Event::query()
+            ->whereNotNull('date')
             ->whereDate('date', '<', $today)
+            ->where('date_tba', false)
             ->whereNotIn('status', [
                 Event::STATUS_COMPLETED,
                 Event::STATUS_CANCELLED,
@@ -29,14 +31,14 @@ class EventCompletionService
      */
     public function completeIfPast(Event $event): bool
     {
-        if ($event->isCompleted() || $event->isCancelled() || ! $event->hasPassed()) {
+        if ($event->isCompleted() || $event->isCancelled() || $event->hasDateYetToBeScheduled() || ! $event->hasPassed()) {
             return false;
         }
 
         return DB::transaction(function () use ($event) {
             $event->refresh();
 
-            if ($event->isCompleted() || $event->isCancelled() || ! $event->hasPassed()) {
+            if ($event->isCompleted() || $event->isCancelled() || $event->hasDateYetToBeScheduled() || ! $event->hasPassed()) {
                 return false;
             }
 

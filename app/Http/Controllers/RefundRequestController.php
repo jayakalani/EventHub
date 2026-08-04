@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\ticketBooking;
 use App\Services\RefundPolicyService;
 use App\Services\RefundRequestService;
+use App\Services\PostponementAlertService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -16,6 +17,7 @@ class RefundRequestController extends Controller
     public function __construct(
         protected RefundPolicyService $refundPolicyService,
         protected RefundRequestService $refundRequestService,
+        protected PostponementAlertService $postponementAlertService,
     ) {}
 
     public function create(ticketBooking $ticketBooking): View|RedirectResponse
@@ -61,6 +63,32 @@ class RefundRequestController extends Controller
         return redirect()
             ->route('attendee.bookings.index')
             ->with('success', $message);
+    }
+
+    public function storePostponementRefund(Request $request, ticketBooking $ticketBooking): RedirectResponse
+    {
+        $this->authorizeBooking($ticketBooking);
+
+        $request->validate([
+            'confirm_irreversible' => ['accepted'],
+        ], [
+            'confirm_irreversible.accepted' => 'You must confirm that this refund cannot be reversed.',
+        ]);
+
+        try {
+            $this->refundRequestService->refundDueToPostponement($ticketBooking);
+            $ticketBooking->loadMissing('event');
+            $this->postponementAlertService->dismissEventIfFullyResolved(
+                Auth::user(),
+                $ticketBooking->event->fresh(),
+            );
+        } catch (RuntimeException $e) {
+            return back()->withErrors(['refund' => $e->getMessage()]);
+        }
+
+        return redirect()
+            ->route('attendee.bookings.index')
+            ->with('success', 'Full refund has been credited to your wallet. This action cannot be reversed.');
     }
 
     private function authorizeBooking(ticketBooking $ticketBooking): void

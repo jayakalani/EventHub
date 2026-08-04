@@ -29,6 +29,20 @@
                 </div>
             @endif
 
+            @if((request()->boolean('from_postponement') || session('from_postponement')) && ($hasUnresolvedPostponement ?? false))
+                <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3.5 shadow-sm">
+                    <p class="text-sm font-semibold text-amber-950">
+                        {{ t(['en' => '⚠ Your postponed event has a new date', 'si' => '⚠ කල් දැමූ ඔබේ ප්‍රසංගයට නව දිනයක් ඇත']) }}
+                    </p>
+                    <p class="mt-1 text-sm leading-relaxed text-amber-800">
+                        {{ t(['en' => 'If you can attend on the new date, keep your ticket. If you cannot attend, request a full refund on the ticket below.', 'si' => 'නව දිනයේ සහභාගී විය හැකි නම් ඔබේ ටිකට් තබා ගන්න. නොහැකි නම් පහත ටිකට් සඳහා සම්පූර්ණ ආපසු ගෙවීමක් ඉල්ලන්න.']) }}
+                    </p>
+                    <p class="mt-2 text-xs text-amber-700">
+                        {{ t(['en' => 'Use Keep My Ticket or Request Full Refund on each postponed ticket.', 'si' => 'කල් දැමූ සෑම ටිකට්ටුවක් සඳහාම Keep My Ticket හෝ Request Full Refund භාවිතා කරන්න.']) }}
+                    </p>
+                </div>
+            @endif
+
             {{-- Statistics --}}
             <div class="grid gap-3 sm:grid-cols-3">
 
@@ -132,6 +146,19 @@
                                                 {{ $event->cancellation_reason }}
                                             </p>
                                         @endif
+                                    @elseif($event->isPostponed() && $eventBookings->contains(fn ($b) => $b->wasPurchasedBeforeCurrentPostponement()))
+                                        <div class="mb-2 inline-flex w-fit rounded-lg border border-amber-300/40 bg-amber-500/90 px-2.5 py-1">
+                                            <p class="text-xs font-bold uppercase tracking-wide text-white">{{ t(['en' => '⚠ Event Postponed', 'si' => '⚠ ප්‍රසංගය කල් දමා ඇත']) }}</p>
+                                        </div>
+                                        <p class="mb-2 max-w-3xl text-xs leading-relaxed text-amber-50">
+                                            {{ t(['en' => 'This event has been postponed.', 'si' => 'මෙම ප්‍රසංගය කල් දමා ඇත.']) }}
+                                            @if($event->hasDateYetToBeScheduled())
+                                                {{ t(['en' => 'The new date will be announced soon.', 'si' => 'නව දිනය ඉක්මනින් නිවේදනය කෙරේ.']) }}
+                                            @else
+                                                {{ t(['en' => 'New Date', 'si' => 'නව දිනය']) }}:
+                                                {{ $event->formattedScheduleDate('d M Y') }}
+                                            @endif
+                                        </p>
                                     @elseif($event->isCompleted())
                                         <div class="mb-2 inline-flex w-fit rounded-lg border border-slate-300/40 bg-slate-600/90 px-2.5 py-1">
                                             <p class="text-xs font-bold uppercase tracking-wide text-white">{{ t(['en' => 'Event Completed', 'si' => 'ප්‍රසංගය අවසන්']) }}</p>
@@ -143,10 +170,16 @@
                                     </h3>
 
                                     <p class="mt-0.5 truncate text-sm text-white/90">
-                                        {{ $event->date }}
+                                        @if($event->hasDateYetToBeScheduled() && $eventBookings->contains(fn ($b) => $b->wasPurchasedBeforeCurrentPostponement()))
+                                            {{ t(['en' => 'Date Yet To Be Scheduled', 'si' => 'දිනය තවම නියම වී නැත']) }}
+                                        @elseif($event->hasDateYetToBeScheduled())
+                                            {{ t(['en' => 'Date & time not chosen yet', 'si' => 'දිනය සහ වේලාව තවම තෝරා නැත']) }}
+                                        @else
+                                            {{ $event->date }}
 
-                                        @if($event->time)
-                                            • {{ $event->time }}
+                                            @if($event->time)
+                                                • {{ $event->time }}
+                                            @endif
                                         @endif
 
                                         • {{ $event->place }}
@@ -258,6 +291,58 @@
                                         @elseif($event->isCompleted())
                                             <div class="rounded-xl bg-slate-100 px-3 py-2 text-center text-xs font-semibold text-slate-700">
                                                 {{ t(['en' => 'Event completed — ticket archived for your records', 'si' => 'ප්‍රසංගය අවසන් — ටිකට් ඔබේ වාර්තා සඳහා සුරකින ලදී']) }}
+                                            </div>
+                                        @elseif($booking->isPostponementRefundable())
+                                            <div x-data="{ confirmRefund: false }" class="space-y-2">
+                                                <template x-if="!confirmRefund">
+                                                    <div class="space-y-2">
+                                                        <form method="POST" action="{{ route('attendee.bookings.keep-postponement', $booking) }}">
+                                                            @csrf
+                                                            <button type="submit"
+                                                                class="inline-flex w-full items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 transition sm:text-sm">
+                                                                {{ t(['en' => 'Keep My Ticket', 'si' => 'මගේ ටිකට් තබා ගන්න']) }}
+                                                            </button>
+                                                        </form>
+                                                        <button type="button"
+                                                            @click="confirmRefund = true"
+                                                            class="inline-flex w-full items-center justify-center rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-100 transition sm:text-sm">
+                                                            {{ t(['en' => 'Request Full Refund', 'si' => 'සම්පූර්ණ ආපසු ගෙවීම ඉල්ලන්න']) }}
+                                                        </button>
+                                                    </div>
+                                                </template>
+                                                <template x-if="confirmRefund">
+                                                    <form method="POST"
+                                                        action="{{ route('attendee.bookings.postponement-refund', $booking) }}"
+                                                        class="space-y-2 rounded-xl border border-red-200 bg-red-50 p-3">
+                                                        @csrf
+                                                        <p class="text-xs leading-relaxed text-red-800">
+                                                            {{ t(['en' => 'This refund cannot be reversed. The full amount will be credited to your wallet immediately.', 'si' => 'මෙම ආපසු ගෙවීම අහෝසි කළ නොහැක. සම්පූර්ණ මුදල වහාම ඔබේ පසුම්බියට බැර වේ.']) }}
+                                                        </p>
+                                                        <label class="flex items-start gap-2 text-xs text-red-800">
+                                                            <input type="checkbox"
+                                                                name="confirm_irreversible"
+                                                                value="1"
+                                                                required
+                                                                class="mt-0.5 rounded border-red-300 text-red-600 focus:ring-red-500">
+                                                            <span>{{ t(['en' => 'I understand this refund cannot be reversed.', 'si' => 'මෙම ආපසු ගෙවීම අහෝසි කළ නොහැකි බව මම තේරුම් ගනිමි.']) }}</span>
+                                                        </label>
+                                                        <div class="flex gap-2">
+                                                            <button type="button"
+                                                                @click="confirmRefund = false"
+                                                                class="inline-flex flex-1 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+                                                                {{ t(['en' => 'Cancel', 'si' => 'අවලංගු කරන්න']) }}
+                                                            </button>
+                                                            <button type="submit"
+                                                                class="inline-flex flex-1 items-center justify-center rounded-xl bg-red-600 px-3 py-2 text-xs font-semibold text-white hover:bg-red-700">
+                                                                {{ t(['en' => 'Confirm Refund', 'si' => 'ආපසු ගෙවීම තහවුරු කරන්න']) }}
+                                                            </button>
+                                                        </div>
+                                                    </form>
+                                                </template>
+                                            </div>
+                                        @elseif($booking->hasKeptCurrentPostponement())
+                                            <div class="rounded-xl bg-emerald-50 px-3 py-2 text-center text-xs font-semibold text-emerald-800">
+                                                {{ t(['en' => 'Your ticket remains valid for this postponed event.', 'si' => 'කල් දැමූ මෙම ප්‍රසංගය සඳහා ඔබේ ටිකට් වලංගුව පවතී.']) }}
                                             </div>
                                         @elseif($booking->isCancellable())
                                             <a href="{{ route('attendee.bookings.refund.create', $booking) }}"

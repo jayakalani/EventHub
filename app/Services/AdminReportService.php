@@ -76,6 +76,7 @@ class AdminReportService
             'completed' => $statusCount('completed'),
             'cancelled' => $statusCount('cancelled'),
             'upcoming' => $statusCount('upcoming'),
+            'postponed' => $statusCount('postponed'),
         ]);
         $paymentOverview = $this->scopedPaymentOverview($paymentScopeFilter, [
             'completed' => $this->paymentCountByStatus(PaymentStatusEnum::Completed),
@@ -111,6 +112,7 @@ class AdminReportService
                 'ongoing' => $statusCount('ongoing'),
                 'completed' => $statusCount('completed'),
                 'upcoming' => $statusCount('upcoming'),
+                'postponed' => $statusCount('postponed'),
                 'cancelled' => $statusCount('cancelled'),
                 'unpublished' => $statusCount('unpublished'),
                 'byStatus' => $admin['eventsByStatus'],
@@ -840,8 +842,8 @@ class AdminReportService
      *     selectedOrganizerId: int|null,
      *     selectedEventId: int|null
      * }  $scopeFilter
-     * @param  array{active: int, completed: int, cancelled: int, upcoming: int}  $global
-     * @return array{active: int, completed: int, cancelled: int, upcoming: int}
+     * @param  array{active: int, completed: int, cancelled: int, upcoming: int, postponed: int}  $global
+     * @return array{active: int, completed: int, cancelled: int, upcoming: int, postponed: int}
      */
     private function scopedPlatformAnalytics(array $scopeFilter, array $global): array
     {
@@ -867,6 +869,7 @@ class AdminReportService
             'completed' => (int) ($counts[Event::STATUS_COMPLETED] ?? 0),
             'cancelled' => (int) ($counts[Event::STATUS_CANCELLED] ?? 0),
             'upcoming' => (int) ($counts[Event::STATUS_UPCOMING] ?? 0),
+            'postponed' => (int) ($counts[Event::STATUS_POSTPONED] ?? 0),
         ];
     }
 
@@ -1112,14 +1115,26 @@ class AdminReportService
      */
     private function eventsByStatus(): array
     {
-        return Event::query()
+        $order = [
+            Event::STATUS_UPCOMING,
+            Event::STATUS_ONGOING,
+            Event::STATUS_POSTPONED,
+            Event::STATUS_COMPLETED,
+            Event::STATUS_CANCELLED,
+            Event::STATUS_UNPUBLISHED,
+        ];
+
+        $counts = Event::query()
             ->select('status', DB::raw('COUNT(*) as count'))
             ->groupBy('status')
-            ->pluck('count', 'status')
-            ->map(fn ($count, $status) => [
+            ->pluck('count', 'status');
+
+        return collect($order)
+            ->map(fn (string $status) => [
                 'label' => ucfirst($status),
-                'count' => (int) $count,
+                'count' => (int) ($counts[$status] ?? 0),
             ])
+            ->filter(fn (array $row) => $row['count'] > 0 || $row['label'] === 'Postponed')
             ->values()
             ->all();
     }

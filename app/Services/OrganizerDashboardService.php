@@ -69,6 +69,7 @@ class OrganizerDashboardService
                 'completedEvents' => $statusCounts['completed'] ?? 0,
                 'unpublishedEvents' => $statusCounts['unpublished'] ?? 0,
                 'cancelledEvents' => $statusCounts['cancelled'] ?? 0,
+                'postponedEvents' => $statusCounts['postponed'] ?? 0,
                 'totalHosts' => Host::where('created_by', $organizerId)->count(),
                 'totalAttendees' => $totalAttendees,
                 'ticketsSold' => $sales['totalTicketsSold'],
@@ -84,6 +85,7 @@ class OrganizerDashboardService
             'statusSummary' => [
                 ['key' => 'upcoming', 'label' => 'Upcoming', 'count' => $statusCounts['upcoming'] ?? 0, 'color' => 'emerald'],
                 ['key' => 'ongoing', 'label' => 'Ongoing', 'count' => $statusCounts['ongoing'] ?? 0, 'color' => 'blue'],
+                ['key' => 'postponed', 'label' => 'Postponed', 'count' => $statusCounts['postponed'] ?? 0, 'color' => 'orange'],
                 ['key' => 'completed', 'label' => 'Completed', 'count' => $statusCounts['completed'] ?? 0, 'color' => 'slate'],
                 ['key' => 'unpublished', 'label' => 'Unpublished', 'count' => $statusCounts['unpublished'] ?? 0, 'color' => 'amber'],
                 ['key' => 'cancelled', 'label' => 'Cancelled', 'count' => $statusCounts['cancelled'] ?? 0, 'color' => 'rose'],
@@ -688,11 +690,12 @@ class OrganizerDashboardService
     {
         return Event::query()
             ->createdByOrganizer($organizerId)
-            ->whereIn('status', [Event::STATUS_UPCOMING, Event::STATUS_ONGOING])
+            ->whereIn('status', [Event::STATUS_UPCOMING, Event::STATUS_ONGOING, Event::STATUS_POSTPONED])
             ->with('host')
             ->withCount([
                 'ticketBookings as tickets_sold' => fn ($query) => $query->where('status', BookingStatusEnum::Confirmed),
             ])
+            ->orderByRaw("CASE WHEN status = 'postponed' AND date_tba = 1 THEN 1 ELSE 0 END")
             ->orderBy('date')
             ->orderBy('time')
             ->limit(6)
@@ -700,13 +703,22 @@ class OrganizerDashboardService
             ->map(fn (Event $event) => [
                 'id' => $event->id,
                 'name' => $event->name,
-                'date' => $event->date ? Carbon::parse($event->date)->format('D, M d') : '—',
-                'day' => $event->date ? Carbon::parse($event->date)->format('d') : '—',
-                'month' => $event->date ? Carbon::parse($event->date)->format('M') : '—',
-                'time' => $event->time ? Carbon::parse($event->time)->format('g:i A') : null,
+                'date' => $event->hasDateYetToBeScheduled()
+                    ? 'Date Yet To Be Scheduled'
+                    : ($event->date ? Carbon::parse($event->date)->format('D, M d') : '—'),
+                'day' => $event->hasDateYetToBeScheduled()
+                    ? '—'
+                    : ($event->date ? Carbon::parse($event->date)->format('d') : '—'),
+                'month' => $event->hasDateYetToBeScheduled()
+                    ? 'TBA'
+                    : ($event->date ? Carbon::parse($event->date)->format('M') : '—'),
+                'time' => $event->hasDateYetToBeScheduled()
+                    ? null
+                    : ($event->time ? Carbon::parse($event->time)->format('g:i A') : null),
                 'place' => $event->place,
                 'host' => $event->host?->name,
                 'status' => $event->status,
+                'date_tba' => $event->hasDateYetToBeScheduled(),
                 'sold' => (int) $event->tickets_sold,
                 'capacity' => (int) $event->total_tickets,
                 'url' => route('organizer.events.show', $event),
@@ -1061,9 +1073,12 @@ class OrganizerDashboardService
                 $name = $this->resolveAuditSubjectName($log);
                 $action = strtolower((string) $log->action);
 
-                [$icon, $color, $title] = match ($action) {
-                    'created' => ['bi-plus-circle-fill', 'violet', "{$label} Created"],
-                    'deleted' => ['bi-trash-fill', 'rose', "{$label} Deleted"],
+                [$icon, $color, $title] = match (true) {
+                    $action === 'created' => ['bi-plus-circle-fill', 'violet', "{$label} Created"],
+                    $action === 'deleted' => ['bi-trash-fill', 'rose', "{$label} Deleted"],
+                    str_contains($action, 'postponed') => ['bi-exclamation-triangle-fill', 'amber', 'Event Postponed'],
+                    str_contains($action, 'rescheduled') => ['bi-calendar-event', 'orange', 'Event Rescheduled'],
+                    str_contains($action, 'refund because of postponement') => ['bi-arrow-counterclockwise', 'amber', 'Postponement Refund'],
                     default => ['bi-pencil-square', 'blue', "{$label} Updated"],
                 };
 

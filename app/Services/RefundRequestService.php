@@ -20,6 +20,7 @@ class RefundRequestService
     public function __construct(
         protected RefundPolicyService $refundPolicyService,
         protected WalletService $walletService,
+        protected AuditLogService $auditLogService,
     ) {}
 
     public function submit(ticketBooking $booking, string $reason): RefundRequest
@@ -56,6 +57,64 @@ class RefundRequestService
         }
 
         return $refundRequest;
+    }
+
+    /**
+     * Immediate full wallet refund for a postponed event — no CRO review.
+     */
+    public function refundDueToPostponement(ticketBooking $booking): RefundRequest
+    {
+        $booking->loadMissing('event', 'refundRequest', 'user', 'ticketCategory');
+
+        if (! $booking->isPostponementRefundable()) {
+            throw new RuntimeException('This ticket is not eligible for a postponement refund.');
+        }
+
+        return DB::transaction(function () use ($booking) {
+            $booking = ticketBooking::query()->lockForUpdate()->findOrFail($booking->id);
+            $booking->loadMissing('event', 'refundRequest', 'user');
+
+            if (! $booking->isPostponementRefundable()) {
+                throw new RuntimeException('This ticket is not eligible for a postponement refund.');
+            }
+
+            $amount = (float) $booking->ticket_price;
+
+            $refundRequest = RefundRequest::create([
+                'ticket_booking_id' => $booking->id,
+                'user_id' => $booking->user_id,
+                'reason' => 'Full refund requested due to event postponement.',
+                'refund_percentage' => 100,
+                'refund_amount' => $amount,
+                'status' => RefundRequestStatusEnum::Approved,
+                'reviewed_by' => null,
+                'reviewed_at' => now(),
+                'cro_notes' => 'Automatically approved: full refund for postponed event (no CRO review).',
+            ]);
+
+            ticketCategory::query()
+                ->lockForUpdate()
+                ->where('id', $booking->ticket_category_id)
+                ->increment('no_of_available_tickets');
+
+            $this->walletService->credit(
+                $booking->user,
+                $amount,
+                'Full refund for postponed event: '.$booking->event->name.' (Ticket '.$booking->ticket_number.')',
+                $refundRequest,
+            );
+
+            $booking->update(['status' => BookingStatusEnum::Refunded]);
+
+            $this->auditLogService->logPostponementRefund($booking, $refundRequest);
+
+            DB::afterCommit(function () use ($refundRequest) {
+                $refundRequest->load(['user.wallet', 'ticketBooking.event', 'ticketBooking.ticketCategory']);
+                Mail::to($refundRequest->user)->queue(new RefundRequestApprovedMail($refundRequest));
+            });
+
+            return $refundRequest;
+        });
     }
 
     public function approve(RefundRequest $refundRequest, User $reviewer, ?string $notes = null): void

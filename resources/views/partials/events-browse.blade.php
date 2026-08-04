@@ -119,10 +119,15 @@
                 </h3>
 
                 <p class="{{ $compact ? 'mt-1 text-xs' : 'mt-2 text-sm' }} text-slate-500 dark:text-slate-400">
-                    <i class="bi bi-calendar3 mr-1"></i>{{ $event->date }}
+                    <i class="bi bi-calendar3 mr-1"></i>
+                    @if ($event->hasDateYetToBeScheduled())
+                        {{ t(['en' => 'Date & time not chosen yet — we\'ll inform you when scheduled', 'si' => 'දිනය සහ වේලාව තවම තෝරා නැත — නියම වූ විට දැනුම් දෙන්නෙමු']) }}
+                    @else
+                        {{ $event->formattedScheduleDate('Y-m-d') ?? $event->date }}
+                    @endif
                 </p>
                 <p class="{{ $compact ? 'mt-0.5 text-xs' : 'mt-1 text-sm' }} text-slate-500 dark:text-slate-400">
-                    <i class="bi bi-geo-alt mr-1"></i>{{ $event->place }}
+                    <i class="bi bi-geo-alt mr-1"></i>{{ $event->displayPlace() }}
                 </p>
 
                 @auth

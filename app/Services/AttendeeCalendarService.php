@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\BookingStatusEnum;
 use App\Models\Event;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Collection as SupportCollection;
@@ -20,6 +21,7 @@ class AttendeeCalendarService
             'ongoing' => '#10b981',
             'completed' => '#64748b',
             'cancelled' => '#f43f5e',
+            'postponed' => '#f59e0b',
         ];
     }
 
@@ -76,21 +78,23 @@ class AttendeeCalendarService
             ->orderBy('date')
             ->orderBy('time')
             ->get()
-            ->map(fn (Event $event) => $this->toCalendarEntry($event));
+            ->map(fn (Event $event) => $this->toCalendarEntry($event, $userId));
     }
 
     /**
      * @return array<string, mixed>
      */
-    public function toCalendarEntry(Event $event): array
+    public function toCalendarEntry(Event $event, ?int $userId = null): array
     {
-        $displayStatus = $event->calendarDisplayStatus();
-        $color = self::statusColors()[$displayStatus];
+        $displayStatus = $this->displayStatusForUser($event, $userId);
+        $color = self::statusColors()[$displayStatus] ?? self::statusColors()['upcoming'];
 
         return [
             'id' => $event->id,
             'title' => $event->name,
-            'start' => $event->startsAt()->toIso8601String(),
+            'start' => $event->hasDateYetToBeScheduled()
+                ? now()->toIso8601String()
+                : $event->startsAt()->toIso8601String(),
             'url' => route('attendee.events.show', $event),
             'backgroundColor' => $color,
             'borderColor' => $color,
@@ -102,5 +106,18 @@ class AttendeeCalendarService
                 'ticketCount' => (int) ($event->user_ticket_count ?? 0),
             ],
         ];
+    }
+
+    private function displayStatusForUser(Event $event, ?int $userId): string
+    {
+        if ($event->isPostponed()) {
+            $user = $userId ? User::query()->find($userId) : null;
+
+            if (! $event->shouldRevealPostponementTo($user)) {
+                return Event::STATUS_UPCOMING;
+            }
+        }
+
+        return $event->calendarDisplayStatus();
     }
 }

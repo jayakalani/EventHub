@@ -152,7 +152,14 @@
 
                             <div class="p-3.5">
                                 <h4 class="line-clamp-1 text-base font-semibold text-slate-900">{{ $event->name }}</h4>
-                                <p class="mt-1 text-xs text-slate-500">📅 {{ $event->date }}</p>
+                                <p class="mt-1 text-xs text-slate-500">
+                                    📅
+                                    @if ($event->hasDateYetToBeScheduled())
+                                        {{ t(['en' => 'Date & time not chosen yet', 'si' => 'දිනය සහ වේලාව තවම තෝරා නැත']) }}
+                                    @else
+                                        {{ $event->formattedScheduleDate('Y-m-d') ?? $event->date }}
+                                    @endif
+                                </p>
                                 <p class="mt-0.5 text-xs text-slate-500">📍 {{ $event->place }}</p>
 
                                 <div class="mt-2.5 flex items-center justify-between gap-3">

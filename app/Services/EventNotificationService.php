@@ -10,6 +10,7 @@ use App\Mail\NewEventFromHostMail;
 use App\Models\Event;
 use App\Models\EventReminderLog;
 use App\Models\FollowHost;
+use App\Models\SavedEvent;
 use App\Models\ticketBooking;
 use App\Models\User;
 use App\Models\UserRole;
@@ -38,7 +39,7 @@ class EventNotificationService
      */
     public function notifyEventUpdated(Event $event, array $changes): void
     {
-        if ($event->isCancelled() || $event->isCompleted() || ! $event->isVisibleToAttendees()) {
+        if ($event->isCancelled() || $event->isCompleted() || $event->isPostponed() || ! $event->isVisibleToAttendees()) {
             return;
         }
 
@@ -113,6 +114,27 @@ class EventNotificationService
 
         return User::query()
             ->whereIn('id', $userIds)
+            ->get();
+    }
+
+    /**
+     * Attendees who saved/bookmarked the event.
+     *
+     * @return Collection<int, User>
+     */
+    public function getUsersWhoSavedEvent(Event $event): Collection
+    {
+        $userIds = SavedEvent::query()
+            ->where('event_id', $event->id)
+            ->pluck('user_id');
+
+        if ($userIds->isEmpty()) {
+            return new Collection;
+        }
+
+        return User::query()
+            ->whereIn('id', $userIds)
+            ->whereHas('userRole', fn ($query) => $query->where('name_en', UserRole::ATTENDEE))
             ->get();
     }
 

@@ -18,6 +18,7 @@ class ticketBooking extends Model
         'ticket_number',
         'ticket_price',
         'status',
+        'postponement_kept_for',
     ];
 
     protected function casts(): array
@@ -25,6 +26,7 @@ class ticketBooking extends Model
         return [
             'ticket_price' => 'decimal:2',
             'status' => BookingStatusEnum::class,
+            'postponement_kept_for' => 'datetime',
         ];
     }
 
@@ -61,12 +63,21 @@ class ticketBooking extends Model
             return false;
         }
 
+        if ($this->event->isPostponed()) {
+            return false;
+        }
+
         return now()->gte(Carbon::parse($this->event->date)->startOfDay());
     }
 
     public function isCancellable(): bool
     {
         $this->loadMissing('event');
+
+        // Pre-postponement tickets use Keep / Full Refund instead of the normal cancel flow.
+        if ($this->event->isPostponed() && $this->wasPurchasedBeforeCurrentPostponement()) {
+            return false;
+        }
 
         return $this->status === BookingStatusEnum::Confirmed
             && $this->refundRequest === null
@@ -75,12 +86,51 @@ class ticketBooking extends Model
             && $this->event->refunds_allowed;
     }
 
+    /**
+     * Ticket existed when the event was postponed (buyer is affected by postponement).
+     */
+    public function wasPurchasedBeforeCurrentPostponement(): bool
+    {
+        $this->loadMissing('event');
+
+        if (! $this->event?->isPostponed() || ! $this->event->postponed_at || ! $this->created_at) {
+            return false;
+        }
+
+        return $this->created_at->lte($this->event->postponed_at);
+    }
+
+    public function isPostponementRefundable(): bool
+    {
+        $this->loadMissing(['event', 'refundRequest']);
+
+        return $this->status === BookingStatusEnum::Confirmed
+            && $this->refundRequest === null
+            && $this->wasPurchasedBeforeCurrentPostponement()
+            && ! $this->hasKeptCurrentPostponement();
+    }
+
+    public function hasKeptCurrentPostponement(): bool
+    {
+        $this->loadMissing('event');
+
+        if (! $this->wasPurchasedBeforeCurrentPostponement() || ! $this->postponement_kept_for) {
+            return false;
+        }
+
+        return $this->postponement_kept_for->equalTo($this->event->postponed_at);
+    }
+
     public function displayStatusLabel(): string
     {
         $this->loadMissing('event');
 
         if ($this->status === BookingStatusEnum::Confirmed && $this->event->isCompleted()) {
             return 'Completed';
+        }
+
+        if ($this->status === BookingStatusEnum::Confirmed && $this->wasPurchasedBeforeCurrentPostponement()) {
+            return 'Postponed';
         }
 
         return ucfirst(str_replace('_', ' ', $this->status->value));
@@ -92,6 +142,10 @@ class ticketBooking extends Model
 
         if ($this->status === BookingStatusEnum::Confirmed && $this->event->isCompleted()) {
             return 'bg-slate-200 text-slate-700';
+        }
+
+        if ($this->status === BookingStatusEnum::Confirmed && $this->wasPurchasedBeforeCurrentPostponement()) {
+            return 'bg-amber-100 text-amber-800';
         }
 
         if ($this->status === BookingStatusEnum::Confirmed) {

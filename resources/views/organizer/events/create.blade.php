@@ -142,19 +142,35 @@
                         </section>
 
                         {{-- Schedule & Venue --}}
-                        <section class="space-y-3 border-t border-gray-100 pt-5">
+                        <section class="space-y-3 border-t border-gray-100 pt-5" x-data="{ scheduleTba: {{ old('schedule_tba') ? 'true' : 'false' }} }">
                             <div>
                                 <h4 class="text-sm font-semibold text-gray-900">Schedule & Venue</h4>
-                                <p class="mt-0.5 text-xs text-gray-500">When and where the event takes place.</p>
+                                <p class="mt-0.5 text-xs text-gray-500">When and where the event takes place — or mark as not decided yet.</p>
                             </div>
 
-                            <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+                            <label class="flex items-start gap-3 rounded-xl border border-indigo-100 bg-indigo-50/50 px-3.5 py-3 text-sm text-slate-700">
+                                <input type="hidden" name="schedule_tba" value="0">
+                                <input type="checkbox"
+                                    name="schedule_tba"
+                                    value="1"
+                                    class="mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                    x-model="scheduleTba"
+                                    @checked((string) old('schedule_tba', '0') === '1')>
+                                <span>
+                                    <span class="font-semibold text-slate-900">Place, date &amp; time not decided yet</span>
+                                    <span class="mt-0.5 block text-xs text-slate-500">
+                                        Publish later as Upcoming with schedule TBA. You can confirm place/date/time anytime (like postponed events).
+                                    </span>
+                                </span>
+                            </label>
+
+                            <div class="grid grid-cols-1 gap-3 md:grid-cols-2" x-show="!scheduleTba" x-cloak>
                                 <div
                                     class="rounded-xl border border-gray-100 bg-gray-50/70 p-3 transition focus-within:border-indigo-200 focus-within:bg-white focus-within:shadow-sm">
                                     <label for="date" class="block text-xs font-semibold uppercase tracking-wide text-gray-500">Date</label>
                                     <input id="date" type="date" name="date" value="{{ old('date') }}"
                                         class="mt-1.5 block w-full rounded-xl border-gray-200 bg-white text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                        required>
+                                        :required="!scheduleTba">
                                     @error('date')
                                         <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                                     @enderror
@@ -165,7 +181,7 @@
                                     <label for="time" class="block text-xs font-semibold uppercase tracking-wide text-gray-500">Time</label>
                                     <input id="time" type="time" name="time" value="{{ old('time') }}"
                                         class="mt-1.5 block w-full rounded-xl border-gray-200 bg-white text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                        required>
+                                        :required="!scheduleTba">
                                     @error('time')
                                         <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                                     @enderror
@@ -176,12 +192,16 @@
                                     <label for="place" class="block text-xs font-semibold uppercase tracking-wide text-gray-500">Place</label>
                                     <input id="place" type="text" name="place" value="{{ old('place') }}"
                                         class="mt-1.5 block w-full rounded-xl border-gray-200 bg-white text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                        required data-title-case>
+                                        :required="!scheduleTba" data-title-case>
                                     @error('place')
                                         <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                                     @enderror
                                 </div>
                             </div>
+
+                            <p x-show="scheduleTba" x-cloak class="rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-sm text-amber-800">
+                                This event will be saved without a confirmed place, date, or time. Attendees will see that the schedule is coming soon after you publish it as Upcoming.
+                            </p>
                         </section>
 
                         {{-- Capacity & Contact --}}

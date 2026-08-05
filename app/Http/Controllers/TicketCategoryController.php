@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Event;
 use App\Models\ticketCategory;
+use App\Services\AdminNotificationService;
 use App\Services\EventNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -204,6 +205,12 @@ class ticketCategoryController extends Controller
         }
 
         $ticketCategory->delete();
+
+        app(AdminNotificationService::class)->notifyOrganizerCategoryDeleted(
+            $event,
+            $ticketCategory,
+            Auth::user(),
+        );
 
         return redirect()
             ->route('organizer.events.show', $event->id)

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\AdminNotificationCategory;
 use App\Enums\AttendeeNotificationCategory;
 use App\Enums\CroNotificationCategory;
 use App\Enums\OrganizerNotificationCategory;
@@ -19,9 +20,11 @@ class NotificationController extends Controller
         $user->loadMissing('userRole');
 
         $roleName = $user->userRole?->name_en;
+        $isAdmin = $roleName === UserRole::ADMIN;
         $isCro = $roleName === UserRole::CRO;
         $isOrganizer = $roleName === UserRole::ORGANIZER;
         $categoryClass = match (true) {
+            $isAdmin => AdminNotificationCategory::class,
             $isCro => CroNotificationCategory::class,
             $isOrganizer => OrganizerNotificationCategory::class,
             default => AttendeeNotificationCategory::class,
@@ -107,6 +110,7 @@ class NotificationController extends Controller
             'totalCount' => $totalCount,
             'unreadCount' => $unreadCount,
             'readCount' => max($totalCount - $unreadCount, 0),
+            'isAdmin' => $isAdmin,
             'isCro' => $isCro,
             'isOrganizer' => $isOrganizer,
         ]);

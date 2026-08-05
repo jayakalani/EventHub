@@ -3,9 +3,9 @@
 namespace App\Http\Middleware;
 
 use App\Models\User;
+use App\Services\AdminNotificationService;
 use Closure;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 use Symfony\Component\HttpFoundation\Response;
 
 class FailedLoginAttempts
@@ -65,6 +65,8 @@ class FailedLoginAttempts
                     'is_locked' => true,
                     'locked_until' => null, // No auto-unlock
                 ]);
+
+                app(AdminNotificationService::class)->notifyAccountLocked($user->fresh());
             } else {
                 $user->update([
                     'failed_attempts' => $failedAttempts,

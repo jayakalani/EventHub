@@ -10,6 +10,7 @@ use App\Models\EventView;
 use App\Models\Host;
 use App\Models\User;
 use App\Models\UserRole;
+use App\Services\AdminNotificationService;
 use App\Services\CroNotificationService;
 use App\Services\EventCancellationService;
 use App\Services\EventCompletionService;
@@ -29,6 +30,7 @@ class EventController extends Controller
         protected EventNotificationService $eventNotificationService,
         protected EventPostponementService $eventPostponementService,
         protected CroNotificationService $croNotificationService,
+        protected AdminNotificationService $adminNotificationService,
     ) {}
 
     /**
@@ -403,6 +405,12 @@ class EventController extends Controller
         $originalDate = (string) $event->date;
         $originalTime = (string) $event->time;
         $previousContactPersonId = (int) $event->contact_person;
+        $originalPaymentSettings = [
+            'refunds_allowed' => (bool) $event->refunds_allowed,
+            'refund_full_days_before_close' => (int) $event->refund_full_days_before_close,
+            'refund_full_percentage' => (int) $event->refund_full_percentage,
+            'refund_partial_percentage' => (int) $event->refund_partial_percentage,
+        ];
 
         $event->name = $validatedData['name'];
         $event->hosted_by = $validatedData['hosted_by'];
@@ -426,6 +434,8 @@ class EventController extends Controller
         $event->contact_person = $validatedData['contact_person'];
         $event->cover = $fileName ?? $event->cover;
 
+        $paymentSettingsChanged = false;
+
         if (! $policyLocked) {
             $refundsAllowed = $request->boolean('refunds_allowed');
             $event->refunds_allowed = $refundsAllowed;
@@ -438,9 +448,19 @@ class EventController extends Controller
             $event->refund_partial_percentage = $refundsAllowed
                 ? (int) $validatedData['refund_partial_percentage']
                 : $event->refund_partial_percentage;
+
+            $paymentSettingsChanged =
+                $originalPaymentSettings['refunds_allowed'] !== (bool) $event->refunds_allowed
+                || $originalPaymentSettings['refund_full_days_before_close'] !== (int) $event->refund_full_days_before_close
+                || $originalPaymentSettings['refund_full_percentage'] !== (int) $event->refund_full_percentage
+                || $originalPaymentSettings['refund_partial_percentage'] !== (int) $event->refund_partial_percentage;
         }
 
         $event->save();
+
+        if ($paymentSettingsChanged) {
+            $this->adminNotificationService->notifyPaymentSettingsChanged($event->fresh(), Auth::user());
+        }
 
         if ((int) $validatedData['contact_person'] !== $previousContactPersonId) {
             $this->croNotificationService->notifyEventAssigned($event->fresh());

@@ -7,6 +7,7 @@ use App\Models\EventCategory;
 use App\Models\EventCategorySubscription;
 use App\Models\ticketCategory;
 use App\Models\User;
+use App\Services\AdminNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use View;
@@ -210,10 +211,13 @@ class EventCategoryController extends Controller
     public function destroy(Request $request, $id)
     {
         $EventCategory = EventCategory::findOrFail($id);
+        $categoryName = $EventCategory->name;
 
         $EventCategory->delete();
 
-        return redirect()->route('admin.event-categories.index')->with('success', "Event category {$EventCategory->name} has been deleted.");
+        app(AdminNotificationService::class)->notifyCategoryDeleted($EventCategory, Auth::user());
+
+        return redirect()->route('admin.event-categories.index')->with('success', "Event category {$categoryName} has been deleted.");
 
     }
 }

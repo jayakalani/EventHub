@@ -1,6 +1,7 @@
 <x-app-layout>
     @php
         $glass = 'border border-white/60 bg-white/70 shadow-[0_8px_30px_rgba(15,23,42,0.06)] backdrop-blur-xl';
+        $isAdmin = $isAdmin ?? false;
         $isCro = $isCro ?? false;
         $isOrganizer = $isOrganizer ?? false;
         $categoryClass = $categoryClass ?? \App\Enums\AttendeeNotificationCategory::class;
@@ -15,6 +16,8 @@
             'interaction' => ['tile' => 'bg-rose-500/10 text-rose-600', 'bar' => 'from-rose-500 to-rose-300', 'pill' => 'bg-rose-600 text-white'],
             'wishlist' => ['tile' => 'bg-pink-500/10 text-pink-600', 'bar' => 'from-pink-500 to-pink-300', 'pill' => 'bg-pink-600 text-white'],
             'account' => ['tile' => 'bg-blue-500/10 text-blue-600', 'bar' => 'from-blue-500 to-blue-300', 'pill' => 'bg-blue-600 text-white'],
+            'audit' => ['tile' => 'bg-slate-500/10 text-slate-700', 'bar' => 'from-slate-600 to-slate-400', 'pill' => 'bg-slate-800 text-white'],
+            'security' => ['tile' => 'bg-rose-500/10 text-rose-600', 'bar' => 'from-rose-600 to-rose-400', 'pill' => 'bg-rose-600 text-white'],
         ];
 
         $toneByType = [
@@ -54,6 +57,10 @@
             'email_verified' => 'bg-emerald-50 text-emerald-700 ring-emerald-100',
             'password_changed' => 'bg-blue-50 text-blue-700 ring-blue-100',
             'profile_updated' => 'bg-sky-50 text-sky-700 ring-sky-100',
+            'category_deleted' => 'bg-slate-100 text-slate-700 ring-slate-200',
+            'payment_settings_changed' => 'bg-emerald-50 text-emerald-700 ring-emerald-100',
+            'account_locked' => 'bg-rose-50 text-rose-700 ring-rose-100',
+            'organizer_category_deleted' => 'bg-orange-50 text-orange-700 ring-orange-100',
         ];
 
         // Filters carried over when switching category (type is category-specific, so it resets).
@@ -68,6 +75,7 @@
 
         $selectClass = 'w-full rounded-xl border-white/70 bg-white/70 py-2.5 text-sm text-slate-700 shadow-sm backdrop-blur transition hover:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200';
         $categoryTabCols = match (true) {
+            $isAdmin => 'sm:grid-cols-3',
             $isCro => 'sm:grid-cols-3 lg:grid-cols-6',
             $isOrganizer => 'sm:grid-cols-3',
             default => 'sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-9',
@@ -87,7 +95,9 @@
                     @endif
                 </div>
                 <p class="mt-1 text-slate-500">
-                    @if ($isCro)
+                    @if ($isAdmin)
+                        Important audit activity and security alerts across the platform.
+                    @elseif ($isCro)
                         Customer relations updates for your assigned events and support queue.
                     @elseif ($isOrganizer)
                         Ticket and reminder updates for your events.
@@ -372,6 +382,8 @@
                     <p class="mt-1 text-sm text-slate-500">
                         @if ($hasActiveFilters)
                             Try a different type, status, or period.
+                        @elseif ($isAdmin)
+                            Important category deletions, payment-setting changes, and account lock alerts will appear here.
                         @elseif ($isCro)
                             Assignment, inquiry, complaint, refund, and event updates will appear here.
                         @elseif ($isOrganizer)

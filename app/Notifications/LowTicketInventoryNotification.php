@@ -35,6 +35,7 @@ class LowTicketInventoryNotification extends Notification
             : 'Low ticket inventory for "'.$this->event->name.'": only '.$this->remaining.' of '.$this->capacity.' left ('.$this->fillRate.'% sold).';
 
         return [
+            'category' => 'ticket',
             'type' => 'low_ticket_inventory',
             'event_id' => $this->event->id,
             'event_name' => $this->event->name,

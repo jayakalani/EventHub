@@ -2,6 +2,7 @@
     @php
         $glass = 'border border-white/60 bg-white/70 shadow-[0_8px_30px_rgba(15,23,42,0.06)] backdrop-blur-xl';
         $isCro = $isCro ?? false;
+        $isOrganizer = $isOrganizer ?? false;
         $categoryClass = $categoryClass ?? \App\Enums\AttendeeNotificationCategory::class;
 
         $accents = [
@@ -22,6 +23,10 @@
             'complaint_submitted' => 'bg-rose-50 text-rose-700 ring-rose-100',
             'refund_request_submitted' => 'bg-teal-50 text-teal-700 ring-teal-100',
             'event_starts_tomorrow' => 'bg-amber-50 text-amber-700 ring-amber-100',
+            'event_starts_in_one_hour' => 'bg-orange-50 text-orange-700 ring-orange-100',
+            'ticket_category_sold_out' => 'bg-rose-50 text-rose-700 ring-rose-100',
+            'ticket_sales_closing_soon' => 'bg-amber-50 text-amber-800 ring-amber-100',
+            'low_ticket_inventory' => 'bg-orange-50 text-orange-700 ring-orange-100',
             'ticket_purchased' => 'bg-emerald-50 text-emerald-700 ring-emerald-100',
             'ticket_cancelled' => 'bg-rose-50 text-rose-700 ring-rose-100',
             'ticket_refunded' => 'bg-sky-50 text-sky-700 ring-sky-100',
@@ -62,9 +67,11 @@
         $carriedWithType = array_filter(array_merge($carriedFilters, ['type' => $filters['type']]));
 
         $selectClass = 'w-full rounded-xl border-white/70 bg-white/70 py-2.5 text-sm text-slate-700 shadow-sm backdrop-blur transition hover:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200';
-        $categoryTabCols = $isCro
-            ? 'sm:grid-cols-3 lg:grid-cols-6'
-            : 'sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-9';
+        $categoryTabCols = match (true) {
+            $isCro => 'sm:grid-cols-3 lg:grid-cols-6',
+            $isOrganizer => 'sm:grid-cols-3',
+            default => 'sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-9',
+        };
     @endphp
 
     <x-slot name="header">
@@ -82,6 +89,8 @@
                 <p class="mt-1 text-slate-500">
                     @if ($isCro)
                         Customer relations updates for your assigned events and support queue.
+                    @elseif ($isOrganizer)
+                        Ticket and reminder updates for your events.
                     @else
                         All your EventHub updates, organized by category.
                     @endif
@@ -365,6 +374,8 @@
                             Try a different type, status, or period.
                         @elseif ($isCro)
                             Assignment, inquiry, complaint, refund, and event updates will appear here.
+                        @elseif ($isOrganizer)
+                            Sold-out ticket categories and automatic event reminders for your events will appear here.
                         @else
                             Updates about your tickets, payments, and saved events will appear here.
                         @endif

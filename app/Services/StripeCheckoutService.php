@@ -187,6 +187,7 @@ class StripeCheckoutService
             }
 
             $purchasedEventIds = $cartItems->pluck('event_id')->unique()->filter()->values()->all();
+            $soldOutCategoryIds = [];
 
             foreach ($cartItems as $cartItem) {
                 $category = ticketCategory::query()
@@ -212,6 +213,12 @@ class StripeCheckoutService
                 }
 
                 $category->decrement('no_of_available_tickets', $cartItem->quantity);
+                $category->refresh();
+
+                if ((int) $category->no_of_available_tickets <= 0) {
+                    $soldOutCategoryIds[] = $category->id;
+                }
+
                 $cartItem->delete();
             }
 
@@ -220,12 +227,20 @@ class StripeCheckoutService
                 'stripe_payment_intent_id' => $stripePaymentIntentId,
             ]);
 
-            DB::afterCommit(function () use ($payment, $purchasedEventIds) {
+            DB::afterCommit(function () use ($payment, $purchasedEventIds, $soldOutCategoryIds) {
                 $payment->loadMissing('user');
                 Mail::to($payment->user)->queue(new TicketPurchaseConfirmationMail($payment));
                 $payment->user->notify(new \App\Notifications\TicketPurchasedNotification($payment));
                 $payment->user->notify(new \App\Notifications\PaymentSuccessfulNotification($payment));
                 app(OrganizerDashboardService::class)->notifyLowInventoryForEvents($purchasedEventIds);
+
+                $organizerNotifications = app(OrganizerNotificationService::class);
+                foreach (array_unique($soldOutCategoryIds) as $categoryId) {
+                    $soldOutCategory = ticketCategory::query()->find($categoryId);
+                    if ($soldOutCategory) {
+                        $organizerNotifications->notifyTicketCategorySoldOut($soldOutCategory);
+                    }
+                }
             });
         });
     }

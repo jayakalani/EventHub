@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\AttendeeNotificationCategory;
 use App\Enums\CroNotificationCategory;
+use App\Enums\OrganizerNotificationCategory;
 use App\Models\UserRole;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -17,10 +18,14 @@ class NotificationController extends Controller
         $user = Auth::user();
         $user->loadMissing('userRole');
 
-        $isCro = $user->userRole?->name_en === UserRole::CRO;
-        $categoryClass = $isCro
-            ? CroNotificationCategory::class
-            : AttendeeNotificationCategory::class;
+        $roleName = $user->userRole?->name_en;
+        $isCro = $roleName === UserRole::CRO;
+        $isOrganizer = $roleName === UserRole::ORGANIZER;
+        $categoryClass = match (true) {
+            $isCro => CroNotificationCategory::class,
+            $isOrganizer => OrganizerNotificationCategory::class,
+            default => AttendeeNotificationCategory::class,
+        };
 
         $activeCategory = $categoryClass::tryFrom($request->string('category')->toString());
 
@@ -103,6 +108,7 @@ class NotificationController extends Controller
             'unreadCount' => $unreadCount,
             'readCount' => max($totalCount - $unreadCount, 0),
             'isCro' => $isCro,
+            'isOrganizer' => $isOrganizer,
         ]);
     }
 

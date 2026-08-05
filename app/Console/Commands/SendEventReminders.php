@@ -11,7 +11,7 @@ class SendEventReminders extends Command
 {
     protected $signature = 'events:send-reminders';
 
-    protected $description = 'Send event reminder notifications to ticket holders (1 day and 2 hours before start)';
+    protected $description = 'Send event reminders to ticket holders (7 days, 1 day, and 3 hours before start)';
 
     public function handle(EventNotificationService $eventNotificationService): int
     {
@@ -19,8 +19,11 @@ class SendEventReminders extends Command
             ->whereIn('status', [Event::STATUS_UPCOMING, Event::STATUS_ONGOING])
             ->get();
 
-        $oneDayCount = 0;
-        $twoHourCount = 0;
+        $counts = [
+            EventReminderTypeEnum::SevenDays->value => 0,
+            EventReminderTypeEnum::OneDay->value => 0,
+            EventReminderTypeEnum::ThreeHours->value => 0,
+        ];
 
         foreach ($events as $event) {
             $startsAt = $event->startsAt();
@@ -30,13 +33,14 @@ class SendEventReminders extends Command
             }
 
             $hoursUntil = now()->diffInHours($startsAt, false);
-
             $reminderType = null;
 
-            if ($hoursUntil >= 23 && $hoursUntil < 25) {
+            if ($hoursUntil >= (7 * 24 - 1) && $hoursUntil < (7 * 24 + 1)) {
+                $reminderType = EventReminderTypeEnum::SevenDays;
+            } elseif ($hoursUntil >= 23 && $hoursUntil < 25) {
                 $reminderType = EventReminderTypeEnum::OneDay;
-            } elseif ($hoursUntil >= 1 && $hoursUntil < 3) {
-                $reminderType = EventReminderTypeEnum::TwoHours;
+            } elseif ($hoursUntil >= 2 && $hoursUntil < 4) {
+                $reminderType = EventReminderTypeEnum::ThreeHours;
             }
 
             if ($reminderType === null) {
@@ -47,16 +51,16 @@ class SendEventReminders extends Command
 
             foreach ($recipients as $user) {
                 $eventNotificationService->sendReminder($event, $user, $reminderType);
-
-                if ($reminderType === EventReminderTypeEnum::OneDay) {
-                    $oneDayCount++;
-                } else {
-                    $twoHourCount++;
-                }
+                $counts[$reminderType->value]++;
             }
         }
 
-        $this->info("Sent {$oneDayCount} one-day reminder(s) and {$twoHourCount} two-hour reminder(s).");
+        $this->info(sprintf(
+            'Sent %d seven-day, %d one-day, and %d three-hour reminder(s).',
+            $counts[EventReminderTypeEnum::SevenDays->value],
+            $counts[EventReminderTypeEnum::OneDay->value],
+            $counts[EventReminderTypeEnum::ThreeHours->value],
+        ));
 
         return self::SUCCESS;
     }

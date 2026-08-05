@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Event;
 use App\Models\ticketCategory;
+use App\Services\EventNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -90,6 +91,11 @@ class ticketCategoryController extends Controller
             'booking_end' => $validatedData['booking_end'] ?? null,
         ]);
 
+        if ($ticketCategory->isSalesOpenNow()) {
+            $event->unsetRelation('ticketCategories');
+            app(EventNotificationService::class)->notifyTicketSalesOpened($event);
+        }
+
         return redirect()
             ->route('organizer.events.show', $validatedData['event_id'])
             ->with('status', 'New ticket Category was added successfully.');
@@ -147,6 +153,8 @@ class ticketCategoryController extends Controller
                 ->withInput();
         }
 
+        $wasSalesOpen = $ticketCategory->isSalesOpenNow();
+
         // Update fields
         $ticketCategory->name = $validatedData['name'];
         $ticketCategory->description = $validatedData['description'] ?? null;
@@ -167,6 +175,11 @@ class ticketCategoryController extends Controller
         }
 
         $ticketCategory->save();
+
+        if (! $wasSalesOpen && $ticketCategory->fresh()->isSalesOpenNow()) {
+            $event->unsetRelation('ticketCategories');
+            app(EventNotificationService::class)->notifyTicketSalesOpened($event);
+        }
 
         return redirect()
             ->route('organizer.events.show', $event->id)

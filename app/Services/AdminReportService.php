@@ -144,21 +144,21 @@ class AdminReportService
     /**
      * @return array<string, mixed>
      */
-    public function getAllReports(): array
+    public function getAllReports(?int $organizerId = null, ?int $eventId = null): array
     {
-        $admin = $this->getAdminReports();
+        $scopeFilter = $this->resolveScopeFilter($organizerId, $eventId);
+        $admin = $this->getAdminReports($scopeFilter);
         $users = $this->getUserReports();
-        $payments = $this->getPaymentReports();
-        $system = $this->getSystemReports();
+        $payments = $this->getPaymentReports($scopeFilter);
 
         return [
             'admin' => $admin,
             'users' => $users,
             'payments' => $payments,
-            'system' => $system,
+            'scopeFilter' => $scopeFilter,
             'chartLabels' => $this->lastSixMonthLabels(),
             'chartLabelsShort' => $this->lastSixMonthShortLabels(),
-            'overview' => $this->getReportsOverview($admin, $users, $payments, $system),
+            'overview' => $this->getReportsOverview($admin, $users, $payments, $scopeFilter),
         ];
     }
 
@@ -166,20 +166,35 @@ class AdminReportService
      * @param  array<string, mixed>  $admin
      * @param  array<string, mixed>  $users
      * @param  array<string, mixed>  $payments
-     * @param  array<string, mixed>  $system
+     * @param  array{
+     *     scope: string,
+     *     organizers: list<array{id: int, name: string}>,
+     *     events: list<array{id: int, name: string}>,
+     *     selectedOrganizerId: int|null,
+     *     selectedOrganizerName: string|null,
+     *     selectedEventId: int|null,
+     *     selectedEventName: string|null
+     * }  $scopeFilter
      * @return array<string, mixed>
      */
-    private function getReportsOverview(array $admin, array $users, array $payments, array $system): array
-    {
+    private function getReportsOverview(
+        array $admin,
+        array $users,
+        array $payments,
+        array $scopeFilter,
+    ): array {
         $today = today();
         $organizerRoleId = UserRole::query()->where('name_en', UserRole::ORGANIZER)->value('id');
+        $isScoped = ($scopeFilter['scope'] ?? 'global') !== 'global';
 
         $newUsersToday = User::query()->whereDate('created_at', $today)->count();
-        $newEventsToday = Event::query()->whereDate('created_at', $today)->count();
-        $newEventsThisWeek = Event::query()
+        $newEventsToday = $this->scopedEventsQuery($scopeFilter)
+            ->whereDate('created_at', $today)
+            ->count();
+        $newEventsThisWeek = $this->scopedEventsQuery($scopeFilter)
             ->where('created_at', '>=', now()->startOfWeek())
             ->count();
-        $ticketsSoldToday = ticketBooking::query()
+        $ticketsSoldToday = $this->scopedBookingsQuery($scopeFilter)
             ->where('status', BookingStatusEnum::Confirmed)
             ->whereDate('created_at', $today)
             ->count();
@@ -194,11 +209,11 @@ class AdminReportService
                 ->count()
             : 0;
 
-        $currentMonthRevenue = (float) Payment::query()
+        $currentMonthRevenue = (float) $this->scopedPaymentsQuery($scopeFilter)
             ->where('status', PaymentStatusEnum::Completed)
             ->where('created_at', '>=', now()->startOfMonth())
             ->sum('amount');
-        $previousMonthRevenue = (float) Payment::query()
+        $previousMonthRevenue = (float) $this->scopedPaymentsQuery($scopeFilter)
             ->where('status', PaymentStatusEnum::Completed)
             ->whereBetween('created_at', [
                 now()->subMonth()->startOfMonth(),
@@ -211,25 +226,40 @@ class AdminReportService
             : ($currentMonthRevenue > 0 ? 100.0 : 0.0);
 
         $totalUsers = max(1, (int) $users['totalUsers']);
-        $roleBreakdown = collect($users['usersByRole'])
-            ->map(fn (array $role) => [
-                'label' => $role['label'],
-                'count' => (int) $role['count'],
-                'percent' => round(((int) $role['count'] / $totalUsers) * 100, 1),
-            ])
-            ->values()
-            ->all();
+        $roleBreakdown = $isScoped
+            ? []
+            : collect($users['usersByRole'])
+                ->map(fn (array $role) => [
+                    'label' => $role['label'],
+                    'count' => (int) $role['count'],
+                    'percent' => round(((int) $role['count'] / $totalUsers) * 100, 1),
+                ])
+                ->values()
+                ->all();
+
+        $uniqueAttendees = (int) $this->scopedBookingsQuery($scopeFilter)
+            ->where('status', BookingStatusEnum::Confirmed)
+            ->distinct('user_id')
+            ->count('user_id');
+
+        $attendeesToday = (int) $this->scopedBookingsQuery($scopeFilter)
+            ->where('status', BookingStatusEnum::Confirmed)
+            ->whereDate('created_at', $today)
+            ->distinct('user_id')
+            ->count('user_id');
 
         return [
             'highlights' => [
-                'newUsers' => $newUsersToday,
+                'newUsers' => $isScoped ? $attendeesToday : $newUsersToday,
                 'newEvents' => $newEventsToday,
                 'ticketsSold' => $ticketsSoldToday,
-                'pendingOrganizerApprovals' => $pendingOrganizerApprovals,
+                'pendingOrganizerApprovals' => $isScoped ? 0 : $pendingOrganizerApprovals,
             ],
             'kpis' => [
-                'totalUsers' => (int) $admin['totalUsers'],
-                'usersToday' => $newUsersToday,
+                'totalUsers' => $isScoped ? $uniqueAttendees : (int) $admin['totalUsers'],
+                'usersToday' => $isScoped ? $attendeesToday : $newUsersToday,
+                'usersLabel' => $isScoped ? 'Attendees' : 'Total Users',
+                'usersSubLabel' => $isScoped ? 'with ticket purchases today' : 'Today',
                 'roleBreakdown' => $roleBreakdown,
                 'totalEvents' => (int) $admin['totalEvents'],
                 'eventsThisWeek' => $newEventsThisWeek,
@@ -253,13 +283,13 @@ class AdminReportService
                     ->values()
                     ->all(),
             ],
-            'ticketSalesWeekly' => $this->weeklyTicketSales(),
+            'ticketSalesWeekly' => $this->weeklyTicketSales($scopeFilter),
+            'ticketSalesTrend' => $this->ticketSalesTrendSeries($scopeFilter),
             'recentUsers' => array_slice($users['recentUsers'], 0, 6),
-            'organizerPerformance' => $this->getOrganizerPerformance(5),
-            'recentPayments' => $this->getOverviewRecentPayments(6),
-            'recentAuditLogs' => array_slice($system['recentAuditLogs'] ?? [], 0, 6),
+            'organizerPerformance' => $this->getOrganizerPerformance(5, $scopeFilter),
+            'recentPayments' => $this->getOverviewRecentPayments(6, $scopeFilter),
             'platformStatus' => $this->getPlatformStatus(),
-            'eventsByCategory' => $this->eventsByCategory(8),
+            'eventsByCategory' => $this->eventsByCategory(8, $scopeFilter),
         ];
     }
 
@@ -328,11 +358,18 @@ class AdminReportService
     }
 
     /**
+     * @param  array{
+     *     scope: string,
+     *     selectedOrganizerId: int|null,
+     *     selectedEventId: int|null
+     * }|null  $scopeFilter
      * @return list<array{customer: string, event: string, amount: float, status: string, statusLabel: string}>
      */
-    private function getOverviewRecentPayments(int $limit = 6): array
+    private function getOverviewRecentPayments(int $limit = 6, ?array $scopeFilter = null): array
     {
-        return Payment::query()
+        $scopeFilter ??= $this->globalScopeFilter();
+
+        return $this->scopedPaymentsQuery($scopeFilter)
             ->with(['user', 'ticketBookings.event'])
             ->latest()
             ->limit($limit)
@@ -365,35 +402,53 @@ class AdminReportService
     }
 
     /**
+     * @param  array{
+     *     scope: string,
+     *     selectedOrganizerId: int|null,
+     *     selectedEventId: int|null
+     * }|null  $scopeFilter
      * @return array<string, mixed>
      */
-    public function getAdminReports(): array
+    public function getAdminReports(?array $scopeFilter = null): array
     {
-        $totalRevenue = (float) Payment::where('status', PaymentStatusEnum::Completed)->sum('amount');
-        $totalRefunded = (float) RefundRequest::where('status', RefundRequestStatusEnum::Approved)->sum('refund_amount');
+        $scopeFilter ??= $this->globalScopeFilter();
+        $isScoped = ($scopeFilter['scope'] ?? 'global') !== 'global';
+
+        $completedRevenue = (float) $this->scopedPaymentsQuery($scopeFilter)
+            ->where('status', PaymentStatusEnum::Completed)
+            ->sum('amount');
+        $totalRefunded = (float) $this->scopedRefundAmount($scopeFilter);
+
+        $hostsQuery = Host::query();
+        if ($isScoped) {
+            $hostsQuery->where(function ($query) use ($scopeFilter) {
+                if ($scopeFilter['scope'] === 'event' && $scopeFilter['selectedEventId']) {
+                    $query->whereHas('events', fn ($eventQuery) => $eventQuery->where('events.id', $scopeFilter['selectedEventId']));
+                } elseif ($scopeFilter['selectedOrganizerId']) {
+                    $query->where('created_by', $scopeFilter['selectedOrganizerId']);
+                }
+            });
+        }
+
+        $categoriesCount = $isScoped
+            ? (int) $this->scopedEventsQuery($scopeFilter)->whereNotNull('category_id')->distinct()->count('category_id')
+            : EventCategory::count();
 
         return [
             'totalUsers' => User::count(),
-            'totalEvents' => Event::count(),
-            'totalHosts' => Host::count(),
-            'totalCategories' => EventCategory::count(),
-            'totalTicketsSold' => ticketBooking::count(),
-            'totalRevenue' => $totalRevenue,
-            'netRevenue' => $totalRevenue - $totalRefunded,
-            'eventsByStatus' => $this->eventsByStatus(),
+            'totalEvents' => $this->scopedEventsQuery($scopeFilter)->count(),
+            'totalHosts' => $hostsQuery->count(),
+            'totalCategories' => $categoriesCount,
+            'totalTicketsSold' => $this->scopedBookingsQuery($scopeFilter)
+                ->where('status', BookingStatusEnum::Confirmed)
+                ->count(),
+            'totalRevenue' => $completedRevenue,
+            'netRevenue' => $completedRevenue - $totalRefunded,
+            'eventsByStatus' => $this->eventsByStatus($scopeFilter),
             'platformGrowth' => $this->monthlyCounts(User::class),
-            'eventGrowth' => $this->monthlyCounts(Event::class),
-            'ticketSalesTrend' => $this->monthlyCounts(ticketBooking::class),
-            'topCategories' => Event::query()
-                ->join('event_categories', 'events.category_id', '=', 'event_categories.id')
-                ->select('event_categories.name as label', DB::raw('COUNT(*) as count'))
-                ->groupBy('event_categories.name')
-                ->orderByDesc('count')
-                ->limit(5)
-                ->get()
-                ->map(fn ($row) => ['label' => $row->label, 'count' => (int) $row->count])
-                ->values()
-                ->all(),
+            'eventGrowth' => $this->monthlyScopedEventCounts($scopeFilter),
+            'ticketSalesTrend' => $this->monthlyScopedBookingCounts($scopeFilter),
+            'topCategories' => $this->eventsByCategory(5, $scopeFilter),
         ];
     }
 
@@ -435,29 +490,50 @@ class AdminReportService
     }
 
     /**
+     * @param  array{
+     *     scope: string,
+     *     selectedOrganizerId: int|null,
+     *     selectedEventId: int|null
+     * }|null  $scopeFilter
      * @return array<string, mixed>
      */
-    public function getPaymentReports(): array
+    public function getPaymentReports(?array $scopeFilter = null): array
     {
-        $completedRevenue = (float) Payment::where('status', PaymentStatusEnum::Completed)->sum('amount');
-        $pendingAmount = (float) Payment::where('status', PaymentStatusEnum::Pending)->sum('amount');
-        $totalRefunded = (float) RefundRequest::where('status', RefundRequestStatusEnum::Approved)->sum('refund_amount');
-        $pendingRefunds = RefundRequest::where('status', RefundRequestStatusEnum::Pending)->count();
+        $scopeFilter ??= $this->globalScopeFilter();
+
+        $completedRevenue = (float) $this->scopedPaymentsQuery($scopeFilter)
+            ->where('status', PaymentStatusEnum::Completed)
+            ->sum('amount');
+        $pendingAmount = (float) $this->scopedPaymentsQuery($scopeFilter)
+            ->where('status', PaymentStatusEnum::Pending)
+            ->sum('amount');
+        $totalRefunded = (float) $this->scopedRefundAmount($scopeFilter);
+        $pendingRefunds = RefundRequest::query()
+            ->where('status', RefundRequestStatusEnum::Pending)
+            ->when(($scopeFilter['scope'] ?? 'global') !== 'global', function ($query) use ($scopeFilter) {
+                $query->whereHas('ticketBooking.event', function ($eventQuery) use ($scopeFilter) {
+                    $this->applyEventScope($eventQuery, $scopeFilter);
+                });
+            })
+            ->count();
 
         return [
             'totalRevenue' => $completedRevenue,
-            'pendingPayments' => Payment::where('status', PaymentStatusEnum::Pending)->count(),
+            'pendingPayments' => $this->scopedPaymentCountByStatus($scopeFilter, PaymentStatusEnum::Pending),
             'pendingAmount' => $pendingAmount,
-            'failedPayments' => Payment::where('status', PaymentStatusEnum::Failed)->count(),
-            'cancelledPayments' => Payment::where('status', PaymentStatusEnum::Cancelled)->count(),
-            'ticketsSold' => ticketBooking::count(),
+            'failedPayments' => $this->scopedPaymentCountByStatus($scopeFilter, PaymentStatusEnum::Failed),
+            'cancelledPayments' => $this->scopedPaymentCountByStatus($scopeFilter, PaymentStatusEnum::Cancelled),
+            'ticketsSold' => $this->scopedBookingsQuery($scopeFilter)
+                ->where('status', BookingStatusEnum::Confirmed)
+                ->count(),
             'totalRefunded' => $totalRefunded,
             'pendingRefunds' => $pendingRefunds,
             'netRevenue' => $completedRevenue - $totalRefunded,
-            'revenueTrend' => $this->monthlyPaymentRevenue(),
-            'paymentsByStatus' => $this->paymentsByStatus(),
-            'paymentsByMethod' => $this->paymentsByMethod(),
-            'recentPayments' => Payment::with('user')
+            'revenueTrend' => $this->monthlyPaymentRevenue($scopeFilter),
+            'paymentsByStatus' => $this->paymentsByStatus($scopeFilter),
+            'paymentsByMethod' => $this->paymentsByMethod($scopeFilter),
+            'recentPayments' => $this->scopedPaymentsQuery($scopeFilter)
+                ->with('user')
                 ->latest()
                 ->limit(8)
                 ->get()
@@ -949,14 +1025,97 @@ class AdminReportService
      */
     private function scopedPaymentsQuery(array $scopeFilter)
     {
-        return Payment::query()
-            ->whereHas('ticketBookings.event', function ($eventQuery) use ($scopeFilter) {
-                if ($scopeFilter['scope'] === 'event' && $scopeFilter['selectedEventId']) {
-                    $eventQuery->where('events.id', $scopeFilter['selectedEventId']);
-                } elseif ($scopeFilter['selectedOrganizerId']) {
-                    $eventQuery->where('events.created_by', $scopeFilter['selectedOrganizerId']);
-                }
+        $query = Payment::query();
+
+        if (($scopeFilter['scope'] ?? 'global') === 'global') {
+            return $query;
+        }
+
+        return $query->whereHas('ticketBookings.event', function ($eventQuery) use ($scopeFilter) {
+            $this->applyEventScope($eventQuery, $scopeFilter);
+        });
+    }
+
+    /**
+     * @param  array{scope: string, selectedOrganizerId: int|null, selectedEventId: int|null}  $scopeFilter
+     */
+    private function applyEventScope($eventQuery, array $scopeFilter): void
+    {
+        if ($scopeFilter['scope'] === 'event' && $scopeFilter['selectedEventId']) {
+            $eventQuery->where($eventQuery->getModel()->getTable().'.id', $scopeFilter['selectedEventId']);
+        } elseif ($scopeFilter['selectedOrganizerId']) {
+            $eventQuery->where($eventQuery->getModel()->getTable().'.created_by', $scopeFilter['selectedOrganizerId']);
+        }
+    }
+
+    /**
+     * @param  array{scope: string, selectedOrganizerId: int|null, selectedEventId: int|null}  $scopeFilter
+     * @return \Illuminate\Database\Eloquent\Builder<\App\Models\Event>
+     */
+    private function scopedEventsQuery(array $scopeFilter)
+    {
+        $query = Event::query();
+        $this->applyEventScope($query, $scopeFilter);
+
+        return $query;
+    }
+
+    /**
+     * @param  array{scope: string, selectedOrganizerId: int|null, selectedEventId: int|null}  $scopeFilter
+     * @return \Illuminate\Database\Eloquent\Builder<\App\Models\ticketBooking>
+     */
+    private function scopedBookingsQuery(array $scopeFilter)
+    {
+        $query = ticketBooking::query();
+
+        if (($scopeFilter['scope'] ?? 'global') === 'global') {
+            return $query;
+        }
+
+        return $query->whereHas('event', function ($eventQuery) use ($scopeFilter) {
+            $this->applyEventScope($eventQuery, $scopeFilter);
+        });
+    }
+
+    /**
+     * @param  array{scope: string, selectedOrganizerId: int|null, selectedEventId: int|null}  $scopeFilter
+     */
+    private function scopedRefundAmount(array $scopeFilter): float
+    {
+        $query = RefundRequest::query()
+            ->where('status', RefundRequestStatusEnum::Approved);
+
+        if (($scopeFilter['scope'] ?? 'global') !== 'global') {
+            $query->whereHas('ticketBooking.event', function ($eventQuery) use ($scopeFilter) {
+                $this->applyEventScope($eventQuery, $scopeFilter);
             });
+        }
+
+        return (float) $query->sum('refund_amount');
+    }
+
+    /**
+     * @return array{
+     *     scope: string,
+     *     organizers: list<array{id: int, name: string}>,
+     *     events: list<array{id: int, name: string}>,
+     *     selectedOrganizerId: int|null,
+     *     selectedOrganizerName: string|null,
+     *     selectedEventId: int|null,
+     *     selectedEventName: string|null
+     * }
+     */
+    private function globalScopeFilter(): array
+    {
+        return [
+            'scope' => 'global',
+            'organizers' => [],
+            'events' => [],
+            'selectedOrganizerId' => null,
+            'selectedOrganizerName' => null,
+            'selectedEventId' => null,
+            'selectedEventName' => null,
+        ];
     }
 
     /**
@@ -983,18 +1142,49 @@ class AdminReportService
     }
 
     /**
+     * @param  array{scope: string, selectedOrganizerId: int|null, selectedEventId: int|null}|null  $scopeFilter
+     * @return array{
+     *     weekly: list<array{label: string, count: int}>,
+     *     monthly: list<array{label: string, count: int}>,
+     *     yearly: list<array{label: string, count: int}>
+     * }
+     */
+    private function ticketSalesTrendSeries(?array $scopeFilter = null): array
+    {
+        $scopeFilter ??= $this->globalScopeFilter();
+
+        return [
+            'weekly' => $this->ticketSalesByWeeks(12, $scopeFilter),
+            'monthly' => $this->ticketSalesByMonths(12, $scopeFilter),
+            'yearly' => $this->ticketSalesByYears(5, $scopeFilter),
+        ];
+    }
+
+    /**
+     * @param  array{scope: string, selectedOrganizerId: int|null, selectedEventId: int|null}|null  $scopeFilter
      * @return list<array{label: string, count: int}>
      */
-    private function weeklyTicketSales(): array
+    private function weeklyTicketSales(?array $scopeFilter = null): array
     {
-        return collect(range(3, 0))
-            ->map(function (int $weeksAgo, int $index) {
+        return $this->ticketSalesByWeeks(4, $scopeFilter);
+    }
+
+    /**
+     * @param  array{scope: string, selectedOrganizerId: int|null, selectedEventId: int|null}|null  $scopeFilter
+     * @return list<array{label: string, count: int}>
+     */
+    private function ticketSalesByWeeks(int $weeks, ?array $scopeFilter = null): array
+    {
+        $scopeFilter ??= $this->globalScopeFilter();
+
+        return collect(range($weeks - 1, 0))
+            ->map(function (int $weeksAgo) use ($scopeFilter) {
                 $start = now()->subWeeks($weeksAgo)->startOfWeek();
                 $end = now()->subWeeks($weeksAgo)->endOfWeek();
 
                 return [
-                    'label' => 'Week '.($index + 1),
-                    'count' => ticketBooking::query()
+                    'label' => $start->format('M j'),
+                    'count' => $this->scopedBookingsQuery($scopeFilter)
                         ->where('status', BookingStatusEnum::Confirmed)
                         ->whereBetween('created_at', [$start, $end])
                         ->count(),
@@ -1005,17 +1195,69 @@ class AdminReportService
     }
 
     /**
+     * @param  array{scope: string, selectedOrganizerId: int|null, selectedEventId: int|null}|null  $scopeFilter
+     * @return list<array{label: string, count: int}>
+     */
+    private function ticketSalesByMonths(int $months, ?array $scopeFilter = null): array
+    {
+        $scopeFilter ??= $this->globalScopeFilter();
+
+        return collect(range($months - 1, 0))
+            ->map(function (int $monthsAgo) use ($scopeFilter) {
+                $start = now()->subMonthsNoOverflow($monthsAgo)->startOfMonth();
+                $end = now()->subMonthsNoOverflow($monthsAgo)->endOfMonth();
+
+                return [
+                    'label' => $start->format('M Y'),
+                    'count' => $this->scopedBookingsQuery($scopeFilter)
+                        ->where('status', BookingStatusEnum::Confirmed)
+                        ->whereBetween('created_at', [$start, $end])
+                        ->count(),
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  array{scope: string, selectedOrganizerId: int|null, selectedEventId: int|null}|null  $scopeFilter
+     * @return list<array{label: string, count: int}>
+     */
+    private function ticketSalesByYears(int $years, ?array $scopeFilter = null): array
+    {
+        $scopeFilter ??= $this->globalScopeFilter();
+
+        return collect(range($years - 1, 0))
+            ->map(function (int $yearsAgo) use ($scopeFilter) {
+                $start = now()->subYearsNoOverflow($yearsAgo)->startOfYear();
+                $end = now()->subYearsNoOverflow($yearsAgo)->endOfYear();
+
+                return [
+                    'label' => $start->format('Y'),
+                    'count' => $this->scopedBookingsQuery($scopeFilter)
+                        ->where('status', BookingStatusEnum::Confirmed)
+                        ->whereBetween('created_at', [$start, $end])
+                        ->count(),
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  array{scope: string, selectedOrganizerId: int|null, selectedEventId: int|null}|null  $scopeFilter
      * @return list<array{name: string, events: int, ticketsSold: int, revenue: float, revenueLabel: string}>
      */
-    private function getOrganizerPerformance(int $limit = 5): array
+    private function getOrganizerPerformance(int $limit = 5, ?array $scopeFilter = null): array
     {
+        $scopeFilter ??= $this->globalScopeFilter();
         $organizerRoleId = UserRole::query()->where('name_en', UserRole::ORGANIZER)->value('id');
 
         if (! $organizerRoleId) {
             return [];
         }
 
-        return User::query()
+        $query = User::query()
             ->where('users.role_id', $organizerRoleId)
             ->leftJoin('events', 'events.created_by', '=', 'users.id')
             ->leftJoin('ticket_bookings', function ($join) {
@@ -1030,7 +1272,15 @@ class AdminReportService
                 DB::raw('COUNT(ticket_bookings.id) as tickets_sold'),
                 DB::raw('COALESCE(SUM(ticket_bookings.ticket_price), 0) as revenue'),
             )
-            ->groupBy('users.id', 'users.first_name', 'users.last_name')
+            ->groupBy('users.id', 'users.first_name', 'users.last_name');
+
+        if (($scopeFilter['scope'] ?? 'global') === 'event' && $scopeFilter['selectedEventId']) {
+            $query->where('events.id', $scopeFilter['selectedEventId']);
+        } elseif ($scopeFilter['selectedOrganizerId']) {
+            $query->where('users.id', $scopeFilter['selectedOrganizerId']);
+        }
+
+        return $query
             ->orderByDesc('revenue')
             ->orderByDesc('tickets_sold')
             ->limit($limit)
@@ -1091,16 +1341,18 @@ class AdminReportService
     }
 
     /**
-     * @return list<int>
+     * @param  array{scope: string, selectedOrganizerId: int|null, selectedEventId: int|null}|null  $scopeFilter
+     * @return list<float>
      */
-    private function monthlyPaymentRevenue(): array
+    private function monthlyPaymentRevenue(?array $scopeFilter = null): array
     {
+        $scopeFilter ??= $this->globalScopeFilter();
         $keys = $this->lastSixMonthKeys();
 
-        $totals = Payment::query()
+        $totals = $this->scopedPaymentsQuery($scopeFilter)
             ->where('status', PaymentStatusEnum::Completed)
             ->where('created_at', '>=', now()->subMonths(5)->startOfMonth())
-            ->selectRaw("DATE_FORMAT(created_at, '%Y-%m') as month, SUM(amount) as total")
+            ->selectRaw("DATE_FORMAT(payments.created_at, '%Y-%m') as month, SUM(payments.amount) as total")
             ->groupBy('month')
             ->pluck('total', 'month');
 
@@ -1111,10 +1363,55 @@ class AdminReportService
     }
 
     /**
+     * @param  array{scope: string, selectedOrganizerId: int|null, selectedEventId: int|null}|null  $scopeFilter
+     * @return list<int>
+     */
+    private function monthlyScopedEventCounts(?array $scopeFilter = null): array
+    {
+        $scopeFilter ??= $this->globalScopeFilter();
+        $keys = $this->lastSixMonthKeys();
+
+        $counts = $this->scopedEventsQuery($scopeFilter)
+            ->where('created_at', '>=', now()->subMonths(5)->startOfMonth())
+            ->selectRaw("DATE_FORMAT(created_at, '%Y-%m') as month, COUNT(*) as count")
+            ->groupBy('month')
+            ->pluck('count', 'month');
+
+        return collect($keys)
+            ->map(fn (string $key) => (int) ($counts[$key] ?? 0))
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  array{scope: string, selectedOrganizerId: int|null, selectedEventId: int|null}|null  $scopeFilter
+     * @return list<int>
+     */
+    private function monthlyScopedBookingCounts(?array $scopeFilter = null): array
+    {
+        $scopeFilter ??= $this->globalScopeFilter();
+        $keys = $this->lastSixMonthKeys();
+
+        $counts = $this->scopedBookingsQuery($scopeFilter)
+            ->where('status', BookingStatusEnum::Confirmed)
+            ->where('created_at', '>=', now()->subMonths(5)->startOfMonth())
+            ->selectRaw("DATE_FORMAT(created_at, '%Y-%m') as month, COUNT(*) as count")
+            ->groupBy('month')
+            ->pluck('count', 'month');
+
+        return collect($keys)
+            ->map(fn (string $key) => (int) ($counts[$key] ?? 0))
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  array{scope: string, selectedOrganizerId: int|null, selectedEventId: int|null}|null  $scopeFilter
      * @return list<array{label: string, count: int}>
      */
-    private function eventsByStatus(): array
+    private function eventsByStatus(?array $scopeFilter = null): array
     {
+        $scopeFilter ??= $this->globalScopeFilter();
         $order = [
             Event::STATUS_UPCOMING,
             Event::STATUS_ONGOING,
@@ -1124,7 +1421,7 @@ class AdminReportService
             Event::STATUS_UNPUBLISHED,
         ];
 
-        $counts = Event::query()
+        $counts = $this->scopedEventsQuery($scopeFilter)
             ->select('status', DB::raw('COUNT(*) as count'))
             ->groupBy('status')
             ->pluck('count', 'status');
@@ -1140,11 +1437,14 @@ class AdminReportService
     }
 
     /**
+     * @param  array{scope: string, selectedOrganizerId: int|null, selectedEventId: int|null}|null  $scopeFilter
      * @return list<array{label: string, count: int}>
      */
-    private function paymentsByStatus(): array
+    private function paymentsByStatus(?array $scopeFilter = null): array
     {
-        return Payment::query()
+        $scopeFilter ??= $this->globalScopeFilter();
+
+        return $this->scopedPaymentsQuery($scopeFilter)
             ->select('status', DB::raw('COUNT(*) as count'))
             ->groupBy('status')
             ->get()
@@ -1157,11 +1457,14 @@ class AdminReportService
     }
 
     /**
+     * @param  array{scope: string, selectedOrganizerId: int|null, selectedEventId: int|null}|null  $scopeFilter
      * @return list<array{label: string, count: int}>
      */
-    private function paymentsByMethod(): array
+    private function paymentsByMethod(?array $scopeFilter = null): array
     {
-        return Payment::query()
+        $scopeFilter ??= $this->globalScopeFilter();
+
+        return $this->scopedPaymentsQuery($scopeFilter)
             ->whereNotNull('payment_method')
             ->select('payment_method', DB::raw('COUNT(*) as count'))
             ->groupBy('payment_method')
@@ -1372,16 +1675,23 @@ class AdminReportService
     }
 
     /**
+     * @param  array{scope: string, selectedOrganizerId: int|null, selectedEventId: int|null}|null  $scopeFilter
      * @return list<array{label: string, count: int}>
      */
-    private function eventsByCategory(int $limit = 8): array
+    private function eventsByCategory(int $limit = 8, ?array $scopeFilter = null): array
     {
-        return Event::query()
+        $scopeFilter ??= $this->globalScopeFilter();
+
+        $query = Event::query()
             ->join('event_categories', 'events.category_id', '=', 'event_categories.id')
             ->select('event_categories.name as label', DB::raw('COUNT(*) as count'))
             ->groupBy('event_categories.name')
             ->orderByDesc('count')
-            ->limit($limit)
+            ->limit($limit);
+
+        $this->applyEventScope($query, $scopeFilter);
+
+        return $query
             ->get()
             ->map(fn ($row) => ['label' => $row->label, 'count' => (int) $row->count])
             ->values()

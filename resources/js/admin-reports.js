@@ -227,8 +227,13 @@ function initAdminReports() {
     const overview = data.overview ?? {};
     const roleDistribution = overview.userDistribution ?? data.users?.usersByRole ?? [];
     const revenueTrend = overview.revenueTrend ?? {};
-    const weeklyTickets = overview.ticketSalesWeekly ?? [];
+    const ticketSalesTrend = overview.ticketSalesTrend ?? {
+        weekly: overview.ticketSalesWeekly ?? [],
+        monthly: [],
+        yearly: [],
+    };
     const eventsByCategory = overview.eventsByCategory ?? [];
+    let ticketSalesRange = 'weekly';
 
     const categoryColors = [
         'rgba(79, 70, 229, 0.8)',
@@ -241,12 +246,24 @@ function initAdminReports() {
         'rgba(100, 116, 139, 0.8)',
     ];
 
-    const weekColors = [
-        'rgba(37, 99, 235, 0.75)',
-        'rgba(79, 70, 229, 0.75)',
-        'rgba(6, 182, 212, 0.75)',
-        'rgba(16, 185, 129, 0.75)',
-    ];
+    const ticketSalesColor = 'rgba(37, 99, 235, 0.75)';
+
+    function ticketSalesPointsFor(range = ticketSalesRange) {
+        return ticketSalesTrend[range] ?? ticketSalesTrend.weekly ?? [];
+    }
+
+    function buildTicketSalesChart(canvasId, options = {}) {
+        const range = options.range ?? ticketSalesRange;
+        const points = ticketSalesPointsFor(range);
+        const colors = points.map(() => ticketSalesColor);
+
+        return createBarChart(
+            canvasId,
+            points.map((item) => item.label),
+            points.map((item) => item.count),
+            { ...options, label: 'Tickets sold', colors },
+        );
+    }
 
     const chartBuilders = {
         userGrowth: (canvasId, options = {}) => createLineChart(canvasId, shortLabels, [{
@@ -285,12 +302,11 @@ function initAdminReports() {
             options,
         ),
 
-        ticketSalesWeekly: (canvasId, options = {}) => createBarChart(
-            canvasId,
-            weeklyTickets.map((item) => item.label),
-            weeklyTickets.map((item) => item.count),
-            { ...options, label: 'Tickets sold', colors: weekColors },
-        ),
+        ticketSalesTrend: (canvasId, options = {}) => buildTicketSalesChart(canvasId, options),
+        ticketSalesWeekly: (canvasId, options = {}) => buildTicketSalesChart(canvasId, {
+            ...options,
+            range: options.range ?? 'weekly',
+        }),
 
         eventsByCategory: (canvasId, options = {}) => createBarChart(
             canvasId,
@@ -430,7 +446,7 @@ function initAdminReports() {
         userGrowth: 'adminOverviewUserGrowthChart',
         userDistribution: 'adminOverviewUserDistributionChart',
         revenueTrend: 'adminOverviewRevenueTrendChart',
-        ticketSalesWeekly: 'adminOverviewTicketSalesChart',
+        ticketSalesTrend: 'adminOverviewTicketSalesChart',
         eventsByCategory: 'adminOverviewEventsByCategoryChart',
         platformGrowth: 'adminPlatformGrowthChart',
         eventsStatus: 'adminEventsStatusChart',
@@ -450,6 +466,19 @@ function initAdminReports() {
         .filter(Boolean);
 
     let fullscreenChart = null;
+    let ticketSalesChartIndex = chartInstances.findIndex(
+        (chart) => chart?.canvas?.id === 'adminOverviewTicketSalesChart',
+    );
+
+    function rebuildTicketSalesChart(range = ticketSalesRange) {
+        ticketSalesRange = range;
+        const chart = buildTicketSalesChart('adminOverviewTicketSalesChart', { range });
+        if (ticketSalesChartIndex >= 0) {
+            chartInstances[ticketSalesChartIndex] = chart;
+        } else if (chart) {
+            ticketSalesChartIndex = chartInstances.push(chart) - 1;
+        }
+    }
 
     function destroyFullscreenChart() {
         if (fullscreenChart) {
@@ -466,14 +495,37 @@ function initAdminReports() {
 
         destroyFullscreenChart();
         requestAnimationFrame(() => {
-            fullscreenChart = builder('adminReportsChartFullscreen', { fullscreen: true });
+            fullscreenChart = builder('adminReportsChartFullscreen', {
+                fullscreen: true,
+                range: event.detail?.range ?? ticketSalesRange,
+            });
         });
     });
 
     window.addEventListener('admin-reports-chart-collapse', destroyFullscreenChart);
 
+    window.addEventListener('admin-reports-ticket-range', (event) => {
+        const range = event.detail?.range;
+        if (!range || !ticketSalesTrend[range]) return;
+        rebuildTicketSalesChart(range);
+
+        if (fullscreenChart && document.getElementById('adminReportsChartFullscreen')) {
+            destroyFullscreenChart();
+            requestAnimationFrame(() => {
+                fullscreenChart = buildTicketSalesChart('adminReportsChartFullscreen', {
+                    fullscreen: true,
+                    range,
+                });
+            });
+        }
+    });
+
     const resizeCharts = () => {
-        chartInstances.forEach((chart) => chart.resize());
+        chartInstances.forEach((chart) => {
+            if (chart && typeof chart.resize === 'function' && chart.canvas) {
+                chart.resize();
+            }
+        });
         if (fullscreenChart) fullscreenChart.resize();
     };
 

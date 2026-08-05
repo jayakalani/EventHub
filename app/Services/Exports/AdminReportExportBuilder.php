@@ -15,18 +15,29 @@ class AdminReportExportBuilder
     /**
      * @return array{title: string, summary: list<array{label: string, value: string|int|float}>, tables: list<array{heading: string, headers: list<string>, rows: list<list<string|int|float|null>>}>}
      */
-    public function build(string $section): array
+    public function build(string $section, ?int $organizerId = null, ?int $eventId = null): array
     {
-        $reports = $this->reportService->getAllReports();
+        $reports = $this->reportService->getAllReports($organizerId, $eventId);
         $labels = $reports['chartLabels'];
+        $scopeFilter = $reports['scopeFilter'] ?? [];
+        $scopeSuffix = match ($scopeFilter['scope'] ?? 'global') {
+            'event' => ' — '.($scopeFilter['selectedEventName'] ?? 'Event'),
+            'organizer' => ' — '.($scopeFilter['selectedOrganizerName'] ?? 'Organizer'),
+            default => '',
+        };
 
-        return match ($section) {
+        $payload = match ($section) {
             'admin' => $this->buildAdmin($reports['admin'], $labels),
             'users' => $this->buildUsers($reports['users'], $labels),
             'payments' => $this->buildPayments($reports['payments'], $labels),
-            'system' => $this->buildSystem($reports['system'], $labels),
             default => abort(404),
         };
+
+        if ($scopeSuffix !== '' && in_array($section, ['admin', 'payments'], true)) {
+            $payload['title'] .= $scopeSuffix;
+        }
+
+        return $payload;
     }
 
     private function buildAdmin(array $data, array $labels): array
@@ -131,38 +142,6 @@ class AdminReportExportBuilder
                     'headers' => ['Reference', 'User', 'Amount (LKR)', 'Status', 'Method', 'Date'],
                     'rows' => collect($data['recentPayments'])->map(fn ($r) => [
                         $r['reference'], $r['user'], number_format($r['amount'], 2), ucfirst($r['status']), ucfirst($r['method']), $r['date'],
-                    ])->all(),
-                ],
-            ],
-        ];
-    }
-
-    private function buildSystem(array $data, array $labels): array
-    {
-        return [
-            'title' => 'System Reports',
-            'summary' => [
-                ['label' => 'Audit Log Entries', 'value' => $data['totalAuditLogs']],
-                ['label' => 'Activity Today', 'value' => $data['auditLogsToday']],
-                ['label' => 'Total Inquiries', 'value' => $data['totalInquiries']],
-                ['label' => 'Total Complaints', 'value' => $data['totalComplaints']],
-            ],
-            'tables' => [
-                [
-                    'heading' => 'System Activity Trend',
-                    'headers' => ['Month', 'Audit Entries'],
-                    'rows' => $this->exportService->trendRows($labels, $data['activityTrend']),
-                ],
-                [
-                    'heading' => 'Top Audit Actions',
-                    'headers' => ['Action', 'Count'],
-                    'rows' => collect($data['auditByAction'])->map(fn ($r) => [$r['label'], $r['count']])->all(),
-                ],
-                [
-                    'heading' => 'Recent Activity Logs',
-                    'headers' => ['User', 'Action', 'Model', 'IP', 'When'],
-                    'rows' => collect($data['recentAuditLogs'])->map(fn ($r) => [
-                        $r['user'], $r['action'], $r['model'], $r['ip'], $r['time'],
                     ])->all(),
                 ],
             ],

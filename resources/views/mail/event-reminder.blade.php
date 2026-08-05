@@ -23,11 +23,7 @@
                                 Hi {{ $user->first_name }},
                             </p>
                             <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#475569;">
-                                @if($reminderType === \App\Enums\EventReminderTypeEnum::OneDay)
-                                    This is a friendly reminder that your event is happening tomorrow. We look forward to seeing you there!
-                                @else
-                                    Your event is starting soon — in about 2 hours. Make sure you're ready to go!
-                                @endif
+                                {{ $reminderType->message($event->name) }}
                             </p>
 
                             <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-bottom:24px;border:1px solid #e2e8f0;border-radius:12px;background:#f8fafc;">

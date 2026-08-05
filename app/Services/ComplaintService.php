@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\AttendeeNotificationCategory;
 use App\Enums\SupportTicketStatusEnum;
 use App\Mail\ComplaintAnsweredMail;
 use App\Mail\ComplaintReceivedMail;
@@ -69,6 +70,14 @@ class ComplaintService
             DB::afterCommit(function () use ($complaint) {
                 $complaint->load(['user']);
                 Mail::to($complaint->user)->queue(new ComplaintAnsweredMail($complaint));
+                app(AttendeeNotificationService::class)->send(
+                    $complaint->user,
+                    AttendeeNotificationCategory::Interaction,
+                    'complaint_replied',
+                    'A CRO replied to your complaint: "'.$complaint->subject.'".',
+                    route('notifications.index', ['category' => AttendeeNotificationCategory::Interaction->value]),
+                    ['complaint_id' => $complaint->id],
+                );
             });
 
             return $response;

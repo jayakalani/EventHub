@@ -145,7 +145,7 @@
             {{-- Actions --}}
             <div class="flex items-center gap-2 sm:gap-3">
 
-                @unless ($isOrganizer || $isCro)
+                @unless ($isOrganizer || $isCro || $isAdmin)
                     <div class="inline-flex items-center rounded-xl border border-white/50 bg-white/40 p-0.5 text-xs font-semibold shadow-sm backdrop-blur-md transition-all duration-200 hover:bg-white/60"
                         role="group"
                         aria-label="{{ t(['en' => 'Language', 'si' => 'භාෂාව']) }}">
@@ -306,7 +306,7 @@
     <div x-show="open" x-transition class="border-t border-white/40 bg-white/70 backdrop-blur-2xl lg:hidden" style="display: none;">
         <div class="space-y-1 px-4 py-3">
 
-            @unless ($isOrganizer || $isCro)
+            @unless ($isOrganizer || $isCro || $isAdmin)
                 <div class="flex items-center justify-between px-3 py-2">
                     <span class="text-sm font-medium text-slate-700">{{ t(['en' => 'Language', 'si' => 'භාෂාව']) }}</span>
                     <div class="inline-flex items-center rounded-xl border border-slate-200/80 bg-white/60 p-0.5 text-xs font-semibold">

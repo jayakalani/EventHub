@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\AttendeeNotificationCategory;
 use App\Http\Requests\ProfileUpdateRequest;
+use App\Services\AttendeeNotificationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -59,6 +61,14 @@ class ProfileController extends Controller
 
         $user->save();
         $user->refresh();
+
+        app(AttendeeNotificationService::class)->send(
+            $user,
+            AttendeeNotificationCategory::Account,
+            'profile_updated',
+            'Your EventHub profile was updated successfully.',
+            route('profile.edit'),
+        );
 
         return Redirect::route('profile.edit')->with('status', 'profile-updated');
     }

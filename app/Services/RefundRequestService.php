@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\BookingStatusEnum;
+use App\Enums\AttendeeNotificationCategory;
 use App\Enums\RefundRequestStatusEnum;
 use App\Mail\RefundRequestApprovedMail;
 use App\Mail\RefundRequestDeclinedMail;
@@ -54,6 +55,26 @@ class RefundRequestService
             Mail::to($refundRequest->user)->queue(new RefundRequestSubmittedMail($refundRequest));
         } else {
             Mail::to($refundRequest->user)->queue(new RefundRequestDeclinedMail($refundRequest));
+        }
+
+        app(AttendeeNotificationService::class)->send(
+            $refundRequest->user,
+            AttendeeNotificationCategory::Refund,
+            'refund_request_received',
+            'Your refund request for "'.($refundRequest->ticketBooking?->event?->name ?? 'an event').'" was received.',
+            route('attendee.bookings.index'),
+            ['refund_request_id' => $refundRequest->id],
+        );
+
+        if (! $policy->requiresCroReview) {
+            app(AttendeeNotificationService::class)->send(
+                $refundRequest->user,
+                AttendeeNotificationCategory::Refund,
+                'refund_rejected',
+                'Your refund request for "'.($refundRequest->ticketBooking?->event?->name ?? 'an event').'" was rejected.',
+                route('attendee.bookings.index'),
+                ['refund_request_id' => $refundRequest->id],
+            );
         }
 
         return $refundRequest;
@@ -111,6 +132,11 @@ class RefundRequestService
             DB::afterCommit(function () use ($refundRequest) {
                 $refundRequest->load(['user.wallet', 'ticketBooking.event', 'ticketBooking.ticketCategory']);
                 Mail::to($refundRequest->user)->queue(new RefundRequestApprovedMail($refundRequest));
+                $refundRequest->user->notify(new \App\Notifications\RefundApprovedNotification($refundRequest));
+                $refundRequest->user->notify(new \App\Notifications\RefundCompletedNotification($refundRequest));
+                if ($refundRequest->ticketBooking) {
+                    $refundRequest->user->notify(new \App\Notifications\TicketRefundedNotification($refundRequest->ticketBooking));
+                }
             });
 
             return $refundRequest;
@@ -150,9 +176,13 @@ class RefundRequestService
                 'cro_notes' => $notes,
             ]);
 
-            DB::afterCommit(function () use ($refundRequest) {
+            DB::afterCommit(function () use ($refundRequest, $booking) {
                 $refundRequest->load(['user.wallet', 'ticketBooking.event', 'ticketBooking.ticketCategory', 'reviewer']);
                 Mail::to($refundRequest->user)->queue(new RefundRequestApprovedMail($refundRequest));
+                $refundRequest->user->notify(new \App\Notifications\RefundApprovedNotification($refundRequest));
+                $refundRequest->user->notify(new \App\Notifications\RefundCompletedNotification($refundRequest));
+                $refundRequest->user->notify(new \App\Notifications\TicketRefundedNotification($booking));
+                $refundRequest->user->notify(new \App\Notifications\TicketCancelledNotification($booking));
             });
         });
     }
@@ -188,6 +218,17 @@ class RefundRequestService
             DB::afterCommit(function () use ($refundRequest) {
                 $refundRequest->load(['user', 'ticketBooking.event', 'ticketBooking.ticketCategory', 'reviewer']);
                 Mail::to($refundRequest->user)->queue(new RefundRequestDeclinedMail($refundRequest));
+                app(AttendeeNotificationService::class)->send(
+                    $refundRequest->user,
+                    AttendeeNotificationCategory::Refund,
+                    'refund_rejected',
+                    'Your refund request for "'.($refundRequest->ticketBooking?->event?->name ?? 'an event').'" was rejected.',
+                    route('attendee.bookings.index'),
+                    [
+                        'refund_request_id' => $refundRequest->id,
+                        'reason' => $refundRequest->cro_notes,
+                    ],
+                );
             });
         });
     }

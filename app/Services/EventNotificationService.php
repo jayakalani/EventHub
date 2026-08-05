@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\BookingStatusEnum;
+use App\Enums\AttendeeNotificationCategory;
 use App\Enums\EventReminderTypeEnum;
 use App\Mail\EventReminderMail;
 use App\Mail\EventUpdatedMail;
@@ -43,7 +44,10 @@ class EventNotificationService
             return;
         }
 
-        $recipients = $this->getConfirmedTicketHolders($event);
+        $recipients = $this->mergeRecipients(
+            $this->getUsersWhoSavedEvent($event),
+            $this->getHostFollowers((int) $event->hosted_by),
+        );
 
         if ($recipients->isEmpty()) {
             return;
@@ -64,7 +68,10 @@ class EventNotificationService
         }
 
         $event->loadMissing('host');
-        $recipients = $this->getHostFollowers($event->hosted_by);
+        $recipients = $this->mergeRecipients(
+            $this->getHostFollowers((int) $event->hosted_by),
+            $this->getUsersWhoSavedEvent($event),
+        );
 
         if ($recipients->isEmpty()) {
             return;
@@ -75,7 +82,118 @@ class EventNotificationService
                 Mail::to($user)->queue(new NewEventFromHostMail($event, $user));
                 $user->notify(new NewEventFromHostNotification($event));
             }
+
+            $savedUsers = $this->getUsersWhoSavedEvent($event);
+
+            foreach ($savedUsers as $user) {
+                app(AttendeeNotificationService::class)->send(
+                    $user,
+                    AttendeeNotificationCategory::Wishlist,
+                    'saved_event_published',
+                    'Your saved event "'.$event->name.'" was published.',
+                    route('attendee.events.show', $event),
+                    ['event_id' => $event->id],
+                );
+            }
+
+            $this->notifyTicketSalesOpened($event);
         });
+    }
+
+    /**
+     * Notify savers when ticket sales become available for a visible event.
+     */
+    public function notifyTicketSalesOpened(Event $event): void
+    {
+        if ($event->isCancelled() || $event->isCompleted() || ! $event->isVisibleToAttendees()) {
+            return;
+        }
+
+        $event->loadMissing('ticketCategories');
+
+        $hasOpenTicketSales = $event->ticketCategories
+            ->contains(fn ($category) => $category->isSalesOpenNow());
+
+        if (! $hasOpenTicketSales) {
+            return;
+        }
+
+        foreach ($this->getUsersWhoSavedEvent($event) as $user) {
+            $alreadyNotified = $user->notifications()
+                ->where('data->type', 'ticket_sales_opened')
+                ->where('data->event_id', $event->id)
+                ->exists();
+
+            if ($alreadyNotified) {
+                continue;
+            }
+
+            app(AttendeeNotificationService::class)->send(
+                $user,
+                AttendeeNotificationCategory::Wishlist,
+                'ticket_sales_opened',
+                'Ticket sales are now open for your saved event "'.$event->name.'".',
+                route('attendee.events.show', $event),
+                ['event_id' => $event->id],
+            );
+        }
+    }
+
+    public function notifyEventCompleted(Event $event): void
+    {
+        $recipients = $this->interestedAttendees($event);
+
+        if ($recipients->isEmpty()) {
+            return;
+        }
+
+        foreach ($recipients as $user) {
+            $user->notify(new \App\Notifications\EventCompletedNotification($event));
+        }
+    }
+
+    public function notifyEventCancelled(Event $event, string $reason = ''): void
+    {
+        $recipients = $this->interestedAttendees($event);
+
+        if ($recipients->isEmpty()) {
+            return;
+        }
+
+        foreach ($recipients as $user) {
+            $user->notify(new \App\Notifications\EventCancelledNotification($event, $reason));
+        }
+    }
+
+    /**
+     * Ticket holders + savers + host followers (unique).
+     *
+     * @return Collection<int, User>
+     */
+    public function interestedAttendees(Event $event): Collection
+    {
+        return $this->mergeRecipients(
+            $this->getConfirmedTicketHolders($event),
+            $this->getUsersWhoSavedEvent($event),
+            $this->getHostFollowers((int) $event->hosted_by),
+        );
+    }
+
+    /**
+     * @param  Collection<int, User>  ...$groups
+     * @return Collection<int, User>
+     */
+    public function mergeRecipients(Collection ...$groups): Collection
+    {
+        $merged = new Collection;
+
+        foreach ($groups as $group) {
+            foreach ($group as $user) {
+                $merged[$user->id] = $user;
+            }
+        }
+
+        return $merged->values();
     }
 
     public function sendReminder(Event $event, User $user, EventReminderTypeEnum $type): void

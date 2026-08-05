@@ -32,6 +32,7 @@ class EventRescheduledNotification extends Notification
         $dateLabel = $this->event->formattedScheduleDate() ?? $this->event->date;
 
         return [
+            'category' => \App\Enums\AttendeeNotificationCategory::Event->value,
             'type' => 'event_rescheduled',
             'title' => 'Event Rescheduled',
             'event_id' => $this->event->id,

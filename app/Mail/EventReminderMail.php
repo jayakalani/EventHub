@@ -25,8 +25,9 @@ class EventReminderMail extends Mailable implements ShouldQueue
     public function envelope(): Envelope
     {
         $subject = match ($this->reminderType) {
+            EventReminderTypeEnum::SevenDays => 'Reminder: '.$this->event->name.' starts in 7 days',
             EventReminderTypeEnum::OneDay => 'Reminder: '.$this->event->name.' is tomorrow',
-            EventReminderTypeEnum::TwoHours => 'Reminder: '.$this->event->name.' starts in 2 hours',
+            EventReminderTypeEnum::ThreeHours, EventReminderTypeEnum::TwoHours => 'Reminder: '.$this->event->name.' starts in 3 hours — gates opening soon',
         };
 
         return new Envelope(subject: $subject);

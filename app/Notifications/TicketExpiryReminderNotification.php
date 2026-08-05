@@ -34,6 +34,7 @@ class TicketExpiryReminderNotification extends Notification implements ShouldQue
         $event = $this->cartItem->event;
 
         return [
+            'category' => \App\Enums\AttendeeNotificationCategory::Payment->value,
             'type' => 'ticket_expiry',
             'event_id' => $event->id,
             'event_name' => $event->name,

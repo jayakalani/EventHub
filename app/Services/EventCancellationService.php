@@ -91,7 +91,14 @@ class EventCancellationService
                         $userBookings,
                         (float) ($refundsByUser[$userId]['total'] ?? 0),
                     ));
+
+                    foreach ($userBookings as $booking) {
+                        $user->notify(new \App\Notifications\TicketCancelledNotification($booking));
+                        $user->notify(new \App\Notifications\TicketRefundedNotification($booking));
+                    }
                 }
+
+                app(EventNotificationService::class)->notifyEventCancelled($event, $reason);
             });
         });
     }

@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Enums\AttendeeNotificationCategory;
 use App\Enums\EventReminderTypeEnum;
 use App\Models\Event;
 use Illuminate\Bus\Queueable;
@@ -32,19 +33,15 @@ class EventReminderNotification extends Notification implements ShouldQueue
     {
         $this->event->loadMissing('host');
 
-        $message = match ($this->reminderType) {
-            EventReminderTypeEnum::OneDay => '"'.$this->event->name.'" starts tomorrow. Don\'t forget your tickets!',
-            EventReminderTypeEnum::TwoHours => '"'.$this->event->name.'" starts in about 2 hours. See you soon!',
-        };
-
         return [
+            'category' => AttendeeNotificationCategory::Reminder->value,
             'type' => 'event_reminder',
             'event_id' => $this->event->id,
             'event_name' => $this->event->name,
             'host_name' => $this->event->host?->name,
             'reminder_type' => $this->reminderType->value,
             'reminder_label' => $this->reminderType->label(),
-            'message' => $message,
+            'message' => $this->reminderType->message($this->event->name),
             'url' => route('attendee.events.show', $this->event),
         ];
     }

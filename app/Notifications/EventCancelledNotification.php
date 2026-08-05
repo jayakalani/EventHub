@@ -2,26 +2,21 @@
 
 namespace App\Notifications;
 
+use App\Enums\AttendeeNotificationCategory;
 use App\Models\Event;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Notification;
 
-class EventUpdatedNotification extends Notification implements ShouldQueue
+class EventCancelledNotification extends Notification implements ShouldQueue
 {
     use Queueable;
 
-    /**
-     * @param  array<string, array{old: mixed, new: mixed}>  $changes
-     */
     public function __construct(
         public Event $event,
-        public array $changes,
+        public string $reason = '',
     ) {}
 
-    /**
-     * @return list<string>
-     */
     public function via(object $notifiable): array
     {
         return ['database'];
@@ -35,13 +30,13 @@ class EventUpdatedNotification extends Notification implements ShouldQueue
         $this->event->loadMissing('host');
 
         return [
-            'category' => \App\Enums\AttendeeNotificationCategory::Event->value,
-            'type' => 'event_updated',
+            'category' => AttendeeNotificationCategory::Event->value,
+            'type' => 'event_cancelled',
             'event_id' => $this->event->id,
             'event_name' => $this->event->name,
             'host_name' => $this->event->host?->name,
-            'changes' => $this->changes,
-            'message' => 'The organizer updated "'.$this->event->name.'".',
+            'reason' => $this->reason,
+            'message' => '"'.$this->event->name.'" was cancelled.',
             'url' => route('attendee.events.show', $this->event),
         ];
     }

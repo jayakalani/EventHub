@@ -32,6 +32,7 @@ class NewEventFromHostNotification extends Notification implements ShouldQueue
         $hostName = $this->event->host?->name ?? 'a host you follow';
 
         return [
+            'category' => \App\Enums\AttendeeNotificationCategory::Event->value,
             'type' => 'new_event',
             'event_id' => $this->event->id,
             'event_name' => $this->event->name,

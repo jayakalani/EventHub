@@ -69,4 +69,21 @@ class ticketCategory extends Model
     {
         return $this->ticketBookings()->exists();
     }
+
+    public function isSalesOpenNow(): bool
+    {
+        if (! $this->is_active) {
+            return false;
+        }
+
+        if ($this->booking_start && $this->booking_start->isFuture()) {
+            return false;
+        }
+
+        if ($this->booking_end && $this->booking_end->isPast()) {
+            return false;
+        }
+
+        return (int) $this->no_of_available_tickets > 0;
+    }
 }

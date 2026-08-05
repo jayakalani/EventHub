@@ -221,7 +221,10 @@ class StripeCheckoutService
             ]);
 
             DB::afterCommit(function () use ($payment, $purchasedEventIds) {
+                $payment->loadMissing('user');
                 Mail::to($payment->user)->queue(new TicketPurchaseConfirmationMail($payment));
+                $payment->user->notify(new \App\Notifications\TicketPurchasedNotification($payment));
+                $payment->user->notify(new \App\Notifications\PaymentSuccessfulNotification($payment));
                 app(OrganizerDashboardService::class)->notifyLowInventoryForEvents($purchasedEventIds);
             });
         });
@@ -268,6 +271,11 @@ class StripeCheckoutService
         }
 
         $payment->update(['status' => PaymentStatusEnum::Cancelled]);
+
+        $payment->loadMissing('user');
+        if ($payment->user) {
+            $payment->user->notify(new \App\Notifications\PaymentFailedNotification($payment));
+        }
     }
 
     private function toStripeAmount(float $amount): int

@@ -35,6 +35,7 @@ class EventPostponedNotification extends Notification
             : 'New Date: '.($this->event->formattedScheduleDate() ?? 'TBA');
 
         return [
+            'category' => \App\Enums\AttendeeNotificationCategory::Event->value,
             'type' => 'event_postponed',
             'title' => 'Event Postponed',
             'event_id' => $this->event->id,

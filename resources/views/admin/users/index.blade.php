@@ -206,7 +206,8 @@
                                                 method="POST">
                                                 @csrf
 
-                                                <button
+                                                <button type="submit"
+                                                    onclick="return confirm('Are you sure you want to {{ $user->is_locked ? 'unlock' : 'lock' }} {{ $user->full_name }}?')"
                                                     class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold
                                                     {{ $user->is_locked ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700' }}">
                                                     {{ $user->is_locked ? '● Locked' : '● Unlocked' }}
@@ -217,7 +218,8 @@
                                                 method="POST">
                                                 @csrf
 
-                                                <button
+                                                <button type="submit"
+                                                    onclick="return confirm('Are you sure you want to set {{ $user->full_name }} as {{ $user->is_active ? 'inactive' : 'active' }}?')"
                                                     class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold
                                                     {{ $user->is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700' }}">
                                                     {{ $user->is_active ? '● Active' : '● Inactive' }}

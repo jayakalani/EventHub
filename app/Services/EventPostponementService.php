@@ -91,9 +91,8 @@ class EventPostponementService
             }
 
             $eventId = $event->id;
-            $announcedSchedule = $hasNewDate;
 
-            DB::afterCommit(function () use ($eventId, $reason, $notifyEmail, $notifyInApp, $announcedSchedule) {
+            DB::afterCommit(function () use ($eventId, $reason, $notifyEmail, $notifyInApp) {
                 $event = Event::query()->find($eventId);
 
                 if (! $event) {
@@ -101,35 +100,15 @@ class EventPostponementService
                 }
 
                 $notificationService = app(EventNotificationService::class);
-                $ticketHolders = $notificationService->getConfirmedTicketHolders($event);
+                $recipients = $notificationService->interestedAttendees($event);
 
-                foreach ($ticketHolders as $user) {
+                foreach ($recipients as $user) {
                     if ($notifyEmail && filled($user->email)) {
                         Mail::to($user->email)->send(new EventPostponedMail($event, $user, $reason));
                     }
 
                     if ($notifyInApp) {
                         $user->notify(new EventPostponedNotification($event, $reason));
-                    }
-                }
-
-                // When a concrete date is chosen at postpone time, also notify people who saved the event.
-                if ($announcedSchedule && ($notifyEmail || $notifyInApp)) {
-                    $ticketHolderIds = $ticketHolders->pluck('id')->all();
-                    $savers = $notificationService->getUsersWhoSavedEvent($event);
-
-                    foreach ($savers as $user) {
-                        if (in_array($user->id, $ticketHolderIds, true)) {
-                            continue;
-                        }
-
-                        if ($notifyEmail && filled($user->email)) {
-                            Mail::to($user->email)->send(new EventScheduleAnnouncedMail($event, $user));
-                        }
-
-                        if ($notifyInApp) {
-                            $user->notify(new EventScheduleAnnouncedNotification($event));
-                        }
                     }
                 }
             });
@@ -208,28 +187,14 @@ class EventPostponementService
                 }
 
                 $notificationService = app(EventNotificationService::class);
-                $ticketHolders = $notificationService->getConfirmedTicketHolders($event);
-                $savers = $notificationService->getUsersWhoSavedEvent($event);
-                $ticketHolderIds = $ticketHolders->pluck('id')->all();
+                $recipients = $notificationService->interestedAttendees($event);
 
-                foreach ($ticketHolders as $user) {
+                foreach ($recipients as $user) {
                     if (filled($user->email)) {
                         Mail::to($user->email)->send(new EventRescheduledMail($event, $user));
                     }
 
                     $user->notify(new EventRescheduledNotification($event));
-                }
-
-                foreach ($savers as $user) {
-                    if (in_array($user->id, $ticketHolderIds, true)) {
-                        continue;
-                    }
-
-                    if (filled($user->email)) {
-                        Mail::to($user->email)->send(new EventScheduleAnnouncedMail($event, $user));
-                    }
-
-                    $user->notify(new EventScheduleAnnouncedNotification($event));
                 }
             });
         });
@@ -343,7 +308,7 @@ class EventPostponementService
                     return;
                 }
 
-                $recipients = app(EventNotificationService::class)->getConfirmedTicketHolders($event);
+                $recipients = app(EventNotificationService::class)->interestedAttendees($event);
 
                 foreach ($recipients as $user) {
                     if (filled($user->email)) {

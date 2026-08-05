@@ -32,6 +32,7 @@ class EventScheduleAnnouncedNotification extends Notification
         $dateLabel = $this->event->formattedScheduleDate() ?? $this->event->date;
 
         return [
+            'category' => \App\Enums\AttendeeNotificationCategory::Event->value,
             'type' => 'event_schedule_announced',
             'title' => 'Event Date Announced',
             'event_id' => $this->event->id,

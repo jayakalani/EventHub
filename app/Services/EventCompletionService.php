@@ -15,7 +15,7 @@ class EventCompletionService
     {
         $today = Carbon::today()->toDateString();
 
-        return Event::query()
+        $events = Event::query()
             ->whereNotNull('date')
             ->whereDate('date', '<', $today)
             ->where('date_tba', false)
@@ -23,7 +23,17 @@ class EventCompletionService
                 Event::STATUS_COMPLETED,
                 Event::STATUS_CANCELLED,
             ])
-            ->update(['status' => Event::STATUS_COMPLETED]);
+            ->get();
+
+        $count = 0;
+
+        foreach ($events as $event) {
+            if ($this->completeIfPast($event)) {
+                $count++;
+            }
+        }
+
+        return $count;
     }
 
     /**
@@ -43,6 +53,16 @@ class EventCompletionService
             }
 
             $event->update(['status' => Event::STATUS_COMPLETED]);
+
+            $eventId = $event->id;
+
+            DB::afterCommit(function () use ($eventId) {
+                $completed = Event::query()->find($eventId);
+
+                if ($completed) {
+                    app(EventNotificationService::class)->notifyEventCompleted($completed);
+                }
+            });
 
             return true;
         });

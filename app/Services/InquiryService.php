@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\AttendeeNotificationCategory;
 use App\Enums\SupportTicketStatusEnum;
 use App\Mail\InquiryAnsweredMail;
 use App\Mail\InquiryReceivedMail;
@@ -63,6 +64,17 @@ class InquiryService
             DB::afterCommit(function () use ($inquiry) {
                 $inquiry->load(['user', 'event']);
                 Mail::to($inquiry->user)->queue(new InquiryAnsweredMail($inquiry));
+                app(AttendeeNotificationService::class)->send(
+                    $inquiry->user,
+                    AttendeeNotificationCategory::Interaction,
+                    'inquiry_replied',
+                    'A CRO replied to your inquiry: "'.$inquiry->subject.'".',
+                    route('notifications.index', ['category' => AttendeeNotificationCategory::Interaction->value]),
+                    [
+                        'inquiry_id' => $inquiry->id,
+                        'event_id' => $inquiry->event_id,
+                    ],
+                );
             });
 
             return $response;

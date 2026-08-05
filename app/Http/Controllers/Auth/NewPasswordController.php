@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\Enums\AttendeeNotificationCategory;
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\AttendeeNotificationService;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -48,6 +50,13 @@ class NewPasswordController extends Controller
                 ])->save();
 
                 event(new PasswordReset($user));
+                app(AttendeeNotificationService::class)->send(
+                    $user,
+                    AttendeeNotificationCategory::Account,
+                    'password_changed',
+                    'Your EventHub password was reset successfully.',
+                    route('login'),
+                );
             }
         );
 

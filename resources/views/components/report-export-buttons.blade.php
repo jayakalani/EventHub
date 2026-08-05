@@ -137,10 +137,6 @@
                 ['canvasId' => 'paymentMethodChart', 'title' => 'Payment Methods'],
                 ['canvasId' => 'paymentRevenueChart', 'title' => 'Payment Revenue Trend'],
             ],
-            'system' => [
-                ['canvasId' => 'systemActivityChart', 'title' => 'System Activity Trend'],
-                ['canvasId' => 'systemAuditActionChart', 'title' => 'Audit Actions'],
-            ],
         ],
         'cro' => [
             'inquiries' => [

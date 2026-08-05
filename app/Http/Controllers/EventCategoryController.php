@@ -56,7 +56,7 @@ class EventCategoryController extends Controller
 
     public function index(Request $request)
     {
-        $query = EventCategory::query();
+        $query = EventCategory::query()->with('creator');
 
         // Search
         if ($request->filled('search')) {
@@ -79,18 +79,33 @@ class EventCategoryController extends Controller
         }
 
         // Date range filter
-        if ($request->filled('from_date') && $request->filled('to_date')) {
-            $query->whereBetween('created_at', [$request->from_date, $request->to_date]);
-        } elseif ($request->filled('from_date')) {
+        if ($request->filled('from_date')) {
             $query->whereDate('created_at', '>=', $request->from_date);
-        } elseif ($request->filled('to_date')) {
+        }
+
+        if ($request->filled('to_date')) {
             $query->whereDate('created_at', '<=', $request->to_date);
         }
 
-        $event_categories = $query->paginate(10)->appends($request->all());
+        $event_categories = $query->latest()->paginate(10)->appends($request->query());
 
-        return view('admin.event-categories.index', compact('event_categories'));
+        $stats = [
+            'matched' => $event_categories->total(),
+            'active' => EventCategory::where('is_active', true)->count(),
+            'inactive' => EventCategory::where('is_active', false)->count(),
+            'total' => EventCategory::count(),
+        ];
 
+        $hasActiveFilters = $request->filled('search')
+            || $request->filled('status')
+            || $request->filled('from_date')
+            || $request->filled('to_date');
+
+        return view('admin.event-categories.index', compact(
+            'event_categories',
+            'stats',
+            'hasActiveFilters',
+        ));
     }
 
     public function viewProfile(int $id)

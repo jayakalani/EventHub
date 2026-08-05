@@ -15,7 +15,7 @@ class UserController extends Controller
      */
     public function index(Request $request)
     {
-        $query = User::query();
+        $query = User::query()->with('userRole');
 
         // Search
         if ($request->filled('search')) {
@@ -54,22 +54,39 @@ class UserController extends Controller
 
         // Email state filter
         if ($request->filled('email_state')) {
-            $query->where('email_verified', $request->email_state === 'yes');
+            if ($request->email_state === 'yes') {
+                $query->whereNotNull('email_verified_at');
+            } else {
+                $query->whereNull('email_verified_at');
+            }
         }
 
         // Date range filter
-        if ($request->filled('from_date') && $request->filled('to_date')) {
-            $query->whereBetween('created_at', [$request->from_date, $request->to_date]);
-        } elseif ($request->filled('from_date')) {
+        if ($request->filled('from_date')) {
             $query->whereDate('created_at', '>=', $request->from_date);
-        } elseif ($request->filled('to_date')) {
+        }
+
+        if ($request->filled('to_date')) {
             $query->whereDate('created_at', '<=', $request->to_date);
         }
 
-        $users = $query->paginate(10)->appends($request->all());
+        $users = $query->latest()->paginate(10)->appends($request->query());
 
-        return view('admin.users.index', compact('users'));
+        $stats = [
+            'matched' => $users->total(),
+            'active' => User::where('is_active', true)->count(),
+            'inactive' => User::where('is_active', false)->count(),
+            'locked' => User::where('is_locked', true)->count(),
+        ];
 
+        $hasActiveFilters = $request->filled('search')
+            || $request->filled('role')
+            || $request->filled('status')
+            || $request->filled('email_state')
+            || $request->filled('from_date')
+            || $request->filled('to_date');
+
+        return view('admin.users.index', compact('users', 'stats', 'hasActiveFilters'));
     }
 
     /**

@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Enums\AttendeeNotificationCategory;
+use App\Enums\CroNotificationCategory;
+use App\Models\UserRole;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -13,8 +15,14 @@ class NotificationController extends Controller
     public function index(Request $request): View
     {
         $user = Auth::user();
+        $user->loadMissing('userRole');
 
-        $activeCategory = AttendeeNotificationCategory::tryFrom($request->string('category')->toString());
+        $isCro = $user->userRole?->name_en === UserRole::CRO;
+        $categoryClass = $isCro
+            ? CroNotificationCategory::class
+            : AttendeeNotificationCategory::class;
+
+        $activeCategory = $categoryClass::tryFrom($request->string('category')->toString());
 
         $status = $this->pickOption($request->string('status')->toString(), ['unread', 'read'], 'all');
         $range = $this->pickOption($request->string('range')->toString(), ['today', 'week', 'month'], 'all');
@@ -23,7 +31,7 @@ class NotificationController extends Controller
 
         $typeOptions = $activeCategory
             ? $activeCategory->typeLabels()
-            : AttendeeNotificationCategory::allTypeLabels();
+            : $categoryClass::allTypeLabels();
 
         $type = $request->string('type')->toString();
         $type = array_key_exists($type, $typeOptions) ? $type : null;
@@ -64,8 +72,8 @@ class NotificationController extends Controller
             ->paginate(15)
             ->withQueryString();
 
-        $categoryCounts = collect(AttendeeNotificationCategory::cases())
-            ->mapWithKeys(fn (AttendeeNotificationCategory $category) => [
+        $categoryCounts = collect($categoryClass::cases())
+            ->mapWithKeys(fn ($category) => [
                 $category->value => $user->unreadNotifications()
                     ->whereIn('data->type', $category->types())
                     ->count(),
@@ -85,7 +93,8 @@ class NotificationController extends Controller
         return view('notifications.index', [
             'notifications' => $notifications,
             'activeCategory' => $activeCategory,
-            'categories' => AttendeeNotificationCategory::cases(),
+            'categories' => $categoryClass::cases(),
+            'categoryClass' => $categoryClass,
             'categoryCounts' => $categoryCounts,
             'typeOptions' => $typeOptions,
             'filters' => $filters,
@@ -93,6 +102,7 @@ class NotificationController extends Controller
             'totalCount' => $totalCount,
             'unreadCount' => $unreadCount,
             'readCount' => max($totalCount - $unreadCount, 0),
+            'isCro' => $isCro,
         ]);
     }
 

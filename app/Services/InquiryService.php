@@ -34,6 +34,14 @@ class InquiryService
 
         Mail::to($user)->queue(new InquiryReceivedMail($inquiry));
 
+        if ($inquiry->event) {
+            app(CroNotificationService::class)->notifyInquirySubmitted(
+                $inquiry->event,
+                $inquiry->id,
+                $inquiry->subject,
+            );
+        }
+
         return $inquiry;
     }
 

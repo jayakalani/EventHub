@@ -1,8 +1,11 @@
 <x-app-layout>
     @php
         $glass = 'border border-white/60 bg-white/70 shadow-[0_8px_30px_rgba(15,23,42,0.06)] backdrop-blur-xl';
+        $isCro = $isCro ?? false;
+        $categoryClass = $categoryClass ?? \App\Enums\AttendeeNotificationCategory::class;
 
         $accents = [
+            'assignment' => ['tile' => 'bg-sky-500/10 text-sky-600', 'bar' => 'from-sky-500 to-sky-300', 'pill' => 'bg-sky-600 text-white'],
             'ticket' => ['tile' => 'bg-indigo-500/10 text-indigo-600', 'bar' => 'from-indigo-500 to-indigo-300', 'pill' => 'bg-indigo-600 text-white'],
             'payment' => ['tile' => 'bg-emerald-500/10 text-emerald-600', 'bar' => 'from-emerald-500 to-emerald-300', 'pill' => 'bg-emerald-600 text-white'],
             'event' => ['tile' => 'bg-violet-500/10 text-violet-600', 'bar' => 'from-violet-500 to-violet-300', 'pill' => 'bg-violet-600 text-white'],
@@ -14,6 +17,11 @@
         ];
 
         $toneByType = [
+            'event_assigned' => 'bg-sky-50 text-sky-700 ring-sky-100',
+            'inquiry_submitted' => 'bg-rose-50 text-rose-700 ring-rose-100',
+            'complaint_submitted' => 'bg-rose-50 text-rose-700 ring-rose-100',
+            'refund_request_submitted' => 'bg-teal-50 text-teal-700 ring-teal-100',
+            'event_starts_tomorrow' => 'bg-amber-50 text-amber-700 ring-amber-100',
             'ticket_purchased' => 'bg-emerald-50 text-emerald-700 ring-emerald-100',
             'ticket_cancelled' => 'bg-rose-50 text-rose-700 ring-rose-100',
             'ticket_refunded' => 'bg-sky-50 text-sky-700 ring-sky-100',
@@ -54,6 +62,9 @@
         $carriedWithType = array_filter(array_merge($carriedFilters, ['type' => $filters['type']]));
 
         $selectClass = 'w-full rounded-xl border-white/70 bg-white/70 py-2.5 text-sm text-slate-700 shadow-sm backdrop-blur transition hover:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200';
+        $categoryTabCols = $isCro
+            ? 'sm:grid-cols-3 lg:grid-cols-6'
+            : 'sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-9';
     @endphp
 
     <x-slot name="header">
@@ -68,7 +79,13 @@
                         </span>
                     @endif
                 </div>
-                <p class="mt-1 text-slate-500">All your EventHub updates, organized by category.</p>
+                <p class="mt-1 text-slate-500">
+                    @if ($isCro)
+                        Customer relations updates for your assigned events and support queue.
+                    @else
+                        All your EventHub updates, organized by category.
+                    @endif
+                </p>
             </div>
             @if ($unreadCount > 0)
                 <form method="POST" action="{{ route('notifications.read-all') }}">
@@ -126,7 +143,7 @@
 
             {{-- Category tabs --}}
             <div class="rounded-2xl p-1.5 {{ $glass }}">
-                <div class="flex gap-1 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] sm:grid sm:grid-cols-3 sm:overflow-visible lg:grid-cols-5 xl:grid-cols-9 [&::-webkit-scrollbar]:hidden">
+                <div class="flex gap-1 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] sm:grid sm:overflow-visible {{ $categoryTabCols }} [&::-webkit-scrollbar]:hidden">
                     <a href="{{ route('notifications.index', $carriedFilters) }}"
                         @class([
                             'inline-flex shrink-0 items-center justify-center gap-2 rounded-xl px-3.5 py-2.5 text-xs font-semibold transition duration-200',
@@ -264,8 +281,8 @@
                 @php
                     $data = $notification->data;
                     $type = $data['type'] ?? null;
-                    $category = \App\Enums\AttendeeNotificationCategory::fromType($type);
-                    $accent = $accents[$category->value];
+                    $category = $categoryClass::fromType($type);
+                    $accent = $accents[$category->value] ?? $accents['event'];
                     $isUnread = is_null($notification->read_at);
                     $tone = $toneByType[$type] ?? 'bg-slate-100 text-slate-700 ring-slate-200';
                 @endphp
@@ -288,7 +305,7 @@
                                         {{ str_replace(' Notifications', '', $category->label()) }}
                                     </span>
                                     <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 {{ $tone }}">
-                                        {{ \App\Enums\AttendeeNotificationCategory::labelForType($type) }}
+                                        {{ $categoryClass::labelForType($type) }}
                                     </span>
                                     @if ($isUnread)
                                         <span class="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-indigo-600">
@@ -346,6 +363,8 @@
                     <p class="mt-1 text-sm text-slate-500">
                         @if ($hasActiveFilters)
                             Try a different type, status, or period.
+                        @elseif ($isCro)
+                            Assignment, inquiry, complaint, refund, and event updates will appear here.
                         @else
                             Updates about your tickets, payments, and saved events will appear here.
                         @endif

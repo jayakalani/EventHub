@@ -10,6 +10,7 @@ use App\Models\EventView;
 use App\Models\Host;
 use App\Models\User;
 use App\Models\UserRole;
+use App\Services\CroNotificationService;
 use App\Services\EventCancellationService;
 use App\Services\EventCompletionService;
 use App\Services\EventNotificationService;
@@ -27,6 +28,7 @@ class EventController extends Controller
         protected EventCompletionService $eventCompletionService,
         protected EventNotificationService $eventNotificationService,
         protected EventPostponementService $eventPostponementService,
+        protected CroNotificationService $croNotificationService,
     ) {}
 
     /**
@@ -143,7 +145,7 @@ class EventController extends Controller
 
         $refundsAllowed = $request->boolean('refunds_allowed');
 
-        Event::create([
+        $event = Event::create([
             'name' => $validatedData['name'],
             'hosted_by' => $validatedData['hosted_by'],
             'category_id' => $validatedData['category_id'],
@@ -168,6 +170,8 @@ class EventController extends Controller
                 ? (int) $validatedData['refund_partial_percentage']
                 : 75,
         ]);
+
+        $this->croNotificationService->notifyEventAssigned($event);
 
         return redirect()->route('organizer.events.index')->with('success', 'Event created successfully. It is unpublished and hidden from attendees until you publish it.');
     }
@@ -398,6 +402,7 @@ class EventController extends Controller
         $wasPostponed = $event->isPostponed();
         $originalDate = (string) $event->date;
         $originalTime = (string) $event->time;
+        $previousContactPersonId = (int) $event->contact_person;
 
         $event->name = $validatedData['name'];
         $event->hosted_by = $validatedData['hosted_by'];
@@ -436,6 +441,10 @@ class EventController extends Controller
         }
 
         $event->save();
+
+        if ((int) $validatedData['contact_person'] !== $previousContactPersonId) {
+            $this->croNotificationService->notifyEventAssigned($event->fresh());
+        }
 
         $dateChanged = ! $scheduleTba && (
             (string) ($validatedData['date'] ?? '') !== $originalDate

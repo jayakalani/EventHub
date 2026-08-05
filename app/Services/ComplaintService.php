@@ -39,6 +39,11 @@ class ComplaintService
 
             Mail::to($user)->queue(new ComplaintReceivedMail($complaint));
 
+            app(CroNotificationService::class)->notifyComplaintSubmitted(
+                $complaint->id,
+                $complaint->subject,
+            );
+
             return $complaint;
         });
     }

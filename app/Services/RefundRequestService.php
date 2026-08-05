@@ -66,6 +66,13 @@ class RefundRequestService
             ['refund_request_id' => $refundRequest->id],
         );
 
+        if ($policy->requiresCroReview && $refundRequest->ticketBooking?->event) {
+            app(CroNotificationService::class)->notifyRefundRequestSubmitted(
+                $refundRequest->ticketBooking->event,
+                $refundRequest->id,
+            );
+        }
+
         if (! $policy->requiresCroReview) {
             app(AttendeeNotificationService::class)->send(
                 $refundRequest->user,

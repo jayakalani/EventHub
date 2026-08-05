@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Enums\EventReminderTypeEnum;
 use App\Models\Event;
+use App\Services\CroNotificationService;
 use App\Services\EventNotificationService;
 use Illuminate\Console\Command;
 
@@ -13,8 +14,10 @@ class SendEventReminders extends Command
 
     protected $description = 'Send event reminders to ticket holders (7 days, 1 day, and 3 hours before start)';
 
-    public function handle(EventNotificationService $eventNotificationService): int
-    {
+    public function handle(
+        EventNotificationService $eventNotificationService,
+        CroNotificationService $croNotificationService,
+    ): int {
         $events = Event::query()
             ->whereIn('status', [Event::STATUS_UPCOMING, Event::STATUS_ONGOING])
             ->get();
@@ -24,6 +27,7 @@ class SendEventReminders extends Command
             EventReminderTypeEnum::OneDay->value => 0,
             EventReminderTypeEnum::ThreeHours->value => 0,
         ];
+        $croTomorrowCount = 0;
 
         foreach ($events as $event) {
             $startsAt = $event->startsAt();
@@ -53,13 +57,19 @@ class SendEventReminders extends Command
                 $eventNotificationService->sendReminder($event, $user, $reminderType);
                 $counts[$reminderType->value]++;
             }
+
+            if ($reminderType === EventReminderTypeEnum::OneDay) {
+                $croNotificationService->notifyEventStartsTomorrow($event);
+                $croTomorrowCount++;
+            }
         }
 
         $this->info(sprintf(
-            'Sent %d seven-day, %d one-day, and %d three-hour reminder(s).',
+            'Sent %d seven-day, %d one-day, and %d three-hour reminder(s). CRO tomorrow reminders considered: %d.',
             $counts[EventReminderTypeEnum::SevenDays->value],
             $counts[EventReminderTypeEnum::OneDay->value],
             $counts[EventReminderTypeEnum::ThreeHours->value],
+            $croTomorrowCount,
         ));
 
         return self::SUCCESS;

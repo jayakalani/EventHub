@@ -99,6 +99,7 @@ class EventCancellationService
                 }
 
                 app(EventNotificationService::class)->notifyEventCancelled($event, $reason);
+                app(CroNotificationService::class)->notifyEventCancelled($event, $reason);
             });
         });
     }

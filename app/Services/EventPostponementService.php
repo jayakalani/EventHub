@@ -111,6 +111,10 @@ class EventPostponementService
                         $user->notify(new EventPostponedNotification($event, $reason));
                     }
                 }
+
+                if ($notifyInApp) {
+                    app(CroNotificationService::class)->notifyEventPostponed($event, $reason);
+                }
             });
         });
     }
@@ -196,6 +200,8 @@ class EventPostponementService
 
                     $user->notify(new EventRescheduledNotification($event));
                 }
+
+                app(CroNotificationService::class)->notifyEventRescheduled($event);
             });
         });
     }
@@ -317,6 +323,8 @@ class EventPostponementService
 
                     $user->notify(new EventRescheduledNotification($event));
                 }
+
+                app(CroNotificationService::class)->notifyEventRescheduled($event);
             });
         });
     }

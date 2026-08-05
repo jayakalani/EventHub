@@ -9,11 +9,52 @@
             },
             items: {
                 @foreach ($cartItems->flatten() as $item)
-                    {{ $item->id }}: { qty: {{ (int) $item->quantity }}, total: {{ (float) $item->line_total }} },
+                    {{ $item->id }}: {
+                        qty: {{ (int) $item->quantity }},
+                        total: {{ (float) $item->line_total }},
+                        deadline: @js($item->purchaseDeadlineAt()->toIso8601String()),
+                        expired: {{ $item->hasPurchaseDeadlinePassed() ? 'true' : 'false' }},
+                    },
                 @endforeach
             },
+            expiryTimer: null,
+            init() {
+                this.syncExpiry();
+                this.expiryTimer = setInterval(() => this.syncExpiry(), 1000);
+            },
+            destroy() {
+                if (this.expiryTimer) {
+                    clearInterval(this.expiryTimer);
+                }
+            },
+            syncExpiry() {
+                const now = Date.now();
+                let changed = false;
+
+                Object.keys(this.items).forEach(id => {
+                    const item = this.items[id];
+                    const isExpired = now >= new Date(item.deadline).getTime();
+
+                    if (isExpired !== item.expired) {
+                        item.expired = isExpired;
+                        changed = true;
+                    }
+
+                    if (isExpired && this.selected[id]) {
+                        this.selected[id] = false;
+                        changed = true;
+                    }
+                });
+
+                if (changed) {
+                    this.persistSelection();
+                }
+            },
+            get purchasableIds() {
+                return Object.keys(this.items).filter(id => !this.items[id].expired);
+            },
             get selectedIds() {
-                return Object.keys(this.selected).filter(id => this.selected[id]);
+                return this.purchasableIds.filter(id => this.selected[id]);
             },
             get selectedLines() {
                 return this.selectedIds.length;
@@ -25,11 +66,11 @@
                 return this.selectedIds.reduce((sum, id) => sum + (this.items[id]?.total || 0), 0);
             },
             get allSelected() {
-                const ids = Object.keys(this.items);
+                const ids = this.purchasableIds;
                 return ids.length > 0 && ids.every(id => this.selected[id]);
             },
             toggleAll(checked) {
-                Object.keys(this.items).forEach(id => {
+                this.purchasableIds.forEach(id => {
                     this.selected[id] = checked;
                 });
                 this.persistSelection();
@@ -216,17 +257,28 @@
                     <div class="divide-y divide-slate-100">
 
                         @foreach($items as $item)
+                            @php
+                                $isExpiredOnLoad = $item->hasPurchaseDeadlinePassed();
+                            @endphp
 
-                            <div class="px-4 py-3.5 hover:bg-slate-50 transition">
+                            <div
+                                class="px-4 py-3.5 transition"
+                                :class="items[{{ $item->id }}].expired ? 'bg-slate-50/80' : 'hover:bg-slate-50'"
+                            >
 
-                                <div class="flex flex-col lg:flex-row lg:items-center gap-3 lg:gap-4">
+                                <div
+                                    class="flex flex-col lg:flex-row lg:items-center gap-3 lg:gap-4"
+                                    :class="items[{{ $item->id }}].expired && 'opacity-70'"
+                                >
 
                                     <input
                                         type="checkbox"
                                         value="{{ $item->id }}"
                                         x-model="selected[{{ $item->id }}]"
+                                        :disabled="items[{{ $item->id }}].expired"
                                         @change="$nextTick(() => persistSelection())"
-                                        class="h-4 w-4 rounded border-slate-300 text-primary shrink-0"
+                                        class="h-4 w-4 rounded border-slate-300 text-primary shrink-0 disabled:cursor-not-allowed disabled:opacity-40"
+                                        @if($isExpiredOnLoad) disabled @endif
                                     >
 
                                     <div class="flex items-center gap-3 flex-1 min-w-0">
@@ -238,47 +290,84 @@
 
                                         <div class="min-w-0">
 
-                                            <h4 class="text-sm font-semibold text-slate-900">
-                                                {{ $item->ticketCategory->name }}
-                                            </h4>
+                                            <div class="flex flex-wrap items-center gap-2">
+                                                <h4 class="text-sm font-semibold text-slate-900">
+                                                    {{ $item->ticketCategory->name }}
+                                                </h4>
+
+                                                <span
+                                                    x-show="items[{{ $item->id }}].expired"
+                                                    x-cloak
+                                                    class="inline-flex items-center rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-600"
+                                                    @if(! $isExpiredOnLoad) style="display: none;" @endif
+                                                >
+                                                    {{ t(['en' => 'Expired', 'si' => 'කල් ඉකුත්']) }}
+                                                </span>
+                                            </div>
 
                                             <p class="text-xs text-slate-500">
                                                 Rs {{ number_format($item->unit_price,2) }} {{ t(['en' => 'per ticket', 'si' => 'ටිකට් එකකට']) }}
+                                            </p>
+
+                                            <p
+                                                x-show="items[{{ $item->id }}].expired"
+                                                x-cloak
+                                                class="mt-1 text-xs font-medium text-slate-500"
+                                                @if(! $isExpiredOnLoad) style="display: none;" @endif
+                                            >
+                                                {{ t(['en' => 'Purchase deadline has passed. This reservation can no longer be checked out.', 'si' => 'මිලදී ගැනීමේ අවසාන දිනය ඉකුත් වී ඇත. මෙම වෙන්කිරීම තවදුරටත් ගෙවීමට නොහැක.']) }}
                                             </p>
 
                                         </div>
 
                                     </div>
 
-                                    <form
-                                        action="{{ route('attendee.cart.update', $item) }}"
-                                        method="POST"
-                                        class="flex items-center gap-2"
+                                    <div
+                                        x-show="!items[{{ $item->id }}].expired"
+                                        @if($isExpiredOnLoad) style="display: none;" @endif
                                     >
-                                        @csrf
-                                        @method('PUT')
-
-                                        <input
-                                            type="number"
-                                            name="quantity"
-                                            min="1"
-                                            max="{{ $item->ticketCategory->no_of_available_tickets }}"
-                                            value="{{ $item->quantity }}"
-                                            class="w-16 rounded-lg border-slate-300 py-1.5 text-center text-sm focus:border-primary focus:ring-primary"
+                                        <form
+                                            action="{{ route('attendee.cart.update', $item) }}"
+                                            method="POST"
+                                            class="flex items-center gap-2"
                                         >
+                                            @csrf
+                                            @method('PUT')
 
-                                        <button
-                                            type="submit"
-                                            class="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold hover:bg-slate-200"
-                                        >
-                                            {{ t(['en' => 'Update', 'si' => 'යාවත්කාලීන කරන්න']) }}
-                                        </button>
+                                            <input
+                                                type="number"
+                                                name="quantity"
+                                                min="1"
+                                                max="{{ $item->ticketCategory->no_of_available_tickets }}"
+                                                value="{{ $item->quantity }}"
+                                                class="w-16 rounded-lg border-slate-300 py-1.5 text-center text-sm focus:border-primary focus:ring-primary"
+                                            >
 
-                                    </form>
+                                            <button
+                                                type="submit"
+                                                class="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold hover:bg-slate-200"
+                                            >
+                                                {{ t(['en' => 'Update', 'si' => 'යාවත්කාලීන කරන්න']) }}
+                                            </button>
+
+                                        </form>
+                                    </div>
+
+                                    <div
+                                        x-show="items[{{ $item->id }}].expired"
+                                        x-cloak
+                                        class="text-xs font-semibold text-slate-500"
+                                        @if(! $isExpiredOnLoad) style="display: none;" @endif
+                                    >
+                                        × {{ $item->quantity }}
+                                    </div>
 
                                     <div class="text-right min-w-[100px]">
 
-                                        <div class="text-sm font-bold text-primary">
+                                        <div
+                                            class="text-sm font-bold"
+                                            :class="items[{{ $item->id }}].expired ? 'text-slate-400 line-through' : 'text-primary'"
+                                        >
                                             Rs {{ number_format($item->line_total,2) }}
                                         </div>
 

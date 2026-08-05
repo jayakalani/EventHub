@@ -14,3 +14,4 @@ Schedule::command('events:notify-ticket-sales-opened')->hourly();
 Schedule::command('events:notify-ticket-sales-closing-soon')->hourly();
 Schedule::command('cart:send-expiry-reminders')->everyFiveMinutes();
 Schedule::command('cart:send-pending-payment-reminders')->daily();
+Schedule::command('cart:purge-completed-events')->daily();

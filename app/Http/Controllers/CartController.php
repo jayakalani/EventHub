@@ -108,10 +108,15 @@ class CartController extends Controller
         $wallet = $this->walletService->getOrCreateWallet(Auth::user());
         $walletBalance = (float) $wallet->balance;
 
-        $validCartItemIds = $cartItems->flatten()->pluck('id')->map(fn ($id) => (int) $id)->all();
+        $purchasableCartItemIds = $cartItems->flatten()
+            ->filter(fn (CartItem $item) => ! $item->hasPurchaseDeadlinePassed())
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
         $selectedCartItemIds = collect(session('cart.selected_item_ids', []))
             ->map(fn ($id) => (int) $id)
-            ->filter(fn (int $id) => in_array($id, $validCartItemIds, true))
+            ->filter(fn (int $id) => in_array($id, $purchasableCartItemIds, true))
             ->values()
             ->all();
 
@@ -152,6 +157,10 @@ class CartController extends Controller
     public function update(Request $request, CartItem $cartItem): RedirectResponse
     {
         $this->authorizeCartItem($cartItem);
+
+        if ($cartItem->hasPurchaseDeadlinePassed()) {
+            return back()->withErrors(['quantity' => 'This cart item has expired and can no longer be updated.']);
+        }
 
         $validated = $request->validate([
             'quantity' => ['required', 'integer', 'min:1'],
@@ -215,6 +224,10 @@ class CartController extends Controller
         }
 
         foreach ($cartItems as $cartItem) {
+            if ($cartItem->hasPurchaseDeadlinePassed()) {
+                return back()->withErrors(['checkout' => 'One or more selected tickets have expired. Remove them or refresh your cart.']);
+            }
+
             if ($cartItem->event->isCancelled()) {
                 return back()->withErrors(['checkout' => 'One or more events in your cart have been cancelled.']);
             }

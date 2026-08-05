@@ -24,4 +24,16 @@ return [
 
     'expiry_reminder_minutes_before' => (int) env('CART_EXPIRY_REMINDER_MINUTES', 10),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Completed Event Cart Retention
+    |--------------------------------------------------------------------------
+    |
+    | Days to keep cart tickets after an event's date once it is completed.
+    | After this period, cart items for that event are removed automatically.
+    |
+    */
+
+    'completed_event_retention_days' => (int) env('CART_COMPLETED_EVENT_RETENTION_DAYS', 5),
+
 ];

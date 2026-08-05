@@ -40,6 +40,27 @@ class CartItem extends Model
         return now()->gte($this->expiresAt());
     }
 
+    /**
+     * Earliest moment the item can no longer be purchased:
+     * reservation hold expiry or ticket category booking end.
+     */
+    public function purchaseDeadlineAt(): Carbon
+    {
+        $deadline = $this->expiresAt();
+
+        $bookingEnd = $this->ticketCategory?->booking_end;
+        if ($bookingEnd && $bookingEnd->lt($deadline)) {
+            $deadline = $bookingEnd->copy();
+        }
+
+        return $deadline;
+    }
+
+    public function hasPurchaseDeadlinePassed(): bool
+    {
+        return now()->gte($this->purchaseDeadlineAt());
+    }
+
     public function minutesUntilExpiry(): int
     {
         return max(0, (int) now()->diffInMinutes($this->expiresAt(), false));

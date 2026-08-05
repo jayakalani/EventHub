@@ -8,10 +8,11 @@ return [
     |--------------------------------------------------------------------------
     |
     | Minutes a cart reservation remains valid before tickets are released.
+    | Default: 3 days (4320 minutes).
     |
     */
 
-    'reservation_minutes' => (int) env('CART_RESERVATION_MINUTES', 30),
+    'reservation_minutes' => (int) env('CART_RESERVATION_MINUTES', 4320),
 
     /*
     |--------------------------------------------------------------------------
@@ -19,10 +20,11 @@ return [
     |--------------------------------------------------------------------------
     |
     | Send a reminder this many minutes before a reservation expires.
+    | Default: 1 day before expiry (1440 minutes).
     |
     */
 
-    'expiry_reminder_minutes_before' => (int) env('CART_EXPIRY_REMINDER_MINUTES', 10),
+    'expiry_reminder_minutes_before' => (int) env('CART_EXPIRY_REMINDER_MINUTES', 1440),
 
     /*
     |--------------------------------------------------------------------------

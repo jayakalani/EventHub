@@ -5,21 +5,25 @@ namespace App\Http\Controllers;
 use App\Models\CartItem;
 use App\Models\Event;
 use App\Models\ticketCategory;
+use App\Services\CartInventoryService;
 use App\Services\StripeCheckoutService;
 use App\Services\WalletService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
+use RuntimeException;
 
 class CartController extends Controller
 {
     public function __construct(
         protected StripeCheckoutService $stripeCheckoutService,
         protected WalletService $walletService,
+        protected CartInventoryService $cartInventoryService,
     ) {}
 
-    private function validateTicketCategoryForBooking(ticketCategory $category, int $quantity): ?string
+    private function validateTicketCategoryWindow(ticketCategory $category): ?string
     {
         if (! $category->is_active) {
             return 'This ticket category is not available for booking.';
@@ -35,15 +39,11 @@ class CartController extends Controller
             return 'Booking for this category has ended.';
         }
 
-        if ($quantity > $category->no_of_available_tickets) {
-            return "Only {$category->no_of_available_tickets} ticket(s) available for this category.";
-        }
-
         return null;
     }
 
     /**
-     * Reserve tickets (add to cart).
+     * Reserve tickets (add to cart) and hard-hold inventory.
      */
     public function store(Request $request, Event $event): RedirectResponse
     {
@@ -54,34 +54,54 @@ class CartController extends Controller
             'quantity' => ['required', 'integer', 'min:1'],
         ]);
 
-        $category = ticketCategory::query()
-            ->where('event_id', $event->id)
-            ->findOrFail($validated['ticket_category_id']);
+        try {
+            DB::transaction(function () use ($validated, $event) {
+                $category = ticketCategory::query()
+                    ->where('event_id', $event->id)
+                    ->lockForUpdate()
+                    ->findOrFail($validated['ticket_category_id']);
 
-        $existingItem = CartItem::query()
-            ->where('user_id', Auth::id())
-            ->where('ticket_category_id', $category->id)
-            ->first();
+                if ($error = $this->validateTicketCategoryWindow($category)) {
+                    throw new RuntimeException($error);
+                }
 
-        $proposedQuantity = $validated['quantity'] + (int) ($existingItem?->quantity ?? 0);
+                $existingItem = CartItem::query()
+                    ->where('user_id', Auth::id())
+                    ->where('ticket_category_id', $category->id)
+                    ->lockForUpdate()
+                    ->first();
 
-        if ($error = $this->validateTicketCategoryForBooking($category, $proposedQuantity)) {
-            return back()->withErrors(['quantity' => $error])->withInput();
-        }
+                $addQuantity = (int) $validated['quantity'];
+                $reserveQuantity = $addQuantity;
 
-        if ($existingItem) {
-            $existingItem->update([
-                'quantity' => $proposedQuantity,
-                'reserved_until' => now()->addMinutes((int) config('cart.reservation_minutes', 30)),
-            ]);
-        } else {
-            CartItem::create([
-                'user_id' => Auth::id(),
-                'event_id' => $event->id,
-                'ticket_category_id' => $category->id,
-                'quantity' => $validated['quantity'],
-                'reserved_until' => now()->addMinutes((int) config('cart.reservation_minutes', 30)),
-            ]);
+                // Legacy soft-hold rows never decremented stock; claim the full line now.
+                if ($existingItem && ! $existingItem->inventory_held) {
+                    $reserveQuantity = (int) $existingItem->quantity + $addQuantity;
+                }
+
+                $this->cartInventoryService->reserve($category, $reserveQuantity);
+
+                $reservedUntil = now()->addMinutes((int) config('cart.reservation_minutes', 30));
+
+                if ($existingItem) {
+                    $existingItem->update([
+                        'quantity' => (int) $existingItem->quantity + $addQuantity,
+                        'reserved_until' => $reservedUntil,
+                        'inventory_held' => true,
+                    ]);
+                } else {
+                    CartItem::create([
+                        'user_id' => Auth::id(),
+                        'event_id' => $event->id,
+                        'ticket_category_id' => $category->id,
+                        'quantity' => $addQuantity,
+                        'reserved_until' => $reservedUntil,
+                        'inventory_held' => true,
+                    ]);
+                }
+            });
+        } catch (RuntimeException $e) {
+            return back()->withErrors(['quantity' => $e->getMessage()])->withInput();
         }
 
         return back()->with('success', 'Tickets reserved successfully. Review them below or go to your cart.');
@@ -92,6 +112,8 @@ class CartController extends Controller
      */
     public function index(): View
     {
+        $autoReleased = $this->cartInventoryService->releaseReservationExpiredForUser((int) Auth::id());
+
         $cartItems = CartItem::query()
             ->where('user_id', Auth::id())
             ->with(['event.host', 'event.eventCategory', 'ticketCategory'])
@@ -121,6 +143,15 @@ class CartController extends Controller
             ->all();
 
         $this->rememberSelectedCartItemIds($selectedCartItemIds);
+
+        if ($autoReleased > 0 && ! session()->has('success')) {
+            session()->now(
+                'success',
+                $autoReleased === 1
+                    ? '1 expired reservation was cleared and tickets were released.'
+                    : "{$autoReleased} expired reservations were cleared and tickets were released."
+            );
+        }
 
         return view('attendee.cart.index', compact('cartItems', 'cartTotal', 'walletBalance', 'selectedCartItemIds'));
     }
@@ -152,7 +183,7 @@ class CartController extends Controller
     }
 
     /**
-     * Update reserved ticket quantity.
+     * Update reserved ticket quantity (adjusts inventory hold).
      */
     public function update(Request $request, CartItem $cartItem): RedirectResponse
     {
@@ -168,20 +199,21 @@ class CartController extends Controller
 
         $category = $cartItem->ticketCategory;
 
-        if ($error = $this->validateTicketCategoryForBooking($category, $validated['quantity'])) {
+        if ($error = $this->validateTicketCategoryWindow($category)) {
             return back()->withErrors(['quantity' => $error]);
         }
 
-        $cartItem->update([
-            'quantity' => $validated['quantity'],
-            'reserved_until' => now()->addMinutes((int) config('cart.reservation_minutes', 30)),
-        ]);
+        try {
+            $this->cartInventoryService->adjustQuantity($cartItem, (int) $validated['quantity']);
+        } catch (RuntimeException $e) {
+            return back()->withErrors(['quantity' => $e->getMessage()]);
+        }
 
         return back()->with('success', 'Cart updated successfully.');
     }
 
     /**
-     * Remove item from cart.
+     * Remove item from cart and release inventory hold.
      */
     public function destroy(CartItem $cartItem): RedirectResponse
     {
@@ -193,7 +225,7 @@ class CartController extends Controller
             ->values()
             ->all();
 
-        $cartItem->delete();
+        $this->cartInventoryService->releaseAndDelete($cartItem);
 
         $this->rememberSelectedCartItemIds($remainingSelected);
 
@@ -201,10 +233,44 @@ class CartController extends Controller
     }
 
     /**
+     * Remove expired reservations and release their inventory holds.
+     */
+    public function clearExpired(): RedirectResponse
+    {
+        $cleared = $this->cartInventoryService->clearExpiredForUser((int) Auth::id());
+
+        $remainingSelected = collect(session('cart.selected_item_ids', []))
+            ->map(fn ($id) => (int) $id)
+            ->filter(function (int $id) {
+                return CartItem::query()
+                    ->where('user_id', Auth::id())
+                    ->whereKey($id)
+                    ->exists();
+            })
+            ->values()
+            ->all();
+
+        $this->rememberSelectedCartItemIds($remainingSelected);
+
+        if ($cleared === 0) {
+            return back()->with('success', 'No expired reservations to clear.');
+        }
+
+        return back()->with(
+            'success',
+            $cleared === 1
+                ? 'Removed 1 expired reservation and released those tickets.'
+                : "Removed {$cleared} expired reservations and released those tickets."
+        );
+    }
+
+    /**
      * Start Stripe Checkout for selected cart items.
      */
     public function checkout(Request $request): RedirectResponse
     {
+        $this->cartInventoryService->releaseExpired();
+
         $validated = $request->validate([
             'cart_item_ids' => ['required', 'array', 'min:1'],
             'cart_item_ids.*' => ['integer', 'exists:cart_items,id'],
@@ -232,7 +298,7 @@ class CartController extends Controller
                 return back()->withErrors(['checkout' => 'One or more events in your cart have been cancelled.']);
             }
 
-            if ($error = $this->validateTicketCategoryForBooking($cartItem->ticketCategory, $cartItem->quantity)) {
+            if ($error = $this->validateTicketCategoryWindow($cartItem->ticketCategory)) {
                 return back()->withErrors(['checkout' => $error]);
             }
         }

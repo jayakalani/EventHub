@@ -94,6 +94,7 @@ enum AttendeeNotificationCategory: string
             ],
             self::Reminder => [
                 'event_reminder' => 'Event reminder',
+                'event_rating_nudge' => 'Rate past event',
             ],
             self::Refund => [
                 'refund_request_received' => 'Refund received',

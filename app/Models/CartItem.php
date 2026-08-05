@@ -14,6 +14,7 @@ class CartItem extends Model
         'ticket_category_id',
         'quantity',
         'reserved_until',
+        'inventory_held',
     ];
 
     protected function casts(): array
@@ -21,6 +22,7 @@ class CartItem extends Model
         return [
             'quantity' => 'integer',
             'reserved_until' => 'datetime',
+            'inventory_held' => 'boolean',
         ];
     }
 

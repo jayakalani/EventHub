@@ -104,8 +104,10 @@
                 </div>
             </section>
 
-            
-            
+            @include('attendee.partials.upcoming-this-week')
+
+            @include('attendee.partials.rating-nudge')
+
             {{-- Browse events --}}
             <section>
                 <div class="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">

@@ -5,16 +5,19 @@ namespace App\Services;
 use App\Enums\BookingStatusEnum;
 use App\Enums\AttendeeNotificationCategory;
 use App\Enums\EventReminderTypeEnum;
+use App\Mail\EventRatingNudgeMail;
 use App\Mail\EventReminderMail;
 use App\Mail\EventUpdatedMail;
 use App\Mail\NewEventFromHostMail;
 use App\Models\Event;
 use App\Models\EventReminderLog;
 use App\Models\FollowHost;
+use App\Models\Rating;
 use App\Models\SavedEvent;
 use App\Models\ticketBooking;
 use App\Models\User;
 use App\Models\UserRole;
+use App\Notifications\EventRatingNudgeNotification;
 use App\Notifications\NewEventFromHostNotification;
 use App\Notifications\EventUpdatedNotification;
 use App\Notifications\EventReminderNotification;
@@ -217,6 +220,74 @@ class EventNotificationService
 
         Mail::to($user)->queue(new EventReminderMail($event, $user, $type));
         $user->notify(new EventReminderNotification($event, $type));
+    }
+
+    /**
+     * Ask a ticket holder to rate/comment ~24h after the event.
+     */
+    public function sendRatingNudge(Event $event, User $user): bool
+    {
+        if (! $event->isCompleted() || $event->isCancelled()) {
+            return false;
+        }
+
+        $alreadyRated = Rating::query()
+            ->where('event_id', $event->id)
+            ->where('user_id', $user->id)
+            ->exists();
+
+        if ($alreadyRated) {
+            return false;
+        }
+
+        $alreadySent = EventReminderLog::query()
+            ->where('event_id', $event->id)
+            ->where('user_id', $user->id)
+            ->where('reminder_type', EventReminderTypeEnum::RatingNudge)
+            ->exists();
+
+        if ($alreadySent) {
+            return false;
+        }
+
+        EventReminderLog::create([
+            'event_id' => $event->id,
+            'user_id' => $user->id,
+            'reminder_type' => EventReminderTypeEnum::RatingNudge,
+            'sent_at' => now(),
+        ]);
+
+        Mail::to($user)->queue(new EventRatingNudgeMail($event, $user));
+        $user->notify(new EventRatingNudgeNotification($event));
+
+        return true;
+    }
+
+    /**
+     * Completed events the attendee booked but has not rated yet (24h+ after start).
+     *
+     * @return Collection<int, Event>
+     */
+    public function getPendingRatingPrompts(int $userId, int $limit = 3): Collection
+    {
+        $events = Event::query()
+            ->bookedByUser($userId)
+            ->where('status', Event::STATUS_COMPLETED)
+            ->whereNotNull('date')
+            ->where(function ($query) {
+                $query->where('date_tba', false)->orWhereNull('date_tba');
+            })
+            ->whereDoesntHave('ratings', fn ($query) => $query->where('user_id', $userId))
+            ->with('host')
+            ->orderByDesc('date')
+            ->orderByDesc('time')
+            ->limit(12)
+            ->get()
+            ->filter(fn (Event $event) => $event->startsAt()->lte(now()->subHours(24)))
+            ->take($limit)
+            ->values();
+
+        return new Collection($events->all());
     }
 
     /**

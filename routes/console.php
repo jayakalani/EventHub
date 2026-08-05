@@ -10,8 +10,10 @@ Artisan::command('inspire', function () {
 
 Schedule::command('events:complete-past')->hourly();
 Schedule::command('events:send-reminders')->hourly();
+Schedule::command('events:send-rating-nudges')->hourly();
 Schedule::command('events:notify-ticket-sales-opened')->hourly();
 Schedule::command('events:notify-ticket-sales-closing-soon')->hourly();
+Schedule::command('cart:release-expired')->everyMinute();
 Schedule::command('cart:send-expiry-reminders')->everyFiveMinutes();
 Schedule::command('cart:send-pending-payment-reminders')->daily();
 Schedule::command('cart:purge-completed-events')->daily();

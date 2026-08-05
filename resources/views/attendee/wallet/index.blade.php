@@ -31,25 +31,61 @@
             </div>
 
             <div class="grid gap-4 lg:grid-cols-2">
-                <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                <div
+                    class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5"
+                    x-data="{
+                        amount: @js(old('amount', '')),
+                        presets: [1000, 5000, 10000],
+                        selectPreset(value) {
+                            this.amount = value;
+                        },
+                        isPreset(value) {
+                            return Number(this.amount) === value;
+                        },
+                    }"
+                >
                     <h3 class="text-base font-bold text-slate-900 sm:text-lg">{{ t(['en' => 'Top-up Wallet', 'si' => 'පසුම්බියට ගෙවීම කරන්න']) }}</h3>
                     <p class="mt-1 text-sm text-slate-500">{{ t(['en' => 'Add funds securely using Stripe card payment.', 'si' => 'Stripe කාඩ්පත් ගෙවීම භාවිතයෙන් ආරක්ෂිතව මුදල් එකතු කරන්න.']) }}</p>
 
                     <form action="{{ route('attendee.wallet.topup') }}" method="POST" class="mt-4 space-y-3">
                         @csrf
                         <div>
-                            <label for="amount" class="block text-sm font-semibold text-slate-700">{{ t(['en' => 'Amount (Rs)', 'si' => 'මුදල (රු)']) }}</label>
+                            <div class="flex items-baseline justify-between gap-2">
+                                <label for="amount" class="block text-sm font-semibold text-slate-700">{{ t(['en' => 'Amount (Rs)', 'si' => 'මුදල (රු)']) }}</label>
+                                <p class="text-xs text-slate-500">
+                                    {{ t(['en' => 'Min Rs 100 · Max Rs 500,000', 'si' => 'අවම රු 100 · උපරිම රු 500,000']) }}
+                                </p>
+                            </div>
+
+                            <div class="mt-2 grid grid-cols-3 gap-2">
+                                <template x-for="preset in presets" :key="preset">
+                                    <button
+                                        type="button"
+                                        @click="selectPreset(preset)"
+                                        :class="isPreset(preset)
+                                            ? 'border-primary bg-primary/10 text-primary ring-1 ring-primary/30'
+                                            : 'border-slate-200 bg-slate-50 text-slate-700 hover:border-primary/40 hover:bg-primary/5'"
+                                        class="rounded-xl border px-2 py-2 text-sm font-semibold transition"
+                                        x-text="'Rs ' + preset.toLocaleString()"
+                                    ></button>
+                                </template>
+                            </div>
+
                             <input
                                 type="number"
                                 id="amount"
                                 name="amount"
+                                x-model="amount"
                                 min="100"
                                 max="500000"
                                 step="0.01"
                                 required
-                                placeholder="{{ t(['en' => 'e.g. 5000', 'si' => 'උදා: 5000']) }}"
-                                class="mt-1.5 w-full rounded-xl border-slate-300 py-2 text-sm shadow-sm focus:border-primary focus:ring-primary"
+                                placeholder="{{ t(['en' => 'Or enter a custom amount', 'si' => 'නැතහොත් අභිරුචි මුදලක් ඇතුළත් කරන්න']) }}"
+                                class="mt-2.5 w-full rounded-xl border-slate-300 py-2 text-sm shadow-sm focus:border-primary focus:ring-primary"
                             >
+                            <p class="mt-1.5 text-xs text-slate-500">
+                                {{ t(['en' => 'Choose a quick amount or type any value between Rs 100 and Rs 500,000.', 'si' => 'ඉක්මන් මුදලක් තෝරන්න හෝ රු 100 සහ රු 500,000 අතර අගයක් ටයිප් කරන්න.']) }}
+                            </p>
                         </div>
                         <button type="submit" class="w-full rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700">
                             {{ t(['en' => 'Top-up with Card', 'si' => 'කාඩ්පතෙන් ගෙවීම කරන්න']) }}

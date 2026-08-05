@@ -8,8 +8,10 @@ use App\Models\Host;
 use App\Models\User;
 use App\Models\UserRole;
 use App\Services\AdminReportService;
+use App\Services\AttendeeCalendarService;
 use App\Services\CroDashboardService;
 use App\Services\EventCompletionService;
+use App\Services\EventNotificationService;
 use App\Services\Exports\AdminDashboardExportBuilder;
 use App\Services\Exports\CroDashboardExportBuilder;
 use App\Services\Exports\OrganizerDashboardExportBuilder;
@@ -228,8 +230,11 @@ class DashboardController extends Controller
     /**
      * Attendee Dashboard
      */
-    public function attendee(Request $request): View
-    {
+    public function attendee(
+        Request $request,
+        AttendeeCalendarService $calendarService,
+        EventNotificationService $eventNotificationService,
+    ): View {
         $this->eventCompletionService->completePastEvents();
 
         $events = $this->withUserEventFlags($this->filteredEventsQuery($request))->get();
@@ -243,12 +248,17 @@ class DashboardController extends Controller
             ? Host::query()->where('is_active', true)->find($request->host)
             : null;
 
+        $upcomingThisWeek = $calendarService->getThisWeekBookedEvents((int) Auth::id());
+        $pendingRatingPrompts = $eventNotificationService->getPendingRatingPrompts((int) Auth::id());
+
         return view('attendee.dashboard', compact(
             'events',
             'pastEvents',
             'eventCategories',
             'selectedCategory',
-            'selectedHost'
+            'selectedHost',
+            'upcomingThisWeek',
+            'pendingRatingPrompts',
         ));
     }
 

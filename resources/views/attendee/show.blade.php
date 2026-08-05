@@ -330,7 +330,7 @@
 
                         {{-- Ratings --}}
                         @unless ($isCancelled)
-                        <section class="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm sm:p-8" x-data="{ hover: 0, selected: {{ $userRating ?? 0 }} }">
+                        <section id="ratings" class="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm sm:p-8 scroll-mt-24" x-data="{ hover: 0, selected: {{ $userRating ?? 0 }} }">
                             <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                                 <div class="flex items-center gap-3">
                                     <div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-50 text-amber-600">
@@ -434,7 +434,7 @@
 
                         {{-- Comments --}}
                         @unless ($isCancelled)
-                        <section class="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm sm:p-8" x-data="{ editingId: null }">
+                        <section id="comments" class="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm sm:p-8 scroll-mt-24" x-data="{ editingId: null }">
                             <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                                 <div class="flex items-center gap-3">
                                     <div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">

@@ -24,6 +24,7 @@ class StripeCheckoutService
     public function __construct(
         protected TicketQrService $ticketQrService,
         protected WalletService $walletService,
+        protected CartInventoryService $cartInventoryService,
     ) {
         Stripe::setApiKey(config('services.stripe.secret'));
     }
@@ -190,13 +191,9 @@ class StripeCheckoutService
             $soldOutCategoryIds = [];
 
             foreach ($cartItems as $cartItem) {
-                $category = ticketCategory::query()
-                    ->lockForUpdate()
-                    ->findOrFail($cartItem->ticket_category_id);
-
-                if ($cartItem->quantity > $category->no_of_available_tickets) {
-                    throw new RuntimeException("Only {$category->no_of_available_tickets} ticket(s) available for {$category->name}.");
-                }
+                // Hard hold already reduced stock on add-to-cart. Consume that hold
+                // (or claim stock for legacy soft-hold rows) without a second decrement.
+                $category = $this->cartInventoryService->consumeHoldForPurchase($cartItem);
 
                 $unitPrice = (float) $category->ticket_price;
 
@@ -211,9 +208,6 @@ class StripeCheckoutService
                         'status' => BookingStatusEnum::Confirmed,
                     ]);
                 }
-
-                $category->decrement('no_of_available_tickets', $cartItem->quantity);
-                $category->refresh();
 
                 if ((int) $category->no_of_available_tickets <= 0) {
                     $soldOutCategoryIds[] = $category->id;

@@ -69,6 +69,10 @@
                         class="rounded-xl px-3.5 py-2 text-sm font-medium transition {{ request()->routeIs('attendee.dashboard', 'attendee.events.*') ? $navActive : $navIdle }}">
                         {{ t(['en' => 'Events', 'si' => 'ප්‍රසංග']) }}
                     </a>
+                    <a href="{{ route('attendee.saved.index') }}"
+                        class="rounded-xl px-3.5 py-2 text-sm font-medium transition {{ request()->routeIs('attendee.saved.*') ? $navActive : $navIdle }}">
+                        {{ t(['en' => 'Saved', 'si' => 'සුරකින ලද']) }}
+                    </a>
                     <a href="{{ route('attendee.hosts.index') }}"
                         class="rounded-xl px-3.5 py-2 text-sm font-medium transition {{ request()->routeIs('attendee.hosts.*') ? $navActive : $navIdle }}">
                         {{ t(['en' => 'Hosts', 'si' => 'සත්කාරකයන්']) }}
@@ -176,7 +180,7 @@
                     <a href="{{ route('attendee.cart.index') }}"
                         title="{{ t(['en' => 'Cart', 'si' => 'Shopping Cart']) }}"
                         aria-label="{{ t(['en' => 'Cart', 'si' => 'Shopping Cart']) }}"
-                        class="relative hidden h-10 w-10 items-center justify-center rounded-xl transition sm:flex {{ request()->routeIs('attendee.cart.*') ? $iconActive : $iconIdle }}">
+                        class="relative flex h-10 w-10 items-center justify-center rounded-xl transition {{ request()->routeIs('attendee.cart.*') ? $iconActive : $iconIdle }}">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M3 3h2l.4 2M7 13h10l4-8H5.4m1.6 8L5.4 5M7 13l-1.3 6h11.6L17 13M9 21a1 1 0 100-2 1 1 0 000 2zm8 0a1 1 0 100-2 1 1 0 000 2z" />
@@ -338,6 +342,10 @@
                 <a href="{{ route('attendee.dashboard') }}"
                     class="block rounded-xl px-3 py-2.5 transition hover:bg-[#0F0363]/5 hover:text-[#0F0363] {{ request()->routeIs('attendee.dashboard', 'attendee.events.*') ? $navActive : 'text-slate-700' }}">
                     {{ t(['en' => 'Events', 'si' => 'ප්‍රසංග']) }}
+                </a>
+                <a href="{{ route('attendee.saved.index') }}"
+                    class="block rounded-xl px-3 py-2.5 transition hover:bg-[#0F0363]/5 hover:text-[#0F0363] {{ request()->routeIs('attendee.saved.*') ? $navActive : 'text-slate-700' }}">
+                    {{ t(['en' => 'Saved', 'si' => 'සුරකින ලද']) }}
                 </a>
                 <a href="{{ route('attendee.hosts.index') }}"
                     class="block rounded-xl px-3 py-2.5 transition hover:bg-[#0F0363]/5 hover:text-[#0F0363] {{ request()->routeIs('attendee.hosts.*') ? $navActive : 'text-slate-700' }}">

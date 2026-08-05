@@ -2,6 +2,8 @@
     $browseRouteName = $browseRouteName ?? 'attendee.dashboard';
     $browseSection = $browseSection ?? 'active';
     $compact = $compact ?? false;
+    $hideCategoryBar = $hideCategoryBar ?? false;
+    $emptyMessage = $emptyMessage ?? null;
     $browseQuery = array_filter([
         'host' => request('host'),
         'search' => request('search'),
@@ -9,6 +11,7 @@
     ]);
 @endphp
 
+@unless ($hideCategoryBar)
 <div class="{{ $compact ? 'rounded-2xl p-3 mb-4' : 'rounded-3xl p-6 mb-8' }} border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
     @unless ($compact)
         <h3 class="mb-3 text-lg font-semibold text-slate-900 dark:text-white">
@@ -36,6 +39,7 @@
         @endforeach
     </div>
 </div>
+@endunless
 
 <div class="grid {{ $compact ? 'gap-4' : 'gap-6' }} sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
     @forelse($events as $event)
@@ -66,7 +70,9 @@
                                         aria-hidden="true"></i>
                                 </button>
                             </form>
+                        @endunless
 
+                        @if ((! $event->isCancelled() && ! $event->isCompleted()) || $event->is_saved)
                             <form action="{{ route('attendee.events.save', $event) }}" method="POST">
                                 @csrf
                                 <button type="submit"
@@ -78,7 +84,7 @@
                                         aria-hidden="true"></i>
                                 </button>
                             </form>
-                        @endunless
+                        @endif
                     @else
                         <button type="button"
                             @click="promptLogin()"
@@ -152,9 +158,10 @@
         </div>
     @empty
         <div class="col-span-full {{ $compact ? 'rounded-2xl p-6' : 'rounded-3xl p-10' }} border bg-white text-center text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
-            {{ ($browseSection ?? 'active') === 'past'
-                ? t(['en' => 'No past events yet.', 'si' => 'තවම අතීත ප්‍රසංග නැත.'])
-                : t(['en' => 'No active events available.', 'si' => 'සක්‍රීය ප්‍රසංග නැත.']) }}
+            {{ $emptyMessage
+                ?? (($browseSection ?? 'active') === 'past'
+                    ? t(['en' => 'No past events yet.', 'si' => 'තවම අතීත ප්‍රසංග නැත.'])
+                    : t(['en' => 'No active events available.', 'si' => 'සක්‍රීය ප්‍රසංග නැත.'])) }}
         </div>
     @endforelse
 </div>

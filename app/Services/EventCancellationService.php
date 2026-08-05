@@ -18,6 +18,7 @@ class EventCancellationService
 {
     public function __construct(
         protected WalletService $walletService,
+        protected CartInventoryService $cartInventoryService,
     ) {}
 
     public function cancel(Event $event, string $reason): void
@@ -33,7 +34,12 @@ class EventCancellationService
                 'cancelled_at' => now(),
             ]);
 
-            CartItem::query()->where('event_id', $event->id)->delete();
+            $cartItems = CartItem::query()
+                ->where('event_id', $event->id)
+                ->lockForUpdate()
+                ->get();
+
+            $this->cartInventoryService->releaseAndDeleteMany($cartItems);
 
             $bookings = ticketBooking::query()
                 ->where('event_id', $event->id)

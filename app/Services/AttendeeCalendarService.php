@@ -42,6 +42,31 @@ class AttendeeCalendarService
     }
 
     /**
+     * Confirmed ticketed events happening from today through the next 6 days.
+     *
+     * @return Collection<int, Event>
+     */
+    public function getThisWeekBookedEvents(int $userId): Collection
+    {
+        $from = now()->toDateString();
+        $to = now()->addDays(6)->toDateString();
+
+        return $this->bookedEventsQuery($userId)
+            ->whereNotIn('status', [Event::STATUS_COMPLETED, Event::STATUS_CANCELLED])
+            ->where(function (Builder $query) {
+                $query
+                    ->where('date_tba', false)
+                    ->orWhereNull('date_tba');
+            })
+            ->whereNotNull('date')
+            ->whereDate('date', '>=', $from)
+            ->whereDate('date', '<=', $to)
+            ->orderBy('date')
+            ->orderBy('time')
+            ->get();
+    }
+
+    /**
      * @return Collection<int, Event>
      */
     public function getUpcomingBookedEvents(int $userId): Collection

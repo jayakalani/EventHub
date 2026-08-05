@@ -275,7 +275,7 @@ Route::post('/stripe/webhook', [CheckoutController::class, 'webhook'])->name('st
 |--------------------------------------------------------------------------
 */
 
-Route::prefix('attendee')->name('attendee.')->middleware(['auth'])->group(function () {
+Route::prefix('attendee')->name('attendee.')->middleware(['auth', 'verified', 'prevent-back', 'role:'.UserRole::ATTENDEE])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'attendee'])->name('dashboard');
     Route::post('/postponement-alerts/dismiss', [PostponementAlertController::class, 'dismiss'])->name('postponement-alerts.dismiss');
     Route::post('/bookings/{ticketBooking}/keep-postponement', [PostponementAlertController::class, 'keepTicket'])->name('bookings.keep-postponement');
@@ -283,11 +283,13 @@ Route::prefix('attendee')->name('attendee.')->middleware(['auth'])->group(functi
     Route::get('/hosts/{host}', [HostController::class, 'attendeeShow'])->name('hosts.show');
     Route::post('/hosts/{host}/like', [HostLikeController::class, 'toggle'])->name('hosts.like');
     Route::post('/hosts/{host}/follow', [HostFollowController::class, 'toggle'])->name('hosts.follow');
+    Route::get('/saved', [EventSaveController::class, 'index'])->name('saved.index');
     Route::get('/calendar', [CalendarController::class, 'index'])->name('calendar.index');
     Route::get('/cart', [CartController::class, 'index'])->name('cart.index');
     Route::post('/events/{event}/cart', [CartController::class, 'store'])->name('cart.store');
     Route::put('/cart/items/{cartItem}', [CartController::class, 'update'])->name('cart.update');
     Route::delete('/cart/items/{cartItem}', [CartController::class, 'destroy'])->name('cart.destroy');
+    Route::delete('/cart/expired', [CartController::class, 'clearExpired'])->name('cart.clear-expired');
     Route::post('/cart/checkout', [CartController::class, 'checkout'])->name('cart.checkout');
     Route::post('/cart/selection', [CartController::class, 'rememberSelection'])->name('cart.selection');
     Route::get('/checkout/success', [CheckoutController::class, 'success'])->name('checkout.success');
@@ -300,7 +302,6 @@ Route::prefix('attendee')->name('attendee.')->middleware(['auth'])->group(functi
     Route::delete('/events/{event}/comments/{comment}', [EventCommentController::class, 'destroy'])->name('events.comments.destroy');
     Route::post('/events/{event}/ratings', [EventRatingController::class, 'store'])->name('events.ratings.store');
     Route::delete('/events/{event}/ratings', [EventRatingController::class, 'destroy'])->name('events.ratings.destroy');
-    Route::get('/categories', [EventController::class, 'categories'])->name('categories.index');
     Route::get('/bookings', [TicketBookingController::class, 'index'])->name('bookings.index');
     Route::get('/bookings/{ticketBooking}/download', [TicketBookingController::class, 'download'])->name('bookings.download');
     Route::get('/bookings/{ticketBooking}/refund', [RefundRequestController::class, 'create'])->name('bookings.refund.create');

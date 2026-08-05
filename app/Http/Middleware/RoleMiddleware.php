@@ -27,10 +27,21 @@ class RoleMiddleware
 
         // If a specific role is required for this route
         if ($requiredRole) {
-            if (Auth::user() && Auth::user()->userRole->name_en !== $requiredRole)
-            {
+            if ($user->userRole?->name_en !== $requiredRole) {
+                if ($request->expectsJson()) {
+                    abort(403, 'Unauthorized action.');
+                }
+
+                $dashboard = getRoleBasedDashboard();
+
+                if ($dashboard !== 'login') {
+                    return redirect()
+                        ->route($dashboard)
+                        ->with('error', 'You do not have access to that area.');
+                }
+
                 abort(403, 'Unauthorized action.');
-            }  
+            }
         }
               
 
@@ -46,7 +57,7 @@ function getRoleBasedDashboard(): string
     $roleName = Auth::user()?->userRole?->name_en;
 
     return match ($roleName) {
-        UserRole::ADMIN => 'admin.dashboard',
+        UserRole::ADMIN => 'dashboard',
         UserRole::ORGANIZER => 'organizer.dashboard',
         UserRole::CRO => 'cro.dashboard',
         UserRole::ATTENDEE => 'attendee.dashboard',

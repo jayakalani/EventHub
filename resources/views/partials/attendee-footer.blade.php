@@ -6,6 +6,11 @@
             </x-footer-link>
         </li>
         <li>
+            <x-footer-link :href="route('attendee.saved.index')" :active="request()->routeIs('attendee.saved.*')">
+                {{ t(['en' => 'Saved', 'si' => 'සුරකින ලද']) }}
+            </x-footer-link>
+        </li>
+        <li>
             <x-footer-link :href="route('attendee.hosts.index')" :active="request()->routeIs('attendee.hosts.*')">
                 {{ t(['en' => 'Hosts', 'si' => 'සත්කාරක']) }}
             </x-footer-link>
@@ -13,6 +18,11 @@
         <li>
             <x-footer-link :href="route('attendee.bookings.index')" :active="request()->routeIs('attendee.bookings.*')">
                 {{ t(['en' => 'Tickets', 'si' => 'ටිකට්']) }}
+            </x-footer-link>
+        </li>
+        <li>
+            <x-footer-link :href="route('attendee.cart.index')" :active="request()->routeIs('attendee.cart.*')">
+                {{ t(['en' => 'Cart', 'si' => 'කාර්ට්']) }}
             </x-footer-link>
         </li>
         <li>
@@ -49,6 +59,11 @@
         <li>
             <x-footer-link :href="route('attendee.dashboard')" :active="request()->routeIs('attendee.dashboard')">
                 {{ t(['en' => 'Dashboard', 'si' => 'විස්තර පුවරුව']) }}
+            </x-footer-link>
+        </li>
+        <li>
+            <x-footer-link :href="route('attendee.wallet.index')" :active="request()->routeIs('attendee.wallet.*')">
+                {{ t(['en' => 'Wallet', 'si' => 'පසුම්බිය']) }}
             </x-footer-link>
         </li>
         <li>

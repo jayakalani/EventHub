@@ -138,6 +138,12 @@
                 </div>
             @endif
 
+            @if (session('error'))
+                <div class="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm text-rose-700">
+                    {{ session('error') }}
+                </div>
+            @endif
+
             @if ($errors->has('status'))
                 <div class="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm text-rose-700">
                     {{ $errors->first('status') }}
@@ -371,16 +377,24 @@
                                                 Edit
                                             </a>
 
-                                            <form action="{{ route('organizer.events.destroy', $event->id) }}"
-                                                method="POST">
-                                                @csrf
-                                                @method('DELETE')
-
-                                                <button onclick="return confirm('Delete this event?')"
-                                                    class="rounded-lg bg-rose-50 px-2.5 py-1.5 text-xs font-medium text-rose-600 transition hover:bg-rose-100">
+                                            @if ($event->hasSoldTickets())
+                                                <span
+                                                    title="This event cannot be deleted because at least one ticket has been sold."
+                                                    class="cursor-not-allowed rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs font-medium text-slate-400">
                                                     Delete
-                                                </button>
-                                            </form>
+                                                </span>
+                                            @else
+                                                <form action="{{ route('organizer.events.destroy', $event->id) }}"
+                                                    method="POST">
+                                                    @csrf
+                                                    @method('DELETE')
+
+                                                    <button onclick="return confirm('Delete this event?')"
+                                                        class="rounded-lg bg-rose-50 px-2.5 py-1.5 text-xs font-medium text-rose-600 transition hover:bg-rose-100">
+                                                        Delete
+                                                    </button>
+                                                </form>
+                                            @endif
                                         </div>
                                     </td>
                                 </tr>

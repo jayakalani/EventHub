@@ -22,6 +22,8 @@ class OrganizerDashboardService
     private const LOW_INVENTORY_ABSOLUTE = 10;
 
     /**
+     * @param  array{kpi?: bool, goal?: bool, chart?: bool, engagement?: bool}  $overrideFlags
+     * @param  array<string, int|string>  $filterQuery
      * @return array<string, mixed>
      */
     public function getDashboardData(
@@ -30,6 +32,9 @@ class OrganizerDashboardService
         ?int $goalEventId = null,
         ?int $chartEventId = null,
         ?int $engagementEventId = null,
+        ?int $focusEventId = null,
+        array $overrideFlags = [],
+        array $filterQuery = [],
     ): array {
         $reportService = app(OrganizerReportService::class);
         $sales = $reportService->getTicketSalesReport($organizerId);
@@ -47,20 +52,30 @@ class OrganizerDashboardService
         $recentPurchases = $this->recentPurchases($organizerId);
         $recentActivity = $this->recentActivity($organizerId, $recentPurchases);
         $todaySummary = $this->todaySummary($organizerId);
+        $dayOfOps = $this->dayOfOps($organizerId);
         $nextUpcomingEvent = $this->nextUpcomingEvent($organizerId);
+        $focusFilter = $this->kpiEventFilter($organizerId, $focusEventId);
         $kpiFilter = $this->kpiEventFilter($organizerId, $kpiEventId);
+        $kpiFilter['isOverride'] = (bool) ($overrideFlags['kpi'] ?? false);
         $kpis = $kpiFilter['selectedEventId']
             ? $this->buildEventKpis($organizerId, $kpiFilter['selectedEventId'])
             : $this->buildKpis($organizerId, [
                 'totalEvents' => $sales['totalEvents'],
                 'ticketsSold' => $sales['totalTicketsSold'],
                 'grossRevenue' => $revenue['grossRevenue'],
+                'netRevenue' => $revenue['netRevenue'],
+                'totalRefunded' => $revenue['totalRefunded'],
             ]);
         $revenueGoal = $this->revenueGoal($organizerId, $goalEventId);
+        $revenueGoal['isOverride'] = (bool) ($overrideFlags['goal'] ?? false);
         $chartFilter = $this->kpiEventFilter($organizerId, $chartEventId);
+        $chartFilter['isOverride'] = (bool) ($overrideFlags['chart'] ?? false);
         $engagementFilter = $this->kpiEventFilter($organizerId, $engagementEventId);
+        $engagementFilter['isOverride'] = (bool) ($overrideFlags['engagement'] ?? false);
         $engagement = $this->engagementInsights($organizerId, $engagementFilter['selectedEventId']);
         $engagement['filter'] = $engagementFilter;
+        $needsAttention = $this->needsAttention($organizerId);
+        $onboarding = $this->onboardingChecklist($organizerId);
 
         return [
             'stats' => [
@@ -78,6 +93,11 @@ class OrganizerDashboardService
                 'totalRefunded' => $revenue['totalRefunded'],
             ],
             'todaySummary' => $todaySummary,
+            'dayOfOps' => $dayOfOps,
+            'needsAttention' => $needsAttention,
+            'onboarding' => $onboarding,
+            'focusFilter' => $focusFilter,
+            'filterQuery' => $filterQuery,
             'kpiFilter' => $kpiFilter,
             'kpis' => $kpis,
             'revenueGoal' => $revenueGoal,
@@ -92,12 +112,39 @@ class OrganizerDashboardService
             ],
             'chartFilter' => $chartFilter,
             'charts' => $this->buildChartPeriods($organizerId, $chartFilter['selectedEventId']),
-            'performance' => $performance,
+            'performance' => $performance['active'],
+            'performanceCompleted' => $performance['completed'],
             'upcomingEvents' => $upcomingEvents,
             'nextUpcomingEvent' => $nextUpcomingEvent,
             'recentPurchases' => $recentPurchases,
             'recentActivity' => $recentActivity,
             'miniCalendar' => app(DashboardCalendarWidgetService::class)->forOrganizer($organizerId),
+            'livePulseUrl' => route('organizer.dashboard.live'),
+        ];
+    }
+
+    /**
+     * Lightweight payload for live dashboard polling (today + recent sales).
+     *
+     * @return array<string, mixed>
+     */
+    public function getLivePulse(int $organizerId): array
+    {
+        $todaySummary = $this->todaySummary($organizerId);
+        $dayOfOps = $this->dayOfOps($organizerId);
+
+        return [
+            'todaySummary' => $todaySummary,
+            'dayOfOps' => [
+                'active' => $dayOfOps['active'],
+                'checked_in' => $dayOfOps['checked_in'],
+                'sold' => $dayOfOps['sold'],
+                'rate' => $dayOfOps['rate'],
+                'count' => $dayOfOps['count'],
+            ],
+            'recentPurchases' => $this->recentPurchases($organizerId),
+            'refreshed_at' => now()->toIso8601String(),
+            'refreshed_label' => now()->format('g:i:s A'),
         ];
     }
 
@@ -273,7 +320,7 @@ class OrganizerDashboardService
     {
         $query = ticketBooking::query()
             ->whereHas('event', fn ($query) => $query->createdByOrganizer($organizerId))
-            ->where('status', BookingStatusEnum::Confirmed);
+            ->whereIn('status', BookingStatusEnum::retainedSaleStatuses());
 
         if ($eventId) {
             $query->where('event_id', $eventId);
@@ -317,14 +364,99 @@ class OrganizerDashboardService
     }
 
     /**
-     * @param  array{totalEvents: int, ticketsSold: int, grossRevenue: float}  $stats
+     * Door-day check-in ops for events happening today.
+     *
+     * @return array{
+     *     active: bool,
+     *     count: int,
+     *     checked_in: int,
+     *     sold: int,
+     *     rate: float,
+     *     scan_url: string,
+     *     guest_list_url: string,
+     *     events: list<array<string, mixed>>
+     * }
+     */
+    private function dayOfOps(int $organizerId): array
+    {
+        $today = now()->toDateString();
+
+        $events = Event::query()
+            ->createdByOrganizer($organizerId)
+            ->whereDate('date', $today)
+            ->whereIn('status', [Event::STATUS_UPCOMING, Event::STATUS_ONGOING])
+            ->withCount([
+                'ticketBookings as tickets_sold' => fn ($query) => $query->whereIn(
+                    'status',
+                    BookingStatusEnum::retainedSaleStatuses()
+                ),
+                'ticketBookings as checked_in' => fn ($query) => $query
+                    ->whereIn('status', BookingStatusEnum::retainedSaleStatuses())
+                    ->whereNotNull('checked_in_at'),
+            ])
+            ->orderBy('time')
+            ->orderBy('id')
+            ->get(['id', 'name', 'time', 'place', 'status']);
+
+        $eventRows = $events->map(function (Event $event) {
+            $sold = (int) $event->tickets_sold;
+            $checkedIn = (int) $event->checked_in;
+            $awaiting = max(0, $sold - $checkedIn);
+            $rate = $sold > 0 ? round(($checkedIn / $sold) * 100, 1) : 0.0;
+
+            return [
+                'id' => $event->id,
+                'name' => $event->name,
+                'time' => $event->time ? Carbon::parse($event->time)->format('g:i A') : 'Time TBD',
+                'place' => $event->place,
+                'status' => $event->status,
+                'sold' => $sold,
+                'checked_in' => $checkedIn,
+                'awaiting' => $awaiting,
+                'rate' => $rate,
+                'url' => route('organizer.events.show', $event),
+                'scan_url' => route('organizer.bookings.scan', ['event_id' => $event->id]),
+                'guest_list_url' => route('organizer.bookings.index', ['event_id' => $event->id]),
+            ];
+        })->values()->all();
+
+        $sold = (int) collect($eventRows)->sum('sold');
+        $checkedIn = (int) collect($eventRows)->sum('checked_in');
+        $rate = $sold > 0 ? round(($checkedIn / $sold) * 100, 1) : 0.0;
+
+        $primaryEventId = $eventRows[0]['id'] ?? null;
+
+        return [
+            'active' => $eventRows !== [],
+            'count' => count($eventRows),
+            'checked_in' => $checkedIn,
+            'sold' => $sold,
+            'rate' => $rate,
+            'scan_url' => $primaryEventId
+                ? route('organizer.bookings.scan', ['event_id' => $primaryEventId])
+                : route('organizer.bookings.scan'),
+            'guest_list_url' => $primaryEventId
+                ? route('organizer.bookings.index', ['event_id' => $primaryEventId])
+                : route('organizer.bookings.index'),
+            'events' => $eventRows,
+        ];
+    }
+
+    /**
+     * @param  array{
+     *     totalEvents: int,
+     *     ticketsSold: int,
+     *     grossRevenue: float,
+     *     netRevenue?: float,
+     *     totalRefunded?: float
+     * }  $stats
      * @return list<array<string, mixed>>
      */
     private function buildKpis(int $organizerId, array $stats): array
     {
         $bookingsQuery = fn () => ticketBooking::query()
             ->whereHas('event', fn ($query) => $query->createdByOrganizer($organizerId))
-            ->where('status', BookingStatusEnum::Confirmed);
+            ->whereIn('status', BookingStatusEnum::retainedSaleStatuses());
 
         $thisMonthRevenue = (float) $bookingsQuery()
             ->where('created_at', '>=', now()->startOfMonth())
@@ -337,51 +469,67 @@ class OrganizerDashboardService
             ])
             ->sum('ticket_price');
 
-        $revenuePercent = $this->percentChange($thisMonthRevenue, $lastMonthRevenue);
+        $thisMonthRefunded = (float) ticketBooking::query()
+            ->whereHas('event', fn ($query) => $query->createdByOrganizer($organizerId))
+            ->where('status', BookingStatusEnum::Refunded)
+            ->where('updated_at', '>=', now()->startOfMonth())
+            ->sum('ticket_price');
 
-        $eventsThisMonth = Event::query()
-            ->createdByOrganizer($organizerId)
-            ->where('created_at', '>=', now()->startOfMonth())
-            ->count();
+        $lastMonthRefunded = (float) ticketBooking::query()
+            ->whereHas('event', fn ($query) => $query->createdByOrganizer($organizerId))
+            ->where('status', BookingStatusEnum::Refunded)
+            ->whereBetween('updated_at', [
+                now()->subMonthNoOverflow()->startOfMonth(),
+                now()->subMonthNoOverflow()->endOfMonth(),
+            ])
+            ->sum('ticket_price');
+
+        $thisMonthNet = $thisMonthRevenue - $thisMonthRefunded;
+        $lastMonthNet = $lastMonthRevenue - $lastMonthRefunded;
+        $netPercent = $this->percentChange($thisMonthNet, $lastMonthNet);
+
+        $netRevenue = (float) ($stats['netRevenue'] ?? (($stats['grossRevenue'] ?? 0) - ($stats['totalRefunded'] ?? 0)));
+        $totalRefunded = (float) ($stats['totalRefunded'] ?? 0);
 
         $ticketsToday = (int) $bookingsQuery()
             ->whereDate('created_at', now()->toDateString())
             ->count();
 
-        $likesQuery = fn () => Like::query()
-            ->whereHas('event', fn ($query) => $query->createdByOrganizer($organizerId));
-
-        $totalLikes = (int) $likesQuery()->count();
-        $likesToday = (int) $likesQuery()
-            ->whereDate('created_at', now()->toDateString())
-            ->count();
+        $inventory = $this->activeInventorySnapshot($organizerId);
+        $checkInsToday = $this->checkInsToday($organizerId);
 
         return [
             [
-                'key' => 'revenue',
-                'label' => 'Total Revenue',
+                'key' => 'net_revenue',
+                'label' => 'Net Revenue',
                 'emoji' => '💰',
-                'value' => 'LKR '.number_format($stats['grossRevenue'], 0),
-                'trendValue' => $revenuePercent,
-                'trendLabel' => abs($revenuePercent).'%',
-                'trendHint' => 'Compared with last month',
-                'trendUp' => $revenuePercent >= 0,
+                'value' => 'LKR '.number_format($netRevenue, 0),
+                'trendValue' => $netPercent,
+                'trendLabel' => abs($netPercent).'%',
+                'trendHint' => $totalRefunded > 0
+                    ? 'LKR '.number_format($totalRefunded, 0).' refunded · vs last month'
+                    : 'Compared with last month',
+                'trendUp' => $netPercent >= 0,
                 'showTrend' => true,
                 'icon' => 'bi-cash-stack',
                 'accent' => 'emerald',
             ],
             [
-                'key' => 'events',
-                'label' => 'Total Events',
-                'emoji' => '📅',
-                'value' => number_format($stats['totalEvents']),
-                'trendValue' => $eventsThisMonth,
-                'trendLabel' => (string) $eventsThisMonth,
-                'trendHint' => 'Added this month',
-                'trendUp' => true,
+                'key' => 'inventory',
+                'label' => 'Fill Rate',
+                'emoji' => '📊',
+                'value' => $inventory['capacity'] > 0
+                    ? $inventory['fill_rate'].'%'
+                    : '—',
+                'trendValue' => $inventory['remaining'],
+                'trendLabel' => number_format($inventory['remaining']),
+                'trendHint' => $inventory['capacity'] > 0
+                    ? 'Tickets remaining on live events'
+                    : 'No live event inventory',
+                'trendUp' => $inventory['remaining'] > 0,
                 'showTrend' => true,
-                'icon' => 'bi-calendar-event',
-                'accent' => 'indigo',
+                'icon' => 'bi-pie-chart-fill',
+                'accent' => $inventory['remaining'] > 0 && $inventory['remaining'] <= 10 ? 'rose' : 'indigo',
             ],
             [
                 'key' => 'tickets',
@@ -397,18 +545,95 @@ class OrganizerDashboardService
                 'accent' => 'blue',
             ],
             [
-                'key' => 'followers',
-                'label' => 'Followers',
-                'emoji' => '❤️',
-                'value' => number_format($totalLikes),
-                'trendValue' => $likesToday,
-                'trendLabel' => (string) $likesToday,
-                'trendHint' => 'New today',
-                'trendUp' => true,
+                'key' => 'check_ins',
+                'label' => 'Check-ins Today',
+                'emoji' => '✅',
+                'value' => number_format($checkInsToday['checked_in']),
+                'trendValue' => $checkInsToday['awaiting'],
+                'trendLabel' => number_format($checkInsToday['awaiting']),
+                'trendHint' => $checkInsToday['sold'] > 0
+                    ? 'Still awaiting entry'
+                    : ($checkInsToday['events_today'] > 0 ? 'No sold tickets yet' : 'No events today'),
+                'trendUp' => $checkInsToday['awaiting'] === 0 && $checkInsToday['checked_in'] > 0,
                 'showTrend' => true,
-                'icon' => 'bi-heart-fill',
-                'accent' => 'rose',
+                'icon' => 'bi-person-check-fill',
+                'accent' => 'cyan',
             ],
+        ];
+    }
+
+    /**
+     * Fill rate / remaining inventory across upcoming and ongoing events.
+     *
+     * @return array{capacity: int, sold: int, remaining: int, fill_rate: float}
+     */
+    private function activeInventorySnapshot(int $organizerId): array
+    {
+        $events = Event::query()
+            ->createdByOrganizer($organizerId)
+            ->whereIn('status', [Event::STATUS_UPCOMING, Event::STATUS_ONGOING])
+            ->withCount([
+                'ticketBookings as tickets_sold' => fn ($query) => $query->whereIn(
+                    'status',
+                    BookingStatusEnum::retainedSaleStatuses()
+                ),
+            ])
+            ->get(['id', 'total_tickets']);
+
+        $capacity = (int) $events->sum(fn (Event $event) => (int) $event->total_tickets);
+        $sold = (int) $events->sum(fn (Event $event) => (int) $event->tickets_sold);
+        $remaining = max(0, $capacity - $sold);
+        $fillRate = $capacity > 0 ? round(($sold / $capacity) * 100, 1) : 0.0;
+
+        return [
+            'capacity' => $capacity,
+            'sold' => $sold,
+            'remaining' => $remaining,
+            'fill_rate' => $fillRate,
+        ];
+    }
+
+    /**
+     * @return array{checked_in: int, awaiting: int, sold: int, events_today: int}
+     */
+    private function checkInsToday(int $organizerId): array
+    {
+        $today = now()->toDateString();
+
+        $eventsToday = Event::query()
+            ->createdByOrganizer($organizerId)
+            ->whereDate('date', $today)
+            ->whereIn('status', [Event::STATUS_UPCOMING, Event::STATUS_ONGOING])
+            ->pluck('id');
+
+        if ($eventsToday->isEmpty()) {
+            // Still count any check-ins recorded today (door ops after midnight edge cases).
+            $checkedIn = (int) ticketBooking::query()
+                ->whereHas('event', fn ($query) => $query->createdByOrganizer($organizerId))
+                ->whereIn('status', BookingStatusEnum::retainedSaleStatuses())
+                ->whereDate('checked_in_at', $today)
+                ->count();
+
+            return [
+                'checked_in' => $checkedIn,
+                'awaiting' => 0,
+                'sold' => 0,
+                'events_today' => 0,
+            ];
+        }
+
+        $soldQuery = ticketBooking::query()
+            ->whereIn('event_id', $eventsToday)
+            ->whereIn('status', BookingStatusEnum::retainedSaleStatuses());
+
+        $sold = (int) (clone $soldQuery)->count();
+        $checkedIn = (int) (clone $soldQuery)->whereNotNull('checked_in_at')->count();
+
+        return [
+            'checked_in' => $checkedIn,
+            'awaiting' => max(0, $sold - $checkedIn),
+            'sold' => $sold,
+            'events_today' => $eventsToday->count(),
         ];
     }
 
@@ -457,11 +682,16 @@ class OrganizerDashboardService
         $event = Event::query()
             ->createdByOrganizer($organizerId)
             ->withCount([
-                'ticketBookings as tickets_sold' => fn ($query) => $query->where('status', BookingStatusEnum::Confirmed),
-                'likes',
+                'ticketBookings as tickets_sold' => fn ($query) => $query->whereIn(
+                    'status',
+                    BookingStatusEnum::retainedSaleStatuses()
+                ),
             ])
             ->withSum([
-                'ticketBookings as revenue' => fn ($query) => $query->where('status', BookingStatusEnum::Confirmed),
+                'ticketBookings as revenue' => fn ($query) => $query->whereIn(
+                    'status',
+                    BookingStatusEnum::retainedSaleStatuses()
+                ),
             ], 'ticket_price')
             ->find($eventId);
 
@@ -470,6 +700,8 @@ class OrganizerDashboardService
                 'totalEvents' => 0,
                 'ticketsSold' => 0,
                 'grossRevenue' => 0,
+                'netRevenue' => 0,
+                'totalRefunded' => 0,
             ]);
         }
 
@@ -478,26 +710,44 @@ class OrganizerDashboardService
         $remaining = max(0, $capacity - $ticketsSold);
         $fillRate = $capacity > 0 ? round(($ticketsSold / $capacity) * 100, 1) : 0;
         $revenue = (float) ($event->revenue ?? 0);
-        $attendees = (int) ticketBooking::query()
+        $refunded = (float) ticketBooking::query()
             ->where('event_id', $event->id)
-            ->where('status', BookingStatusEnum::Confirmed)
-            ->distinct('user_id')
-            ->count('user_id');
-        $likes = (int) $event->likes_count;
+            ->where('status', BookingStatusEnum::Refunded)
+            ->sum('ticket_price');
+        $netRevenue = max(0, $revenue - $refunded);
+        $checkedIn = (int) ticketBooking::query()
+            ->where('event_id', $event->id)
+            ->whereIn('status', BookingStatusEnum::retainedSaleStatuses())
+            ->whereNotNull('checked_in_at')
+            ->count();
+        $awaiting = max(0, $ticketsSold - $checkedIn);
 
         return [
             [
-                'key' => 'revenue',
-                'label' => 'Event Revenue',
+                'key' => 'net_revenue',
+                'label' => 'Net Revenue',
                 'emoji' => '💰',
-                'value' => 'LKR '.number_format($revenue, 0),
-                'trendValue' => 0,
-                'trendLabel' => '',
-                'trendHint' => 'Whole event total',
+                'value' => 'LKR '.number_format($netRevenue, 0),
+                'trendValue' => $refunded,
+                'trendLabel' => $refunded > 0 ? 'LKR '.number_format($refunded, 0) : '',
+                'trendHint' => $refunded > 0 ? 'Refunded on this event' : 'Whole event total',
                 'trendUp' => true,
-                'showTrend' => false,
+                'showTrend' => $refunded > 0,
                 'icon' => 'bi-cash-stack',
                 'accent' => 'emerald',
+            ],
+            [
+                'key' => 'inventory',
+                'label' => 'Fill Rate',
+                'emoji' => '📊',
+                'value' => $capacity > 0 ? $fillRate.'%' : '—',
+                'trendValue' => $remaining,
+                'trendLabel' => number_format($remaining),
+                'trendHint' => 'Tickets remaining',
+                'trendUp' => $remaining > 0,
+                'showTrend' => true,
+                'icon' => 'bi-pie-chart-fill',
+                'accent' => $remaining > 0 && $remaining <= 10 ? 'rose' : 'indigo',
             ],
             [
                 'key' => 'tickets',
@@ -505,39 +755,117 @@ class OrganizerDashboardService
                 'emoji' => '🎟',
                 'value' => number_format($ticketsSold).($capacity > 0 ? ' / '.number_format($capacity) : ''),
                 'trendValue' => $fillRate,
-                'trendLabel' => $fillRate.'%',
-                'trendHint' => 'Fill rate',
+                'trendLabel' => $capacity > 0 ? number_format($ticketsSold).' sold' : (string) $ticketsSold,
+                'trendHint' => 'Confirmed tickets',
                 'trendUp' => true,
                 'showTrend' => true,
                 'icon' => 'bi-ticket-perforated',
                 'accent' => 'blue',
             ],
             [
-                'key' => 'attendees',
-                'label' => 'Attendees',
-                'emoji' => '👥',
-                'value' => number_format($attendees),
-                'trendValue' => $remaining,
-                'trendLabel' => (string) $remaining,
-                'trendHint' => 'Tickets remaining',
-                'trendUp' => true,
+                'key' => 'check_ins',
+                'label' => 'Checked In',
+                'emoji' => '✅',
+                'value' => number_format($checkedIn).($ticketsSold > 0 ? ' / '.number_format($ticketsSold) : ''),
+                'trendValue' => $awaiting,
+                'trendLabel' => number_format($awaiting),
+                'trendHint' => $ticketsSold > 0 ? 'Still awaiting entry' : 'No sold tickets yet',
+                'trendUp' => $awaiting === 0 && $checkedIn > 0,
                 'showTrend' => true,
-                'icon' => 'bi-people',
-                'accent' => 'indigo',
+                'icon' => 'bi-person-check-fill',
+                'accent' => 'cyan',
             ],
-            [
-                'key' => 'followers',
-                'label' => 'Likes',
-                'emoji' => '❤️',
-                'value' => number_format($likes),
-                'trendValue' => 0,
-                'trendLabel' => '',
-                'trendHint' => 'Whole event total',
-                'trendUp' => true,
-                'showTrend' => false,
-                'icon' => 'bi-heart-fill',
-                'accent' => 'rose',
-            ],
+        ];
+    }
+
+    /**
+     * Actionable items the organizer should address soon.
+     *
+     * @return array{count: int, items: list<array<string, mixed>>}
+     */
+    private function needsAttention(int $organizerId): array
+    {
+        $items = [];
+
+        foreach ($this->lowInventoryAlerts($organizerId) as $alert) {
+            $soldOut = (int) $alert['remaining'] === 0;
+
+            $items[] = [
+                'key' => 'low_inventory_'.$alert['id'],
+                'type' => 'low_inventory',
+                'severity' => $soldOut ? 1 : 2,
+                'accent' => $soldOut ? 'rose' : 'amber',
+                'icon' => $soldOut ? 'bi-x-octagon-fill' : 'bi-exclamation-triangle-fill',
+                'badge' => $soldOut ? 'Sold out' : 'Low inventory',
+                'title' => $alert['name'],
+                'message' => $alert['message'],
+                'meta' => $alert['date'],
+                'cta' => 'Manage tickets',
+                'url' => $alert['url'],
+            ];
+        }
+
+        $postponedTba = Event::query()
+            ->createdByOrganizer($organizerId)
+            ->where('status', Event::STATUS_POSTPONED)
+            ->where('date_tba', true)
+            ->orderByDesc('updated_at')
+            ->limit(8)
+            ->get(['id', 'name', 'updated_at']);
+
+        foreach ($postponedTba as $event) {
+            $items[] = [
+                'key' => 'postponed_tba_'.$event->id,
+                'type' => 'postponed_tba',
+                'severity' => 3,
+                'accent' => 'orange',
+                'icon' => 'bi-calendar-x-fill',
+                'badge' => 'Date TBA',
+                'title' => $event->name,
+                'message' => 'Postponed — set a new date so attendees know when to return.',
+                'meta' => $event->updated_at?->diffForHumans() ?? '—',
+                'cta' => 'Set schedule',
+                'url' => route('organizer.events.show', $event),
+            ];
+        }
+
+        $unpublished = Event::query()
+            ->createdByOrganizer($organizerId)
+            ->where('status', Event::STATUS_UNPUBLISHED)
+            ->orderByDesc('updated_at')
+            ->limit(8)
+            ->get(['id', 'name', 'status', 'updated_at', 'date', 'date_tba']);
+
+        foreach ($unpublished as $event) {
+            $items[] = [
+                'key' => 'unpublished_'.$event->id,
+                'type' => 'unpublished',
+                'severity' => 4,
+                'accent' => 'slate',
+                'icon' => 'bi-eye-slash-fill',
+                'badge' => 'Draft',
+                'title' => $event->name,
+                'message' => 'Unpublished draft — publish when ready for ticket sales.',
+                'meta' => $event->hasDateYetToBeScheduled()
+                    ? 'Schedule TBA'
+                    : ($event->date ? Carbon::parse($event->date)->format('M d, Y') : 'No date set'),
+                'cta' => 'Review draft',
+                'url' => route('organizer.events.show', $event),
+            ];
+        }
+
+        $sorted = collect($items)
+            ->sortBy([
+                ['severity', 'asc'],
+                ['title', 'asc'],
+            ])
+            ->values()
+            ->take(12)
+            ->all();
+
+        return [
+            'count' => count($sorted),
+            'items' => $sorted,
         ];
     }
 
@@ -639,11 +967,36 @@ class OrganizerDashboardService
     }
 
     /**
-     * @return list<array<string, mixed>>
+     * @return array{active: list<array<string, mixed>>, completed: list<array<string, mixed>>}
      */
     private function eventPerformance(int $organizerId): array
     {
-        return Event::query()
+        $mapEvent = function (Event $event) {
+            $capacity = (int) $event->total_tickets;
+            $sold = (int) $event->tickets_sold;
+            $remaining = max(0, $capacity - $sold);
+            $fillRate = $capacity > 0 ? round(($sold / $capacity) * 100, 1) : 0;
+
+            return [
+                'id' => $event->id,
+                'name' => $event->name,
+                'date' => $event->date ? Carbon::parse($event->date)->format('M d, Y') : '—',
+                'raw_date' => $event->date,
+                'time' => $event->time ? Carbon::parse($event->time)->format('g:i A') : null,
+                'place' => $event->place,
+                'host' => $event->host?->name,
+                'status' => $event->status,
+                'capacity' => $capacity,
+                'sold' => $sold,
+                'remaining' => $remaining,
+                'fill_rate' => $fillRate,
+                'revenue' => round((float) ($event->revenue ?? 0), 2),
+                'is_low_inventory' => $this->isLowInventory($event->status, $capacity, $remaining),
+                'url' => route('organizer.events.show', $event),
+            ];
+        };
+
+        $baseQuery = fn () => Event::query()
             ->createdByOrganizer($organizerId)
             ->with('host')
             ->withCount([
@@ -651,36 +1004,119 @@ class OrganizerDashboardService
             ])
             ->withSum([
                 'ticketBookings as revenue' => fn ($query) => $query->where('status', BookingStatusEnum::Confirmed),
-            ], 'ticket_price')
-            ->orderByDesc('date')
+            ], 'ticket_price');
+
+        $active = $baseQuery()
+            ->whereIn('status', [
+                Event::STATUS_ONGOING,
+                Event::STATUS_UPCOMING,
+                Event::STATUS_POSTPONED,
+                Event::STATUS_UNPUBLISHED,
+            ])
+            ->orderByRaw("CASE status
+                WHEN 'ongoing' THEN 0
+                WHEN 'upcoming' THEN 1
+                WHEN 'postponed' THEN 2
+                WHEN 'unpublished' THEN 3
+                ELSE 4 END")
+            ->orderBy('date')
+            ->orderBy('time')
             ->limit(10)
             ->get()
-            ->map(function (Event $event) {
-                $capacity = (int) $event->total_tickets;
-                $sold = (int) $event->tickets_sold;
-                $remaining = max(0, $capacity - $sold);
-                $fillRate = $capacity > 0 ? round(($sold / $capacity) * 100, 1) : 0;
-
-                return [
-                    'id' => $event->id,
-                    'name' => $event->name,
-                    'date' => $event->date ? Carbon::parse($event->date)->format('M d, Y') : '—',
-                    'raw_date' => $event->date,
-                    'time' => $event->time ? Carbon::parse($event->time)->format('g:i A') : null,
-                    'place' => $event->place,
-                    'host' => $event->host?->name,
-                    'status' => $event->status,
-                    'capacity' => $capacity,
-                    'sold' => $sold,
-                    'remaining' => $remaining,
-                    'fill_rate' => $fillRate,
-                    'revenue' => round((float) ($event->revenue ?? 0), 2),
-                    'is_low_inventory' => $this->isLowInventory($event->status, $capacity, $remaining),
-                    'url' => route('organizer.events.show', $event),
-                ];
-            })
+            ->map($mapEvent)
             ->values()
             ->all();
+
+        $completed = $baseQuery()
+            ->whereIn('status', [Event::STATUS_COMPLETED, Event::STATUS_CANCELLED])
+            ->orderByDesc('date')
+            ->orderByDesc('id')
+            ->limit(5)
+            ->get()
+            ->map($mapEvent)
+            ->values()
+            ->all();
+
+        return [
+            'active' => $active,
+            'completed' => $completed,
+        ];
+    }
+
+    /**
+     * Setup checklist for organizers who have not finished publishing.
+     *
+     * @return array{show: bool, completed_count: int, total: int, steps: list<array<string, mixed>>}
+     */
+    private function onboardingChecklist(int $organizerId): array
+    {
+        $hasHost = Host::query()->where('created_by', $organizerId)->exists();
+
+        $events = Event::query()
+            ->createdByOrganizer($organizerId)
+            ->withCount('ticketCategories')
+            ->orderByDesc('updated_at')
+            ->get(['id', 'name', 'status']);
+
+        $hasEvent = $events->isNotEmpty();
+        $eventWithCategories = $events->first(fn (Event $event) => (int) $event->ticket_categories_count > 0);
+        $hasTicketCategories = $eventWithCategories !== null;
+        $publishedEvent = $events->first(fn (Event $event) => $event->status !== Event::STATUS_UNPUBLISHED);
+        $hasPublished = $publishedEvent !== null;
+        $draftForCategories = $events->first(fn (Event $event) => $event->status === Event::STATUS_UNPUBLISHED)
+            ?? $events->first();
+
+        $steps = [
+            [
+                'key' => 'host',
+                'label' => 'Create host',
+                'description' => 'Add the venue or brand hosting your events',
+                'done' => $hasHost,
+                'cta' => 'Add host',
+                'url' => route('organizer.host.create'),
+            ],
+            [
+                'key' => 'event',
+                'label' => 'Create event',
+                'description' => 'Set the name, date, and details',
+                'done' => $hasEvent,
+                'cta' => 'Create event',
+                'url' => route('organizer.events.create'),
+                'locked' => ! $hasHost,
+            ],
+            [
+                'key' => 'tickets',
+                'label' => 'Add ticket categories',
+                'description' => 'Define prices and inventory for sale',
+                'done' => $hasTicketCategories,
+                'cta' => 'Add tickets',
+                'url' => $draftForCategories
+                    ? route('organizer.ticket-categories.create', $draftForCategories)
+                    : route('organizer.events.create'),
+                'locked' => ! $hasEvent,
+            ],
+            [
+                'key' => 'publish',
+                'label' => 'Publish',
+                'description' => 'Make an event visible so attendees can buy tickets',
+                'done' => $hasPublished,
+                'cta' => 'Publish event',
+                'url' => $draftForCategories
+                    ? route('organizer.events.show', $draftForCategories)
+                    : route('organizer.events.index'),
+                'locked' => ! $hasTicketCategories,
+            ],
+        ];
+
+        $completedCount = collect($steps)->where('done', true)->count();
+        $total = count($steps);
+
+        return [
+            'show' => $completedCount < $total,
+            'completed_count' => $completedCount,
+            'total' => $total,
+            'steps' => $steps,
+        ];
     }
 
     /**
@@ -800,64 +1236,7 @@ class OrganizerDashboardService
      */
     private function recentPurchases(int $organizerId): array
     {
-        $bookings = ticketBooking::query()
-            ->whereHas('event', fn ($query) => $query->createdByOrganizer($organizerId))
-            ->with(['user', 'event', 'ticketCategory'])
-            ->where('status', BookingStatusEnum::Confirmed)
-            ->latest()
-            ->limit(40)
-            ->get();
-
-        return $bookings
-            ->groupBy(fn (ticketBooking $booking) => $booking->payment_id
-                ? 'payment-'.$booking->payment_id
-                : 'booking-'.$booking->id)
-            ->take(8)
-            ->map(function ($group) {
-                /** @var ticketBooking $first */
-                $first = $group->first();
-
-                $categoryBadges = $group
-                    ->groupBy(fn (ticketBooking $booking) => $booking->ticket_category_id ?? 'general')
-                    ->map(function ($items) {
-                        /** @var ticketBooking $item */
-                        $item = $items->first();
-                        $category = $item->ticketCategory;
-                        $count = $items->count();
-                        $name = $category?->name ?? 'General';
-
-                        return [
-                            'name' => $name,
-                            'label' => $name.($count > 1 ? ' ×'.$count : ''),
-                            'count' => $count,
-                            'color' => $category?->ticket_color ?: '#6366f1',
-                        ];
-                    })
-                    ->values()
-                    ->all();
-
-                $categoryLines = collect($categoryBadges)->pluck('label')->all();
-
-                return [
-                    'id' => $first->id,
-                    'buyer' => $first->user?->full_name ?? 'Unknown',
-                    'email' => $first->user?->email ?? '—',
-                    'event' => $first->event?->name ?? '—',
-                    'event_id' => $first->event_id,
-                    'category' => $categoryLines[0] ?? 'General',
-                    'categories' => $categoryLines,
-                    'category_badges' => $categoryBadges,
-                    'quantity' => $group->count(),
-                    'amount' => round((float) $group->sum('ticket_price'), 2),
-                    'booked_at' => $first->created_at?->diffForHumans() ?? '—',
-                    'booked_raw' => $first->created_at?->toIso8601String(),
-                    'url' => $first->event_id
-                        ? route('organizer.events.show', $first->event_id)
-                        : route('organizer.events.index'),
-                ];
-            })
-            ->values()
-            ->all();
+        return app(OrganizerSalesService::class)->recentPurchases($organizerId, 8);
     }
 
     /**

@@ -12,10 +12,13 @@ class OrganizerDashboardExportBuilder
 
     /**
      * @param  array{
+     *     focus_event?: int|null,
      *     kpi_event?: int|null,
      *     goal_event?: int|null,
      *     chart_event?: int|null,
-     *     engagement_event?: int|null
+     *     engagement_event?: int|null,
+     *     override_flags?: array{kpi?: bool, goal?: bool, chart?: bool, engagement?: bool},
+     *     query?: array<string, int|string>
      * }  $filters
      * @return array{title: string, summary: list<array{label: string, value: string|int|float}>, tables: list<array{heading: string, headers: list<string>, rows: list<list<string|int|float|null>>}>}
      */
@@ -27,8 +30,12 @@ class OrganizerDashboardExportBuilder
             $filters['goal_event'] ?? null,
             $filters['chart_event'] ?? null,
             $filters['engagement_event'] ?? null,
+            $filters['focus_event'] ?? null,
+            $filters['override_flags'] ?? [],
+            $filters['query'] ?? [],
         );
 
+        $focusFilter = $dashboard['focusFilter'] ?? [];
         $kpiFilter = $dashboard['kpiFilter'] ?? [];
         $chartFilter = $dashboard['chartFilter'] ?? [];
         $engagementFilter = $dashboard['engagement']['filter'] ?? [];
@@ -37,12 +44,17 @@ class OrganizerDashboardExportBuilder
         $charts = $dashboard['charts']['periods']['month'] ?? [];
         $engagement = $dashboard['engagement'] ?? [];
         $performance = $dashboard['performance'] ?? [];
+        $performanceCompleted = $dashboard['performanceCompleted'] ?? [];
         $upcoming = $dashboard['upcomingEvents'] ?? [];
         $purchases = $dashboard['recentPurchases'] ?? [];
         $activity = $dashboard['recentActivity'] ?? [];
         $today = $dashboard['todaySummary'] ?? [];
         $statusSummary = $dashboard['statusSummary'] ?? [];
+        $performanceRows = collect($performance)->concat($performanceCompleted);
 
+        $focusScope = ! empty($focusFilter['selectedEventName'])
+            ? $focusFilter['selectedEventName']
+            : 'All Events';
         $kpiScope = ! empty($kpiFilter['selectedEventName'])
             ? $kpiFilter['selectedEventName']
             : 'All Events';
@@ -60,10 +72,11 @@ class OrganizerDashboardExportBuilder
             'title' => 'Organizer Dashboard',
             'subtitle' => 'Events, ticket sales, revenue, and engagement snapshot',
             'filters' => [
-                ['label' => 'KPI scope', 'value' => $kpiScope],
-                ['label' => 'Analytics scope', 'value' => $chartScope],
-                ['label' => 'Engagement scope', 'value' => $engagementScope],
-                ['label' => 'Revenue goal scope', 'value' => $goalScope],
+                ['label' => 'Focus event', 'value' => $focusScope],
+                ['label' => 'KPI scope', 'value' => $kpiScope.(! empty($kpiFilter['isOverride']) ? ' (section only)' : '')],
+                ['label' => 'Analytics scope', 'value' => $chartScope.(! empty($chartFilter['isOverride']) ? ' (section only)' : '')],
+                ['label' => 'Engagement scope', 'value' => $engagementScope.(! empty($engagementFilter['isOverride']) ? ' (section only)' : '')],
+                ['label' => 'Revenue goal scope', 'value' => $goalScope.(! empty($revenueGoal['isOverride']) ? ' (section only)' : '')],
             ],
             'kpis' => [
                 ['label' => 'Today — Events', 'value' => $today['eventsToday'] ?? 0],
@@ -75,6 +88,7 @@ class OrganizerDashboardExportBuilder
                 ])->all(),
             ],
             'summary' => [
+                ['label' => 'Focus event', 'value' => $focusScope],
                 ['label' => 'KPI scope', 'value' => $kpiScope],
                 ['label' => 'Analytics scope', 'value' => $chartScope],
                 ['label' => 'Engagement scope', 'value' => $engagementScope],
@@ -125,7 +139,7 @@ class OrganizerDashboardExportBuilder
                 [
                     'heading' => 'Event performance',
                     'headers' => ['Event', 'Date', 'Status', 'Sold', 'Capacity', 'Fill %', 'Revenue (LKR)'],
-                    'rows' => collect($performance)->map(fn ($event) => [
+                    'rows' => $performanceRows->map(fn ($event) => [
                         $event['name'] ?? '',
                         $event['date'] ?? '—',
                         $event['status'] ?? '',

@@ -7,6 +7,19 @@
         $salesByCategory = $reports['salesByCategory'] ?? [];
         $eventPerformance = $reports['eventPerformance'] ?? [];
         $eventsByStatus = $reports['eventsByStatus'] ?? [];
+        $attendance = $reports['attendance'] ?? [
+            'ticketsEligible' => 0,
+            'checkedIn' => 0,
+            'noShows' => 0,
+            'awaitingCheckIn' => 0,
+            'attendanceRate' => null,
+            'eventsWithTickets' => 0,
+            'eventsFinalized' => 0,
+            'peakTiming' => null,
+            'byEvent' => [],
+            'checkInTiming' => [],
+            'breakdown' => [],
+        ];
         $recentTransactions = $reports['recentTransactions'] ?? [];
         $postponedEventsCount = (int) (collect($eventsByStatus)->firstWhere('key', 'postponed')['count'] ?? 0);
         $filterOptions = $reports['filterOptions'] ?? ['events' => [], 'statuses' => []];
@@ -22,11 +35,25 @@
         $hasReportData = ((int) ($sales['totalTicketsSold'] ?? 0) > 0)
             || ((float) ($revenue['grossRevenue'] ?? 0) > 0)
             || count($eventPerformance) > 0
-            || count($recentTransactions) > 0;
+            || count($recentTransactions) > 0
+            || ((int) ($attendance['ticketsEligible'] ?? 0) > 0)
+            || ((int) ($attendance['checkedIn'] ?? 0) > 0);
         $ticketTypeTrend = $reports['ticketTypeTrend'] ?? [];
         $conversionFunnel = $reports['conversionFunnel'] ?? [];
-        $funnelViews = (int) ($conversionFunnel[0]['count'] ?? 0);
-        $funnelPurchases = (int) ($conversionFunnel[2]['count'] ?? 0);
+        $salesVelocity = $reports['salesVelocity'] ?? [
+            'windowDays' => 30,
+            'labels' => [],
+            'tickets' => [],
+            'cumulative' => [],
+            'totalInWindow' => 0,
+            'peak' => null,
+            'finalWeekShare' => null,
+            'earlyShare' => null,
+            'midShare' => null,
+        ];
+        $funnelByLabel = collect($conversionFunnel)->keyBy('label');
+        $funnelViews = (int) ($funnelByLabel->get('Views')['count'] ?? 0);
+        $funnelPurchases = (int) ($funnelByLabel->get('Purchases')['count'] ?? 0);
         $overallConversion = $funnelViews > 0
             ? round(($funnelPurchases / $funnelViews) * 100, 1)
             : null;
@@ -66,18 +93,46 @@
                 'to' => now()->toDateString(),
             ],
             [
+                'key' => 'month',
+                'label' => 'This month',
+                'from' => now()->startOfMonth()->toDateString(),
+                'to' => now()->toDateString(),
+            ],
+            [
+                'key' => 'last_month',
+                'label' => 'Last month',
+                'from' => now()->subMonthNoOverflow()->startOfMonth()->toDateString(),
+                'to' => now()->subMonthNoOverflow()->endOfMonth()->toDateString(),
+            ],
+            [
                 'key' => 'year',
-                'label' => 'This Year',
+                'label' => 'This year',
                 'from' => now()->startOfYear()->toDateString(),
                 'to' => now()->toDateString(),
             ],
+            [
+                'key' => 'all',
+                'label' => 'All time',
+                'from' => null,
+                'to' => null,
+            ],
         ];
 
-        $activePreset = collect($datePresets)->first(
-            fn ($preset) => ($activeFilters['from'] ?? null) === $preset['from']
-                && ($activeFilters['to'] ?? null) === $preset['to']
-        );
+        $activePreset = collect($datePresets)->first(function (array $preset) use ($activeFilters) {
+            if (($preset['key'] ?? '') === 'all') {
+                return blank($activeFilters['from'] ?? null) && blank($activeFilters['to'] ?? null);
+            }
+
+            return ($activeFilters['from'] ?? null) === ($preset['from'] ?? null)
+                && ($activeFilters['to'] ?? null) === ($preset['to'] ?? null);
+        });
         $activePresetKey = $activePreset['key'] ?? null;
+
+        $salesDeepLink = array_filter([
+            'event_id' => $activeFilters['event_id'] ?? null,
+            'from_date' => $activeFilters['from'] ?? null,
+            'to_date' => $activeFilters['to'] ?? null,
+        ], fn ($value) => filled($value));
 
         $salesHeatmap = $reports['salesHeatmap'] ?? [
             'month_label' => now()->format('F Y'),
@@ -104,45 +159,132 @@
             'any' => false,
         ];
         $topCustomers = $attendees['topCustomers'] ?? [];
+        $eventComparison = $reports['eventComparison'] ?? [];
+        $refundAnalytics = $reports['refundAnalytics'] ?? [
+            'grossRevenue' => 0,
+            'totalRefunded' => 0,
+            'refundCount' => 0,
+            'refundRate' => 0,
+            'refundTrend' => [],
+            'byEvent' => [],
+            'byCategory' => [],
+        ];
+        $reviewQuality = $engagement['reviewQuality'] ?? [
+            'averageRating' => null,
+            'totalRatings' => 0,
+            'averageTrend' => [],
+            'countTrend' => [],
+            'distribution' => [],
+            'lowRatedEvents' => [],
+            'responseRate' => null,
+            'topRatedEvents' => [],
+        ];
 
         $navSections = [
             ['id' => 'revenue', 'label' => 'Revenue', 'icon' => 'bi-cash-stack'],
             ['id' => 'tickets', 'label' => 'Tickets', 'icon' => 'bi-ticket-perforated'],
             ['id' => 'events', 'label' => 'Events', 'icon' => 'bi-calendar-event'],
+            ['id' => 'attendance', 'label' => 'Attendance', 'icon' => 'bi-person-check'],
             ['id' => 'audience', 'label' => 'Audience', 'icon' => 'bi-people'],
             ['id' => 'engagement', 'label' => 'Engagement', 'icon' => 'bi-heart'],
             ['id' => 'activity', 'label' => 'Activity', 'icon' => 'bi-activity'],
         ];
+
+        $tab = $tab ?? 'revenue';
+        $loadedTabs = $loadedTabs ?? [$tab];
     @endphp
 
     <div class="py-5 sm:py-6"
         x-data="{
             performanceQuery: '',
+            attendanceQuery: '',
             transactionQuery: '',
             customerQuery: '',
-            activeSection: 'revenue',
+            activeSection: @js($tab ?? 'revenue'),
+            loadedTabs: @js($loadedTabs ?? ['revenue']),
+            tabLoading: null,
             top5Metric: 'revenue',
+            compareIds: [],
             open: false,
             chartKey: null,
             title: '',
             description: '',
-            setTab(id) {
-                this.activeSection = id;
-                this.$nextTick(() => {
-                    window.dispatchEvent(new CustomEvent('organizer-reports-tab-changed', {
-                        detail: { tab: id },
-                    }));
-                });
+            toggleCompare(id) {
+                const index = this.compareIds.indexOf(id);
+                if (index >= 0) {
+                    this.compareIds.splice(index, 1);
+                    return;
+                }
+                if (this.compareIds.length >= 3) {
+                    this.compareIds.shift();
+                }
+                this.compareIds.push(id);
+            },
+            get comparedEvents() {
+                const all = window.organizerReportData?.eventComparison ?? [];
+                return this.compareIds
+                    .map((id) => all.find((event) => Number(event.id) === Number(id)))
+                    .filter(Boolean);
+            },
+            buildTabUrl(id) {
+                const url = new URL(window.location.href);
+                url.searchParams.set('tab', id);
+                url.hash = id;
+                const form = document.getElementById('organizer-reports-filters');
+                if (form) {
+                    const formData = new FormData(form);
+                    ['from', 'to', 'event_id', 'status'].forEach((key) => {
+                        const value = formData.get(key);
+                        if (value) {
+                            url.searchParams.set(key, String(value));
+                        } else {
+                            url.searchParams.delete(key);
+                        }
+                    });
+                }
+                return url;
+            },
+            async setTab(id) {
+                if (this.loadedTabs.includes(id)) {
+                    this.activeSection = id;
+                    this.$nextTick(() => {
+                        window.dispatchEvent(new CustomEvent('organizer-reports-tab-changed', {
+                            detail: { tab: id },
+                        }));
+                    });
+                    history.replaceState(null, '', this.buildTabUrl(id));
+                    return;
+                }
+
+                // Each page request loads one heavy tab (+ shared KPI shell).
+                this.tabLoading = id;
+                window.location.assign(this.buildTabUrl(id).toString());
             },
             init() {
-                const allowed = ['revenue', 'tickets', 'events', 'audience', 'engagement', 'activity'];
+                const allowed = ['revenue', 'tickets', 'events', 'attendance', 'audience', 'engagement', 'activity'];
                 const hash = window.location.hash.replace(/^#/, '');
+                const initial = allowed.includes(this.activeSection) ? this.activeSection : 'revenue';
+                this.activeSection = initial;
+
+                if (allowed.includes(hash) && !this.loadedTabs.includes(hash)) {
+                    this.setTab(hash);
+                    return;
+                }
                 if (allowed.includes(hash)) {
                     this.activeSection = hash;
                 }
+
+                const all = window.organizerReportData?.eventComparison ?? [];
+                this.compareIds = all.slice(0, Math.min(3, all.length)).map((event) => event.id);
+                window.organizerCompareIds = [...this.compareIds];
+                this.$watch('compareIds', (ids) => {
+                    window.organizerCompareIds = [...ids];
+                    window.dispatchEvent(new CustomEvent('organizer-reports-compare-changed'));
+                });
                 this.$watch('activeSection', (id) => {
                     if (allowed.includes(id)) {
-                        history.replaceState(null, '', '#' + id);
+                        const url = this.buildTabUrl(id);
+                        history.replaceState(null, '', url.pathname + url.search + url.hash);
                     }
                 });
                 this.$nextTick(() => {
@@ -186,7 +328,10 @@
                         <div class="min-w-0">
                             <p class="text-[11px] font-semibold uppercase tracking-wide text-indigo-600">Analytics</p>
                             <h1 class="mt-0.5 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Organizer Reports</h1>
-                            <p class="mt-1 text-sm text-slate-500">Performance insights for your events · click charts for fullscreen</p>
+                            <p class="mt-1 text-sm text-slate-500">
+                                Charts &amp; insights · for purchase history use
+                                <a href="{{ route('organizer.sales.index', $salesDeepLink) }}" class="font-semibold text-indigo-600 hover:text-indigo-700">Sales</a>
+                            </p>
                         </div>
                         <div class="flex flex-col items-stretch gap-2 sm:items-end">
                             <p class="inline-flex items-center justify-end gap-1.5 text-xs font-medium text-slate-500">
@@ -199,6 +344,11 @@
                                         class="btn-smooth inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 sm:text-sm">
                                         <i class="bi bi-speedometer2"></i>
                                         Dashboard
+                                    </a>
+                                    <a href="{{ route('organizer.sales.index', $salesDeepLink) }}"
+                                        class="btn-smooth inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800 shadow-sm hover:bg-emerald-100 sm:text-sm">
+                                        <i class="bi bi-receipt"></i>
+                                        View sales detail
                                     </a>
                                     <x-report-export-buttons
                                         excel-route="organizer.reports.export.excel"
@@ -226,7 +376,16 @@
                         <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Date range</p>
                         <div class="flex flex-wrap items-center gap-2">
                             @foreach ($datePresets as $preset)
-                                <a href="{{ route('organizer.reports', array_merge($filterQueryBase, ['from' => $preset['from'], 'to' => $preset['to']])) }}"
+                                @php
+                                    $presetQuery = array_merge($filterQueryBase, ['tab' => $tab ?? 'revenue']);
+                                    if (filled($preset['from'] ?? null)) {
+                                        $presetQuery['from'] = $preset['from'];
+                                    }
+                                    if (filled($preset['to'] ?? null)) {
+                                        $presetQuery['to'] = $preset['to'];
+                                    }
+                                @endphp
+                                <a href="{{ route('organizer.reports', $presetQuery) }}"
                                     class="btn-smooth inline-flex items-center rounded-lg border px-2.5 py-1 text-xs font-semibold transition
                                         {{ $activePresetKey === $preset['key']
                                             ? 'border-indigo-600 bg-indigo-600 text-white shadow-sm'
@@ -242,6 +401,7 @@
                     </div>
 
                     <form id="organizer-reports-filters" method="GET" action="{{ route('organizer.reports') }}" class="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+                        <input type="hidden" name="tab" value="{{ $tab ?? 'revenue' }}">
                         <div>
                             <label for="from" class="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-400">From</label>
                             <input type="date" id="from" name="from" value="{{ $activeFilters['from'] }}"
@@ -399,9 +559,11 @@
                             :aria-selected="activeSection === '{{ $nav['id'] }}'"
                             @click="setTab('{{ $nav['id'] }}')"
                             :class="activeSection === '{{ $nav['id'] }}' ? 'is-active' : ''"
-                            class="report-nav-pill inline-flex items-center gap-1.5 text-slate-700">
-                            <i class="bi {{ $nav['icon'] }} text-[11px] opacity-80"></i>
-                            {{ $nav['label'] }}
+                            class="report-nav-pill inline-flex items-center gap-1.5 text-slate-700"
+                            :disabled="tabLoading === '{{ $nav['id'] }}'">
+                            <i class="bi {{ $nav['icon'] }} text-[11px] opacity-80"
+                                :class="tabLoading === '{{ $nav['id'] }}' && 'animate-pulse'"></i>
+                            <span x-text="tabLoading === '{{ $nav['id'] }}' ? 'Loading…' : @js($nav['label'])"></span>
                         </button>
                     @endforeach
                 </div>
@@ -459,7 +621,9 @@
                                             <span aria-hidden="true" class="{{ $revenueTrendTone }}">{{ $revenueTrendArrow }}</span>
                                             {{ $revenueTrendPrefix }}{{ number_format($revenueTrendPercent, $revenueTrendPercent == floor($revenueTrendPercent) ? 0 : 1) }}%
                                         </span>
-                                        <p class="mt-1 text-xs text-slate-500">Compared to Previous Month</p>
+                                        <p class="mt-1 text-xs text-slate-500">
+                                            {{ ucfirst($revenueTrendMeta['label'] ?? 'vs last month') }}
+                                        </p>
                                     </div>
                                 </div>
                             </div>
@@ -545,7 +709,84 @@
                             </span>
                             <span class="ml-auto font-semibold text-rose-600">
                                 LKR {{ number_format($revenue['totalRefunded'], 0) }} refunded
+                                @if (($revenue['refundRate'] ?? null) !== null)
+                                    · {{ number_format((float) $revenue['refundRate'], 1) }}% of gross
+                                @endif
                             </span>
+                        </div>
+                    </div>
+                </div>
+
+                {{-- Deeper refund analytics --}}
+                <div class="mt-5 space-y-4 border-t border-slate-100 pt-5">
+                    <div>
+                        <p class="text-[11px] font-semibold uppercase tracking-wide text-rose-600">Refund leakage</p>
+                        <h3 class="mt-0.5 text-base font-bold text-slate-900">Where refunds come from</h3>
+                        <p class="mt-1 text-sm text-slate-500">Rate, event &amp; category breakdown, and monthly trend</p>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                        <div class="rounded-xl border border-rose-100 bg-rose-50/50 px-3 py-3">
+                            <p class="text-[11px] font-semibold uppercase tracking-wide text-rose-400">Refund rate</p>
+                            <p class="mt-1 text-xl font-bold tabular-nums text-rose-700">
+                                {{ number_format((float) ($refundAnalytics['refundRate'] ?? 0), 1) }}%
+                            </p>
+                            <p class="mt-0.5 text-xs text-slate-500">of gross revenue</p>
+                        </div>
+                        <div class="rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-3">
+                            <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Refunded</p>
+                            <p class="mt-1 text-xl font-bold tabular-nums text-slate-900">
+                                LKR {{ number_format((float) ($refundAnalytics['totalRefunded'] ?? 0), 0) }}
+                            </p>
+                        </div>
+                        <div class="rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-3">
+                            <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Refund tickets</p>
+                            <p class="mt-1 text-xl font-bold tabular-nums text-slate-900">
+                                {{ number_format((int) ($refundAnalytics['refundCount'] ?? 0)) }}
+                            </p>
+                        </div>
+                        <div class="rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-3">
+                            <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Gross in filter</p>
+                            <p class="mt-1 text-xl font-bold tabular-nums text-slate-900">
+                                LKR {{ number_format((float) ($refundAnalytics['grossRevenue'] ?? 0), 0) }}
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="grid gap-4 lg:grid-cols-2">
+                        <div class="report-chart chart-expand-hit group relative rounded-xl border border-slate-100 p-4"
+                            @click="openChart('refundsByEvent', 'Refunds by event', 'Approved refund amounts by event')">
+                            <div class="flex items-start justify-between gap-3">
+                                <div>
+                                    <h4 class="text-sm font-bold text-slate-900">By event</h4>
+                                    <p class="mt-0.5 text-xs text-slate-500">Highest leakage first</p>
+                                </div>
+                                <button type="button"
+                                    class="btn-smooth flex h-8 w-8 items-center justify-center rounded-lg bg-rose-50 text-rose-600"
+                                    @click.stop="openChart('refundsByEvent', 'Refunds by event', 'Approved refund amounts by event')">
+                                    <i class="bi bi-arrows-fullscreen text-xs"></i>
+                                </button>
+                            </div>
+                            <div class="mt-4 h-56">
+                                <canvas id="refundsByEventChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="report-chart chart-expand-hit group relative rounded-xl border border-slate-100 p-4"
+                            @click="openChart('refundsByCategory', 'Refunds by ticket category', 'Approved refund amounts by ticket type')">
+                            <div class="flex items-start justify-between gap-3">
+                                <div>
+                                    <h4 class="text-sm font-bold text-slate-900">By ticket category</h4>
+                                    <p class="mt-0.5 text-xs text-slate-500">Which types get refunded</p>
+                                </div>
+                                <button type="button"
+                                    class="btn-smooth flex h-8 w-8 items-center justify-center rounded-lg bg-rose-50 text-rose-600"
+                                    @click.stop="openChart('refundsByCategory', 'Refunds by ticket category', 'Approved refund amounts by ticket type')">
+                                    <i class="bi bi-arrows-fullscreen text-xs"></i>
+                                </button>
+                            </div>
+                            <div class="mt-4 h-56">
+                                <canvas id="refundsByCategoryChart"></canvas>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -558,7 +799,7 @@
                 <div class="mb-5">
                     <p class="text-[11px] font-semibold uppercase tracking-wide text-blue-600">Tickets</p>
                     <h2 class="mt-0.5 text-lg font-bold text-slate-900">Ticket sales</h2>
-                    <p class="mt-1 text-sm text-slate-500">Volume over time, category mix, type trends, and conversion</p>
+                    <p class="mt-1 text-sm text-slate-500">Volume over time, category mix, conversion, and pre-event sales velocity</p>
                 </div>
 
                 <div class="grid gap-4 lg:grid-cols-5">
@@ -641,17 +882,17 @@
                     </div>
 
                     <div class="report-chart chart-expand-hit group relative p-4 sm:p-5 lg:col-span-3"
-                        @click="openChart('conversionFunnel', 'Conversion funnel', 'Views to saves to purchases for your events')">
+                        @click="openChart('conversionFunnel', 'Conversion funnel', 'Views to saves to cart to purchases for your events')">
                         <div class="flex items-start justify-between gap-3">
                             <div>
                                 <h3 class="text-base font-bold text-slate-900">Conversion funnel</h3>
-                                <p class="mt-0.5 text-sm text-slate-500">Views → saves → purchases</p>
+                                <p class="mt-0.5 text-sm text-slate-500">Views → saves → cart → purchases</p>
                             </div>
                             <button type="button"
                                 class="btn-smooth flex h-9 w-9 items-center justify-center rounded-xl bg-cyan-50 text-cyan-600 opacity-80 transition group-hover:bg-cyan-100 group-hover:opacity-100"
                                 title="View fullscreen"
                                 aria-label="View conversion funnel fullscreen"
-                                @click.stop="openChart('conversionFunnel', 'Conversion funnel', 'Views to saves to purchases for your events')">
+                                @click.stop="openChart('conversionFunnel', 'Conversion funnel', 'Views to saves to cart to purchases for your events')">
                                 <i class="bi bi-arrows-fullscreen text-sm"></i>
                             </button>
                         </div>
@@ -675,6 +916,65 @@
                             @endif
                         </div>
                     </div>
+                </div>
+
+                <div class="mt-4 report-chart chart-expand-hit group relative rounded-xl border border-slate-100 p-4 sm:p-5"
+                    @click="openChart('salesVelocity', 'Sales velocity before event day', 'Tickets sold by days until the event (T-30 → T-0) across your filtered events')">
+                    <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div class="min-w-0">
+                            <h3 class="text-base font-bold text-slate-900">Sales velocity before event day</h3>
+                            <p class="mt-0.5 text-sm text-slate-500">
+                                Confirmed tickets by days-until-event · T-30 → T-0
+                            </p>
+                        </div>
+                        <button type="button"
+                            class="btn-smooth flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 opacity-80 transition group-hover:bg-blue-100 group-hover:opacity-100"
+                            title="View fullscreen"
+                            aria-label="View sales velocity fullscreen"
+                            @click.stop="openChart('salesVelocity', 'Sales velocity before event day', 'Tickets sold by days until the event (T-30 → T-0) across your filtered events')">
+                            <i class="bi bi-arrows-fullscreen text-sm"></i>
+                        </button>
+                    </div>
+
+                    <div class="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                        <div class="rounded-lg border border-slate-100 bg-slate-50/70 px-3 py-2">
+                            <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">In window</p>
+                            <p class="mt-0.5 text-lg font-bold tabular-nums text-slate-900">
+                                {{ number_format((int) ($salesVelocity['totalInWindow'] ?? 0)) }}
+                            </p>
+                        </div>
+                        <div class="rounded-lg border border-slate-100 bg-slate-50/70 px-3 py-2">
+                            <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Peak day</p>
+                            <p class="mt-0.5 text-lg font-bold tabular-nums text-blue-700">
+                                {{ $salesVelocity['peak']['label'] ?? '—' }}
+                            </p>
+                            @if (! empty($salesVelocity['peak']))
+                                <p class="text-[11px] text-slate-500">{{ number_format((int) $salesVelocity['peak']['count']) }} tickets</p>
+                            @endif
+                        </div>
+                        <div class="rounded-lg border border-slate-100 bg-slate-50/70 px-3 py-2">
+                            <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Final week</p>
+                            <p class="mt-0.5 text-lg font-bold tabular-nums text-emerald-700">
+                                {{ $salesVelocity['finalWeekShare'] !== null ? number_format((float) $salesVelocity['finalWeekShare'], 1).'%' : '—' }}
+                            </p>
+                            <p class="text-[11px] text-slate-500">T-7 → T-0</p>
+                        </div>
+                        <div class="rounded-lg border border-slate-100 bg-slate-50/70 px-3 py-2">
+                            <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Early window</p>
+                            <p class="mt-0.5 text-lg font-bold tabular-nums text-indigo-700">
+                                {{ $salesVelocity['earlyShare'] !== null ? number_format((float) $salesVelocity['earlyShare'], 1).'%' : '—' }}
+                            </p>
+                            <p class="text-[11px] text-slate-500">T-30 → T-15</p>
+                        </div>
+                    </div>
+
+                    <div class="mt-5 h-80">
+                        <canvas id="salesVelocityChart"></canvas>
+                    </div>
+                    <p class="mt-3 text-xs text-slate-500">
+                        Bars = tickets sold that day before the event. Line = cumulative sales in the window.
+                        A late spike (T-7 → T-0) often means boost ads earlier; strong early sales may mean you can ease off paid push.
+                    </p>
                 </div>
             </section>
             </div>
@@ -736,7 +1036,30 @@
                                     @forelse ($eventPerformance as $event)
                                         <tr class="transition hover:bg-indigo-50/40"
                                             x-show="matches(@js($event['name']), performanceQuery)">
-                                            <td class="px-5 py-3.5 text-sm font-semibold text-slate-900">{{ $event['name'] }}</td>
+                                            <td class="px-5 py-3.5 text-sm font-semibold text-slate-900">
+                                                <div class="flex flex-col gap-1">
+                                                    <span>{{ $event['name'] }}</span>
+                                                    <span class="flex flex-wrap gap-2 text-[11px] font-semibold">
+                                                        <a href="{{ route('organizer.sales.index', array_filter([
+                                                                'event_id' => $event['id'] ?? null,
+                                                                'from_date' => $activeFilters['from'] ?? null,
+                                                                'to_date' => $activeFilters['to'] ?? null,
+                                                            ], fn ($value) => filled($value))) }}"
+                                                            class="text-emerald-700 hover:text-emerald-800">
+                                                            Sales detail
+                                                        </a>
+                                                        <a href="{{ route('organizer.reports', array_filter([
+                                                                'tab' => 'events',
+                                                                'event_id' => $event['id'] ?? null,
+                                                                'from' => $activeFilters['from'] ?? null,
+                                                                'to' => $activeFilters['to'] ?? null,
+                                                            ], fn ($value) => filled($value))).'#events' }}"
+                                                            class="text-indigo-600 hover:text-indigo-700">
+                                                            Analytics
+                                                        </a>
+                                                    </span>
+                                                </div>
+                                            </td>
                                             <td class="px-5 py-3.5 text-right text-sm tabular-nums text-slate-700">{{ number_format($event['tickets_sold']) }}</td>
                                             <td class="px-5 py-3.5 text-right text-sm font-bold tabular-nums text-emerald-600">LKR {{ number_format($event['revenue'], 2) }}</td>
                                             <td class="px-5 py-3.5 text-right">
@@ -789,6 +1112,85 @@
                         <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Comparison</p>
                         <h3 class="mt-0.5 text-base font-bold text-slate-900">How events stack up</h3>
                         <p class="mt-1 text-sm text-slate-500">Revenue ranking, fill profitability, and when tickets sell</p>
+                    </div>
+
+                    {{-- Event vs event picker --}}
+                    <div class="mb-6 rounded-xl border border-indigo-100 bg-indigo-50/40 p-4 sm:p-5">
+                        <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                            <div>
+                                <h4 class="text-sm font-bold text-slate-900">Event vs event</h4>
+                                <p class="mt-0.5 text-xs text-slate-500">Pick 2–3 events · revenue, fill rate, conversion, rating</p>
+                            </div>
+                            <p class="text-[11px] font-semibold text-indigo-700" x-text="compareIds.length + ' selected'"></p>
+                        </div>
+                        <div class="mt-3 flex flex-wrap gap-2">
+                            @forelse ($eventComparison as $cmpEvent)
+                                <button type="button"
+                                    @click="toggleCompare({{ (int) $cmpEvent['id'] }})"
+                                    :class="compareIds.includes({{ (int) $cmpEvent['id'] }})
+                                        ? 'border-indigo-600 bg-indigo-600 text-white'
+                                        : 'border-slate-200 bg-white text-slate-700 hover:border-indigo-200'"
+                                    class="btn-smooth inline-flex items-center rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition">
+                                    {{ \Illuminate\Support\Str::limit($cmpEvent['name'], 28) }}
+                                </button>
+                            @empty
+                                <p class="text-sm text-slate-500">No events available to compare.</p>
+                            @endforelse
+                        </div>
+
+                        <div class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3" x-show="comparedEvents.length">
+                            <template x-for="event in comparedEvents" :key="event.id">
+                                <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                                    <p class="truncate text-sm font-bold text-slate-900" x-text="event.name"></p>
+                                    <p class="mt-0.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400" x-text="event.status"></p>
+                                    <dl class="mt-3 space-y-2 text-sm">
+                                        <div class="flex justify-between gap-2">
+                                            <dt class="text-slate-500">Revenue</dt>
+                                            <dd class="font-semibold tabular-nums text-emerald-600"
+                                                x-text="'LKR ' + Number(event.revenue || 0).toLocaleString()"></dd>
+                                        </div>
+                                        <div class="flex justify-between gap-2">
+                                            <dt class="text-slate-500">Fill rate</dt>
+                                            <dd class="font-semibold tabular-nums text-slate-800" x-text="(event.fill_rate ?? 0) + '%'"></dd>
+                                        </div>
+                                        <div class="flex justify-between gap-2">
+                                            <dt class="text-slate-500">Conversion</dt>
+                                            <dd class="font-semibold tabular-nums text-slate-800"
+                                                x-text="event.conversion_rate == null ? '—' : (event.conversion_rate + '%')"></dd>
+                                        </div>
+                                        <div class="flex justify-between gap-2">
+                                            <dt class="text-slate-500">Rating</dt>
+                                            <dd class="font-semibold tabular-nums text-amber-600"
+                                                x-text="event.rating == null ? '—' : (event.rating + ' ★')"></dd>
+                                        </div>
+                                        <div class="flex justify-between gap-2">
+                                            <dt class="text-slate-500">Tickets</dt>
+                                            <dd class="font-semibold tabular-nums text-slate-800"
+                                                x-text="Number(event.tickets_sold || 0).toLocaleString()"></dd>
+                                        </div>
+                                    </dl>
+                                </div>
+                            </template>
+                        </div>
+
+                        <div class="report-chart chart-expand-hit group relative mt-4 rounded-xl border border-white bg-white/80 p-4"
+                            x-show="comparedEvents.length >= 2"
+                            @click="openChart('eventCompareMetrics', 'Event comparison', 'Fill rate, conversion, and rating side by side')">
+                            <div class="flex items-start justify-between gap-3">
+                                <div>
+                                    <h4 class="text-sm font-bold text-slate-900">Metric comparison</h4>
+                                    <p class="mt-0.5 text-xs text-slate-500">Fill % · conversion % · rating (×20 for scale)</p>
+                                </div>
+                                <button type="button"
+                                    class="btn-smooth flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600"
+                                    @click.stop="openChart('eventCompareMetrics', 'Event comparison', 'Fill rate, conversion, and rating side by side')">
+                                    <i class="bi bi-arrows-fullscreen text-xs"></i>
+                                </button>
+                            </div>
+                            <div class="mt-4 h-64">
+                                <canvas id="eventCompareMetricsChart"></canvas>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="grid gap-4 lg:grid-cols-2">
@@ -1015,6 +1417,224 @@
             </section>
             </div>
 
+            {{-- Attendance tab --}}
+            <div x-show="activeSection === 'attendance'" x-cloak role="tabpanel" class="space-y-5">
+            <section id="report-attendance" class="space-y-5">
+                <div class="report-section p-5 sm:p-6">
+                    <div class="mb-5">
+                        <p class="text-[11px] font-semibold uppercase tracking-wide text-teal-600">Attendance</p>
+                        <h2 class="mt-0.5 text-lg font-bold text-slate-900">Check-in &amp; attendance</h2>
+                        <p class="mt-1 text-sm text-slate-500">
+                            Attendance rate on completed events · no-shows · when guests arrive relative to start time
+                        </p>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                        @foreach ([
+                            [
+                                'label' => 'Attendance rate',
+                                'value' => $attendance['attendanceRate'] !== null
+                                    ? number_format((float) $attendance['attendanceRate'], 1) . '%'
+                                    : '—',
+                                'hint' => ((int) ($attendance['eventsFinalized'] ?? 0)) > 0
+                                    ? number_format((int) $attendance['eventsFinalized']) . ' completed events'
+                                    : 'Based on eligible tickets',
+                                'tone' => 'text-teal-700',
+                            ],
+                            [
+                                'label' => 'Checked in',
+                                'value' => number_format((int) ($attendance['checkedIn'] ?? 0)),
+                                'hint' => number_format((int) ($attendance['ticketsEligible'] ?? 0)) . ' eligible tickets',
+                                'tone' => 'text-emerald-700',
+                            ],
+                            [
+                                'label' => 'No-shows',
+                                'value' => number_format((int) ($attendance['noShows'] ?? 0)),
+                                'hint' => 'Completed events only',
+                                'tone' => 'text-rose-700',
+                            ],
+                            [
+                                'label' => 'Awaiting check-in',
+                                'value' => number_format((int) ($attendance['awaitingCheckIn'] ?? 0)),
+                                'hint' => 'Upcoming & ongoing',
+                                'tone' => 'text-amber-700',
+                            ],
+                        ] as $kpi)
+                            <div class="rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-3 sm:px-4">
+                                <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{{ $kpi['label'] }}</p>
+                                <p class="mt-1 text-xl font-bold tabular-nums {{ $kpi['tone'] }} sm:text-2xl">{{ $kpi['value'] }}</p>
+                                <p class="mt-0.5 text-xs text-slate-500">{{ $kpi['hint'] }}</p>
+                            </div>
+                        @endforeach
+                    </div>
+
+                    @if (! empty($attendance['peakTiming']))
+                        <p class="mt-4 rounded-xl border border-teal-100 bg-teal-50/70 px-3 py-2.5 text-sm text-teal-900">
+                            <span class="font-semibold">Peak check-in window:</span>
+                            {{ $attendance['peakTiming']['label'] }}
+                            <span class="text-teal-700/80">· {{ number_format((int) $attendance['peakTiming']['count']) }} check-ins</span>
+                        </p>
+                    @endif
+                </div>
+
+                <div class="grid gap-5 lg:grid-cols-5">
+                    <div class="report-section report-chart chart-expand-hit group relative p-5 sm:p-6 lg:col-span-2"
+                        @click="openChart('attendanceBreakdown', 'Attendance breakdown', 'Checked in, no-shows on completed events, and tickets still awaiting entry')">
+                        <div class="flex items-start justify-between gap-3">
+                            <div>
+                                <h3 class="text-base font-bold text-slate-900">Attendance mix</h3>
+                                <p class="mt-0.5 text-sm text-slate-500">Checked in vs no-shows vs awaiting</p>
+                            </div>
+                            <button type="button"
+                                class="btn-smooth flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-teal-600 opacity-80 transition group-hover:bg-teal-100 group-hover:opacity-100"
+                                title="View fullscreen"
+                                aria-label="View attendance mix fullscreen"
+                                @click.stop="openChart('attendanceBreakdown', 'Attendance breakdown', 'Checked in, no-shows on completed events, and tickets still awaiting entry')">
+                                <i class="bi bi-arrows-fullscreen text-sm"></i>
+                            </button>
+                        </div>
+                        <div class="mt-5 h-64">
+                            <canvas id="attendanceBreakdownChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="report-section report-chart chart-expand-hit group relative p-5 sm:p-6 lg:col-span-3"
+                        @click="openChart('checkInTiming', 'Check-in timing', 'When guests check in relative to each event start time')">
+                        <div class="flex items-start justify-between gap-3">
+                            <div>
+                                <h3 class="text-base font-bold text-slate-900">Check-in timing</h3>
+                                <p class="mt-0.5 text-sm text-slate-500">Relative to event start (−2h → +2h)</p>
+                            </div>
+                            <button type="button"
+                                class="btn-smooth flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 opacity-80 transition group-hover:bg-indigo-100 group-hover:opacity-100"
+                                title="View fullscreen"
+                                aria-label="View check-in timing fullscreen"
+                                @click.stop="openChart('checkInTiming', 'Check-in timing', 'When guests check in relative to each event start time')">
+                                <i class="bi bi-arrows-fullscreen text-sm"></i>
+                            </button>
+                        </div>
+                        <div class="mt-5 h-64">
+                            <canvas id="checkInTimingChart"></canvas>
+                        </div>
+                        <p class="mt-3 text-xs text-slate-500">
+                            Events without a scheduled date are excluded from timing. Use the scanner on event day to capture arrivals.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="report-section report-chart chart-expand-hit group relative p-5 sm:p-6"
+                    @click="openChart('attendanceByEvent', 'Attendance by event', 'Checked in vs no-shows or awaiting check-in for each event')">
+                    <div class="flex items-start justify-between gap-3">
+                        <div>
+                            <h3 class="text-base font-bold text-slate-900">Attendance by event</h3>
+                            <p class="mt-0.5 text-sm text-slate-500">Checked in stacked against no-shows / awaiting</p>
+                        </div>
+                        <button type="button"
+                            class="btn-smooth flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 opacity-80 transition group-hover:bg-emerald-100 group-hover:opacity-100"
+                            title="View fullscreen"
+                            aria-label="View attendance by event fullscreen"
+                            @click.stop="openChart('attendanceByEvent', 'Attendance by event', 'Checked in vs no-shows or awaiting check-in for each event')">
+                            <i class="bi bi-arrows-fullscreen text-sm"></i>
+                        </button>
+                    </div>
+                    <div class="mt-5 h-80">
+                        <canvas id="attendanceByEventChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="report-section p-5 sm:p-6">
+                    <div class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                            <p class="text-[11px] font-semibold uppercase tracking-wide text-teal-600">Per event</p>
+                            <h2 class="mt-0.5 text-lg font-bold text-slate-900">Attendance detail</h2>
+                            <p class="mt-1 text-sm text-slate-500">
+                                No-shows finalize when an event is marked completed
+                                · {{ number_format((int) ($attendance['eventsWithTickets'] ?? 0)) }} events with tickets
+                            </p>
+                        </div>
+                        <div class="relative">
+                            <i class="bi bi-search pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400"></i>
+                            <input type="search" x-model="attendanceQuery" placeholder="Filter events…"
+                                class="w-full rounded-xl border-slate-200 bg-white py-2 pl-9 pr-3 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:w-52">
+                        </div>
+                    </div>
+
+                    <div class="overflow-hidden rounded-xl border border-slate-100">
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-slate-100">
+                                <thead class="bg-slate-50/80">
+                                    <tr>
+                                        <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Event</th>
+                                        <th class="hidden px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 sm:table-cell">Date</th>
+                                        <th class="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-500">Tickets</th>
+                                        <th class="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-500">Checked in</th>
+                                        <th class="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-500">No-shows</th>
+                                        <th class="hidden px-5 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-500 md:table-cell">Awaiting</th>
+                                        <th class="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-500">Rate</th>
+                                        <th class="hidden px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 lg:table-cell">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100 bg-white">
+                                    @forelse ($attendance['byEvent'] ?? [] as $row)
+                                        <tr class="transition hover:bg-teal-50/40"
+                                            x-show="matches(@js($row['name']), attendanceQuery)">
+                                            <td class="px-5 py-3.5 text-sm font-semibold text-slate-900">{{ $row['name'] }}</td>
+                                            <td class="hidden px-5 py-3.5 text-sm text-slate-500 sm:table-cell">{{ $row['date'] }}</td>
+                                            <td class="px-5 py-3.5 text-right text-sm tabular-nums text-slate-700">{{ number_format($row['tickets']) }}</td>
+                                            <td class="px-5 py-3.5 text-right text-sm font-semibold tabular-nums text-emerald-600">{{ number_format($row['checked_in']) }}</td>
+                                            <td class="px-5 py-3.5 text-right text-sm tabular-nums">
+                                                @if ($row['attendance_final'])
+                                                    <span class="font-semibold text-rose-600">{{ number_format($row['no_shows']) }}</span>
+                                                @else
+                                                    <span class="text-slate-400">—</span>
+                                                @endif
+                                            </td>
+                                            <td class="hidden px-5 py-3.5 text-right text-sm tabular-nums md:table-cell">
+                                                @if (! $row['attendance_final'])
+                                                    <span class="font-semibold text-amber-600">{{ number_format($row['awaiting_check_in']) }}</span>
+                                                @else
+                                                    <span class="text-slate-400">—</span>
+                                                @endif
+                                            </td>
+                                            <td class="px-5 py-3.5 text-right">
+                                                <span @class([
+                                                    'inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold',
+                                                    'bg-emerald-100 text-emerald-700' => $row['attendance_rate'] >= 75,
+                                                    'bg-amber-100 text-amber-700' => $row['attendance_rate'] >= 40 && $row['attendance_rate'] < 75,
+                                                    'bg-rose-100 text-rose-700' => $row['attendance_rate'] < 40,
+                                                ])>
+                                                    {{ number_format($row['attendance_rate'], 1) }}%
+                                                </span>
+                                            </td>
+                                            <td class="hidden px-5 py-3.5 lg:table-cell">
+                                                <span @class([
+                                                    'inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold',
+                                                    'bg-blue-100 text-blue-700' => ($row['status_key'] ?? '') === 'upcoming',
+                                                    'bg-emerald-100 text-emerald-700' => ($row['status_key'] ?? '') === 'ongoing',
+                                                    'bg-amber-100 text-amber-800' => ($row['status_key'] ?? '') === 'postponed',
+                                                    'bg-slate-100 text-slate-600' => ($row['status_key'] ?? '') === 'completed',
+                                                    'bg-rose-100 text-rose-700' => ($row['status_key'] ?? '') === 'cancelled',
+                                                    'bg-indigo-100 text-indigo-700' => ! in_array(($row['status_key'] ?? ''), ['upcoming', 'ongoing', 'postponed', 'completed', 'cancelled'], true),
+                                                ])>
+                                                    {{ $row['status'] }}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    @empty
+                                        <tr>
+                                            <td colspan="8" class="px-5 py-8">
+                                                <x-report-empty-state class="!min-h-[8rem] border-0 bg-transparent shadow-none" />
+                                            </td>
+                                        </tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            </div>
+
             {{-- Engagement tab --}}
             <div x-show="activeSection === 'engagement'" x-cloak role="tabpanel" class="space-y-5">
             <section id="report-engagement" class="report-section p-5 sm:p-6">
@@ -1125,6 +1745,113 @@
                             Engagement score = likes + saves + comments + ratings. Top-right = high interaction and high sales.
                         </p>
                     </div>
+                </div>
+
+                {{-- Review quality --}}
+                <div class="mt-5 space-y-4 border-t border-slate-100 pt-5">
+                    <div>
+                        <p class="text-[11px] font-semibold uppercase tracking-wide text-amber-600">Review quality</p>
+                        <h3 class="mt-0.5 text-base font-bold text-slate-900">Ratings &amp; review health</h3>
+                        <p class="mt-1 text-sm text-slate-500">
+                            Average score trend, score mix, and low-rated events
+                            @if ($reviewQuality['responseRate'] === null)
+                                · reply rate available once organizer responses ship
+                            @endif
+                        </p>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                        <div class="rounded-xl border border-amber-100 bg-amber-50/50 px-3 py-3">
+                            <p class="text-[11px] font-semibold uppercase tracking-wide text-amber-500">Avg rating</p>
+                            <p class="mt-1 text-xl font-bold tabular-nums text-amber-700">
+                                {{ $reviewQuality['averageRating'] !== null ? number_format((float) $reviewQuality['averageRating'], 1).'/5' : '—' }}
+                            </p>
+                        </div>
+                        <div class="rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-3">
+                            <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Ratings</p>
+                            <p class="mt-1 text-xl font-bold tabular-nums text-slate-900">
+                                {{ number_format((int) ($reviewQuality['totalRatings'] ?? 0)) }}
+                            </p>
+                        </div>
+                        <div class="rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-3">
+                            <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Low-rated events</p>
+                            <p class="mt-1 text-xl font-bold tabular-nums text-rose-700">
+                                {{ number_format(count($reviewQuality['lowRatedEvents'] ?? [])) }}
+                            </p>
+                            <p class="mt-0.5 text-xs text-slate-500">&lt; 3.5 ★ · 2+ ratings</p>
+                        </div>
+                        <div class="rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-3">
+                            <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Response rate</p>
+                            <p class="mt-1 text-xl font-bold tabular-nums text-slate-400">—</p>
+                            <p class="mt-0.5 text-xs text-slate-500">Coming with replies</p>
+                        </div>
+                    </div>
+
+                    <div class="grid gap-4 lg:grid-cols-5">
+                        <div class="report-chart chart-expand-hit group relative rounded-xl border border-slate-100 p-4 lg:col-span-3"
+                            @click="openChart('ratingTrend', 'Average rating trend', 'Monthly average star rating across your events')">
+                            <div class="flex items-start justify-between gap-3">
+                                <div>
+                                    <h4 class="text-sm font-bold text-slate-900">Average score trend</h4>
+                                    <p class="mt-0.5 text-xs text-slate-500">Monthly avg ★ (bars = rating volume)</p>
+                                </div>
+                                <button type="button" class="btn-smooth flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50 text-amber-600"
+                                    @click.stop="openChart('ratingTrend', 'Average rating trend', 'Monthly average star rating across your events')">
+                                    <i class="bi bi-arrows-fullscreen text-xs"></i>
+                                </button>
+                            </div>
+                            <div class="mt-4 h-64">
+                                <canvas id="ratingTrendChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="report-chart chart-expand-hit group relative rounded-xl border border-slate-100 p-4 lg:col-span-2"
+                            @click="openChart('ratingDistribution', 'Rating distribution', 'How many 1–5 star ratings you received')">
+                            <div class="flex items-start justify-between gap-3">
+                                <div>
+                                    <h4 class="text-sm font-bold text-slate-900">Score mix</h4>
+                                    <p class="mt-0.5 text-xs text-slate-500">1★ → 5★</p>
+                                </div>
+                                <button type="button" class="btn-smooth flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50 text-amber-600"
+                                    @click.stop="openChart('ratingDistribution', 'Rating distribution', 'How many 1–5 star ratings you received')">
+                                    <i class="bi bi-arrows-fullscreen text-xs"></i>
+                                </button>
+                            </div>
+                            <div class="mt-4 h-64">
+                                <canvas id="ratingDistributionChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    @if (count($reviewQuality['lowRatedEvents'] ?? []) > 0)
+                        <div class="overflow-hidden rounded-xl border border-rose-100">
+                            <div class="border-b border-rose-100 bg-rose-50/60 px-4 py-3">
+                                <h4 class="text-sm font-bold text-rose-800">Low-rated events</h4>
+                                <p class="text-xs text-rose-700/80">Worth a follow-up — average below 3.5 with at least 2 ratings</p>
+                            </div>
+                            <div class="overflow-x-auto">
+                                <table class="min-w-full divide-y divide-rose-50">
+                                    <thead class="bg-white">
+                                        <tr>
+                                            <th class="px-4 py-2 text-left text-xs font-semibold uppercase text-slate-500">Event</th>
+                                            <th class="px-4 py-2 text-right text-xs font-semibold uppercase text-slate-500">Avg</th>
+                                            <th class="px-4 py-2 text-right text-xs font-semibold uppercase text-slate-500">Ratings</th>
+                                            <th class="px-4 py-2 text-left text-xs font-semibold uppercase text-slate-500">Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-slate-100 bg-white">
+                                        @foreach ($reviewQuality['lowRatedEvents'] as $lowEvent)
+                                            <tr>
+                                                <td class="px-4 py-2.5 text-sm font-semibold text-slate-900">{{ $lowEvent['name'] }}</td>
+                                                <td class="px-4 py-2.5 text-right text-sm font-bold text-rose-600">{{ number_format($lowEvent['rating'], 1) }} ★</td>
+                                                <td class="px-4 py-2.5 text-right text-sm tabular-nums text-slate-600">{{ number_format($lowEvent['ratings_count']) }}</td>
+                                                <td class="px-4 py-2.5 text-sm text-slate-500">{{ $lowEvent['status'] }}</td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    @endif
                 </div>
             </section>
             </div>
@@ -1381,7 +2108,11 @@
                     <div>
                         <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Activity</p>
                         <h2 class="mt-0.5 text-lg font-bold text-slate-900">Recent transactions</h2>
-                        <p class="mt-1 text-sm text-slate-500">Latest ticket purchases on your events</p>
+                        <p class="mt-1 text-sm text-slate-500">
+                            Latest ticket purchases ·
+                            <a href="{{ route('organizer.sales.index', $salesDeepLink) }}"
+                                class="font-semibold text-emerald-700 hover:text-emerald-800">view full sales detail</a>
+                        </p>
                     </div>
                     <div class="relative">
                         <i class="bi bi-search pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400"></i>

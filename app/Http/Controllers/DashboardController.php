@@ -113,9 +113,22 @@ class DashboardController extends Controller
             $filters['goal_event'],
             $filters['chart_event'],
             $filters['engagement_event'],
+            $filters['focus_event'],
+            $filters['override_flags'],
+            $filters['query'],
         );
 
         return view('organizer.dashboard', compact('dashboard'));
+    }
+
+    /**
+     * Lightweight JSON pulse for live Today summary + recent sales.
+     */
+    public function organizerLive(): \Illuminate\Http\JsonResponse
+    {
+        return response()->json(
+            $this->organizerDashboardService->getLivePulse((int) Auth::id())
+        );
     }
 
     /**
@@ -141,16 +154,20 @@ class DashboardController extends Controller
      */
     public function updateRevenueGoal(Request $request): RedirectResponse
     {
+        if (! $request->filled('focus_event')) {
+            $request->merge(['focus_event' => null]);
+        }
+
         $validated = $request->validate([
             'revenue_goal' => ['required', 'numeric', 'min:1000', 'max:999999999'],
             'goal_event' => ['nullable', 'integer', 'exists:events,id'],
+            'focus_event' => ['nullable', 'integer', 'exists:events,id'],
+            'kpi_event' => ['nullable', 'string', 'max:32'],
+            'chart_event' => ['nullable', 'string', 'max:32'],
+            'engagement_event' => ['nullable', 'string', 'max:32'],
         ]);
 
-        $redirectParams = array_filter([
-            'kpi_event' => $request->filled('kpi_event') ? $request->integer('kpi_event') : null,
-            'chart_event' => $request->filled('chart_event') ? $request->integer('chart_event') : null,
-            'engagement_event' => $request->filled('engagement_event') ? $request->integer('engagement_event') : null,
-        ]);
+        $redirectParams = $this->organizerDashboardRedirectParams($request);
 
         if (! empty($validated['goal_event'])) {
             $event = Event::query()
@@ -160,7 +177,8 @@ class DashboardController extends Controller
             $event->revenue_goal = $validated['revenue_goal'];
             $event->save();
 
-            $redirectParams['goal_event'] = $event->id;
+            // Keep the goal section pinned to this event after save.
+            $redirectParams['goal_event'] = (string) $event->id;
 
             return redirect()
                 ->route('organizer.dashboard', $redirectParams)
@@ -171,6 +189,9 @@ class DashboardController extends Controller
         $user = Auth::user();
         $user->monthly_revenue_goal = $validated['revenue_goal'];
         $user->save();
+
+        // Monthly goal — clear any goal-section override so it follows focus.
+        unset($redirectParams['goal_event']);
 
         return redirect()
             ->route('organizer.dashboard', $redirectParams)
@@ -330,22 +351,18 @@ class DashboardController extends Controller
 
     /**
      * @return array{
+     *     focus_event: int|null,
      *     kpi_event: int|null,
      *     goal_event: int|null,
      *     chart_event: int|null,
-     *     engagement_event: int|null
+     *     engagement_event: int|null,
+     *     override_flags: array{kpi: bool, goal: bool, chart: bool, engagement: bool},
+     *     query: array<string, int|string>
      * }
      */
     private function validatedOrganizerDashboardFilters(Request $request): array
     {
         $organizerId = (int) Auth::id();
-
-        $request->merge([
-            'kpi_event' => $request->filled('kpi_event') ? $request->input('kpi_event') : null,
-            'goal_event' => $request->filled('goal_event') ? $request->input('goal_event') : null,
-            'chart_event' => $request->filled('chart_event') ? $request->input('chart_event') : null,
-            'engagement_event' => $request->filled('engagement_event') ? $request->input('engagement_event') : null,
-        ]);
 
         $eventRule = [
             'nullable',
@@ -353,19 +370,158 @@ class DashboardController extends Controller
             Rule::exists('events', 'id')->where(fn ($query) => $query->where('created_by', $organizerId)),
         ];
 
+        $sectionRule = [
+            'nullable',
+            'string',
+            'max:32',
+            function (string $attribute, mixed $value, \Closure $fail) use ($organizerId) {
+                if ($value === null || $value === '' || $value === 'focus' || $value === 'all') {
+                    return;
+                }
+
+                if (! ctype_digit((string) $value)) {
+                    $fail('The selected event is invalid.');
+
+                    return;
+                }
+
+                $exists = Event::query()
+                    ->createdByOrganizer($organizerId)
+                    ->whereKey((int) $value)
+                    ->exists();
+
+                if (! $exists) {
+                    $fail('The selected event is invalid.');
+                }
+            },
+        ];
+
+        if (! $request->filled('focus_event')) {
+            $request->merge(['focus_event' => null]);
+        }
+
         $validated = $request->validate([
-            'kpi_event' => $eventRule,
-            'goal_event' => $eventRule,
-            'chart_event' => $eventRule,
-            'engagement_event' => $eventRule,
+            'focus_event' => $eventRule,
+            'kpi_event' => $sectionRule,
+            'goal_event' => $sectionRule,
+            'chart_event' => $sectionRule,
+            'engagement_event' => $sectionRule,
         ]);
 
-        return [
-            'kpi_event' => isset($validated['kpi_event']) ? (int) $validated['kpi_event'] : null,
-            'goal_event' => isset($validated['goal_event']) ? (int) $validated['goal_event'] : null,
-            'chart_event' => isset($validated['chart_event']) ? (int) $validated['chart_event'] : null,
-            'engagement_event' => isset($validated['engagement_event']) ? (int) $validated['engagement_event'] : null,
+        $focusEvent = isset($validated['focus_event']) ? (int) $validated['focus_event'] : null;
+        $hasFocusParam = $request->query->has('focus_event') || $request->request->has('focus_event');
+
+        $sections = [
+            'kpi' => 'kpi_event',
+            'goal' => 'goal_event',
+            'chart' => 'chart_event',
+            'engagement' => 'engagement_event',
         ];
+
+        $overrideFlags = [
+            'kpi' => false,
+            'goal' => false,
+            'chart' => false,
+            'engagement' => false,
+        ];
+
+        $effective = [
+            'kpi_event' => $focusEvent,
+            'goal_event' => $focusEvent,
+            'chart_event' => $focusEvent,
+            'engagement_event' => $focusEvent,
+        ];
+
+        $query = [];
+        if ($focusEvent !== null) {
+            $query['focus_event'] = $focusEvent;
+        } elseif ($hasFocusParam) {
+            // Explicit "All Events" focus — keep param out of query (clean URL).
+        }
+
+        // Legacy URLs used integer-only section params without focus_event.
+        $legacyMode = ! $hasFocusParam;
+        $legacyIds = [];
+
+        foreach ($sections as $flag => $param) {
+            if (! $request->query->has($param) && ! $request->request->has($param)) {
+                continue;
+            }
+
+            $raw = $validated[$param] ?? null;
+
+            if ($raw === null || $raw === '' || $raw === 'focus') {
+                continue;
+            }
+
+            if ($raw === 'all') {
+                $overrideFlags[$flag] = true;
+                $effective[$param] = null;
+                $query[$param] = 'all';
+
+                continue;
+            }
+
+            $eventId = (int) $raw;
+
+            if ($legacyMode && ctype_digit((string) $raw)) {
+                $legacyIds[$param] = $eventId;
+                $overrideFlags[$flag] = true;
+                $effective[$param] = $eventId;
+                $query[$param] = $eventId;
+
+                continue;
+            }
+
+            $overrideFlags[$flag] = true;
+            $effective[$param] = $eventId;
+            $query[$param] = $eventId;
+        }
+
+        if ($legacyMode && $legacyIds !== []) {
+            $unique = array_values(array_unique(array_values($legacyIds)));
+
+            if (count($unique) === 1) {
+                $focusEvent = $unique[0];
+                $query = ['focus_event' => $focusEvent];
+                $overrideFlags = [
+                    'kpi' => false,
+                    'goal' => false,
+                    'chart' => false,
+                    'engagement' => false,
+                ];
+                $effective = [
+                    'kpi_event' => $focusEvent,
+                    'goal_event' => $focusEvent,
+                    'chart_event' => $focusEvent,
+                    'engagement_event' => $focusEvent,
+                ];
+            } else {
+                $focusEvent = null;
+                // Keep independent section values from the loop above; drop focus.
+                $query = collect($legacyIds)->all();
+            }
+        }
+
+        return [
+            'focus_event' => $focusEvent,
+            'kpi_event' => $effective['kpi_event'],
+            'goal_event' => $effective['goal_event'],
+            'chart_event' => $effective['chart_event'],
+            'engagement_event' => $effective['engagement_event'],
+            'override_flags' => $overrideFlags,
+            'query' => $query,
+        ];
+    }
+
+    /**
+     * Preserve focus + section overrides across revenue-goal redirects.
+     *
+     * @return array<string, int|string>
+     */
+    private function organizerDashboardRedirectParams(Request $request): array
+    {
+        return $this->validatedOrganizerDashboardFilters($request)['query'];
     }
 
     /**

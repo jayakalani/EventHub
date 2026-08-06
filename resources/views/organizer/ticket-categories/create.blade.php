@@ -26,17 +26,12 @@
                         class="space-y-6">
                         @csrf
 
-                        {{-- Event ID --}}
+                        {{-- Event (bound from route; not editable) --}}
                         <div>
-                            <label for="event_id" class="block text-sm font-medium text-gray-700">Event</label>
-                            <select name="event_id" id="event_id"
-                                class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" required>
-                                @foreach ($events as $ev)
-                                    <option value="{{ $ev->id }}" {{ $event->id == $ev->id ? 'selected' : '' }}>
-                                        {{ $ev->name }}
-                                    </option>
-                                @endforeach
-                            </select>
+                            <label class="block text-sm font-medium text-gray-700">Event</label>
+                            <div class="mt-1 block w-full rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-gray-900 shadow-sm">
+                                {{ $event->name }}
+                            </div>
                         </div>
 
                         {{-- Name --}}

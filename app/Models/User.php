@@ -112,6 +112,13 @@ class User extends Authenticatable implements MustVerifyEmailContract
         return $this->belongsTo(UserRole::class, 'role_id');
     }
 
+    public function isOrganizer(): bool
+    {
+        $this->loadMissing('userRole');
+
+        return $this->userRole?->name_en === UserRole::ORGANIZER;
+    }
+
     public function likes()
     {
         return $this->hasMany(Like::class);

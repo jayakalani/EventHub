@@ -77,4 +77,34 @@ class TicketQrService
             'app' => config('app.name'),
         ], JSON_THROW_ON_ERROR);
     }
+
+    /**
+     * Extract a ticket number from a QR payload or raw ticket string.
+     */
+    public function extractTicketNumber(string $raw): ?string
+    {
+        $raw = trim($raw);
+
+        if ($raw === '') {
+            return null;
+        }
+
+        if (str_starts_with(strtoupper($raw), 'TKT-')) {
+            return strtoupper($raw);
+        }
+
+        try {
+            $decoded = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
+        } catch (\JsonException) {
+            return null;
+        }
+
+        if (! is_array($decoded) || empty($decoded['ticket']) || ! is_string($decoded['ticket'])) {
+            return null;
+        }
+
+        $ticket = trim($decoded['ticket']);
+
+        return $ticket !== '' ? strtoupper($ticket) : null;
+    }
 }

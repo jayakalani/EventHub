@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\BookingStatusEnum;
+use App\Enums\RefundRequestStatusEnum;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -19,6 +20,8 @@ class ticketBooking extends Model
         'ticket_price',
         'status',
         'postponement_kept_for',
+        'checked_in_at',
+        'checked_in_by',
     ];
 
     protected function casts(): array
@@ -27,6 +30,7 @@ class ticketBooking extends Model
             'ticket_price' => 'decimal:2',
             'status' => BookingStatusEnum::class,
             'postponement_kept_for' => 'datetime',
+            'checked_in_at' => 'datetime',
         ];
     }
 
@@ -38,6 +42,13 @@ class ticketBooking extends Model
     public function event(): BelongsTo
     {
         return $this->belongsTo(Event::class);
+    }
+
+    public function isOwnedByOrganizer(?int $organizerId): bool
+    {
+        $this->loadMissing('event');
+
+        return $this->event?->isOwnedByOrganizer($organizerId) ?? false;
     }
 
     public function ticketCategory(): BelongsTo
@@ -55,19 +66,98 @@ class ticketBooking extends Model
         return $this->hasOne(RefundRequest::class, 'ticket_booking_id');
     }
 
+    public function checkedInBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'checked_in_by');
+    }
+
+    public function isCheckedIn(): bool
+    {
+        return $this->checked_in_at !== null;
+    }
+
+    public function canCheckIn(): bool
+    {
+        $this->loadMissing(['event', 'refundRequest']);
+
+        if ($this->isCheckedIn()) {
+            return false;
+        }
+
+        if (! in_array($this->status, BookingStatusEnum::retainedSaleStatuses(), true)) {
+            return false;
+        }
+
+        if ($this->refundRequest?->status === RefundRequestStatusEnum::Pending) {
+            return false;
+        }
+
+        if ($this->event?->isCancelled()) {
+            return false;
+        }
+
+        return true;
+    }
+
+    public function checkInIneligibilityReason(): ?string
+    {
+        $this->loadMissing(['event', 'refundRequest']);
+
+        if ($this->isCheckedIn()) {
+            return 'This ticket has already been checked in.';
+        }
+
+        if ($this->status === BookingStatusEnum::Refunded) {
+            return 'This ticket has been refunded and cannot be checked in.';
+        }
+
+        if ($this->status === BookingStatusEnum::EventCancelled) {
+            return 'This event was cancelled and the ticket is no longer valid.';
+        }
+
+        if ($this->status === BookingStatusEnum::BookingCancelled) {
+            return 'This booking was cancelled and cannot be checked in.';
+        }
+
+        if ($this->refundRequest?->status === RefundRequestStatusEnum::Pending) {
+            return 'A refund request is pending for this ticket.';
+        }
+
+        if ($this->event?->isCancelled()) {
+            return 'This event is cancelled and check-in is closed.';
+        }
+
+        if (! in_array($this->status, BookingStatusEnum::retainedSaleStatuses(), true)) {
+            return 'This ticket is not eligible for check-in.';
+        }
+
+        return null;
+    }
+
     public function isExpired(): bool
     {
         $this->loadMissing('event');
 
-        if ($this->event->isCompleted()) {
+        $event = $this->event;
+
+        if (! $event) {
             return false;
         }
 
-        if ($this->event->isPostponed()) {
+        if ($event->isCompleted() || $event->isPostponed()) {
             return false;
         }
 
-        return now()->gte(Carbon::parse($this->event->date)->startOfDay());
+        // TBA / unset dates are not past — cancellation window stays open.
+        if ($event->hasDateYetToBeScheduled() || blank($event->date)) {
+            return false;
+        }
+
+        try {
+            return now()->gte(Carbon::parse($event->date)->startOfDay());
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     public function isCancellable(): bool

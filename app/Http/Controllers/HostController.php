@@ -43,7 +43,7 @@ class HostController extends Controller
 
         ]);
 
-        return redirect()->route('organizer.host.create')->with('success', 'New Host was added successfully.');
+        return redirect()->route('organizer.hosts')->with('success', 'New Host was added successfully.');
     }
 
     /*public function index()

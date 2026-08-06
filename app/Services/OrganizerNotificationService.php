@@ -4,10 +4,12 @@ namespace App\Services;
 
 use App\Enums\OrganizerNotificationCategory;
 use App\Models\Event;
+use App\Models\Rating;
 use App\Models\ticketCategory;
 use App\Models\User;
 use App\Models\UserRole;
 use App\Notifications\OrganizerActivityNotification;
+use Carbon\Carbon;
 
 class OrganizerNotificationService
 {
@@ -202,6 +204,160 @@ class OrganizerNotificationService
                 'booking_end' => $category->booking_end->toIso8601String(),
             ],
         );
+    }
+
+    /**
+     * Daily digest of new post-event ratings for an organizer-owned event.
+     *
+     * @return bool True when a digest notification was sent
+     */
+    public function notifyReviewDigest(Event $event): bool
+    {
+        $event->loadMissing('organizer.userRole');
+        $organizer = $event->organizer;
+
+        if (! $organizer || ! $this->isOrganizer($organizer)) {
+            return false;
+        }
+
+        if ($event->status !== Event::STATUS_COMPLETED || ! $event->date || $event->hasDateYetToBeScheduled()) {
+            return false;
+        }
+
+        $hoursSinceStart = $event->startsAt()->diffInHours(now());
+
+        // Digests begin after the attendee rating-nudge window (~24h after start).
+        if ($hoursSinceStart < 24) {
+            return false;
+        }
+
+        $alreadySentToday = $organizer->notifications()
+            ->where('data->type', 'event_review_digest')
+            ->where('data->event_id', $event->id)
+            ->whereDate('created_at', today())
+            ->exists();
+
+        if ($alreadySentToday) {
+            return false;
+        }
+
+        $lastDigestAt = $organizer->notifications()
+            ->where('data->type', 'event_review_digest')
+            ->where('data->event_id', $event->id)
+            ->latest()
+            ->value('created_at');
+
+        $since = $lastDigestAt
+            ? Carbon::parse($lastDigestAt)
+            : $event->startsAt()->copy()->addHours(23);
+
+        $newRatings = Rating::query()
+            ->where('event_id', $event->id)
+            ->where('created_at', '>', $since)
+            ->get(['id', 'score']);
+
+        $newCount = $newRatings->count();
+
+        if ($newCount < 1) {
+            return false;
+        }
+
+        $newAvg = round((float) $newRatings->avg('score'), 1);
+        $overallAvg = round((float) Rating::query()->where('event_id', $event->id)->avg('score'), 1);
+        $overallCount = (int) Rating::query()->where('event_id', $event->id)->count();
+
+        $reviewWord = $newCount === 1 ? 'review' : 'reviews';
+        $message = sprintf(
+            'Your event "%s" has %d new %s (avg %s/5). Overall: %s/5 from %d %s.',
+            $event->name,
+            $newCount,
+            $reviewWord,
+            number_format($newAvg, 1),
+            number_format($overallAvg, 1),
+            $overallCount,
+            $overallCount === 1 ? 'review' : 'reviews',
+        );
+
+        $this->send(
+            $organizer,
+            OrganizerNotificationCategory::Feedback,
+            'event_review_digest',
+            $message,
+            route('organizer.reviews.index', [
+                'event_id' => $event->id,
+                'from_date' => $since->toDateString(),
+            ]),
+            [
+                'event_id' => $event->id,
+                'new_count' => $newCount,
+                'new_average' => $newAvg,
+                'overall_average' => $overallAvg,
+                'overall_count' => $overallCount,
+                'since' => $since->toIso8601String(),
+            ],
+        );
+
+        return true;
+    }
+
+    /**
+     * @param  array{
+     *     weekLabel: string,
+     *     from: string,
+     *     to: string,
+     *     netRevenue: float,
+     *     ticketsSold: int,
+     *     attendanceRate: float|null,
+     *     checkedIn: int,
+     *     topEvent: array{name: string, revenue: float, tickets_sold: int}|null,
+     *     bottomEvent: array{name: string, revenue: float, tickets_sold: int}|null,
+     *     reportsUrl: string
+     * }  $digest
+     */
+    public function notifyWeeklyDigest(User $organizer, array $digest): bool
+    {
+        if (! $this->isOrganizer($organizer)) {
+            return false;
+        }
+
+        $alreadySentToday = $organizer->notifications()
+            ->where('data->type', 'weekly_performance_digest')
+            ->whereDate('created_at', now()->toDateString())
+            ->exists();
+
+        if ($alreadySentToday) {
+            return false;
+        }
+
+        $message = sprintf(
+            'This week: LKR %s net · %s tickets sold%s.',
+            number_format($digest['netRevenue'], 0),
+            number_format($digest['ticketsSold']),
+            $digest['topEvent']
+                ? ' · top event “'.$digest['topEvent']['name'].'”'
+                : ''
+        );
+
+        $this->send(
+            $organizer,
+            OrganizerNotificationCategory::Feedback,
+            'weekly_performance_digest',
+            $message,
+            $digest['reportsUrl'],
+            [
+                'week_label' => $digest['weekLabel'],
+                'from' => $digest['from'],
+                'to' => $digest['to'],
+                'net_revenue' => $digest['netRevenue'],
+                'tickets_sold' => $digest['ticketsSold'],
+                'attendance_rate' => $digest['attendanceRate'],
+                'checked_in' => $digest['checkedIn'],
+                'top_event' => $digest['topEvent'],
+                'bottom_event' => $digest['bottomEvent'],
+            ],
+        );
+
+        return true;
     }
 
     public function isOrganizer(User $user): bool

@@ -43,6 +43,17 @@ class Payment extends Model
         return $this->hasMany(ticketBooking::class);
     }
 
+    public function isOwnedByOrganizer(?int $organizerId): bool
+    {
+        if ($organizerId === null) {
+            return false;
+        }
+
+        return $this->ticketBookings()
+            ->whereHas('event', fn ($query) => $query->createdByOrganizer($organizerId))
+            ->exists();
+    }
+
     public function isCompleted(): bool
     {
         return $this->status === PaymentStatusEnum::Completed;

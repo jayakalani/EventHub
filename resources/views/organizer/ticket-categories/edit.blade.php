@@ -120,8 +120,19 @@
                                     <x-input-label for="no_of_tickets" :value="__('Total tickets')" />
                                     <x-text-input id="no_of_tickets"
                                         class="mt-2 block w-full rounded-xl border-gray-200 bg-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                        type="number" name="no_of_tickets" min="1"
+                                        type="number" name="no_of_tickets" min="{{ $minTickets }}"
                                         :value="old('no_of_tickets', $ticketCategory->no_of_tickets)" required />
+                                    <p class="mt-2 text-xs text-gray-500">
+                                        @if ($soldCount + $heldCount > 0)
+                                            {{ __('Minimum is :min (:sold sold + :held in carts).', [
+                                                'min' => $minTickets,
+                                                'sold' => $soldCount,
+                                                'held' => $heldCount,
+                                            ]) }}
+                                        @else
+                                            {{ __('At least :min ticket is required.', ['min' => $minTickets]) }}
+                                        @endif
+                                    </p>
                                     <x-input-error :messages="$errors->get('no_of_tickets')" class="mt-2" />
                                 </div>
 
@@ -224,7 +235,21 @@
                             <dl class="mt-4 space-y-4 text-sm">
                                 <div class="flex items-center justify-between gap-4">
                                     <dt class="text-gray-500">{{ __('Available tickets') }}</dt>
-                                    <dd class="font-semibold text-gray-900">{{ $ticketCategory->no_of_available_tickets }}</dd>
+                                    <dd class="font-semibold text-emerald-700">{{ $ticketCategory->no_of_available_tickets }}</dd>
+                                </div>
+                                <div class="flex items-center justify-between gap-4">
+                                    <dt class="text-gray-500">{{ __('In cart') }}</dt>
+                                    <dd class="font-semibold text-amber-700">{{ number_format($holdSummary['held'] ?? 0) }}</dd>
+                                </div>
+                                <div class="flex items-center justify-between gap-4">
+                                    <dt class="text-gray-500">{{ __('Sold') }}</dt>
+                                    <dd class="font-semibold text-sky-700">{{ number_format($soldCount) }}</dd>
+                                </div>
+                                <div class="flex items-center justify-between gap-4">
+                                    <dt class="text-gray-500">{{ __('Abandoned holds') }}</dt>
+                                    <dd class="font-semibold {{ ($holdSummary['abandoned'] ?? 0) > 0 ? 'text-rose-700' : 'text-gray-900' }}">
+                                        {{ number_format($holdSummary['abandoned'] ?? 0) }}
+                                    </dd>
                                 </div>
                                 <div class="flex items-center justify-between gap-4">
                                     <dt class="text-gray-500">{{ __('Price') }}</dt>
@@ -252,7 +277,9 @@
                                 <div>
                                     <h4 class="font-semibold text-indigo-950">{{ __('Review before updating') }}</h4>
                                     <p class="mt-1 text-sm leading-6 text-indigo-800">
-                                        {{ __('Reducing total tickets below existing bookings may cause availability conflicts.') }}
+                                        {{ __('Total tickets cannot go below sold tickets plus active cart holds (:min).', [
+                                            'min' => $minTickets,
+                                        ]) }}
                                     </p>
                                 </div>
                             </div>

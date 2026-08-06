@@ -36,6 +36,7 @@ class OrganizerReportExportBuilder
             'revenue' => $this->buildRevenue($reports, $labels),
             'tickets' => $this->buildTickets($reports, $labels),
             'events' => $this->buildEvents($reports),
+            'attendance' => $this->buildAttendance($reports),
             'engagement' => $this->buildEngagement($reports, $labels),
             'audience' => $this->buildAudience($reports),
             'activity' => $this->buildActivity($reports),
@@ -118,6 +119,7 @@ class OrganizerReportExportBuilder
             'revenue' => $this->buildRevenue($reports, $labels),
             'tickets' => $this->buildTickets($reports, $labels),
             'events' => $this->buildEvents($reports),
+            'attendance' => $this->buildAttendance($reports),
             'audience' => $this->buildAudience($reports),
             'engagement' => $this->buildEngagement($reports, $labels),
             'activity' => $this->buildActivity($reports),
@@ -148,7 +150,7 @@ class OrganizerReportExportBuilder
 
         return [
             'title' => 'Organizer Reports — Full Report',
-            'subtitle' => 'Complete performance analytics across revenue, tickets, events, audience, and engagement',
+            'subtitle' => 'Complete performance analytics across revenue, tickets, events, attendance, audience, and engagement',
             'summary' => $overview['summary'] ?? [],
             'sections' => $sections,
             'tables' => $tables,
@@ -197,6 +199,7 @@ class OrganizerReportExportBuilder
     private function buildRevenue(array $reports, array $labels): array
     {
         $data = $reports['revenue'];
+        $refundAnalytics = $reports['refundAnalytics'] ?? [];
 
         return [
             'title' => 'Organizer Reports — Revenue',
@@ -204,6 +207,8 @@ class OrganizerReportExportBuilder
                 ['label' => 'Gross Revenue (LKR)', 'value' => number_format($data['grossRevenue'], 2)],
                 ['label' => 'Net Revenue (LKR)', 'value' => number_format($data['netRevenue'], 2)],
                 ['label' => 'Refunded (LKR)', 'value' => number_format($data['totalRefunded'], 2)],
+                ['label' => 'Refund Rate %', 'value' => $data['refundRate'] ?? ($refundAnalytics['refundRate'] ?? '—')],
+                ['label' => 'Refund Count', 'value' => $data['refundCount'] ?? ($refundAnalytics['refundCount'] ?? 0)],
             ],
             'tables' => [
                 [
@@ -226,6 +231,20 @@ class OrganizerReportExportBuilder
                     ])->all(),
                 ],
                 [
+                    'heading' => 'Refunds by Event',
+                    'headers' => ['Event', 'Refunds', 'Amount (LKR)', 'Rate %'],
+                    'rows' => collect($refundAnalytics['byEvent'] ?? [])->map(fn ($r) => [
+                        $r['name'], $r['refund_count'], number_format($r['refunded'], 2), $r['rate'] ?? '—',
+                    ])->all(),
+                ],
+                [
+                    'heading' => 'Refunds by Ticket Category',
+                    'headers' => ['Category', 'Refunds', 'Amount (LKR)', 'Share %', 'Rate %'],
+                    'rows' => collect($refundAnalytics['byCategory'] ?? [])->map(fn ($r) => [
+                        $r['label'], $r['refund_count'], number_format($r['refunded'], 2), $r['share'], $r['rate'] ?? '—',
+                    ])->all(),
+                ],
+                [
                     'heading' => 'Revenue by Event',
                     'headers' => ['Event', 'Status', 'Revenue (LKR)'],
                     'rows' => collect($data['revenueByEvent'])->map(fn ($r) => [
@@ -241,6 +260,7 @@ class OrganizerReportExportBuilder
         $sales = $reports['ticketSales'];
         $ticketTypeTrend = $reports['ticketTypeTrend'] ?? [];
         $conversionFunnel = $reports['conversionFunnel'] ?? [];
+        $salesVelocity = $reports['salesVelocity'] ?? [];
 
         $typeSeries = collect($ticketTypeTrend);
         $typeLabels = $typeSeries->pluck('label')->all();
@@ -253,12 +273,29 @@ class OrganizerReportExportBuilder
             return $row;
         })->all();
 
+        $velocityLabels = $salesVelocity['labels'] ?? [];
+        $velocityRows = collect($velocityLabels)->map(fn ($label, $i) => [
+            $label,
+            $salesVelocity['tickets'][$i] ?? 0,
+            $salesVelocity['cumulative'][$i] ?? 0,
+        ])->all();
+
+        $peak = $salesVelocity['peak'] ?? null;
+
         return [
             'title' => 'Organizer Reports — Tickets',
             'summary' => [
                 ['label' => 'Tickets Sold', 'value' => $sales['totalTicketsSold']],
                 ['label' => 'Events', 'value' => $sales['totalEvents']],
                 ['label' => 'Events with Sales', 'value' => $sales['eventsWithSales']],
+                ['label' => 'Pre-event Window Tickets', 'value' => $salesVelocity['totalInWindow'] ?? 0],
+                [
+                    'label' => 'Peak Velocity Day',
+                    'value' => $peak
+                        ? ($peak['label'].' ('.$peak['count'].')')
+                        : '—',
+                ],
+                ['label' => 'Final Week Share %', 'value' => $salesVelocity['finalWeekShare'] ?? '—'],
             ],
             'tables' => [
                 [
@@ -277,6 +314,11 @@ class OrganizerReportExportBuilder
                     'rows' => collect($conversionFunnel)->map(fn ($r) => [
                         $r['label'], $r['count'], $r['rate'] ?? '—',
                     ])->all(),
+                ],
+                [
+                    'heading' => 'Sales Velocity Before Event Day (T-30 → T-0)',
+                    'headers' => ['Day', 'Tickets Sold', 'Cumulative'],
+                    'rows' => count($velocityRows) ? $velocityRows : [['—', 0, 0]],
                 ],
                 [
                     'heading' => 'Sales by Event',
@@ -340,6 +382,78 @@ class OrganizerReportExportBuilder
                     'headers' => ['Event', 'Fill Rate %', 'Revenue (LKR)'],
                     'rows' => collect($performance)->map(fn ($r) => [
                         $r['name'], $r['fill_rate'], number_format($r['revenue'], 2),
+                    ])->all(),
+                ],
+                [
+                    'heading' => 'Event Comparison Metrics',
+                    'headers' => ['Event', 'Revenue (LKR)', 'Fill %', 'Conversion %', 'Rating', 'Tickets'],
+                    'rows' => collect($reports['eventComparison'] ?? [])->take(10)->map(fn ($r) => [
+                        $r['name'],
+                        number_format($r['revenue'], 2),
+                        $r['fill_rate'],
+                        $r['conversion_rate'] ?? '—',
+                        $r['rating'] ?? '—',
+                        $r['tickets_sold'],
+                    ])->all(),
+                ],
+            ],
+        ];
+    }
+
+    private function buildAttendance(array $reports): array
+    {
+        $data = $reports['attendance'] ?? [];
+        $byEvent = $data['byEvent'] ?? [];
+        $timing = $data['checkInTiming'] ?? [];
+        $peak = $data['peakTiming'] ?? null;
+
+        return [
+            'title' => 'Organizer Reports — Attendance',
+            'summary' => [
+                ['label' => 'Eligible Tickets', 'value' => $data['ticketsEligible'] ?? 0],
+                ['label' => 'Checked In', 'value' => $data['checkedIn'] ?? 0],
+                ['label' => 'No-shows (completed)', 'value' => $data['noShows'] ?? 0],
+                ['label' => 'Awaiting Check-in', 'value' => $data['awaitingCheckIn'] ?? 0],
+                ['label' => 'Attendance Rate %', 'value' => $data['attendanceRate'] ?? '—'],
+                [
+                    'label' => 'Peak Check-in Window',
+                    'value' => $peak
+                        ? ($peak['label'].' ('.$peak['count'].')')
+                        : '—',
+                ],
+            ],
+            'tables' => [
+                [
+                    'heading' => 'Attendance by Event',
+                    'headers' => [
+                        'Event',
+                        'Date',
+                        'Status',
+                        'Tickets',
+                        'Checked In',
+                        'No-shows',
+                        'Awaiting',
+                        'Attendance %',
+                        'Final?',
+                    ],
+                    'rows' => collect($byEvent)->map(fn ($r) => [
+                        $r['name'],
+                        $r['date'] ?? '—',
+                        $r['status'] ?? '—',
+                        $r['tickets'],
+                        $r['checked_in'],
+                        $r['attendance_final'] ? $r['no_shows'] : '—',
+                        $r['attendance_final'] ? '—' : $r['awaiting_check_in'],
+                        $r['attendance_rate'],
+                        $r['attendance_final'] ? 'Yes' : 'No',
+                    ])->all(),
+                ],
+                [
+                    'heading' => 'Check-in Timing (relative to event start)',
+                    'headers' => ['Window', 'Check-ins'],
+                    'rows' => collect($timing)->map(fn ($r) => [
+                        $r['label'],
+                        $r['count'],
                     ])->all(),
                 ],
             ],
@@ -406,6 +520,31 @@ class OrganizerReportExportBuilder
             ];
         }
 
+        $quality = $data['reviewQuality'] ?? [];
+        $tables[] = [
+            'heading' => 'Average Rating Trend',
+            'headers' => ['Month', 'Avg Score', 'Ratings Count'],
+            'rows' => collect($labels)->map(fn ($label, $i) => [
+                $label,
+                $quality['averageTrend'][$i] ?? '—',
+                $quality['countTrend'][$i] ?? 0,
+            ])->all(),
+        ];
+        $tables[] = [
+            'heading' => 'Rating Distribution',
+            'headers' => ['Score', 'Count'],
+            'rows' => collect($quality['distribution'] ?? [])->map(fn ($r) => [
+                $r['label'], $r['count'],
+            ])->all(),
+        ];
+        $tables[] = [
+            'heading' => 'Low-rated Events',
+            'headers' => ['Event', 'Avg Rating', 'Ratings', 'Status'],
+            'rows' => collect($quality['lowRatedEvents'] ?? [])->map(fn ($r) => [
+                $r['name'], $r['rating'], $r['ratings_count'], $r['status'],
+            ])->all() ?: [['—', '—', 0, 'None']],
+        ];
+
         return [
             'title' => 'Organizer Reports — Engagement',
             'summary' => [
@@ -413,7 +552,7 @@ class OrganizerReportExportBuilder
                 ['label' => 'Total Saves', 'value' => $data['totalSaves'] ?? 0],
                 ['label' => 'Total Comments', 'value' => $data['totalComments']],
                 ['label' => 'Total Ratings', 'value' => $data['totalRatings']],
-                ['label' => 'Average Rating', 'value' => $data['averageRating'] ?? '—'],
+                ['label' => 'Average Rating', 'value' => $data['averageRating'] ?? ($quality['averageRating'] ?? '—')],
             ],
             'tables' => $tables,
         ];

@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Models\UserRole;
 use App\Services\AdminNotificationService;
 use App\Services\CroNotificationService;
+use App\Services\CartInventoryService;
 use App\Services\EventCancellationService;
 use App\Services\EventCompletionService;
 use App\Services\EventNotificationService;
@@ -25,6 +26,7 @@ use RuntimeException;
 class EventController extends Controller
 {
     public function __construct(
+        protected CartInventoryService $cartInventoryService,
         protected EventCancellationService $eventCancellationService,
         protected EventCompletionService $eventCompletionService,
         protected EventNotificationService $eventNotificationService,
@@ -42,20 +44,12 @@ class EventController extends Controller
     }
 
     /**
-     * Ensure the event belongs to the logged-in organizer.
-     */
-    private function authorizeOrganizerEvent(Event $event): void
-    {
-        if (! $event->isOwnedByOrganizer(Auth::id())) {
-            abort(403, 'Unauthorized action.');
-        }
-    }
-
-    /**
      * Display a listing of events with filters.
      */
     public function index(Request $request)
     {
+        $this->authorize('viewAny', Event::class);
+
         $this->eventCompletionService->completePastEvents();
 
         $query = $this->organizerEventsQuery();
@@ -103,6 +97,8 @@ class EventController extends Controller
      */
     public function create()
     {
+        $this->authorize('create', Event::class);
+
         $hosts = Host::all();
         $event_categories = EventCategory::all();
 
@@ -118,6 +114,8 @@ class EventController extends Controller
      */
     public function store(Request $request)
     {
+        $this->authorize('create', Event::class);
+
         $scheduleTba = $request->boolean('schedule_tba');
 
         $validatedData = $request->validate([
@@ -180,7 +178,7 @@ class EventController extends Controller
 
     public function updateStatus(Request $request, Event $event)
     {
-        $this->authorizeOrganizerEvent($event);
+        $this->authorize('update', $event);
 
         $request->validate([
             'status' => 'required|in:unpublished,upcoming,ongoing,completed,cancelled,postponed',
@@ -243,7 +241,7 @@ class EventController extends Controller
 
     public function postpone(Request $request, Event $event)
     {
-        $this->authorizeOrganizerEvent($event);
+        $this->authorize('update', $event);
 
         if (! $event->canBePostponed()) {
             return back()->withErrors([
@@ -277,7 +275,7 @@ class EventController extends Controller
 
     public function updatePostponedSchedule(Request $request, Event $event)
     {
-        $this->authorizeOrganizerEvent($event);
+        $this->authorize('update', $event);
 
         $validated = $request->validate([
             'schedule_date' => ['required', 'date', 'after_or_equal:today'],
@@ -321,7 +319,7 @@ class EventController extends Controller
 
     public function cancel(Request $request, Event $event)
     {
-        $this->authorizeOrganizerEvent($event);
+        $this->authorize('update', $event);
 
         if ($event->isCancelled()) {
             return back()->withErrors([
@@ -349,7 +347,7 @@ class EventController extends Controller
      */
     public function edit(Event $event)
     {
-        $this->authorizeOrganizerEvent($event);
+        $this->authorize('update', $event);
 
         $hosts = Host::all();
         $event_categories = EventCategory::all();
@@ -365,7 +363,7 @@ class EventController extends Controller
      */
     public function update(Request $request, Event $event)
     {
-        $this->authorizeOrganizerEvent($event);
+        $this->authorize('update', $event);
 
         $policyLocked = $event->hasSoldTickets();
         $scheduleTba = $request->boolean('schedule_tba');
@@ -496,7 +494,11 @@ class EventController extends Controller
      */
     public function destroy(Event $event)
     {
-        $this->authorizeOrganizerEvent($event);
+        $this->authorize('delete', $event);
+
+        if ($event->hasSoldTickets()) {
+            return back()->with('error', 'This event cannot be deleted because at least one ticket has been sold.');
+        }
 
         if ($event->cover && Storage::disk('public')->exists($event->cover)) {
             Storage::disk('public')->delete($event->cover);
@@ -512,6 +514,8 @@ class EventController extends Controller
      */
     public function exportCsv()
     {
+        $this->authorize('viewAny', Event::class);
+
         $events = $this->organizerEventsQuery()->get();
 
         $csvData = [];
@@ -550,6 +554,8 @@ class EventController extends Controller
      */
     public function exportPdf()
     {
+        $this->authorize('viewAny', Event::class);
+
         $events = $this->organizerEventsQuery()->get();
         $pdf = \PDF::loadView('organizer.exports.events_pdf', compact('events'));
 
@@ -558,14 +564,31 @@ class EventController extends Controller
 
     public function show(Event $event)
     {
-        $this->authorizeOrganizerEvent($event);
+        $this->authorize('view', $event);
         $this->eventCompletionService->completeIfPast($event);
         $event->refresh();
 
         $event->loadCount(['likes', 'saves', 'comments', 'ratings', 'ticketBookings']);
         $event->load(['comments.user', 'ratings.user']);
         $event->loadAvg('ratings', 'score');
-        $ticketCategories = $event->ticketCategories()->withCount('ticketBookings')->get();
+        $ticketCategories = $event->ticketCategories()
+            ->withCount([
+                'ticketBookings',
+                'ticketBookings as confirmed_bookings_count' => function ($query) {
+                    $query->where('status', BookingStatusEnum::Confirmed);
+                },
+            ])
+            ->get();
+
+        $holdSummary = $this->cartInventoryService->holdSummaryByCategoryIds(
+            $ticketCategories->pluck('id')->all()
+        );
+
+        $ticketCategories->each(function ($category) use ($holdSummary) {
+            $summary = $holdSummary[$category->id] ?? ['held' => 0, 'abandoned' => 0];
+            $category->held_quantity = $summary['held'];
+            $category->abandoned_quantity = $summary['abandoned'];
+        });
 
         $postEventAnalytics = null;
 
@@ -581,7 +604,7 @@ class EventController extends Controller
                 'ticket_sales' => $ticketCategories->map(function ($category) {
                     return [
                         'name' => $category->name,
-                        'sold' => $category->ticket_bookings_count,
+                        'sold' => $category->confirmed_bookings_count,
                         'revenue' => (float) $category->ticketBookings()
                             ->where('status', BookingStatusEnum::Confirmed)
                             ->sum('ticket_price'),
@@ -595,7 +618,7 @@ class EventController extends Controller
 
     public function showexportPdf(Event $event)
     {
-        $this->authorizeOrganizerEvent($event);
+        $this->authorize('view', $event);
 
         $event->load(['host', 'eventCategory', 'contactPerson']);
         $ticketCategories = $event->ticketCategories;

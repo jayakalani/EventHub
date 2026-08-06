@@ -2,28 +2,27 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\BookingStatusEnum;
 use App\Models\Event;
 use App\Models\ticketCategory;
 use App\Services\AdminNotificationService;
+use App\Services\CartInventoryService;
 use App\Services\EventNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class ticketCategoryController extends Controller
 {
-    private function authorizeOrganizerEvent(Event $event): void
-    {
-        if (! $event->isOwnedByOrganizer(Auth::id())) {
-            abort(403, 'Unauthorized action.');
-        }
-    }
+    public function __construct(
+        protected CartInventoryService $cartInventoryService,
+    ) {}
 
     /**
      * Display a listing of ticket categories for a specific event.
      */
     public function index(Event $event)
     {
-        $this->authorizeOrganizerEvent($event);
+        $this->authorize('view', $event);
 
         // Get all ticket categories for this event
         $ticketCategories = $event->ticketCategories;
@@ -31,21 +30,23 @@ class ticketCategoryController extends Controller
         return view('organizer.ticket-categories.index', compact('event', 'ticketCategories'));
     }
 
-    public function create($eventId)
+    public function create(Event $event)
     {
-        $event = Event::createdByOrganizer(Auth::id())->findOrFail($eventId);
-        $events = Event::createdByOrganizer(Auth::id())->get();
+        $this->authorize('create', ticketCategory::class);
+        $this->authorize('update', $event);
 
-        return view('organizer.ticket-categories.create', compact('events', 'event'));
+        return view('organizer.ticket-categories.create', compact('event'));
     }
 
     /**
      * Store a newly created ticket category.
      */
-    public function store(Request $request)
+    public function store(Request $request, Event $event)
     {
+        $this->authorize('create', ticketCategory::class);
+        $this->authorize('update', $event);
+
         $validatedData = $request->validate([
-            'event_id' => ['required', 'exists:events,id'],
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
             'no_of_tickets' => ['required', 'integer', 'min:1'],
@@ -55,8 +56,6 @@ class ticketCategoryController extends Controller
             'booking_start' => ['nullable', 'date'],
             'booking_end' => ['nullable', 'date', 'after_or_equal:booking_start'],
         ]);
-
-        $event = Event::createdByOrganizer(Auth::id())->findOrFail($validatedData['event_id']);
 
         if (! empty($validatedData['booking_start']) && $validatedData['booking_start'] > $event->date) {
             return redirect()->back()
@@ -80,7 +79,7 @@ class ticketCategoryController extends Controller
         }
 
         $ticketCategory = ticketCategory::create([
-            'event_id' => $validatedData['event_id'],
+            'event_id' => $event->id,
             'name' => $validatedData['name'],
             'description' => $validatedData['description'] ?? null,
             'no_of_tickets' => $validatedData['no_of_tickets'],
@@ -98,7 +97,7 @@ class ticketCategoryController extends Controller
         }
 
         return redirect()
-            ->route('organizer.events.show', $validatedData['event_id'])
+            ->route('organizer.events.show', $event->id)
             ->with('status', 'New ticket Category was added successfully.');
     }
 
@@ -107,9 +106,26 @@ class ticketCategoryController extends Controller
      */
     public function edit(Event $event, ticketCategory $ticketCategory)
     {
-        $this->authorizeOrganizerEvent($event);
+        $this->authorize('update', $event);
+        $this->authorize('update', $ticketCategory);
 
-        return view('organizer.ticket-categories.edit', compact('event', 'ticketCategory'));
+        if ($ticketCategory->event_id !== $event->id) {
+            abort(404);
+        }
+
+        $holdSummary = $this->cartInventoryService->holdSummaryForCategory((int) $ticketCategory->id);
+        $soldCount = $this->committedSoldCount($ticketCategory);
+        $heldCount = (int) ($holdSummary['held'] ?? 0);
+        $minTickets = max(1, $soldCount + $heldCount);
+
+        return view('organizer.ticket-categories.edit', compact(
+            'event',
+            'ticketCategory',
+            'holdSummary',
+            'soldCount',
+            'heldCount',
+            'minTickets',
+        ));
     }
 
     /**
@@ -117,17 +133,29 @@ class ticketCategoryController extends Controller
      */
     public function update(Request $request, Event $event, ticketCategory $ticketCategory)
     {
-        $this->authorizeOrganizerEvent($event);
+        $this->authorize('update', $event);
+        $this->authorize('update', $ticketCategory);
+
+        if ($ticketCategory->event_id !== $event->id) {
+            abort(404);
+        }
+
+        $holdSummary = $this->cartInventoryService->holdSummaryForCategory((int) $ticketCategory->id);
+        $soldCount = $this->committedSoldCount($ticketCategory);
+        $heldCount = (int) ($holdSummary['held'] ?? 0);
+        $minTickets = max(1, $soldCount + $heldCount);
 
         $validatedData = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
-            'no_of_tickets' => ['required', 'integer', 'min:1'],
+            'no_of_tickets' => ['required', 'integer', 'min:'.$minTickets],
             'ticket_price' => ['required', 'numeric', 'min:0'],
             'ticket_color' => ['required', 'string', 'max:255'],
             'is_active' => ['boolean'],
             'booking_start' => ['nullable', 'date'],
             'booking_end' => ['nullable', 'date', 'after_or_equal:booking_start'],
+        ], [
+            'no_of_tickets.min' => $this->minTicketsValidationMessage($minTickets, $soldCount, $heldCount),
         ]);
 
         if (! empty($validatedData['booking_start']) && $validatedData['booking_start'] > $event->date) {
@@ -170,6 +198,11 @@ class ticketCategoryController extends Controller
         if ($ticketCategory->isDirty('no_of_tickets')) {
             $difference = $validatedData['no_of_tickets'] - $ticketCategory->getOriginal('no_of_tickets');
             $ticketCategory->no_of_available_tickets += $difference;
+
+            $maxAvailable = max(0, $validatedData['no_of_tickets'] - $soldCount - $heldCount);
+            if ($ticketCategory->no_of_available_tickets > $maxAvailable) {
+                $ticketCategory->no_of_available_tickets = $maxAvailable;
+            }
             if ($ticketCategory->no_of_available_tickets < 0) {
                 $ticketCategory->no_of_available_tickets = 0;
             }
@@ -192,7 +225,8 @@ class ticketCategoryController extends Controller
      */
     public function destroy(Event $event, ticketCategory $ticketCategory)
     {
-        $this->authorizeOrganizerEvent($event);
+        $this->authorize('update', $event);
+        $this->authorize('delete', $ticketCategory);
 
         if ($ticketCategory->event_id !== $event->id) {
             abort(404);
@@ -215,5 +249,28 @@ class ticketCategoryController extends Controller
         return redirect()
             ->route('organizer.events.show', $event->id)
             ->with('success', 'ticket Category deleted successfully.');
+    }
+
+    /**
+     * Bookings that still occupy capacity for this category.
+     */
+    private function committedSoldCount(ticketCategory $ticketCategory): int
+    {
+        return $ticketCategory->ticketBookings()
+            ->whereIn('status', BookingStatusEnum::retainedSaleStatuses())
+            ->count();
+    }
+
+    private function minTicketsValidationMessage(int $minTickets, int $soldCount, int $heldCount): string
+    {
+        if ($soldCount + $heldCount < 1) {
+            return "Total tickets must be at least {$minTickets}.";
+        }
+
+        if ($heldCount > 0) {
+            return "Total tickets cannot be less than {$minTickets} ({$soldCount} sold + {$heldCount} currently in carts).";
+        }
+
+        return "Total tickets cannot be less than {$minTickets} (already sold).";
     }
 }

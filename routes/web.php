@@ -29,7 +29,10 @@ use App\Http\Controllers\Cro\ComplaintController as CroComplaintController;
 use App\Http\Controllers\Cro\InquiryController as CroInquiryController;
 use App\Http\Controllers\Cro\ReportController as CroReportController;
 use App\Http\Controllers\Cro\RefundRequestController as CroRefundRequestController;
+use App\Http\Controllers\Organizer\BookingController as OrganizerBookingController;
 use App\Http\Controllers\Organizer\ReportController as OrganizerReportController;
+use App\Http\Controllers\Organizer\ReviewController as OrganizerReviewController;
+use App\Http\Controllers\Organizer\SalesController as OrganizerSalesController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\InquiryController;
 use App\Http\Controllers\PostponementAlertController;
@@ -190,18 +193,19 @@ Route::prefix('admin')->name('admin.')->group(function () {
 */
 Route::prefix('organizer')->name('organizer.')->middleware(['auth', 'verified', 'prevent-back', 'role:'.UserRole::ORGANIZER])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'organizer'])->name('dashboard');
+    Route::get('/dashboard/live', [DashboardController::class, 'organizerLive'])->name('dashboard.live');
     Route::post('/dashboard/export/pdf', [DashboardController::class, 'exportOrganizerPdf'])->name('dashboard.export.pdf');
 
     // Event routes
     Route::get('/events', [EventController::class, 'index'])->name('events.index');
     Route::get('/events/create', [EventController::class, 'create'])->name('events.create');
     Route::post('/events', [EventController::class, 'store'])->name('events.store');
+    Route::get('/events/export/csv', [EventController::class, 'exportCsv'])->name('events.export.csv');
+    Route::get('/events/export/pdf', [EventController::class, 'exportPdf'])->name('events.export.pdf');
     Route::get('/events/{event}', [EventController::class, 'show'])->name('events.show');
     Route::get('/events/{event}/edit', [EventController::class, 'edit'])->name('events.edit');
     Route::put('/events/{event}', [EventController::class, 'update'])->name('events.update');
     Route::delete('/events/{event}', [EventController::class, 'destroy'])->name('events.destroy');
-    Route::get('/events/export/csv', [EventController::class, 'exportCsv'])->name('events.export.csv');
-    Route::get('/events/export/pdf', [EventController::class, 'exportPdf'])->name('events.export.pdf');
     Route::patch('/events/{event}/status', [EventController::class, 'updateStatus'])->name('events.updateStatus');
     Route::post('/events/{event}/cancel', [EventController::class, 'cancel'])->name('events.cancel');
     Route::post('/events/{event}/postpone', [EventController::class, 'postpone'])->name('events.postpone');
@@ -215,13 +219,30 @@ Route::prefix('organizer')->name('organizer.')->middleware(['auth', 'verified', 
     Route::put('/events/{event}/ticket-categories/{ticketCategory}', [ticketCategoryController::class, 'update'])->name('ticket-categories.update');
     Route::delete('/events/{event}/ticket-categories/{ticketCategory}', [ticketCategoryController::class, 'destroy'])->name('ticket-categories.destroy');
 
+    // Guest list / bookings
+    Route::get('/bookings', [OrganizerBookingController::class, 'index'])->name('bookings.index');
+    Route::get('/bookings/export/csv', [OrganizerBookingController::class, 'exportCsv'])->name('bookings.export.csv');
+    Route::get('/bookings/scan', [OrganizerBookingController::class, 'scanForm'])->name('bookings.scan');
+    Route::post('/bookings/scan', [OrganizerBookingController::class, 'scan'])->name('bookings.scan.submit');
+    Route::get('/bookings/{ticketBooking}', [OrganizerBookingController::class, 'show'])->name('bookings.show');
+    Route::post('/bookings/{ticketBooking}/check-in', [OrganizerBookingController::class, 'checkIn'])->name('bookings.check-in');
+    Route::post('/bookings/{ticketBooking}/undo-check-in', [OrganizerBookingController::class, 'undoCheckIn'])->name('bookings.undo-check-in');
+
+    // Sales activity feed
+    Route::get('/sales', [OrganizerSalesController::class, 'index'])->name('sales.index');
+    Route::get('/sales/export/csv', [OrganizerSalesController::class, 'exportCsv'])->name('sales.export.csv');
+    Route::get('/sales/export/pdf', [OrganizerSalesController::class, 'exportPdf'])->name('sales.export.pdf');
+
+    // Reviews inbox
+    Route::get('/reviews', [OrganizerReviewController::class, 'index'])->name('reviews.index');
+
     // Host routes
     Route::get('/hosts', [HostController::class, 'index'])->name('hosts');
+    Route::get('/hosts/export/csv', [HostController::class, 'exportCsv'])->name('hosts.export.csv');
+    Route::get('/hosts/export/pdf', [HostController::class, 'exportPdf'])->name('hosts.export.pdf');
     Route::get('/hosts/{host}', [HostController::class, 'organizerShow'])->name('hosts.show');
     Route::get('/host/form', [HostController::class, 'create'])->name('host.create');
     Route::post('/host/store', [HostController::class, 'store'])->name('host.store');
-    Route::get('/organizer/hosts/export/csv', [HostController::class, 'exportCsv'])->name('hosts.export.csv');
-    Route::get('/organizer/hosts/export/pdf', [HostController::class, 'exportPdf'])->name('hosts.export.pdf');
     Route::post('hosts/{id}/toggle-active', [HostController::class, 'toggleActive'])->name('hosts.toggleActive');
     Route::get('hosts/{id}/edit', [HostController::class, 'edit'])->name('hosts.edit');
     Route::put('hosts/{id}', [HostController::class, 'update'])->name('hosts.update');
@@ -229,6 +250,7 @@ Route::prefix('organizer')->name('organizer.')->middleware(['auth', 'verified', 
 
     // Reports & Analytics
     Route::get('/reports', [OrganizerReportController::class, 'index'])->name('reports');
+    Route::get('/reports/tab-data', [OrganizerReportController::class, 'tabData'])->name('reports.tab-data');
     Route::get('/reports/export/excel', [OrganizerReportController::class, 'exportExcel'])->name('reports.export.excel');
     Route::post('/reports/export/pdf', [OrganizerReportController::class, 'exportPdf'])->name('reports.export.pdf');
 

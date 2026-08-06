@@ -98,6 +98,18 @@
                         class="rounded-xl px-3.5 py-2 text-sm font-medium transition {{ request()->routeIs('organizer.events.*') ? $navActive : $navIdle }}">
                         Events
                     </a>
+                    <a href="{{ route('organizer.bookings.index') }}"
+                        class="rounded-xl px-3.5 py-2 text-sm font-medium transition {{ request()->routeIs('organizer.bookings.*') ? $navActive : $navIdle }}">
+                        Guest List
+                    </a>
+                    <a href="{{ route('organizer.sales.index') }}"
+                        class="rounded-xl px-3.5 py-2 text-sm font-medium transition {{ request()->routeIs('organizer.sales.*') ? $navActive : $navIdle }}">
+                        Sales
+                    </a>
+                    <a href="{{ route('organizer.reviews.index') }}"
+                        class="rounded-xl px-3.5 py-2 text-sm font-medium transition {{ request()->routeIs('organizer.reviews.*') ? $navActive : $navIdle }}">
+                        Reviews
+                    </a>
                     <a href="{{ route('organizer.hosts') }}"
                         class="rounded-xl px-3.5 py-2 text-sm font-medium transition {{ request()->routeIs('organizer.hosts', 'organizer.hosts.*', 'organizer.host.*') ? $navActive : $navIdle }}">
                         Hosts
@@ -389,6 +401,18 @@
                 <a href="{{ route('organizer.events.index') }}"
                     class="block rounded-xl px-3 py-2.5 transition hover:bg-[#0F0363]/5 hover:text-[#0F0363] {{ request()->routeIs('organizer.events.*') ? $navActive : 'text-slate-700' }}">
                     Events
+                </a>
+                <a href="{{ route('organizer.bookings.index') }}"
+                    class="block rounded-xl px-3 py-2.5 transition hover:bg-[#0F0363]/5 hover:text-[#0F0363] {{ request()->routeIs('organizer.bookings.*') ? $navActive : 'text-slate-700' }}">
+                    Guest List
+                </a>
+                <a href="{{ route('organizer.sales.index') }}"
+                    class="block rounded-xl px-3 py-2.5 transition hover:bg-[#0F0363]/5 hover:text-[#0F0363] {{ request()->routeIs('organizer.sales.*') ? $navActive : 'text-slate-700' }}">
+                    Sales
+                </a>
+                <a href="{{ route('organizer.reviews.index') }}"
+                    class="block rounded-xl px-3 py-2.5 transition hover:bg-[#0F0363]/5 hover:text-[#0F0363] {{ request()->routeIs('organizer.reviews.*') ? $navActive : 'text-slate-700' }}">
+                    Reviews
                 </a>
                 <a href="{{ route('organizer.hosts') }}"
                     class="block rounded-xl px-3 py-2.5 transition hover:bg-[#0F0363]/5 hover:text-[#0F0363] {{ request()->routeIs('organizer.hosts', 'organizer.hosts.*', 'organizer.host.*') ? $navActive : 'text-slate-700' }}">

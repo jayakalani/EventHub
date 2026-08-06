@@ -55,6 +55,13 @@ class ticketCategory extends Model
         return $this->belongsTo(Event::class, 'event_id');
     }
 
+    public function isOwnedByOrganizer(?int $organizerId): bool
+    {
+        $this->loadMissing('event');
+
+        return $this->event?->isOwnedByOrganizer($organizerId) ?? false;
+    }
+
     public function ticketBookings()
     {
         return $this->hasMany(ticketBooking::class, 'ticket_category_id');

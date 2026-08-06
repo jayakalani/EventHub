@@ -11,6 +11,8 @@ Artisan::command('inspire', function () {
 Schedule::command('events:complete-past')->hourly();
 Schedule::command('events:send-reminders')->hourly();
 Schedule::command('events:send-rating-nudges')->hourly();
+Schedule::command('events:send-organizer-review-digests')->dailyAt('10:00');
+Schedule::command('organizer:send-weekly-digests')->weeklyOn(1, '09:00');
 Schedule::command('events:notify-ticket-sales-opened')->hourly();
 Schedule::command('events:notify-ticket-sales-closing-soon')->hourly();
 Schedule::command('cart:release-expired')->everyMinute();

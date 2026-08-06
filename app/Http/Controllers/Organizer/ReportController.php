@@ -8,6 +8,7 @@ use App\Models\Event;
 use App\Services\Exports\OrganizerReportExportBuilder;
 use App\Services\OrganizerReportService;
 use App\Services\ReportExportService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
@@ -24,6 +25,7 @@ class ReportController extends Controller
         'revenue',
         'tickets',
         'events',
+        'attendance',
         'engagement',
         'audience',
         'activity',
@@ -40,14 +42,56 @@ class ReportController extends Controller
 
     public function index(Request $request): View
     {
-        $filters = $this->validatedFilters($request);
-        $reports = $this->reportService->getAllReports((int) Auth::id(), $filters);
+        $this->authorize('viewAny', Event::class);
 
-        return view('organizer.reports.index', compact('reports'));
+        $filters = $this->validatedFilters($request);
+        $tab = $this->reportService->normalizeReportTab(
+            (string) $request->input('tab', 'revenue')
+        );
+
+        if (! in_array($tab, $this->reportService->reportTabs(), true)) {
+            $tab = 'revenue';
+        }
+
+        $organizerId = (int) Auth::id();
+        $reports = array_merge(
+            $this->reportService->getReportShell($organizerId, $filters),
+            $this->reportService->getTabReports($organizerId, $filters, $tab),
+        );
+        $loadedTabs = [$tab];
+
+        return view('organizer.reports.index', compact('reports', 'loadedTabs', 'tab'));
+    }
+
+    /**
+     * Lazy-load a single tab payload as JSON (charts + Alpine tables).
+     */
+    public function tabData(Request $request): JsonResponse
+    {
+        $this->authorize('viewAny', Event::class);
+
+        $filters = $this->validatedFilters($request);
+        $tab = $this->reportService->normalizeReportTab(
+            (string) $request->validate([
+                'tab' => ['required', 'string', Rule::in(array_merge(
+                    $this->reportService->reportTabs(),
+                    ['sales', 'attendees', 'overview'],
+                ))],
+            ])['tab']
+        );
+
+        $data = $this->reportService->getTabReports((int) Auth::id(), $filters, $tab);
+
+        return response()->json([
+            'tab' => $tab,
+            'data' => $data,
+        ]);
     }
 
     public function exportExcel(Request $request)
     {
+        $this->authorize('viewAny', Event::class);
+
         $section = $this->validatedSection($request, self::SECTIONS);
         $filters = $this->validatedFilters($request);
         $payload = $this->exportBuilder->build((int) Auth::id(), $section, $filters);
@@ -60,6 +104,8 @@ class ReportController extends Controller
 
     public function exportPdf(Request $request)
     {
+        $this->authorize('viewAny', Event::class);
+
         $filters = $this->validatedFilters($request);
         $payload = $this->exportBuilder->build((int) Auth::id(), 'full', $filters);
         $payload['charts'] = $this->validatedChartImages($request);

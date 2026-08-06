@@ -51,7 +51,7 @@ class CartInventoryService
     }
 
     /**
-     * Return held tickets to available stock.
+     * Return held tickets to available stock (never above category capacity).
      */
     public function release(ticketCategory|int $category, int $quantity): void
     {
@@ -70,7 +70,15 @@ class CartInventoryService
                 return;
             }
 
-            $locked->increment('no_of_available_tickets', $quantity);
+            $available = (int) $locked->no_of_available_tickets;
+            $capacity = (int) $locked->no_of_tickets;
+            $room = max(0, $capacity - $available);
+
+            if ($room < 1) {
+                return;
+            }
+
+            $locked->increment('no_of_available_tickets', min($quantity, $room));
         });
     }
 
@@ -323,5 +331,99 @@ class CartInventoryService
             });
 
         return $applied;
+    }
+
+    /**
+     * Active cart holds still reserving stock (not expired).
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder|\Illuminate\Database\Query\Builder  $query
+     */
+    public function scopeActiveHolds($query)
+    {
+        $reservationMinutes = (int) config('cart.reservation_minutes', 4320);
+
+        return $query
+            ->where('inventory_held', true)
+            ->where(function ($q) use ($reservationMinutes) {
+                $q->where('reserved_until', '>', now())
+                    ->orWhere(function ($inner) use ($reservationMinutes) {
+                        $inner->whereNull('reserved_until')
+                            ->where('updated_at', '>=', now()->subMinutes($reservationMinutes));
+                    });
+            });
+    }
+
+    /**
+     * Held cart rows past reservation expiry (pending release / abandoned demand).
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder|\Illuminate\Database\Query\Builder  $query
+     */
+    public function scopeAbandonedHolds($query)
+    {
+        $reservationMinutes = (int) config('cart.reservation_minutes', 4320);
+
+        return $query
+            ->where('inventory_held', true)
+            ->where(function ($q) use ($reservationMinutes) {
+                $q->where(function ($expired) {
+                    $expired->whereNotNull('reserved_until')
+                        ->where('reserved_until', '<=', now());
+                })->orWhere(function ($legacy) use ($reservationMinutes) {
+                    $legacy->whereNull('reserved_until')
+                        ->where('updated_at', '<', now()->subMinutes($reservationMinutes));
+                });
+            });
+    }
+
+    /**
+     * Per-category cart hold snapshot for organizer inventory UI.
+     *
+     * @param  list<int>  $categoryIds
+     * @return array<int, array{held: int, abandoned: int}>
+     */
+    public function holdSummaryByCategoryIds(array $categoryIds): array
+    {
+        $categoryIds = array_values(array_unique(array_map('intval', $categoryIds)));
+        $summary = [];
+
+        foreach ($categoryIds as $id) {
+            $summary[$id] = ['held' => 0, 'abandoned' => 0];
+        }
+
+        if ($categoryIds === []) {
+            return $summary;
+        }
+
+        $held = CartItem::query()
+            ->whereIn('ticket_category_id', $categoryIds)
+            ->tap(fn ($query) => $this->scopeActiveHolds($query))
+            ->selectRaw('ticket_category_id, SUM(quantity) as total')
+            ->groupBy('ticket_category_id')
+            ->pluck('total', 'ticket_category_id');
+
+        $abandoned = CartItem::query()
+            ->whereIn('ticket_category_id', $categoryIds)
+            ->tap(fn ($query) => $this->scopeAbandonedHolds($query))
+            ->selectRaw('ticket_category_id, SUM(quantity) as total')
+            ->groupBy('ticket_category_id')
+            ->pluck('total', 'ticket_category_id');
+
+        foreach ($categoryIds as $id) {
+            $summary[$id] = [
+                'held' => (int) ($held[$id] ?? 0),
+                'abandoned' => (int) ($abandoned[$id] ?? 0),
+            ];
+        }
+
+        return $summary;
+    }
+
+    /**
+     * @return array{held: int, abandoned: int}
+     */
+    public function holdSummaryForCategory(int $categoryId): array
+    {
+        return $this->holdSummaryByCategoryIds([$categoryId])[$categoryId]
+            ?? ['held' => 0, 'abandoned' => 0];
     }
 }

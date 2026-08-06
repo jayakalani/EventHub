@@ -162,7 +162,7 @@ function createBarChart(canvasId, labels, data, options = {}) {
     });
 }
 
-function createStackedBarChart(canvasId, labels, datasets) {
+function createGroupedBarChart(canvasId, labels, datasets) {
     const canvas = prepareCanvas(canvasId);
     if (!canvas) return null;
 
@@ -179,7 +179,6 @@ function createStackedBarChart(canvasId, labels, datasets) {
             labels,
             datasets: datasets.map((dataset) => ({
                 ...dataset,
-                stack: 'revenue',
                 borderRadius: 6,
                 borderSkipped: false,
             })),
@@ -192,12 +191,155 @@ function createStackedBarChart(canvasId, labels, datasets) {
                     position: 'bottom',
                     labels: { font: defaultFont, padding: 14, usePointStyle: true },
                 },
+            },
+            scales: {
+                x: {
+                    grid: { display: false },
+                    ticks: { font: defaultFont },
+                },
+                y: {
+                    beginAtZero: true,
+                    max: 100,
+                    grid: { color: 'rgba(148, 163, 184, 0.2)' },
+                    ticks: { font: defaultFont },
+                },
+            },
+        },
+    });
+}
+
+function createMixedBarLineChart(canvasId, labels, barSeries, lineSeries, options = {}) {
+    const canvas = prepareCanvas(canvasId);
+    if (!canvas) return null;
+
+    const barData = barSeries?.data ?? [];
+    const lineData = lineSeries?.data ?? [];
+
+    if (!labels?.length || (isEmptySeries(barData) && isEmptySeries(lineData))) {
+        return showChartEmptyState(canvas);
+    }
+
+    return new Chart(canvas, {
+        type: 'bar',
+        data: {
+            labels,
+            datasets: [
+                {
+                    type: 'bar',
+                    label: barSeries.label ?? 'Daily',
+                    data: barData,
+                    backgroundColor: barSeries.backgroundColor ?? 'rgba(37, 99, 235, 0.75)',
+                    borderRadius: 4,
+                    borderSkipped: false,
+                    order: 2,
+                    yAxisID: 'y',
+                },
+                {
+                    type: 'line',
+                    label: lineSeries.label ?? 'Cumulative',
+                    data: lineData,
+                    borderColor: lineSeries.borderColor ?? palette.emerald,
+                    backgroundColor: lineSeries.backgroundColor ?? 'rgba(16, 185, 129, 0.12)',
+                    fill: Boolean(lineSeries.fill),
+                    tension: 0.3,
+                    pointRadius: 0,
+                    pointHoverRadius: 5,
+                    borderWidth: 2.5,
+                    order: 1,
+                    yAxisID: 'y1',
+                },
+            ],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: { font: defaultFont, padding: 14, usePointStyle: true },
+                },
+            },
+            scales: {
+                x: {
+                    grid: { display: false },
+                    ticks: {
+                        font: defaultFont,
+                        maxRotation: 0,
+                        autoSkip: true,
+                        maxTicksLimit: options.maxTicksLimit ?? 16,
+                    },
+                },
+                y: {
+                    beginAtZero: true,
+                    position: 'left',
+                    title: {
+                        display: true,
+                        text: options.yLabel ?? 'Tickets / day',
+                        font: defaultFont,
+                    },
+                    grid: { color: 'rgba(148, 163, 184, 0.2)' },
+                    ticks: { font: defaultFont, precision: 0 },
+                },
+                y1: {
+                    beginAtZero: true,
+                    position: 'right',
+                    title: {
+                        display: true,
+                        text: options.y1Label ?? 'Cumulative',
+                        font: defaultFont,
+                    },
+                    grid: { drawOnChartArea: false },
+                    ticks: { font: defaultFont, precision: 0 },
+                },
+            },
+        },
+    });
+}
+
+function createStackedBarChart(canvasId, labels, datasets, options = {}) {
+    const canvas = prepareCanvas(canvasId);
+    if (!canvas) return null;
+
+    const hasData = Array.isArray(datasets)
+        && datasets.some((dataset) => !isEmptySeries(dataset.data ?? []));
+
+    if (!labels?.length || !hasData) {
+        return showChartEmptyState(canvas);
+    }
+
+    const formatValue = typeof options.formatValue === 'function'
+        ? options.formatValue
+        : (value) => `LKR ${Number(value).toLocaleString()}`;
+
+    return new Chart(canvas, {
+        type: 'bar',
+        data: {
+            labels,
+            datasets: datasets.map((dataset) => ({
+                ...dataset,
+                stack: options.stack ?? 'revenue',
+                borderRadius: 6,
+                borderSkipped: false,
+            })),
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            indexAxis: options.horizontal ? 'y' : 'x',
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: { font: defaultFont, padding: 14, usePointStyle: true },
+                },
                 tooltip: {
                     callbacks: {
                         label(context) {
                             const label = context.dataset.label ?? '';
-                            const value = context.parsed?.y ?? context.parsed ?? 0;
-                            return `${label}: LKR ${Number(value).toLocaleString()}`;
+                            const value = options.horizontal
+                                ? (context.parsed?.x ?? context.parsed ?? 0)
+                                : (context.parsed?.y ?? context.parsed ?? 0);
+                            return `${label}: ${formatValue(value)}`;
                         },
                     },
                 },
@@ -205,13 +347,18 @@ function createStackedBarChart(canvasId, labels, datasets) {
             scales: {
                 x: {
                     stacked: true,
-                    grid: { display: false },
+                    beginAtZero: true,
+                    grid: options.horizontal
+                        ? { color: 'rgba(148, 163, 184, 0.2)' }
+                        : { display: false },
                     ticks: { font: defaultFont },
                 },
                 y: {
                     stacked: true,
                     beginAtZero: true,
-                    grid: { color: 'rgba(148, 163, 184, 0.2)' },
+                    grid: options.horizontal
+                        ? { display: false }
+                        : { color: 'rgba(148, 163, 184, 0.2)' },
                     ticks: { font: defaultFont },
                 },
             },
@@ -299,7 +446,7 @@ function createScatterChart(canvasId, points, options = {}) {
     });
 }
 
-function createDoughnutChart(canvasId, labels, data, percentages = []) {
+function createDoughnutChart(canvasId, labels, data, percentages = [], colors = null) {
     const canvas = prepareCanvas(canvasId);
     if (!canvas) return null;
 
@@ -307,13 +454,17 @@ function createDoughnutChart(canvasId, labels, data, percentages = []) {
         return showChartEmptyState(canvas);
     }
 
+    const backgroundColor = Array.isArray(colors) && colors.length
+        ? colors
+        : chartColors.slice(0, labels.length);
+
     return new Chart(canvas, {
         type: 'doughnut',
         data: {
             labels,
             datasets: [{
                 data,
-                backgroundColor: chartColors.slice(0, labels.length),
+                backgroundColor,
                 borderWidth: 2,
                 borderColor: '#ffffff',
                 hoverOffset: 8,
@@ -450,6 +601,73 @@ function buildChartSpecs(data) {
                 ],
             ),
         },
+        refundsByEvent: {
+            canvasId: 'refundsByEventChart',
+            render: (targetId) => {
+                const rows = data.refundAnalytics?.byEvent ?? [];
+                return createBarChart(
+                    targetId,
+                    rows.map((item) => item.name),
+                    rows.map((item) => item.refunded),
+                    {
+                        label: 'Refunded (LKR)',
+                        horizontal: true,
+                        color: 'rgba(244, 63, 94, 0.85)',
+                        showLegend: true,
+                    },
+                );
+            },
+        },
+        refundsByCategory: {
+            canvasId: 'refundsByCategoryChart',
+            render: (targetId) => {
+                const rows = data.refundAnalytics?.byCategory ?? [];
+                return createDoughnutChart(
+                    targetId,
+                    rows.map((item) => item.label),
+                    rows.map((item) => item.refunded),
+                    rows.map((item) => item.share),
+                );
+            },
+        },
+        eventCompareMetrics: {
+            canvasId: 'eventCompareMetricsChart',
+            render: (targetId) => {
+                const all = data.eventComparison ?? [];
+                const ids = window.organizerCompareIds ?? all.slice(0, 3).map((event) => event.id);
+                const rows = ids
+                    .map((id) => all.find((event) => Number(event.id) === Number(id)))
+                    .filter(Boolean);
+
+                if (rows.length < 2) {
+                    return createBarChart(targetId, [], [], { label: 'Metrics' });
+                }
+
+                return createGroupedBarChart(
+                    targetId,
+                    rows.map((event) => event.name),
+                    [
+                        {
+                            label: 'Fill rate %',
+                            data: rows.map((event) => Number(event.fill_rate || 0)),
+                            backgroundColor: 'rgba(79, 70, 229, 0.85)',
+                        },
+                        {
+                            label: 'Conversion %',
+                            data: rows.map((event) => Number(event.conversion_rate || 0)),
+                            backgroundColor: 'rgba(6, 182, 212, 0.85)',
+                        },
+                        {
+                            label: 'Rating (×20)',
+                            data: rows.map((event) => (
+                                event.rating == null ? 0 : Number(event.rating) * 20
+                            )),
+                            backgroundColor: 'rgba(245, 158, 11, 0.85)',
+                        },
+                    ],
+                );
+            },
+        },
         ticketSalesOverTime: {
             canvasId: 'ticketSalesOverTimeChart',
             render: (targetId) => createLineChart(targetId, chartLabels, [{
@@ -511,9 +729,37 @@ function buildChartSpecs(data) {
                         colors: [
                             'rgba(6, 182, 212, 0.85)',
                             'rgba(79, 70, 229, 0.85)',
+                            'rgba(245, 158, 11, 0.85)',
                             'rgba(16, 185, 129, 0.85)',
                         ],
                         showLegend: false,
+                    },
+                );
+            },
+        },
+        salesVelocity: {
+            canvasId: 'salesVelocityChart',
+            render: (targetId) => {
+                const velocity = data.salesVelocity ?? {};
+                return createMixedBarLineChart(
+                    targetId,
+                    velocity.labels ?? [],
+                    {
+                        label: 'Tickets sold',
+                        data: velocity.tickets ?? [],
+                        backgroundColor: 'rgba(37, 99, 235, 0.75)',
+                    },
+                    {
+                        label: 'Cumulative',
+                        data: velocity.cumulative ?? [],
+                        borderColor: palette.emerald,
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        fill: true,
+                    },
+                    {
+                        yLabel: 'Tickets / day',
+                        y1Label: 'Cumulative tickets',
+                        maxTicksLimit: 16,
                     },
                 );
             },
@@ -666,6 +912,57 @@ function buildChartSpecs(data) {
                             const tickets = Number(point.y ?? 0).toLocaleString();
                             return `${name}: ${engagement} engagement · ${tickets} tickets`;
                         },
+                    },
+                );
+            },
+        },
+        ratingTrend: {
+            canvasId: 'ratingTrendChart',
+            render: (targetId) => {
+                const quality = data.engagement?.reviewQuality ?? {};
+                return createMixedBarLineChart(
+                    targetId,
+                    chartLabels,
+                    {
+                        label: 'Ratings count',
+                        data: quality.countTrend ?? [],
+                        backgroundColor: 'rgba(245, 158, 11, 0.55)',
+                    },
+                    {
+                        label: 'Avg score',
+                        data: (quality.averageTrend ?? []).map((value) => (
+                            value == null ? null : Number(value)
+                        )),
+                        borderColor: palette.amber,
+                        backgroundColor: 'rgba(245, 158, 11, 0.08)',
+                        fill: false,
+                    },
+                    {
+                        yLabel: 'Ratings',
+                        y1Label: 'Avg ★',
+                        maxTicksLimit: 8,
+                    },
+                );
+            },
+        },
+        ratingDistribution: {
+            canvasId: 'ratingDistributionChart',
+            render: (targetId) => {
+                const rows = data.engagement?.reviewQuality?.distribution ?? [];
+                return createBarChart(
+                    targetId,
+                    rows.map((item) => item.label),
+                    rows.map((item) => item.count),
+                    {
+                        label: 'Ratings',
+                        colors: [
+                            'rgba(244, 63, 94, 0.8)',
+                            'rgba(251, 146, 60, 0.8)',
+                            'rgba(245, 158, 11, 0.85)',
+                            'rgba(132, 204, 22, 0.85)',
+                            'rgba(16, 185, 129, 0.85)',
+                        ],
+                        showLegend: true,
                     },
                 );
             },
@@ -895,6 +1192,81 @@ function buildChartSpecs(data) {
                 },
             ),
         },
+        attendanceBreakdown: {
+            canvasId: 'attendanceBreakdownChart',
+            render: (targetId) => {
+                const breakdown = data.attendance?.breakdown ?? [];
+                const colors = {
+                    checked_in: 'rgba(16, 185, 129, 0.85)',
+                    no_shows: 'rgba(244, 63, 94, 0.85)',
+                    awaiting: 'rgba(245, 158, 11, 0.85)',
+                };
+                return createDoughnutChart(
+                    targetId,
+                    breakdown.map((item) => item.label),
+                    breakdown.map((item) => item.count),
+                    [],
+                    breakdown.map((item) => colors[item.key] ?? palette.slate),
+                );
+            },
+        },
+        checkInTiming: {
+            canvasId: 'checkInTimingChart',
+            render: (targetId) => {
+                const timing = data.attendance?.checkInTiming ?? [];
+                return createBarChart(
+                    targetId,
+                    timing.map((item) => item.label),
+                    timing.map((item) => item.count),
+                    {
+                        label: 'Check-ins',
+                        colors: [
+                            'rgba(100, 116, 139, 0.7)',
+                            'rgba(79, 70, 229, 0.7)',
+                            'rgba(37, 99, 235, 0.75)',
+                            'rgba(6, 182, 212, 0.8)',
+                            'rgba(16, 185, 129, 0.85)',
+                            'rgba(245, 158, 11, 0.8)',
+                            'rgba(244, 63, 94, 0.75)',
+                            'rgba(147, 51, 234, 0.7)',
+                        ],
+                        showLegend: true,
+                    },
+                );
+            },
+        },
+        attendanceByEvent: {
+            canvasId: 'attendanceByEventChart',
+            render: (targetId) => {
+                const rows = (data.attendance?.byEvent ?? []).slice(0, 12);
+                return createStackedBarChart(
+                    targetId,
+                    rows.map((item) => item.name),
+                    [
+                        {
+                            label: 'Checked in',
+                            data: rows.map((item) => Number(item.checked_in || 0)),
+                            backgroundColor: 'rgba(16, 185, 129, 0.85)',
+                        },
+                        {
+                            label: 'No-shows',
+                            data: rows.map((item) => Number(item.no_shows || 0)),
+                            backgroundColor: 'rgba(244, 63, 94, 0.85)',
+                        },
+                        {
+                            label: 'Awaiting check-in',
+                            data: rows.map((item) => Number(item.awaiting_check_in || 0)),
+                            backgroundColor: 'rgba(245, 158, 11, 0.85)',
+                        },
+                    ],
+                    {
+                        stack: 'attendance',
+                        horizontal: true,
+                        formatValue: (value) => Number(value).toLocaleString(),
+                    },
+                );
+            },
+        },
     };
 }
 
@@ -952,6 +1324,16 @@ function initOrganizerReports() {
             resizeCharts();
             setTimeout(resizeCharts, 80);
         });
+    });
+
+    window.addEventListener('organizer-reports-compare-changed', () => {
+        const spec = specs.eventCompareMetrics;
+        if (!spec) return;
+        const chart = spec.render(spec.canvasId);
+        if (chart) {
+            charts.push(chart);
+            requestAnimationFrame(() => chart.resize());
+        }
     });
 
     bindDashboardPdfExportButtons();

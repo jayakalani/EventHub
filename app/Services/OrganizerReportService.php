@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\BookingStatusEnum;
 use App\Enums\RefundRequestStatusEnum;
+use App\Models\CartItem;
 use App\Models\Comment;
 use App\Models\Event;
 use App\Models\EventView;
@@ -27,28 +28,208 @@ class OrganizerReportService
     {
         $filters = $this->normalizeFilters($filters);
 
+        return array_merge(
+            $this->getReportShell($organizerId, $filters),
+            $this->getTabReports($organizerId, $filters, 'revenue'),
+            $this->getTabReports($organizerId, $filters, 'tickets'),
+            $this->getTabReports($organizerId, $filters, 'events'),
+            $this->getTabReports($organizerId, $filters, 'attendance'),
+            $this->getTabReports($organizerId, $filters, 'audience'),
+            $this->getTabReports($organizerId, $filters, 'engagement'),
+            $this->getTabReports($organizerId, $filters, 'activity'),
+        );
+    }
+
+    /**
+     * Shared meta + KPI strip data for the reports shell (always loaded).
+     *
+     * @param  array{from?: string|null, to?: string|null, event_id?: int|string|null, status?: string|null}  $filters
+     * @return array<string, mixed>
+     */
+    public function getReportShell(int $organizerId, array $filters = []): array
+    {
+        $filters = $this->normalizeFilters($filters);
+
+        $netRevenue = $this->periodNetRevenue($organizerId, $filters);
+        $grossRevenue = (float) $this->organizerBookingsQuery($organizerId, $filters)
+            ->where('status', BookingStatusEnum::Confirmed)
+            ->sum('ticket_price');
+        $ticketsSold = (int) $this->organizerBookingsQuery($organizerId, $filters)
+            ->where('status', BookingStatusEnum::Confirmed)
+            ->count();
+        $totalEvents = (int) $this->organizerEventsQuery($organizerId, $filters)->count();
+        $eventsWithSales = (int) $this->organizerEventsQuery($organizerId, $filters)
+            ->whereHas('ticketBookings', fn ($query) => $this->applyBookingFilters(
+                $query->where('status', BookingStatusEnum::Confirmed),
+                $filters
+            ))
+            ->count();
+        $totalAttendees = (int) $this->organizerBookingsQuery($organizerId, $filters)
+            ->where('status', BookingStatusEnum::Confirmed)
+            ->distinct('user_id')
+            ->count('user_id');
+        $averageRating = $this->periodAverageRating($organizerId, $filters);
+        $likes = (int) Like::query()
+            ->whereHas('event', function ($query) use ($organizerId, $filters) {
+                $query->createdByOrganizer($organizerId);
+                if (! empty($filters['event_id'])) {
+                    $query->where('events.id', $filters['event_id']);
+                }
+                if (! empty($filters['status'])) {
+                    $query->where('events.status', $filters['status']);
+                }
+            })
+            ->count();
+        $saves = (int) SavedEvent::query()
+            ->whereHas('event', function ($query) use ($organizerId, $filters) {
+                $query->createdByOrganizer($organizerId);
+                if (! empty($filters['event_id'])) {
+                    $query->where('events.id', $filters['event_id']);
+                }
+                if (! empty($filters['status'])) {
+                    $query->where('events.status', $filters['status']);
+                }
+            })
+            ->count();
+
         return [
-            'ticketSales' => $this->getTicketSalesReport($organizerId, $filters),
-            'revenue' => $this->getRevenueReport($organizerId, $filters),
-            'attendees' => $this->getAttendeeReport($organizerId, $filters),
-            'engagement' => $this->getEngagementReport($organizerId, $filters),
-            'salesByCategory' => $this->getSalesByCategory($organizerId, $filters),
-            'ticketTypeTrend' => $this->getTicketTypeTrend($organizerId, $filters),
-            'conversionFunnel' => $this->getConversionFunnel($organizerId, $filters),
-            'eventPerformance' => $this->getEventPerformance($organizerId, $filters),
-            'eventsByStatus' => $this->getEventsByStatus($organizerId, $filters),
-            'salesHeatmap' => $this->getSalesHeatmap($organizerId, $filters),
-            'peakSalesHeatmap' => $this->getPeakSalesHeatmap($organizerId, $filters),
-            'recentTransactions' => $this->getRecentTransactions($organizerId, $filters),
             'summaryTrends' => $this->getSummaryTrends($organizerId, $filters),
             'filterOptions' => $this->getFilterOptions($organizerId),
             'filters' => $filters,
             'chartLabels' => $this->monthLabels($filters),
+            // Lightweight KPI-facing shapes so the strip renders without full tab payloads.
+            'ticketSales' => [
+                'totalTicketsSold' => $ticketsSold,
+                'totalEvents' => $totalEvents,
+                'eventsWithSales' => $eventsWithSales,
+                'salesTrend' => [],
+                'topSellingEvents' => [],
+                'salesByEvent' => [],
+            ],
+            'revenue' => [
+                'grossRevenue' => $grossRevenue,
+                'totalRefunded' => round($grossRevenue - $netRevenue, 2),
+                'netRevenue' => $netRevenue,
+                'averagePerEvent' => 0,
+                'revenueByEvent' => [],
+                'revenueTrend' => [],
+                'cumulativeRevenueTrend' => [],
+                'refundTrend' => [],
+                'topRevenueEvents' => [],
+                'refundRate' => $grossRevenue > 0 ? round((($grossRevenue - $netRevenue) / $grossRevenue) * 100, 1) : 0.0,
+                'refundCount' => 0,
+            ],
+            'attendees' => [
+                'totalAttendees' => $totalAttendees,
+                'confirmedBookings' => $ticketsSold,
+                'totalBookings' => $ticketsSold,
+                'confirmationRate' => 0,
+                'repeatBuyers' => 0,
+                'returningRate' => 0,
+                'avgSpendPerAttendee' => 0,
+                'avgTicketsPerAttendee' => 0,
+                'newAttendees' => 0,
+                'repeatAttendees' => 0,
+                'demographics' => ['age' => [], 'gender' => [], 'location' => [], 'available' => ['age' => false, 'gender' => false, 'location' => false, 'any' => false]],
+                'topCustomers' => [],
+                'attendeesByEvent' => [],
+            ],
+            'engagement' => [
+                'totalLikes' => $likes,
+                'totalComments' => 0,
+                'totalRatings' => 0,
+                'totalSaves' => $saves,
+                'averageRating' => $averageRating,
+                'popularityByEvent' => [],
+                'topEvents' => [],
+                'engagementTrend' => ['likes' => [], 'comments' => [], 'ratings' => [], 'saves' => []],
+                'engagementBeforeEvent' => ['labels' => [], 'likes' => [], 'comments' => [], 'saves' => [], 'ratings' => [], 'tickets' => []],
+                'engagementVsSales' => [],
+                'engagementBreakdown' => [],
+                'reviewQuality' => [
+                    'averageRating' => $averageRating,
+                    'totalRatings' => 0,
+                    'averageTrend' => [],
+                    'countTrend' => [],
+                    'distribution' => [],
+                    'lowRatedEvents' => [],
+                    'responseRate' => null,
+                    'topRatedEvents' => [],
+                ],
+            ],
         ];
     }
 
     /**
-     * Month-over-month change for top summary cards.
+     * Heavy payload for a single reports tab.
+     *
+     * @param  array{from?: string|null, to?: string|null, event_id?: int|string|null, status?: string|null}  $filters
+     * @return array<string, mixed>
+     */
+    public function getTabReports(int $organizerId, array $filters, string $tab): array
+    {
+        $filters = $this->normalizeFilters($filters);
+        $tab = $this->normalizeReportTab($tab);
+
+        return match ($tab) {
+            'revenue' => [
+                'revenue' => $this->getRevenueReport($organizerId, $filters),
+                'refundAnalytics' => $this->getRefundAnalytics($organizerId, $filters),
+            ],
+            'tickets' => [
+                'ticketSales' => $this->getTicketSalesReport($organizerId, $filters),
+                'salesByCategory' => $this->getSalesByCategory($organizerId, $filters),
+                'ticketTypeTrend' => $this->getTicketTypeTrend($organizerId, $filters),
+                'conversionFunnel' => $this->getConversionFunnel($organizerId, $filters),
+                'salesVelocity' => $this->getSalesVelocityBeforeEvent($organizerId, $filters),
+            ],
+            'events' => [
+                'eventPerformance' => $this->getEventPerformance($organizerId, $filters),
+                'eventsByStatus' => $this->getEventsByStatus($organizerId, $filters),
+                'eventComparison' => $this->getEventComparison($organizerId, $filters),
+                'salesHeatmap' => $this->getSalesHeatmap($organizerId, $filters),
+                'peakSalesHeatmap' => $this->getPeakSalesHeatmap($organizerId, $filters),
+            ],
+            'attendance' => [
+                'attendance' => $this->getAttendanceReport($organizerId, $filters),
+            ],
+            'audience' => [
+                'attendees' => $this->getAttendeeReport($organizerId, $filters),
+            ],
+            'engagement' => [
+                'engagement' => $this->getEngagementReport($organizerId, $filters),
+            ],
+            'activity' => [
+                'recentTransactions' => $this->getRecentTransactions($organizerId, $filters),
+            ],
+            default => [],
+        };
+    }
+
+    public function normalizeReportTab(string $tab): string
+    {
+        $tab = strtolower(trim($tab));
+
+        return match ($tab) {
+            'sales' => 'tickets',
+            'attendees' => 'audience',
+            'overview' => 'revenue',
+            default => $tab,
+        };
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function reportTabs(): array
+    {
+        return ['revenue', 'tickets', 'events', 'attendance', 'audience', 'engagement', 'activity'];
+    }
+
+    /**
+     * Period-over-period change for top summary cards.
+     *
+     * Uses the filtered date range when present; otherwise month-to-date vs last calendar month.
      *
      * @param  array{from?: string|null, to?: string|null, event_id?: int|string|null, status?: string|null}  $filters
      * @return array{
@@ -62,20 +243,22 @@ class OrganizerReportService
     public function getSummaryTrends(int $organizerId, array $filters = []): array
     {
         $filters = $this->normalizeFilters($filters);
-        $label = 'vs last month';
-
-        $currentFrom = now()->startOfMonth()->toDateString();
-        $currentTo = now()->toDateString();
-        $previousFrom = now()->subMonthNoOverflow()->startOfMonth()->toDateString();
-        $previousTo = now()->subMonthNoOverflow()->endOfMonth()->toDateString();
+        $periods = $this->resolveTrendComparisonPeriods($filters);
 
         $base = [
             'event_id' => $filters['event_id'],
             'status' => $filters['status'],
         ];
 
-        $current = array_merge($base, ['from' => $currentFrom, 'to' => $currentTo]);
-        $previous = array_merge($base, ['from' => $previousFrom, 'to' => $previousTo]);
+        $current = array_merge($base, [
+            'from' => $periods['currentFrom'],
+            'to' => $periods['currentTo'],
+        ]);
+        $previous = array_merge($base, [
+            'from' => $periods['previousFrom'],
+            'to' => $periods['previousTo'],
+        ]);
+        $label = $periods['label'];
 
         $currentNet = $this->periodNetRevenue($organizerId, $current);
         $previousNet = $this->periodNetRevenue($organizerId, $previous);
@@ -88,12 +271,12 @@ class OrganizerReportService
             ->count();
 
         $currentEvents = (int) $this->organizerEventsQuery($organizerId, $base)
-            ->whereDate('created_at', '>=', $currentFrom)
-            ->whereDate('created_at', '<=', $currentTo)
+            ->whereDate('created_at', '>=', $periods['currentFrom'])
+            ->whereDate('created_at', '<=', $periods['currentTo'])
             ->count();
         $previousEvents = (int) $this->organizerEventsQuery($organizerId, $base)
-            ->whereDate('created_at', '>=', $previousFrom)
-            ->whereDate('created_at', '<=', $previousTo)
+            ->whereDate('created_at', '>=', $periods['previousFrom'])
+            ->whereDate('created_at', '<=', $periods['previousTo'])
             ->count();
 
         $currentAttendees = (int) $this->organizerBookingsQuery($organizerId, $current)
@@ -117,6 +300,127 @@ class OrganizerReportService
         ];
     }
 
+    /**
+     * Resolve current vs previous date windows for KPI trend badges.
+     *
+     * @param  array{from: ?string, to: ?string, event_id: ?int, status: ?string}  $filters
+     * @return array{
+     *     currentFrom: string,
+     *     currentTo: string,
+     *     previousFrom: string,
+     *     previousTo: string,
+     *     label: string
+     * }
+     */
+    private function resolveTrendComparisonPeriods(array $filters): array
+    {
+        $today = now()->startOfDay();
+
+        if (empty($filters['from']) && empty($filters['to'])) {
+            return [
+                'currentFrom' => $today->copy()->startOfMonth()->toDateString(),
+                'currentTo' => $today->toDateString(),
+                'previousFrom' => $today->copy()->subMonthNoOverflow()->startOfMonth()->toDateString(),
+                'previousTo' => $today->copy()->subMonthNoOverflow()->endOfMonth()->toDateString(),
+                'label' => 'vs last month',
+            ];
+        }
+
+        $to = ! empty($filters['to'])
+            ? Carbon::parse($filters['to'])->startOfDay()
+            : $today->copy();
+
+        $from = ! empty($filters['from'])
+            ? Carbon::parse($filters['from'])->startOfDay()
+            : $to->copy()->subDays(29);
+
+        if ($from->gt($to)) {
+            [$from, $to] = [$to->copy(), $from->copy()];
+        }
+
+        $inclusiveDays = (int) $from->diffInDays($to) + 1;
+
+        // Full calendar year → previous calendar year
+        if (
+            $from->isSameDay($from->copy()->startOfYear())
+            && $to->isSameDay($from->copy()->endOfYear())
+        ) {
+            $previousFrom = $from->copy()->subYearNoOverflow()->startOfYear();
+
+            return [
+                'currentFrom' => $from->toDateString(),
+                'currentTo' => $to->toDateString(),
+                'previousFrom' => $previousFrom->toDateString(),
+                'previousTo' => $previousFrom->copy()->endOfYear()->toDateString(),
+                'label' => 'vs previous year',
+            ];
+        }
+
+        // Year-to-date (Jan 1 → today in that year) → same YTD last year
+        if (
+            $from->isSameDay($from->copy()->startOfYear())
+            && $from->year === $to->year
+            && $to->lte($today)
+            && ($from->year < $today->year || $to->isSameDay($today))
+        ) {
+            return [
+                'currentFrom' => $from->toDateString(),
+                'currentTo' => $to->toDateString(),
+                'previousFrom' => $from->copy()->subYearNoOverflow()->toDateString(),
+                'previousTo' => $to->copy()->subYearNoOverflow()->toDateString(),
+                'label' => 'vs prior year',
+            ];
+        }
+
+        // Full calendar month → previous calendar month
+        if (
+            $from->isSameDay($from->copy()->startOfMonth())
+            && $to->isSameDay($from->copy()->endOfMonth())
+        ) {
+            $previousFrom = $from->copy()->subMonthNoOverflow()->startOfMonth();
+
+            return [
+                'currentFrom' => $from->toDateString(),
+                'currentTo' => $to->toDateString(),
+                'previousFrom' => $previousFrom->toDateString(),
+                'previousTo' => $previousFrom->copy()->endOfMonth()->toDateString(),
+                'label' => 'vs previous month',
+            ];
+        }
+
+        // Month-to-date (1st → day within same month) → same days previous month
+        if (
+            $from->isSameDay($from->copy()->startOfMonth())
+            && $from->isSameMonth($to)
+        ) {
+            $previousFrom = $from->copy()->subMonthNoOverflow()->startOfMonth();
+            $day = min($to->day, $previousFrom->daysInMonth);
+
+            return [
+                'currentFrom' => $from->toDateString(),
+                'currentTo' => $to->toDateString(),
+                'previousFrom' => $previousFrom->toDateString(),
+                'previousTo' => $previousFrom->copy()->day($day)->toDateString(),
+                'label' => 'vs prior month',
+            ];
+        }
+
+        // Rolling / custom range → immediately preceding window of equal length
+        $previousTo = $from->copy()->subDay();
+        $previousFrom = $previousTo->copy()->subDays($inclusiveDays - 1);
+
+        $label = $inclusiveDays === 1
+            ? 'vs prior day'
+            : 'vs prior '.$inclusiveDays.' days';
+
+        return [
+            'currentFrom' => $from->toDateString(),
+            'currentTo' => $to->toDateString(),
+            'previousFrom' => $previousFrom->toDateString(),
+            'previousTo' => $previousTo->toDateString(),
+            'label' => $label,
+        ];
+    }
     /**
      * @param  array{from?: string|null, to?: string|null, event_id?: int|null, status?: string|null}  $filters
      */
@@ -314,6 +618,10 @@ class OrganizerReportService
             'cumulativeRevenueTrend' => $cumulative,
             'refundTrend' => $refundTrend,
             'topRevenueEvents' => collect($revenueByEvent)->sortByDesc('revenue')->take(5)->values()->all(),
+            'refundRate' => $grossRevenue > 0
+                ? round(($totalRefunded / $grossRevenue) * 100, 1)
+                : 0.0,
+            'refundCount' => (int) (clone $refundQuery)->count(),
         ];
     }
 
@@ -651,6 +959,7 @@ class OrganizerReportService
                 ['label' => 'Comments', 'count' => $totalComments],
                 ['label' => 'Ratings', 'count' => $totalRatings],
             ],
+            'reviewQuality' => $this->getReviewQuality($organizerId, $filters, $popularityByEvent),
         ];
     }
 
@@ -730,40 +1039,32 @@ class OrganizerReportService
     {
         $filters = $this->normalizeFilters($filters);
 
-        $viewsQuery = EventView::query()
-            ->whereHas('event', function ($query) use ($organizerId, $filters) {
-                $query->createdByOrganizer($organizerId);
+        $scopeEvent = function ($query) use ($organizerId, $filters) {
+            $query->createdByOrganizer($organizerId);
 
-                if (! empty($filters['event_id'])) {
-                    $query->where('events.id', $filters['event_id']);
-                }
+            if (! empty($filters['event_id'])) {
+                $query->where('events.id', $filters['event_id']);
+            }
 
-                if (! empty($filters['status'])) {
-                    $query->where('events.status', $filters['status']);
-                }
-            });
+            if (! empty($filters['status'])) {
+                $query->where('events.status', $filters['status']);
+            }
+        };
 
-        $savesQuery = SavedEvent::query()
-            ->whereHas('event', function ($query) use ($organizerId, $filters) {
-                $query->createdByOrganizer($organizerId);
-
-                if (! empty($filters['event_id'])) {
-                    $query->where('events.id', $filters['event_id']);
-                }
-
-                if (! empty($filters['status'])) {
-                    $query->where('events.status', $filters['status']);
-                }
-            });
+        $viewsQuery = EventView::query()->whereHas('event', $scopeEvent);
+        $savesQuery = SavedEvent::query()->whereHas('event', $scopeEvent);
+        $cartQuery = CartItem::query()->whereHas('event', $scopeEvent);
 
         if (! empty($filters['from'])) {
             $viewsQuery->whereDate('event_views.created_at', '>=', $filters['from']);
             $savesQuery->whereDate('saved_events.created_at', '>=', $filters['from']);
+            $cartQuery->whereDate('cart_items.created_at', '>=', $filters['from']);
         }
 
         if (! empty($filters['to'])) {
             $viewsQuery->whereDate('event_views.created_at', '<=', $filters['to']);
             $savesQuery->whereDate('saved_events.created_at', '<=', $filters['to']);
+            $cartQuery->whereDate('cart_items.created_at', '<=', $filters['to']);
         }
 
         $views = (int) $viewsQuery->count();
@@ -771,6 +1072,11 @@ class OrganizerReportService
         $purchases = (int) $this->organizerBookingsQuery($organizerId, $filters)
             ->where('status', BookingStatusEnum::Confirmed)
             ->count();
+
+        // Cart stage = tickets still held in carts + confirmed purchases.
+        // Purchased cart rows are deleted, so adding purchases keeps converted demand in the funnel.
+        $cartHeld = (int) $cartQuery->sum('quantity');
+        $cart = $cartHeld + $purchases;
 
         $rate = function (int $current, int $previous): ?float {
             if ($previous <= 0) {
@@ -792,9 +1098,14 @@ class OrganizerReportService
                 'rate' => $rate($saves, $views),
             ],
             [
+                'label' => 'Cart',
+                'count' => $cart,
+                'rate' => $rate($cart, max($saves, $views)),
+            ],
+            [
                 'label' => 'Purchases',
                 'count' => $purchases,
-                'rate' => $rate($purchases, max($saves, $views)),
+                'rate' => $rate($purchases, max($cart, $saves, $views)),
             ],
         ];
     }
@@ -869,6 +1180,252 @@ class OrganizerReportService
             ])
             ->values()
             ->all();
+    }
+
+    /**
+     * Check-in / attendance metrics for retained-sale tickets.
+     *
+     * No-shows are counted only for completed events (attendance is final).
+     * Ongoing / upcoming events report checked-in vs still awaiting entry.
+     *
+     * @param  array{from?: string|null, to?: string|null, event_id?: int|string|null, status?: string|null}  $filters
+     * @return array{
+     *     ticketsEligible: int,
+     *     checkedIn: int,
+     *     noShows: int,
+     *     awaitingCheckIn: int,
+     *     attendanceRate: float|null,
+     *     eventsWithTickets: int,
+     *     eventsFinalized: int,
+     *     peakTiming: array{label: string, count: int}|null,
+     *     byEvent: list<array<string, mixed>>,
+     *     checkInTiming: list<array{key: string, label: string, count: int}>,
+     *     breakdown: list<array{label: string, count: int, key: string}>
+     * }
+     */
+    public function getAttendanceReport(int $organizerId, array $filters = []): array
+    {
+        $filters = $this->normalizeFilters($filters);
+        $retainedStatuses = array_map(
+            fn (BookingStatusEnum $status) => $status->value,
+            BookingStatusEnum::retainedSaleStatuses()
+        );
+
+        $events = $this->organizerEventsQuery($organizerId, $filters)
+            ->orderByDesc('date')
+            ->orderBy('name')
+            ->get(['id', 'name', 'date', 'time', 'status', 'date_tba']);
+
+        $emptyTiming = $this->emptyCheckInTimingBuckets();
+
+        if ($events->isEmpty()) {
+            return [
+                'ticketsEligible' => 0,
+                'checkedIn' => 0,
+                'noShows' => 0,
+                'awaitingCheckIn' => 0,
+                'attendanceRate' => null,
+                'eventsWithTickets' => 0,
+                'eventsFinalized' => 0,
+                'peakTiming' => null,
+                'byEvent' => [],
+                'checkInTiming' => $emptyTiming,
+                'breakdown' => [
+                    ['key' => 'checked_in', 'label' => 'Checked in', 'count' => 0],
+                    ['key' => 'no_shows', 'label' => 'No-shows', 'count' => 0],
+                    ['key' => 'awaiting', 'label' => 'Awaiting check-in', 'count' => 0],
+                ],
+            ];
+        }
+
+        $eventIds = $events->pluck('id')->all();
+
+        $statsQuery = ticketBooking::query()
+            ->whereIn('event_id', $eventIds)
+            ->whereIn('status', $retainedStatuses);
+
+        $this->applyBookingFilters($statsQuery, $filters);
+
+        $perEventStats = (clone $statsQuery)
+            ->selectRaw('event_id')
+            ->selectRaw('COUNT(*) as tickets')
+            ->selectRaw('SUM(CASE WHEN checked_in_at IS NOT NULL THEN 1 ELSE 0 END) as checked_in')
+            ->groupBy('event_id')
+            ->get()
+            ->keyBy('event_id');
+
+        $byEvent = [];
+        $ticketsEligible = 0;
+        $checkedIn = 0;
+        $noShows = 0;
+        $awaitingCheckIn = 0;
+        $finalEligible = 0;
+        $finalCheckedIn = 0;
+        $eventsWithTickets = 0;
+        $eventsFinalized = 0;
+
+        foreach ($events as $event) {
+            $row = $perEventStats->get($event->id);
+            $tickets = (int) ($row->tickets ?? 0);
+            $eventCheckedIn = (int) ($row->checked_in ?? 0);
+
+            if ($tickets === 0) {
+                continue;
+            }
+
+            $eventsWithTickets++;
+            $isFinal = $event->isCompleted();
+            $isCancelled = $event->isCancelled();
+            $remaining = max(0, $tickets - $eventCheckedIn);
+            $eventNoShows = $isFinal ? $remaining : 0;
+            $eventAwaiting = (! $isFinal && ! $isCancelled) ? $remaining : 0;
+            $rate = $tickets > 0 ? round(($eventCheckedIn / $tickets) * 100, 1) : 0.0;
+
+            $ticketsEligible += $tickets;
+            $checkedIn += $eventCheckedIn;
+            $noShows += $eventNoShows;
+            $awaitingCheckIn += $eventAwaiting;
+
+            if ($isFinal) {
+                $eventsFinalized++;
+                $finalEligible += $tickets;
+                $finalCheckedIn += $eventCheckedIn;
+            }
+
+            $byEvent[] = [
+                'id' => $event->id,
+                'name' => $event->name,
+                'date' => $event->formattedScheduleDate('M d, Y') ?? 'TBA',
+                'status' => ucfirst((string) $event->status),
+                'status_key' => strtolower((string) $event->status),
+                'tickets' => $tickets,
+                'checked_in' => $eventCheckedIn,
+                'no_shows' => $eventNoShows,
+                'awaiting_check_in' => $eventAwaiting,
+                'attendance_rate' => $rate,
+                'attendance_final' => $isFinal,
+            ];
+        }
+
+        usort($byEvent, function (array $a, array $b) {
+            $rateCmp = $b['attendance_rate'] <=> $a['attendance_rate'];
+
+            return $rateCmp !== 0 ? $rateCmp : ($b['tickets'] <=> $a['tickets']);
+        });
+
+        $checkInTiming = $this->buildCheckInTiming(
+            $filters,
+            $events,
+            $retainedStatuses
+        );
+
+        $peakTiming = collect($checkInTiming)
+            ->filter(fn (array $bucket) => $bucket['count'] > 0)
+            ->sortByDesc('count')
+            ->map(fn (array $bucket) => [
+                'label' => $bucket['label'],
+                'count' => $bucket['count'],
+            ])
+            ->first();
+
+        $attendanceRate = $finalEligible > 0
+            ? round(($finalCheckedIn / $finalEligible) * 100, 1)
+            : ($ticketsEligible > 0 ? round(($checkedIn / $ticketsEligible) * 100, 1) : null);
+
+        return [
+            'ticketsEligible' => $ticketsEligible,
+            'checkedIn' => $checkedIn,
+            'noShows' => $noShows,
+            'awaitingCheckIn' => $awaitingCheckIn,
+            'attendanceRate' => $attendanceRate,
+            'eventsWithTickets' => $eventsWithTickets,
+            'eventsFinalized' => $eventsFinalized,
+            'peakTiming' => $peakTiming,
+            'byEvent' => $byEvent,
+            'checkInTiming' => $checkInTiming,
+            'breakdown' => [
+                ['key' => 'checked_in', 'label' => 'Checked in', 'count' => $checkedIn],
+                ['key' => 'no_shows', 'label' => 'No-shows', 'count' => $noShows],
+                ['key' => 'awaiting', 'label' => 'Awaiting check-in', 'count' => $awaitingCheckIn],
+            ],
+        ];
+    }
+
+    /**
+     * @return list<array{key: string, label: string, count: int, min: ?int, max: ?int}>
+     */
+    private function emptyCheckInTimingBuckets(): array
+    {
+        return [
+            ['key' => 'lt_minus_2h', 'label' => '2h+ before', 'count' => 0, 'min' => null, 'max' => -120],
+            ['key' => 'minus_2h_1h', 'label' => '2h–1h before', 'count' => 0, 'min' => -120, 'max' => -60],
+            ['key' => 'minus_1h_30m', 'label' => '1h–30m before', 'count' => 0, 'min' => -60, 'max' => -30],
+            ['key' => 'minus_30m_0', 'label' => '30m before → start', 'count' => 0, 'min' => -30, 'max' => 0],
+            ['key' => 'plus_0_30m', 'label' => 'Start → 30m', 'count' => 0, 'min' => 0, 'max' => 30],
+            ['key' => 'plus_30m_1h', 'label' => '30m–1h after', 'count' => 0, 'min' => 30, 'max' => 60],
+            ['key' => 'plus_1h_2h', 'label' => '1h–2h after', 'count' => 0, 'min' => 60, 'max' => 120],
+            ['key' => 'gt_plus_2h', 'label' => '2h+ after', 'count' => 0, 'min' => 120, 'max' => null],
+        ];
+    }
+
+    /**
+     * Bucket check-ins by minutes relative to each event's start time.
+     *
+     * @param  \Illuminate\Support\Collection<int, Event>  $events
+     * @param  list<string>  $retainedStatuses
+     * @param  array{from?: string|null, to?: string|null, event_id?: int|null, status?: string|null}  $filters
+     * @return list<array{key: string, label: string, count: int}>
+     */
+    private function buildCheckInTiming(
+        array $filters,
+        $events,
+        array $retainedStatuses
+    ): array {
+        $buckets = $this->emptyCheckInTimingBuckets();
+        $eventsById = $events->keyBy('id');
+
+        $query = ticketBooking::query()
+            ->whereIn('event_id', $events->pluck('id')->all())
+            ->whereIn('status', $retainedStatuses)
+            ->whereNotNull('checked_in_at')
+            ->select(['event_id', 'checked_in_at']);
+
+        $this->applyBookingFilters($query, $filters);
+
+        foreach ($query->cursor() as $booking) {
+            $event = $eventsById->get($booking->event_id);
+
+            if (! $event || $event->hasDateYetToBeScheduled() || blank($event->date)) {
+                continue;
+            }
+
+            try {
+                $startsAt = $event->startsAt();
+                $checkedInAt = Carbon::parse($booking->checked_in_at);
+            } catch (\Throwable) {
+                continue;
+            }
+
+            $offsetMinutes = (int) round(($checkedInAt->getTimestamp() - $startsAt->getTimestamp()) / 60);
+
+            foreach ($buckets as $index => $bucket) {
+                $min = $bucket['min'];
+                $max = $bucket['max'];
+                $inRange = ($min === null || $offsetMinutes >= $min)
+                    && ($max === null || $offsetMinutes < $max);
+
+                if ($inRange) {
+                    $buckets[$index]['count']++;
+                    break;
+                }
+            }
+        }
+
+        return array_map(fn (array $bucket) => [
+            'key' => $bucket['key'],
+            'label' => $bucket['label'],
+            'count' => $bucket['count'],
+        ], $buckets);
     }
 
     /**
@@ -1294,6 +1851,102 @@ class OrganizerReportService
     }
 
     /**
+     * Ticket sales velocity in the 30 days leading up to event day (T-30 → T-0).
+     *
+     * Aggregates confirmed bookings across filtered events by days-until-event,
+     * so organizers can see when demand ramps and plan promotions accordingly.
+     *
+     * @param  array{from?: string|null, to?: string|null, event_id?: int|string|null, status?: string|null}  $filters
+     * @return array{
+     *     windowDays: int,
+     *     labels: list<string>,
+     *     offsets: list<int>,
+     *     tickets: list<int>,
+     *     cumulative: list<int>,
+     *     totalInWindow: int,
+     *     peak: array{label: string, offset: int, count: int}|null,
+     *     finalWeekShare: float|null,
+     *     earlyShare: float|null,
+     *     midShare: float|null
+     * }
+     */
+    public function getSalesVelocityBeforeEvent(int $organizerId, array $filters = []): array
+    {
+        $filters = $this->normalizeFilters($filters);
+        $windowDays = 30;
+        $offsets = range(-$windowDays, 0);
+        $labels = collect($offsets)
+            ->map(fn (int $day) => $day === 0 ? 'T-0' : 'T'.$day)
+            ->values()
+            ->all();
+
+        $empty = array_fill(0, count($offsets), 0);
+        $indexByOffset = array_flip($offsets);
+        $raw = $this->relativeDayTicketCounts($organizerId, $filters, $windowDays);
+
+        $tickets = $empty;
+        foreach ($raw as $offset => $count) {
+            $offset = (int) $offset;
+            if (array_key_exists($offset, $indexByOffset)) {
+                $tickets[$indexByOffset[$offset]] = (int) $count;
+            }
+        }
+
+        $cumulative = [];
+        $running = 0;
+        foreach ($tickets as $count) {
+            $running += $count;
+            $cumulative[] = $running;
+        }
+
+        $totalInWindow = $running;
+        $peak = null;
+        $maxCount = max($tickets);
+
+        if ($maxCount > 0) {
+            $peakIndex = array_search($maxCount, $tickets, true);
+            $peakOffset = $offsets[$peakIndex];
+            $peak = [
+                'label' => $labels[$peakIndex],
+                'offset' => $peakOffset,
+                'count' => $maxCount,
+            ];
+        }
+
+        $sumRange = function (int $fromOffset, int $toOffset) use ($tickets, $indexByOffset): int {
+            $sum = 0;
+            for ($offset = $fromOffset; $offset <= $toOffset; $offset++) {
+                if (array_key_exists($offset, $indexByOffset)) {
+                    $sum += $tickets[$indexByOffset[$offset]];
+                }
+            }
+
+            return $sum;
+        };
+
+        $share = function (int $part) use ($totalInWindow): ?float {
+            if ($totalInWindow <= 0) {
+                return null;
+            }
+
+            return round(($part / $totalInWindow) * 100, 1);
+        };
+
+        return [
+            'windowDays' => $windowDays,
+            'labels' => $labels,
+            'offsets' => $offsets,
+            'tickets' => $tickets,
+            'cumulative' => $cumulative,
+            'totalInWindow' => $totalInWindow,
+            'peak' => $peak,
+            'finalWeekShare' => $share($sumRange(-7, 0)),
+            'earlyShare' => $share($sumRange(-30, -15)),
+            'midShare' => $share($sumRange(-14, -8)),
+        ];
+    }
+
+    /**
      * Aggregate engagement + ticket sales by days relative to each event's date (−28 … 0).
      *
      * @param  array{from?: string|null, to?: string|null, event_id?: int|string|null, status?: string|null}  $filters
@@ -1420,5 +2073,348 @@ class OrganizerReportService
             ->groupBy('month')
             ->pluck('count', 'month')
             ->all();
+    }
+
+    /**
+     * Side-by-side metrics for event comparison (client picks 2–3).
+     *
+     * @param  array{from?: string|null, to?: string|null, event_id?: int|string|null, status?: string|null}  $filters
+     * @return list<array<string, mixed>>
+     */
+    public function getEventComparison(int $organizerId, array $filters = []): array
+    {
+        $filters = $this->normalizeFilters($filters);
+
+        $events = $this->organizerEventsQuery($organizerId, $filters)
+            ->withCount([
+                'ticketBookings as tickets_sold' => fn ($query) => $this->applyBookingFilters(
+                    $query->where('status', BookingStatusEnum::Confirmed),
+                    $filters
+                ),
+                'views as views_count' => function ($query) use ($filters) {
+                    if (! empty($filters['from'])) {
+                        $query->whereDate('event_views.created_at', '>=', $filters['from']);
+                    }
+                    if (! empty($filters['to'])) {
+                        $query->whereDate('event_views.created_at', '<=', $filters['to']);
+                    }
+                },
+            ])
+            ->withSum([
+                'ticketBookings as revenue' => fn ($query) => $this->applyBookingFilters(
+                    $query->where('status', BookingStatusEnum::Confirmed),
+                    $filters
+                ),
+            ], 'ticket_price')
+            ->withAvg('ratings', 'score')
+            ->withCount('ratings')
+            ->orderByDesc('revenue')
+            ->limit(24)
+            ->get();
+
+        return $events->map(function (Event $event) {
+            $tickets = (int) $event->tickets_sold;
+            $views = (int) $event->views_count;
+            $capacity = (int) $event->no_of_tickets;
+            $revenue = round((float) ($event->revenue ?? 0), 2);
+
+            return [
+                'id' => $event->id,
+                'name' => $event->name,
+                'status' => ucfirst((string) $event->status),
+                'status_key' => strtolower((string) $event->status),
+                'revenue' => $revenue,
+                'tickets_sold' => $tickets,
+                'capacity' => $capacity,
+                'fill_rate' => $capacity > 0 ? round(($tickets / $capacity) * 100, 1) : 0.0,
+                'views' => $views,
+                'conversion_rate' => $views > 0 ? round(($tickets / $views) * 100, 1) : null,
+                'rating' => $event->ratings_avg_score ? round((float) $event->ratings_avg_score, 1) : null,
+                'ratings_count' => (int) $event->ratings_count,
+            ];
+        })->values()->all();
+    }
+
+    /**
+     * Refund leakage: rate, by event, by ticket category, monthly trend.
+     *
+     * @param  array{from?: string|null, to?: string|null, event_id?: int|string|null, status?: string|null}  $filters
+     * @return array<string, mixed>
+     */
+    public function getRefundAnalytics(int $organizerId, array $filters = []): array
+    {
+        $filters = $this->normalizeFilters($filters);
+
+        $gross = (float) $this->organizerBookingsQuery($organizerId, $filters)
+            ->where('status', BookingStatusEnum::Confirmed)
+            ->sum('ticket_price');
+
+        $baseRefundQuery = RefundRequest::query()
+            ->where('refund_requests.status', RefundRequestStatusEnum::Approved)
+            ->whereHas('ticketBooking.event', function ($query) use ($organizerId, $filters) {
+                $query->createdByOrganizer($organizerId);
+                if (! empty($filters['event_id'])) {
+                    $query->where('events.id', $filters['event_id']);
+                }
+                if (! empty($filters['status'])) {
+                    $query->where('events.status', $filters['status']);
+                }
+            });
+
+        if (! empty($filters['from'])) {
+            $baseRefundQuery->whereDate('refund_requests.created_at', '>=', $filters['from']);
+        }
+        if (! empty($filters['to'])) {
+            $baseRefundQuery->whereDate('refund_requests.created_at', '<=', $filters['to']);
+        }
+
+        $totalRefunded = round((float) (clone $baseRefundQuery)->sum('refund_amount'), 2);
+        $refundCount = (int) (clone $baseRefundQuery)->count();
+        $refundRate = $gross > 0 ? round(($totalRefunded / $gross) * 100, 1) : 0.0;
+
+        $byEventRows = (clone $baseRefundQuery)
+            ->join('ticket_bookings', 'ticket_bookings.id', '=', 'refund_requests.ticket_booking_id')
+            ->join('events', 'events.id', '=', 'ticket_bookings.event_id')
+            ->selectRaw('events.id as event_id, events.name as event_name, COUNT(*) as refund_count, SUM(refund_requests.refund_amount) as refunded')
+            ->groupBy('events.id', 'events.name')
+            ->orderByDesc('refunded')
+            ->limit(12)
+            ->get();
+
+        $eventGross = $this->organizerBookingsQuery($organizerId, $filters)
+            ->where('status', BookingStatusEnum::Confirmed)
+            ->selectRaw('event_id, SUM(ticket_price) as gross')
+            ->groupBy('event_id')
+            ->pluck('gross', 'event_id');
+
+        $byEvent = $byEventRows->map(function ($row) use ($eventGross) {
+            $refunded = round((float) $row->refunded, 2);
+            $eventGrossAmount = (float) ($eventGross[$row->event_id] ?? 0);
+
+            return [
+                'id' => (int) $row->event_id,
+                'name' => (string) $row->event_name,
+                'refund_count' => (int) $row->refund_count,
+                'refunded' => $refunded,
+                'rate' => $eventGrossAmount > 0
+                    ? round(($refunded / $eventGrossAmount) * 100, 1)
+                    : null,
+            ];
+        })->values()->all();
+
+        $byCategoryRows = (clone $baseRefundQuery)
+            ->join('ticket_bookings', 'ticket_bookings.id', '=', 'refund_requests.ticket_booking_id')
+            ->leftJoin('ticket_categories', 'ticket_categories.id', '=', 'ticket_bookings.ticket_category_id')
+            ->selectRaw("COALESCE(ticket_categories.name, 'General') as label, COUNT(*) as refund_count, SUM(refund_requests.refund_amount) as refunded")
+            ->groupBy('label')
+            ->orderByDesc('refunded')
+            ->get();
+
+        $categoryGross = $this->organizerBookingsQuery($organizerId, $filters)
+            ->where('status', BookingStatusEnum::Confirmed)
+            ->leftJoin('ticket_categories', 'ticket_categories.id', '=', 'ticket_bookings.ticket_category_id')
+            ->selectRaw("COALESCE(ticket_categories.name, 'General') as label, SUM(ticket_bookings.ticket_price) as gross")
+            ->groupBy('label')
+            ->pluck('gross', 'label');
+
+        $byCategory = $byCategoryRows->map(function ($row) use ($categoryGross, $totalRefunded) {
+            $refunded = round((float) $row->refunded, 2);
+            $label = (string) $row->label;
+            $grossAmount = (float) ($categoryGross[$label] ?? 0);
+
+            return [
+                'label' => $label,
+                'refund_count' => (int) $row->refund_count,
+                'refunded' => $refunded,
+                'share' => $totalRefunded > 0 ? round(($refunded / $totalRefunded) * 100, 1) : 0.0,
+                'rate' => $grossAmount > 0 ? round(($refunded / $grossAmount) * 100, 1) : null,
+            ];
+        })->values()->all();
+
+        return [
+            'grossRevenue' => round($gross, 2),
+            'totalRefunded' => $totalRefunded,
+            'refundCount' => $refundCount,
+            'refundRate' => $refundRate,
+            'refundTrend' => $this->monthlyRefunds($organizerId, $filters),
+            'byEvent' => $byEvent,
+            'byCategory' => $byCategory,
+        ];
+    }
+
+    /**
+     * Rating quality: monthly avg score, distribution, low-rated events.
+     * Response rate is reserved for future organizer replies (not stored yet).
+     *
+     * @param  array{from?: string|null, to?: string|null, event_id?: int|string|null, status?: string|null}  $filters
+     * @param  list<array<string, mixed>>  $popularityByEvent
+     * @return array<string, mixed>
+     */
+    public function getReviewQuality(int $organizerId, array $filters = [], array $popularityByEvent = []): array
+    {
+        $filters = $this->normalizeFilters($filters);
+        $keys = $this->monthKeys($filters);
+        $since = Carbon::createFromFormat('Y-m', $keys[0])->startOfMonth();
+
+        $ratingsQuery = Rating::query()
+            ->whereHas('event', function ($query) use ($organizerId, $filters) {
+                $query->createdByOrganizer($organizerId);
+                if (! empty($filters['event_id'])) {
+                    $query->where('events.id', $filters['event_id']);
+                }
+                if (! empty($filters['status'])) {
+                    $query->where('events.status', $filters['status']);
+                }
+            });
+
+        if (! empty($filters['from'])) {
+            $ratingsQuery->whereDate('ratings.created_at', '>=', $filters['from']);
+        }
+        if (! empty($filters['to'])) {
+            $ratingsQuery->whereDate('ratings.created_at', '<=', $filters['to']);
+        }
+
+        $monthlyAvg = (clone $ratingsQuery)
+            ->where('ratings.created_at', '>=', $since)
+            ->selectRaw("DATE_FORMAT(ratings.created_at, '%Y-%m') as month, AVG(ratings.score) as avg_score, COUNT(*) as count")
+            ->groupBy('month')
+            ->get()
+            ->keyBy('month');
+
+        $averageTrend = collect($keys)->map(fn (string $key) => isset($monthlyAvg[$key])
+            ? round((float) $monthlyAvg[$key]->avg_score, 2)
+            : null
+        )->values()->all();
+
+        $countTrend = collect($keys)->map(fn (string $key) => (int) ($monthlyAvg[$key]->count ?? 0)
+        )->values()->all();
+
+        $distributionRows = (clone $ratingsQuery)
+            ->selectRaw('score, COUNT(*) as count')
+            ->groupBy('score')
+            ->pluck('count', 'score');
+
+        $distribution = [];
+        for ($score = 1; $score <= 5; $score++) {
+            $distribution[] = [
+                'score' => $score,
+                'label' => $score.'★',
+                'count' => (int) ($distributionRows[$score] ?? 0),
+            ];
+        }
+
+        $lowRatedEvents = $this->organizerEventsQuery($organizerId, $filters)
+            ->withCount('ratings')
+            ->withAvg('ratings', 'score')
+            ->having('ratings_count', '>=', 2)
+            ->having('ratings_avg_score', '<', 3.5)
+            ->orderBy('ratings_avg_score')
+            ->limit(8)
+            ->get()
+            ->map(fn (Event $event) => [
+                'id' => $event->id,
+                'name' => $event->name,
+                'rating' => round((float) $event->ratings_avg_score, 1),
+                'ratings_count' => (int) $event->ratings_count,
+                'status' => ucfirst((string) $event->status),
+            ])
+            ->values()
+            ->all();
+
+        $totalRatings = (int) (clone $ratingsQuery)->count();
+        $averageRating = $totalRatings > 0
+            ? round((float) (clone $ratingsQuery)->avg('score'), 1)
+            : null;
+
+        return [
+            'averageRating' => $averageRating,
+            'totalRatings' => $totalRatings,
+            'averageTrend' => $averageTrend,
+            'countTrend' => $countTrend,
+            'distribution' => $distribution,
+            'lowRatedEvents' => $lowRatedEvents,
+            // Organizer replies to ratings are not supported yet.
+            'responseRate' => null,
+            'topRatedEvents' => collect($popularityByEvent)
+                ->filter(fn (array $event) => ($event['avg_rating'] ?? null) !== null && ($event['ratings'] ?? 0) >= 1)
+                ->sortByDesc('avg_rating')
+                ->take(5)
+                ->map(fn (array $event) => [
+                    'name' => $event['name'],
+                    'rating' => $event['avg_rating'],
+                    'ratings_count' => $event['ratings'],
+                ])
+                ->values()
+                ->all(),
+        ];
+    }
+
+    /**
+     * Payload for the weekly organizer email/digest notification.
+     *
+     * @return array{
+     *     weekLabel: string,
+     *     from: string,
+     *     to: string,
+     *     netRevenue: float,
+     *     ticketsSold: int,
+     *     attendanceRate: float|null,
+     *     checkedIn: int,
+     *     topEvent: array{name: string, revenue: float, tickets_sold: int}|null,
+     *     bottomEvent: array{name: string, revenue: float, tickets_sold: int}|null,
+     *     reportsUrl: string
+     * }
+     */
+    public function getWeeklyDigestPayload(int $organizerId): array
+    {
+        $to = now()->startOfDay();
+        $from = $to->copy()->subDays(6);
+        $filters = [
+            'from' => $from->toDateString(),
+            'to' => $to->toDateString(),
+            'event_id' => null,
+            'status' => null,
+        ];
+
+        $netRevenue = $this->periodNetRevenue($organizerId, $filters);
+        $ticketsSold = (int) $this->organizerBookingsQuery($organizerId, $filters)
+            ->where('status', BookingStatusEnum::Confirmed)
+            ->count();
+
+        $attendance = $this->getAttendanceReport($organizerId, $filters);
+        $performance = collect($this->getEventPerformance($organizerId, $filters))
+            ->filter(fn (array $event) => ((int) $event['tickets_sold']) > 0 || ((float) $event['revenue']) > 0)
+            ->values();
+
+        $top = $performance->sortByDesc('revenue')->first();
+        $bottom = $performance->sortBy('revenue')->first();
+
+        $mapEvent = function (?array $event): ?array {
+            if (! $event) {
+                return null;
+            }
+
+            return [
+                'name' => $event['name'],
+                'revenue' => (float) $event['revenue'],
+                'tickets_sold' => (int) $event['tickets_sold'],
+            ];
+        };
+
+        return [
+            'weekLabel' => $from->format('M j').' – '.$to->format('M j, Y'),
+            'from' => $from->toDateString(),
+            'to' => $to->toDateString(),
+            'netRevenue' => $netRevenue,
+            'ticketsSold' => $ticketsSold,
+            'attendanceRate' => $attendance['attendanceRate'],
+            'checkedIn' => (int) ($attendance['checkedIn'] ?? 0),
+            'topEvent' => $mapEvent($top),
+            'bottomEvent' => $performance->count() > 1 ? $mapEvent($bottom) : null,
+            'reportsUrl' => route('organizer.reports', [
+                'from' => $from->toDateString(),
+                'to' => $to->toDateString(),
+            ]),
+        ];
     }
 }

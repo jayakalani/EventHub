@@ -304,6 +304,143 @@ function initOrganizerDashboard() {
     });
 
     bindDashboardPdfExportButtons();
+    initLiveSalesPulse();
+}
+
+function escapeHtml(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function formatNumber(value) {
+    return Number(value || 0).toLocaleString();
+}
+
+function renderPurchaseCard(purchase) {
+    const buyer = purchase.buyer || 'Unknown';
+    const initial = escapeHtml(buyer.charAt(0).toUpperCase() || '?');
+    const badges = (purchase.category_badges?.length
+        ? purchase.category_badges
+        : [{ label: purchase.category || 'General', color: '#6366f1' }])
+        .map((badge) => {
+            const color = badge.color || '#6366f1';
+            return `<span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold text-slate-700 ring-1 ring-inset ring-black/5" style="background-color: ${escapeHtml(color)}18;">
+                <span class="h-1.5 w-1.5 rounded-full" style="background-color: ${escapeHtml(color)}"></span>
+                ${escapeHtml(badge.label || 'General')}
+            </span>`;
+        })
+        .join('');
+
+    return `<a href="${escapeHtml(purchase.url || '#')}" class="btn-smooth flex items-start gap-3 px-5 py-4 hover:bg-white/45">
+        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/60 bg-indigo-50/80 text-sm font-bold text-indigo-700 backdrop-blur-sm">
+            ${initial}
+        </div>
+        <div class="min-w-0 flex-1">
+            <div class="flex items-start justify-between gap-3">
+                <p class="truncate text-sm font-semibold text-slate-900">${escapeHtml(buyer)}</p>
+                <p class="shrink-0 text-[11px] font-medium text-slate-400">${escapeHtml(purchase.booked_at || '—')}</p>
+            </div>
+            <div class="mt-1.5 flex flex-wrap gap-1.5">${badges}</div>
+            <div class="mt-1.5 flex items-center justify-between gap-3">
+                <p class="truncate text-xs text-slate-500">${escapeHtml(purchase.event || '')}</p>
+                <p class="shrink-0 text-sm font-bold text-slate-900">LKR ${formatNumber(purchase.amount)}</p>
+            </div>
+        </div>
+    </a>`;
+}
+
+function applyLivePulse(payload) {
+    const today = payload?.todaySummary || {};
+    const dayOfOps = payload?.dayOfOps || {};
+
+    const eventsEl = document.querySelector('[data-live="eventsToday"]');
+    const ticketsEl = document.querySelector('[data-live="ticketsSold"]');
+    const revenueEl = document.querySelector('[data-live="revenue"]');
+    const checkinRatioEl = document.querySelector('[data-live="checkinRatio"]');
+    const checkinRateEl = document.querySelector('[data-live="checkinRate"]');
+    const refreshedEl = document.querySelector('[data-live-refreshed]');
+    const listEl = document.querySelector('[data-live-sales-list]');
+
+    if (eventsEl) eventsEl.textContent = formatNumber(today.eventsToday);
+    if (ticketsEl) ticketsEl.textContent = formatNumber(today.ticketsSold);
+    if (revenueEl) revenueEl.textContent = `LKR ${formatNumber(today.revenue)}`;
+
+    if (checkinRatioEl && dayOfOps.active) {
+        checkinRatioEl.textContent = `${formatNumber(dayOfOps.checked_in)}/${formatNumber(dayOfOps.sold)}`;
+    }
+    if (checkinRateEl && dayOfOps.active) {
+        checkinRateEl.textContent = `Check-in · ${dayOfOps.rate ?? 0}%`;
+    }
+
+    if (refreshedEl && payload?.refreshed_label) {
+        refreshedEl.textContent = ` · updated ${payload.refreshed_label}`;
+    }
+
+    if (listEl && Array.isArray(payload?.recentPurchases)) {
+        if (payload.recentPurchases.length === 0) {
+            listEl.innerHTML = `<div class="p-4" data-live-sales-empty>
+                <p class="py-8 text-center text-sm text-slate-500">No recent sales yet.</p>
+            </div>`;
+        } else {
+            listEl.innerHTML = payload.recentPurchases.map(renderPurchaseCard).join('');
+        }
+    }
+}
+
+function initLiveSalesPulse() {
+    const url = window.organizerDashboardLiveUrl;
+    if (!url) return;
+
+    const intervalMs = 20000;
+    let timer = null;
+    let inFlight = false;
+
+    async function tick() {
+        if (document.hidden || inFlight) return;
+        inFlight = true;
+        try {
+            const response = await fetch(url, {
+                headers: {
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                credentials: 'same-origin',
+            });
+            if (!response.ok) return;
+            const payload = await response.json();
+            applyLivePulse(payload);
+        } catch (error) {
+            // Keep silent — dashboard still works without live updates.
+        } finally {
+            inFlight = false;
+        }
+    }
+
+    function start() {
+        if (timer) return;
+        timer = window.setInterval(tick, intervalMs);
+    }
+
+    function stop() {
+        if (!timer) return;
+        window.clearInterval(timer);
+        timer = null;
+    }
+
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            stop();
+        } else {
+            tick();
+            start();
+        }
+    });
+
+    start();
 }
 
 document.addEventListener('DOMContentLoaded', initOrganizerDashboard);

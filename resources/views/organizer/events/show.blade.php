@@ -1,7 +1,9 @@
 @php
     $totalCategorytickets = $event->total_tickets;
     $totalAvailable = $ticketCategories->sum('no_of_available_tickets');
-    $totalBooked = max(0, $totalCategorytickets - $totalAvailable);
+    $totalHeld = $ticketCategories->sum(fn ($category) => (int) ($category->held_quantity ?? 0));
+    $totalAbandoned = $ticketCategories->sum(fn ($category) => (int) ($category->abandoned_quantity ?? 0));
+    $totalSold = $ticketCategories->sum(fn ($category) => (int) ($category->confirmed_bookings_count ?? 0));
 
     $statusStyles = [
         'unpublished' => 'bg-amber-400/20 text-white ring-amber-100/40',
@@ -33,6 +35,24 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 19l-7-7 7-7" />
                     </svg>
                     {{ __('Back to Events') }}
+                </a>
+
+                <a href="{{ route('organizer.bookings.index', ['event_id' => $event->id]) }}"
+                    class="inline-flex items-center justify-center rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-sm font-semibold text-gray-700 shadow-sm transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+                    <svg class="mr-1.5 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
+                            d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    {{ __('Guest List') }}
+                </a>
+
+                <a href="{{ route('organizer.bookings.scan', ['event_id' => $event->id]) }}"
+                    class="inline-flex items-center justify-center rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-sm font-semibold text-gray-700 shadow-sm transition hover:border-sky-200 hover:bg-sky-50 hover:text-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2">
+                    <svg class="mr-1.5 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
+                            d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                    </svg>
+                    {{ __('Check-in') }}
                 </a>
 
                 <a href="{{ route('organizer.ticket-categories.create', $event->id) }}"
@@ -246,7 +266,7 @@
                 @endif
 
                 {{-- Stats Row --}}
-                <div class="grid grid-cols-2 gap-px bg-gray-100 sm:grid-cols-8">
+                <div class="grid grid-cols-2 gap-px bg-gray-100 sm:grid-cols-3 lg:grid-cols-9">
                     <div class="bg-white px-4 py-3.5">
                         <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ __('Total tickets') }}</p>
                         <p class="mt-0.5 text-xl font-bold text-gray-900">{{ number_format($event->total_tickets) }}</p>
@@ -257,11 +277,18 @@
                     </div>
                     <div class="bg-white px-4 py-3.5">
                         <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ __('Available') }}</p>
-                        <p class="mt-0.5 text-xl font-bold text-emerald-600">{{ $totalAvailable }}</p>
+                        <p class="mt-0.5 text-xl font-bold text-emerald-600">{{ number_format($totalAvailable) }}</p>
                     </div>
                     <div class="bg-white px-4 py-3.5">
-                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ __('Booked') }}</p>
-                        <p class="mt-0.5 text-xl font-bold text-amber-600">{{ $totalBooked }}</p>
+                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ __('In cart') }}</p>
+                        <p class="mt-0.5 text-xl font-bold text-amber-600">{{ number_format($totalHeld) }}</p>
+                        @if ($totalAbandoned > 0)
+                            <p class="mt-0.5 text-[11px] text-rose-600">{{ number_format($totalAbandoned) }} {{ __('abandoned') }}</p>
+                        @endif
+                    </div>
+                    <div class="bg-white px-4 py-3.5">
+                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ __('Sold') }}</p>
+                        <p class="mt-0.5 text-xl font-bold text-sky-600">{{ number_format($totalSold) }}</p>
                     </div>
                     <div class="bg-white px-4 py-3.5">
                         <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ __('Likes') }}</p>
@@ -329,7 +356,7 @@
                         </div>
                         <div class="bg-white px-4 py-3.5 sm:col-span-2 lg:col-span-1">
                             <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ __('Tickets Sold') }}</p>
-                            <p class="mt-0.5 text-xl font-bold text-amber-600">{{ number_format($totalBooked) }}</p>
+                            <p class="mt-0.5 text-xl font-bold text-amber-600">{{ number_format($totalSold) }}</p>
                             <p class="mt-0.5 text-xs text-gray-500">{{ __('Across all categories') }}</p>
                         </div>
                     </div>
@@ -474,11 +501,17 @@
                     {{-- Attendee Ratings --}}
                     <div
                         class="overflow-hidden rounded-2xl border border-white/70 bg-white/90 p-5 shadow-md shadow-indigo-100/25 backdrop-blur sm:p-6">
-                        <div class="mb-4">
-                            <h3 class="text-base font-semibold text-gray-900">{{ __('Attendee Ratings') }}</h3>
-                            <p class="mt-0.5 text-sm text-gray-500">
-                                {{ __('Ratings submitted by attendees for this event.') }}
-                            </p>
+                        <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                            <div>
+                                <h3 class="text-base font-semibold text-gray-900">{{ __('Attendee Ratings') }}</h3>
+                                <p class="mt-0.5 text-sm text-gray-500">
+                                    {{ __('Ratings submitted by attendees for this event.') }}
+                                </p>
+                            </div>
+                            <a href="{{ route('organizer.reviews.index', ['event_id' => $event->id]) }}"
+                                class="inline-flex items-center justify-center rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-sm font-semibold text-gray-700 shadow-sm transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700">
+                                {{ __('Open reviews inbox') }}
+                            </a>
                         </div>
 
                         <div class="mb-4 rounded-xl border border-gray-100 bg-gray-50/70 p-4">
@@ -581,7 +614,7 @@
                             <div>
                                 <h3 class="text-base font-semibold text-gray-900">{{ __('ticket Categories') }}</h3>
                                 <p class="mt-0.5 text-sm text-gray-500">
-                                    {{ __('Manage ticket categories, pricing and availability.') }}
+                                    {{ __('Manage ticket categories, pricing, availability, and cart holds.') }}
                                 </p>
                             </div>
                             <a href="{{ route('organizer.ticket-categories.create', $event->id) }}"
@@ -609,6 +642,18 @@
                                         <th
                                             class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
                                             {{ __('Available') }}
+                                        </th>
+                                        <th
+                                            class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                                            {{ __('In cart') }}
+                                        </th>
+                                        <th
+                                            class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                                            {{ __('Sold') }}
+                                        </th>
+                                        <th
+                                            class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                                            {{ __('Abandoned') }}
                                         </th>
                                         <th
                                             class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
@@ -653,6 +698,29 @@
                                                     class="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-100">
                                                     {{ $category->no_of_available_tickets }}
                                                 </span>
+                                            </td>
+                                            <td class="px-4 py-3">
+                                                <span
+                                                    class="inline-flex items-center rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700 ring-1 ring-amber-100">
+                                                    {{ (int) ($category->held_quantity ?? 0) }}
+                                                </span>
+                                            </td>
+                                            <td class="px-4 py-3">
+                                                <span
+                                                    class="inline-flex items-center rounded-full bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-700 ring-1 ring-sky-100">
+                                                    {{ (int) ($category->confirmed_bookings_count ?? 0) }}
+                                                </span>
+                                            </td>
+                                            <td class="px-4 py-3">
+                                                @if ((int) ($category->abandoned_quantity ?? 0) > 0)
+                                                    <span
+                                                        class="inline-flex items-center rounded-full bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 ring-1 ring-rose-100"
+                                                        title="{{ __('Expired cart holds still reserving stock until cleanup runs') }}">
+                                                        {{ (int) $category->abandoned_quantity }}
+                                                    </span>
+                                                @else
+                                                    <span class="text-xs text-gray-400">0</span>
+                                                @endif
                                             </td>
                                             <td class="px-4 py-3 text-sm font-semibold text-gray-900">
                                                 LKR {{ number_format($category->ticket_price, 0) }}
@@ -711,7 +779,7 @@
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="7" class="px-4 py-10 text-center">
+                                            <td colspan="10" class="px-4 py-10 text-center">
                                                 <div
                                                     class="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
                                                     <svg class="h-6 w-6" fill="none" stroke="currentColor"
@@ -763,19 +831,31 @@
                                 </svg>
                                 {{ __('Download PDF') }}
                             </a>
-                            <form action="{{ route('organizer.events.destroy', $event->id) }}" method="POST"
-                                onsubmit="return confirm('{{ __('Delete this event? This action cannot be undone.') }}')">
-                                @csrf
-                                @method('DELETE')
-                                <button type="submit"
-                                    class="flex w-full items-center justify-center gap-2 rounded-xl border border-red-200 bg-white px-4 py-2.5 text-sm font-semibold text-red-600 shadow-sm transition hover:bg-red-50">
+                            @if ($event->hasSoldTickets())
+                                <span
+                                    title="{{ __('This event cannot be deleted because at least one ticket has been sold.') }}"
+                                    class="flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm font-semibold text-gray-400">
                                     <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
                                             d="M19 7H5m5 4v6m4-6v6m-7-10l1 12a2 2 0 002 2h4a2 2 0 002-2l1-12M10 7V4a1 1 0 011-1h2a1 1 0 011 1v3" />
                                     </svg>
                                     {{ __('Delete Event') }}
-                                </button>
-                            </form>
+                                </span>
+                            @else
+                                <form action="{{ route('organizer.events.destroy', $event->id) }}" method="POST"
+                                    onsubmit="return confirm('{{ __('Delete this event? This action cannot be undone.') }}')">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit"
+                                        class="flex w-full items-center justify-center gap-2 rounded-xl border border-red-200 bg-white px-4 py-2.5 text-sm font-semibold text-red-600 shadow-sm transition hover:bg-red-50">
+                                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
+                                                d="M19 7H5m5 4v6m4-6v6m-7-10l1 12a2 2 0 002 2h4a2 2 0 002-2l1-12M10 7V4a1 1 0 011-1h2a1 1 0 011 1v3" />
+                                        </svg>
+                                        {{ __('Delete Event') }}
+                                    </button>
+                                </form>
+                            @endif
                         </div>
                     </div>
 

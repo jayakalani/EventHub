@@ -6,12 +6,14 @@ enum OrganizerNotificationCategory: string
 {
     case Ticket = 'ticket';
     case Reminder = 'reminder';
+    case Feedback = 'feedback';
 
     public function label(): string
     {
         return match ($this) {
             self::Ticket => 'Ticket Notifications',
             self::Reminder => 'Reminder Notifications',
+            self::Feedback => 'Feedback Notifications',
         };
     }
 
@@ -20,6 +22,7 @@ enum OrganizerNotificationCategory: string
         return match ($this) {
             self::Ticket => 'bi-ticket-perforated',
             self::Reminder => 'bi-bell',
+            self::Feedback => 'bi-star',
         };
     }
 
@@ -28,6 +31,7 @@ enum OrganizerNotificationCategory: string
         return match ($this) {
             self::Ticket => 'indigo',
             self::Reminder => 'amber',
+            self::Feedback => 'yellow',
         };
     }
 
@@ -53,6 +57,10 @@ enum OrganizerNotificationCategory: string
                 'event_starts_tomorrow' => 'Event starts tomorrow',
                 'event_starts_in_one_hour' => 'Event starts in 1 hour',
                 'ticket_sales_closing_soon' => 'Ticket sales closing soon',
+            ],
+            self::Feedback => [
+                'event_review_digest' => 'Post-event review digest',
+                'weekly_performance_digest' => 'Weekly performance digest',
             ],
         };
     }

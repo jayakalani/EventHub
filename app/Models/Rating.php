@@ -29,4 +29,11 @@ class Rating extends Model
     {
         return $this->belongsTo(Event::class);
     }
+
+    public function isOwnedByOrganizer(?int $organizerId): bool
+    {
+        $this->loadMissing('event');
+
+        return $this->event?->isOwnedByOrganizer($organizerId) ?? false;
+    }
 }

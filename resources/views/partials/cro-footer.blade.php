@@ -15,11 +15,6 @@
                 {{ t(['en' => 'Refunds', 'si' => 'ආපසු ගෙවීම්']) }}
             </x-footer-link>
         </li>
-        <li>
-            <x-footer-link :href="route('cro.reports')" :active="request()->routeIs('cro.reports', 'cro.reports.*')">
-                {{ t(['en' => 'Reports', 'si' => 'වාර්තා']) }}
-            </x-footer-link>
-        </li>
     </x-slot:explore>
 
     <x-slot:legal>

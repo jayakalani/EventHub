@@ -9,8 +9,6 @@ use App\Models\Inquiry;
 use App\Models\InquiryResponse;
 use App\Models\Rating;
 use App\Models\ticketBooking;
-use App\Models\User;
-use App\Models\UserRole;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -36,39 +34,43 @@ class CroReportService
     {
         $normalized = $this->normalizeFilters($filters);
         $eventId = $normalized['event'];
-        $croId = $normalized['cro'];
+        // Always scope to the logged-in CRO's assigned events — never other CROs.
+        $scopeCroId = $viewerCroId;
+
+        if ($eventId && $scopeCroId && ! $this->croOwnsEvent($scopeCroId, $eventId)) {
+            $eventId = null;
+        }
+
         $from = $normalized['fromCarbon'];
         $to = $normalized['toCarbon'];
         $period = $normalized['period'];
 
-        $inquiries = $this->getInquiryResolutionReport($eventId, $croId, $from, $to, $period);
-        $complaints = $this->getComplaintStatisticsReport($eventId, $croId, $from, $to, $period);
-        $satisfaction = $this->getSatisfactionReport($eventId, $from, $to, $period);
+        $inquiries = $this->getInquiryResolutionReport($eventId, $scopeCroId, $from, $to, $period);
+        $complaints = $this->getComplaintStatisticsReport($eventId, $scopeCroId, $from, $to, $period);
+        $satisfaction = $this->getSatisfactionReport($eventId, $from, $to, $period, $scopeCroId);
         $avgResponseLabel = $this->formatResponseTime(
-            $this->averageResponseMinutes($eventId, $croId, $from, $to)
+            $this->averageResponseMinutes($eventId, $scopeCroId, $from, $to)
         );
 
-        $eventOptions = $this->eventOptions();
-        $croOptions = $this->croOptions();
+        $eventOptions = $this->eventOptions($scopeCroId);
 
-        $personalCroId = $croId ?: $viewerCroId;
-        $personalKpis = $personalCroId
-            ? $this->dashboardService->personalKpis($personalCroId, $eventId, $from, $to)
+        $personalKpis = $scopeCroId
+            ? $this->dashboardService->personalKpis($scopeCroId, $eventId, $from, $to)
             : null;
 
         return [
             'filters' => [
                 'event' => $eventId,
-                'cro' => $croId,
+                'cro' => null,
                 'range' => $normalized['range'],
                 'from' => $from->toDateString(),
                 'to' => $to->toDateString(),
                 'selectedEventName' => collect($eventOptions)->firstWhere('id', $eventId)['name'] ?? null,
-                'selectedCroName' => collect($croOptions)->firstWhere('id', $croId)['name'] ?? null,
+                'selectedCroName' => null,
             ],
             'filterOptions' => [
                 'events' => $eventOptions,
-                'cros' => $croOptions,
+                'cros' => [],
             ],
             'summary' => [
                 'resolved' => ($inquiries['resolvedOrClosed'] ?? 0) + ($complaints['resolved'] ?? 0) + ($complaints['closed'] ?? 0),
@@ -257,9 +259,13 @@ class CroReportService
      *     trend: list<float|null>
      * }
      */
-    private function getSatisfactionReport(?int $eventId, Carbon $from, Carbon $to, string $period): array
+    private function getSatisfactionReport(?int $eventId, Carbon $from, Carbon $to, string $period, ?int $scopeCroId = null): array
     {
         $ratingsQuery = Rating::query()
+            ->when($scopeCroId, fn (Builder $q) => $q->whereIn(
+                'event_id',
+                Event::query()->where('contact_person', $scopeCroId)->select('id')
+            ))
             ->when($eventId, fn (Builder $q) => $q->where('event_id', $eventId))
             ->whereBetween('created_at', [$from, $to]);
 
@@ -290,21 +296,21 @@ class CroReportService
                     ->all(),
                 'total' => array_sum($counts),
             ],
-            'trend' => $this->csatTrend($eventId, $from, $to, $period),
+            'trend' => $this->csatTrend($eventId, $from, $to, $period, $scopeCroId),
         ];
     }
 
-    private function inquiryQuery(?int $eventId, ?int $croId): Builder
+    private function inquiryQuery(?int $eventId, ?int $scopeCroId): Builder
     {
         return Inquiry::query()
-            ->when($eventId, fn (Builder $q) => $q->where('inquiries.event_id', $eventId))
-            ->when($croId, fn (Builder $q) => $q->where('inquiries.assigned_to', $croId));
+            ->when($scopeCroId, fn (Builder $q) => $q->forCroQueue($scopeCroId, 'mine'))
+            ->when($eventId, fn (Builder $q) => $q->where('event_id', $eventId));
     }
 
-    private function complaintQuery(?int $eventId, ?int $croId): Builder
+    private function complaintQuery(?int $eventId, ?int $scopeCroId): Builder
     {
         return Complaint::query()
-            ->when($croId, fn (Builder $q) => $q->where('assigned_to', $croId))
+            ->when($scopeCroId, fn (Builder $q) => $q->forCroQueue($scopeCroId, 'mine'))
             ->when($eventId, function (Builder $q) use ($eventId) {
                 $q->whereIn('user_id', ticketBooking::query()
                     ->where('event_id', $eventId)
@@ -366,7 +372,10 @@ class CroReportService
         $rows = DB::table('inquiries as i')
             ->joinSub($firstResponses, 'fr', 'fr.inquiry_id', '=', 'i.id')
             ->when($eventId, fn ($q) => $q->where('i.event_id', $eventId))
-            ->when($croId, fn ($q) => $q->where('i.assigned_to', $croId))
+            ->when($croId, fn ($q) => $q->whereIn(
+                'i.event_id',
+                Event::query()->where('contact_person', $croId)->select('id')
+            ))
             ->whereBetween('i.created_at', [$from, $to])
             ->selectRaw("DATE_FORMAT(i.created_at, '{$format}') as bucket, AVG(TIMESTAMPDIFF(MINUTE, i.created_at, fr.first_response_at)) as avg_minutes")
             ->groupBy('bucket')
@@ -381,12 +390,16 @@ class CroReportService
     /**
      * @return list<float|null>
      */
-    private function csatTrend(?int $eventId, Carbon $from, Carbon $to, string $period): array
+    private function csatTrend(?int $eventId, Carbon $from, Carbon $to, string $period, ?int $scopeCroId = null): array
     {
         $keys = $this->periodKeys($period, $from, $to);
         $format = $period === 'month' ? '%Y-%m' : '%Y-%m-%d';
 
         $rows = Rating::query()
+            ->when($scopeCroId, fn (Builder $q) => $q->whereIn(
+                'event_id',
+                Event::query()->where('contact_person', $scopeCroId)->select('id')
+            ))
             ->when($eventId, fn (Builder $q) => $q->where('event_id', $eventId))
             ->whereBetween('created_at', [$from, $to])
             ->selectRaw("DATE_FORMAT(created_at, '{$format}') as bucket, AVG(score) as avg_score")
@@ -578,7 +591,10 @@ class CroReportService
         $avg = DB::table('inquiries as i')
             ->joinSub($firstResponses, 'fr', 'fr.inquiry_id', '=', 'i.id')
             ->when($eventId, fn ($q) => $q->where('i.event_id', $eventId))
-            ->when($croId, fn ($q) => $q->where('i.assigned_to', $croId))
+            ->when($croId, fn ($q) => $q->whereIn(
+                'i.event_id',
+                Event::query()->where('contact_person', $croId)->select('id')
+            ))
             ->whereBetween('i.created_at', [$from, $to])
             ->avg(DB::raw('TIMESTAMPDIFF(MINUTE, i.created_at, fr.first_response_at)'));
 
@@ -604,16 +620,19 @@ class CroReportService
     /**
      * @return list<array{id: int, name: string}>
      */
-    private function eventOptions(): array
+    private function eventOptions(?int $scopeCroId = null): array
     {
         return Event::query()
-            ->where(function (Builder $query) {
-                $query->whereIn('id', Inquiry::query()->whereNotNull('event_id')->select('event_id'))
-                    ->orWhere(function (Builder $upcoming) {
-                        $upcoming->visibleToAttendees()
-                            ->whereDate('date', '>=', today()->subMonths(2))
-                            ->whereDate('date', '<=', today()->addMonths(2));
-                    });
+            ->when($scopeCroId, fn (Builder $q) => $q->where('contact_person', $scopeCroId))
+            ->when(! $scopeCroId, function (Builder $query) {
+                $query->where(function (Builder $inner) {
+                    $inner->whereIn('id', Inquiry::query()->whereNotNull('event_id')->select('event_id'))
+                        ->orWhere(function (Builder $upcoming) {
+                            $upcoming->visibleToAttendees()
+                                ->whereDate('date', '>=', today()->subMonths(2))
+                                ->whereDate('date', '<=', today()->addMonths(2));
+                        });
+                });
             })
             ->orderByDesc('date')
             ->limit(100)
@@ -623,27 +642,12 @@ class CroReportService
             ->all();
     }
 
-    /**
-     * @return list<array{id: int, name: string}>
-     */
-    private function croOptions(): array
+    private function croOwnsEvent(int $croId, int $eventId): bool
     {
-        $roleId = UserRole::query()->where('name_en', UserRole::CRO)->value('id');
-
-        if (! $roleId) {
-            return [];
-        }
-
-        return User::query()
-            ->where('role_id', $roleId)
-            ->orderBy('first_name')
-            ->get(['id', 'first_name', 'last_name'])
-            ->map(fn (User $user) => [
-                'id' => $user->id,
-                'name' => $user->full_name,
-            ])
-            ->values()
-            ->all();
+        return Event::query()
+            ->where('id', $eventId)
+            ->where('contact_person', $croId)
+            ->exists();
     }
 
     private function classifyComplaintType(string $subject): string

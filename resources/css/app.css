@@ -41,6 +41,14 @@
         @apply border-indigo-200/60 bg-white/60 shadow-md shadow-indigo-500/10;
     }
 
+    .segmented-control {
+        @apply transition-all duration-300 ease-out;
+    }
+
+    .segmented-control:hover {
+        @apply border-indigo-200/70 bg-white/70;
+    }
+
     .chart-expand-hit {
         @apply cursor-pointer;
     }

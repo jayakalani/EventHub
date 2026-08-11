@@ -1,7 +1,5 @@
 @php
-    $queueScope = $queueScope ?? 'mine';
     $filters = $filters ?? ['status' => null, 'event' => null, 'from' => null, 'to' => null];
-    $scopeQuery = $queueScope === 'all' ? ['scope' => 'all'] : [];
     $filterQuery = array_filter([
         'status' => $filters['status'] ?? null,
         'event' => $filters['event'] ?? null,
@@ -17,7 +15,7 @@
         <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
                 <h2 class="text-3xl font-bold text-slate-900">Refund Requests</h2>
-                <p class="mt-1 text-slate-500">Review pending refunds and browse processed history.</p>
+                <p class="mt-1 text-slate-500">Your assigned events only · review pending refunds and browse processed history.</p>
             </div>
             <a href="{{ route('cro.dashboard') }}"
                 class="inline-flex items-center gap-2 rounded-2xl bg-slate-800 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-900">
@@ -36,32 +34,27 @@
                 <div class="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-red-800">{{ $errors->first() }}</div>
             @endif
 
-            @include('partials.cro-queue-scope', [
-                'routeName' => 'cro.refund-requests.index',
-                'queueScope' => $queueScope,
-                'mineLabel' => 'My events',
-                'allLabel' => 'All events',
-                'mineHint' => 'Showing refunds for events where you are the assigned CRO.',
-                'extraQuery' => $filterQuery,
-            ])
+            <div class="rounded-2xl border border-indigo-200/70 bg-indigo-50/70 px-4 py-3 text-sm text-indigo-800">
+                Showing refunds for events where you are the assigned CRO.
+            </div>
 
             <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                <a href="{{ route('cro.refund-requests.index', array_merge($scopeQuery, array_filter(['event' => $filters['event'], 'from' => $filters['from'], 'to' => $filters['to'], 'status' => 'pending']))) }}"
+                <a href="{{ route('cro.refund-requests.index', array_filter(array_merge($filterQuery, ['status' => 'pending']))) }}"
                     class="rounded-3xl border p-5 transition {{ ($filters['status'] ?? null) === 'pending' ? 'border-amber-300 bg-amber-50' : 'border-slate-200 bg-white hover:border-slate-300' }}">
                     <p class="text-sm font-medium text-slate-500">Pending</p>
                     <p class="mt-1 text-3xl font-bold text-amber-500">{{ number_format($counts['pending']) }}</p>
                 </a>
-                <a href="{{ route('cro.refund-requests.index', array_merge($scopeQuery, array_filter(['event' => $filters['event'], 'from' => $filters['from'], 'to' => $filters['to'], 'status' => 'approved']))) }}"
+                <a href="{{ route('cro.refund-requests.index', array_filter(array_merge($filterQuery, ['status' => 'approved']))) }}"
                     class="rounded-3xl border p-5 transition {{ ($filters['status'] ?? null) === 'approved' ? 'border-emerald-300 bg-emerald-50' : 'border-slate-200 bg-white hover:border-slate-300' }}">
                     <p class="text-sm font-medium text-slate-500">Approved</p>
                     <p class="mt-1 text-3xl font-bold text-emerald-600">{{ number_format($counts['approved']) }}</p>
                 </a>
-                <a href="{{ route('cro.refund-requests.index', array_merge($scopeQuery, array_filter(['event' => $filters['event'], 'from' => $filters['from'], 'to' => $filters['to'], 'status' => 'declined']))) }}"
+                <a href="{{ route('cro.refund-requests.index', array_filter(array_merge($filterQuery, ['status' => 'declined']))) }}"
                     class="rounded-3xl border p-5 transition {{ ($filters['status'] ?? null) === 'declined' ? 'border-rose-300 bg-rose-50' : 'border-slate-200 bg-white hover:border-slate-300' }}">
                     <p class="text-sm font-medium text-slate-500">Declined</p>
                     <p class="mt-1 text-3xl font-bold text-rose-600">{{ number_format($counts['declined']) }}</p>
                 </a>
-                <a href="{{ route('cro.refund-requests.index', array_merge($scopeQuery, array_filter(['event' => $filters['event'], 'from' => $filters['from'], 'to' => $filters['to'], 'status' => 'processed']))) }}"
+                <a href="{{ route('cro.refund-requests.index', array_filter(array_merge($filterQuery, ['status' => 'processed']))) }}"
                     class="rounded-3xl border p-5 transition {{ ($filters['status'] ?? null) === 'processed' ? 'border-indigo-300 bg-indigo-50' : 'border-slate-200 bg-white hover:border-slate-300' }}">
                     <p class="text-sm font-medium text-slate-500">Processed</p>
                     <p class="mt-1 text-3xl font-bold text-slate-900">{{ number_format($counts['processed']) }}</p>
@@ -71,10 +64,6 @@
 
             <form method="GET" action="{{ route('cro.refund-requests.index') }}"
                 class="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-                @if ($queueScope === 'all')
-                    <input type="hidden" name="scope" value="all">
-                @endif
-
                 <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
                     <div class="xl:col-span-2">
                         <label for="refund_q" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Search</label>
@@ -100,7 +89,7 @@
                         <label for="refund_event" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Event</label>
                         <select id="refund_event" name="event"
                             class="w-full rounded-xl border-slate-300 text-sm focus:border-indigo-500 focus:ring-indigo-500">
-                            <option value="">All events</option>
+                            <option value="">All assigned events</option>
                             @foreach ($events as $event)
                                 <option value="{{ $event->id }}" @selected(($filters['event'] ?? null) === $event->id)>
                                     {{ $event->name }}
@@ -127,7 +116,7 @@
                         Apply
                     </button>
                     @if ($hasActiveFilters)
-                        <a href="{{ route('cro.refund-requests.index', $scopeQuery) }}"
+                        <a href="{{ route('cro.refund-requests.index') }}"
                             class="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
                             Clear
                         </a>
@@ -140,12 +129,9 @@
                     <h3 class="text-2xl font-bold text-slate-800">No Refund Requests</h3>
                     <p class="mt-2 text-slate-500">
                         @if ($hasActiveFilters)
-                            No refunds match the selected filters.
-                        @elseif ($queueScope === 'mine')
-                            No refunds on your assigned events.
-                            <a href="{{ route('cro.refund-requests.index', ['scope' => 'all']) }}" class="font-semibold text-indigo-600 hover:text-indigo-700">View all events</a>
+                            No refunds match the selected filters for your assigned events.
                         @else
-                            No refund requests yet.
+                            No refunds on your assigned events.
                         @endif
                     </p>
                 </div>

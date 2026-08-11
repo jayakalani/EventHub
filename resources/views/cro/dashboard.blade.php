@@ -11,11 +11,39 @@
         $filters = $dashboard['filters'] ?? ['event' => null, 'from' => null, 'to' => null];
         $feedbackThemes = $dashboard['feedbackThemes'] ?? [];
         $ratingDist = $dashboard['charts']['satisfactionDistribution'] ?? ['labels' => [], 'counts' => [], 'percents' => [], 'total' => 0];
+        $reportFilters = $reports['filters'] ?? ['event' => null, 'cro' => null, 'range' => 'month', 'from' => null, 'to' => null];
+        $filterOptions = $reports['filterOptions'] ?? ['events' => [], 'cros' => []];
+        $activeRange = $reportFilters['range'] ?? 'month';
+        $filterQueryBase = array_filter([
+            'event' => $reportFilters['event'] ?? null,
+        ], fn ($value) => $value !== null && $value !== '');
+        $datePresets = [
+            'week' => [
+                'key' => 'week',
+                'label' => 'Weekly',
+                'from' => now()->subDays(6)->toDateString(),
+                'to' => now()->toDateString(),
+            ],
+            'month' => [
+                'key' => 'month',
+                'label' => 'Monthly',
+                'from' => now()->subDays(29)->toDateString(),
+                'to' => now()->toDateString(),
+            ],
+        ];
         $user = Auth::user();
         $hour = (int) now()->format('G');
         $greeting = $hour < 12 ? 'Good Morning' : ($hour < 17 ? 'Good Afternoon' : 'Good Evening');
         $displayName = $user?->first_name ?: 'CRO';
         $initials = strtoupper(substr($user?->first_name ?? 'C', 0, 1) . substr($user?->last_name ?? '', 0, 1));
+        $queueCount = count($todayWork);
+        $priorityCount = count($dashboard['highPriority'] ?? []);
+        $sectionTabs = [
+            'today' => ['label' => 'Today', 'icon' => 'bi-lightning-charge', 'badge' => $queueCount + $priorityCount],
+            'performance' => ['label' => 'Performance', 'icon' => 'bi-speedometer2', 'badge' => null],
+            'analytics' => ['label' => 'Analytics', 'icon' => 'bi-graph-up', 'badge' => null],
+            'reports' => ['label' => 'Reports', 'icon' => 'bi-bar-chart-line', 'badge' => null],
+        ];
     @endphp
 
     <div class="cro-dashboard relative isolate overflow-hidden py-5 sm:py-6"
@@ -25,6 +53,12 @@
             title: '',
             description: '',
             chartPeriod: @js($dashboard['charts']['defaultPeriod'] ?? 'week'),
+            section: (() => {
+                const hash = (window.location.hash || '').replace('#', '');
+                if (hash === 'cro-reports' || hash === 'reports') return 'reports';
+                if (['today', 'performance', 'analytics', 'reports'].includes(hash)) return hash;
+                return 'today';
+            })(),
             openChart(key, title, description) {
                 this.chartKey = key;
                 this.title = title;
@@ -46,27 +80,38 @@
             setChartPeriod(period) {
                 this.chartPeriod = period;
             },
+            setSection(section) {
+                this.section = section;
+                const hash = section === 'reports' ? 'cro-reports' : section;
+                history.replaceState(null, '', '#' + hash);
+                this.$nextTick(() => {
+                    window.dispatchEvent(new CustomEvent('cro-dashboard-section-changed', { detail: { section } }));
+                    if (section === 'reports') {
+                        window.dispatchEvent(new CustomEvent('cro-reports-tab-changed'));
+                    }
+                });
+            },
         }"
         @keydown.escape.window="if (open) closeChart()">
 
         <div class="pointer-events-none absolute inset-0 -z-10">
-            <div class="absolute inset-0 bg-gradient-to-br from-slate-100 via-indigo-50/40 to-cyan-50/50"></div>
-            <div class="absolute -left-24 top-10 h-72 w-72 rounded-full bg-indigo-300/25 blur-3xl"></div>
-            <div class="absolute right-0 top-40 h-80 w-80 rounded-full bg-cyan-300/20 blur-3xl"></div>
-            <div class="absolute bottom-20 left-1/3 h-64 w-64 rounded-full bg-rose-300/15 blur-3xl"></div>
-            <div class="absolute inset-0 bg-grid-slate-100 opacity-60"></div>
+            <div class="absolute inset-0 bg-gradient-to-br from-slate-100 via-indigo-50/35 to-cyan-50/45"></div>
+            <div class="absolute -left-24 top-10 h-72 w-72 rounded-full bg-indigo-300/20 blur-3xl"></div>
+            <div class="absolute right-0 top-40 h-80 w-80 rounded-full bg-cyan-300/15 blur-3xl"></div>
+            <div class="absolute bottom-20 left-1/3 h-64 w-64 rounded-full bg-sky-300/10 blur-3xl"></div>
+            <div class="absolute inset-0 bg-grid-slate-100 opacity-50"></div>
         </div>
 
-        <div class="mx-auto max-w-7xl space-y-5 px-4 sm:px-6 lg:px-8">
+        <div class="mx-auto max-w-7xl space-y-4 px-4 sm:px-6 lg:px-8">
 
-            {{-- 1. Header --}}
-            <section class="relative overflow-hidden rounded-3xl bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-500 p-6 shadow-xl sm:p-8">
-                <div class="absolute inset-0 opacity-10">
-                    <div class="absolute -right-16 -top-16 h-64 w-64 rounded-full bg-white"></div>
-                    <div class="absolute bottom-0 left-1/3 h-40 w-40 rounded-full bg-white"></div>
+            {{-- Hero --}}
+            <section class="relative overflow-hidden rounded-3xl border border-white/30 bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-500 p-5 shadow-xl shadow-indigo-500/20 sm:p-6">
+                <div class="pointer-events-none absolute inset-0 opacity-15">
+                    <div class="absolute -right-12 -top-12 h-56 w-56 rounded-full bg-white blur-2xl"></div>
+                    <div class="absolute bottom-0 left-1/3 h-36 w-36 rounded-full bg-white blur-xl"></div>
                 </div>
 
-                <div class="relative flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+                <div class="relative flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                     <div class="min-w-0">
                         <div class="flex items-center gap-3">
                             @if ($user?->profile_photo)
@@ -74,150 +119,170 @@
                                     alt="{{ $displayName }}"
                                     class="h-11 w-11 rounded-full object-cover ring-2 ring-white/40 shadow-sm sm:h-12 sm:w-12">
                             @else
-                                <div class="flex h-11 w-11 items-center justify-center rounded-full bg-white/20 text-sm font-bold text-white ring-2 ring-white/30 sm:h-12 sm:w-12 sm:text-base">
+                                <div class="flex h-11 w-11 items-center justify-center rounded-full bg-white/20 text-sm font-bold text-white ring-2 ring-white/30 backdrop-blur sm:h-12 sm:w-12 sm:text-base">
                                     {{ $initials }}
                                 </div>
                             @endif
                             <div class="min-w-0">
-                                <p class="truncate text-sm font-semibold text-blue-100">
-                                    {{ $greeting }}, {{ $displayName }}
-                                </p>
-                                <h1 class="truncate text-2xl font-bold tracking-tight text-white sm:text-3xl">
-                                    Today’s work
-                                </h1>
+                                <p class="truncate text-sm font-medium text-blue-100/90">{{ $greeting }}, {{ $displayName }}</p>
+                                <h1 class="truncate text-2xl font-bold tracking-tight text-white sm:text-3xl">CRO Dashboard</h1>
                             </div>
                         </div>
-                        <p class="mt-2 text-sm text-blue-100">
-                            Your daily queue · {{ now()->format('l, M j, Y') }}
+                        <p class="mt-2 text-sm text-blue-100/90">
+                            {{ now()->format('l, M j, Y') }}
                             @if (($todayTasks['queueTotal'] ?? 0) > 0)
                                 · {{ number_format($todayTasks['queueTotal']) }} items waiting
                             @endif
                         </p>
                     </div>
 
-                    <div class="flex flex-wrap gap-2 sm:gap-3">
+                    <div class="flex flex-wrap gap-2">
                         <x-dashboard-export-pdf
                             route="cro.dashboard.export.pdf"
-                            :params="request()->only(['event', 'from', 'to'])"
+                            :params="request()->only(['event', 'from', 'to', 'range'])"
                             :charts="[
                                 ['canvasId' => 'croSupportTrendChart', 'title' => 'Support Trends'],
                                 ['canvasId' => 'croComplaintStatusChart', 'title' => 'Complaint Resolution Status'],
                                 ['canvasId' => 'croSatisfactionDistributionChart', 'title' => 'Satisfaction Distribution'],
                                 ['canvasId' => 'croSupportCategoriesChart', 'title' => 'Feedback Themes'],
                             ]"
-                            class="!rounded-2xl !border-white/30 !bg-white/10 !px-4 !py-2.5 !text-white hover:!bg-white/20"
+                            class="!rounded-xl !border-white/30 !bg-white/10 !px-3.5 !py-2 !text-white hover:!bg-white/20"
                         />
                         <a href="{{ route('cro.inquiries.index') }}"
-                            class="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2.5 text-sm font-semibold text-indigo-600 shadow-lg transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl">
+                            class="btn-smooth inline-flex items-center gap-2 rounded-xl bg-white px-3.5 py-2 text-sm font-semibold text-indigo-600 shadow-lg hover:-translate-y-0.5 hover:shadow-xl">
                             <i class="bi bi-chat-dots"></i>
                             Inquiries
                         </a>
                         <a href="{{ route('cro.complaints.index') }}"
-                            class="inline-flex items-center gap-2 rounded-2xl border border-white/30 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white backdrop-blur-sm transition-all duration-300 hover:bg-white/20">
+                            class="btn-smooth inline-flex items-center gap-2 rounded-xl border border-white/30 bg-white/10 px-3.5 py-2 text-sm font-semibold text-white backdrop-blur-sm hover:-translate-y-0.5 hover:bg-white/20">
                             <i class="bi bi-exclamation-triangle"></i>
                             Complaints
                         </a>
                         <a href="{{ route('cro.refund-requests.index') }}"
-                            class="inline-flex items-center gap-2 rounded-2xl border border-white/30 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white backdrop-blur-sm transition-all duration-300 hover:bg-white/20">
+                            class="btn-smooth inline-flex items-center gap-2 rounded-xl border border-white/30 bg-white/10 px-3.5 py-2 text-sm font-semibold text-white backdrop-blur-sm hover:-translate-y-0.5 hover:bg-white/20">
                             <i class="bi bi-arrow-counterclockwise"></i>
                             Refunds
                         </a>
-                        <a href="{{ route('cro.reports') }}"
-                            class="inline-flex items-center gap-2 rounded-2xl border border-white/30 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white backdrop-blur-sm transition-all duration-300 hover:bg-white/20">
-                            <i class="bi bi-bar-chart-line"></i>
-                            Reports
-                        </a>
                     </div>
                 </div>
 
-                {{-- Today strip --}}
-                <div class="relative mt-5 flex flex-col gap-2 rounded-2xl border border-white/20 bg-white/10 px-3 py-2.5 backdrop-blur-md sm:flex-row sm:items-center sm:gap-4 sm:px-4">
-                    <div class="shrink-0 sm:border-r sm:border-white/20 sm:pr-4">
-                        <p class="text-[11px] font-semibold uppercase tracking-wide text-blue-100">Today</p>
-                        <p class="text-xs text-blue-50/80">{{ now()->format('D, M j') }}</p>
-                    </div>
-                    <div class="grid min-w-0 flex-1 grid-cols-2 gap-2 sm:grid-cols-4">
-                        @foreach ([
-                            ['label' => 'New Inquiries', 'value' => $todayTasks['newInquiries'], 'href' => route('cro.inquiries.index'), 'icon' => 'bi-envelope'],
-                            ['label' => 'Refunds', 'value' => $todayTasks['refundRequests'], 'href' => route('cro.refund-requests.index'), 'icon' => 'bi-arrow-counterclockwise'],
-                            ['label' => 'Urgent Complaints', 'value' => $todayTasks['urgentComplaints'], 'href' => route('cro.complaints.index'), 'icon' => 'bi-exclamation-octagon'],
-                            ['label' => 'Events Today', 'value' => $todayTasks['eventsToday'], 'href' => null, 'icon' => 'bi-calendar-event'],
-                        ] as $task)
-                            @if ($task['href'])
-                                <a href="{{ $task['href'] }}"
-                                    class="btn-smooth flex items-center gap-2 rounded-xl border border-white/15 bg-white/10 px-2 py-1.5 hover:bg-white/20 sm:px-2.5">
-                                    <span class="hidden h-7 w-7 items-center justify-center rounded-md bg-white/15 text-sm text-white sm:flex">
-                                        <i class="bi {{ $task['icon'] }}"></i>
-                                    </span>
-                                    <div class="min-w-0">
-                                        <p class="truncate text-sm font-bold text-white">{{ number_format($task['value']) }}</p>
-                                        <p class="truncate text-[10px] font-medium text-blue-100 sm:text-xs">{{ $task['label'] }}</p>
-                                    </div>
-                                </a>
-                            @else
-                                <div class="btn-smooth flex items-center gap-2 rounded-xl border border-white/15 bg-white/10 px-2 py-1.5 sm:px-2.5">
-                                    <span class="hidden h-7 w-7 items-center justify-center rounded-md bg-white/15 text-sm text-white sm:flex">
-                                        <i class="bi {{ $task['icon'] }}"></i>
-                                    </span>
-                                    <div class="min-w-0">
-                                        <p class="truncate text-sm font-bold text-white">{{ number_format($task['value']) }}</p>
-                                        <p class="truncate text-[10px] font-medium text-blue-100 sm:text-xs">{{ $task['label'] }}</p>
-                                    </div>
+                <div class="relative mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    @foreach ([
+                        ['label' => 'New Inquiries', 'value' => $todayTasks['newInquiries'], 'href' => route('cro.inquiries.index'), 'icon' => 'bi-envelope'],
+                        ['label' => 'Refunds', 'value' => $todayTasks['refundRequests'], 'href' => route('cro.refund-requests.index'), 'icon' => 'bi-arrow-counterclockwise'],
+                        ['label' => 'Urgent', 'value' => $todayTasks['urgentComplaints'], 'href' => route('cro.complaints.index'), 'icon' => 'bi-exclamation-octagon'],
+                        ['label' => 'Events', 'value' => $todayTasks['eventsToday'], 'href' => null, 'icon' => 'bi-calendar-event'],
+                    ] as $task)
+                        @php $chipClass = 'btn-smooth flex items-center gap-2.5 rounded-2xl border border-white/20 bg-white/10 px-3 py-2.5 backdrop-blur-md hover:-translate-y-0.5 hover:bg-white/20'; @endphp
+                        @if ($task['href'])
+                            <a href="{{ $task['href'] }}" class="{{ $chipClass }}">
+                                <span class="flex h-8 w-8 items-center justify-center rounded-xl bg-white/15 text-white">
+                                    <i class="bi {{ $task['icon'] }} text-sm"></i>
+                                </span>
+                                <div class="min-w-0">
+                                    <p class="text-lg font-bold leading-none text-white">{{ number_format($task['value']) }}</p>
+                                    <p class="mt-1 truncate text-[11px] font-medium text-blue-100">{{ $task['label'] }}</p>
                                 </div>
-                            @endif
-                        @endforeach
-                    </div>
+                            </a>
+                        @else
+                            <div class="{{ $chipClass }}">
+                                <span class="flex h-8 w-8 items-center justify-center rounded-xl bg-white/15 text-white">
+                                    <i class="bi {{ $task['icon'] }} text-sm"></i>
+                                </span>
+                                <div class="min-w-0">
+                                    <p class="text-lg font-bold leading-none text-white">{{ number_format($task['value']) }}</p>
+                                    <p class="mt-1 truncate text-[11px] font-medium text-blue-100">{{ $task['label'] }}</p>
+                                </div>
+                            </div>
+                        @endif
+                    @endforeach
                 </div>
             </section>
 
+            {{-- Segmented control --}}
+            <nav class="sticky top-16 z-30 sm:top-20" aria-label="Dashboard sections">
+                <div class="segmented-control overflow-x-auto rounded-2xl border border-white/60 bg-white/55 p-1.5 shadow-lg shadow-indigo-500/5 backdrop-blur-2xl [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                    <div class="flex min-w-max gap-1 sm:min-w-0 sm:grid sm:grid-cols-4">
+                        @foreach ($sectionTabs as $key => $tab)
+                            <button type="button"
+                                @click="setSection('{{ $key }}')"
+                                class="btn-smooth group relative inline-flex items-center justify-center gap-2 rounded-xl px-3.5 py-2.5 text-sm font-semibold transition"
+                                :class="section === '{{ $key }}'
+                                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/25'
+                                    : 'text-slate-600 hover:bg-white/80 hover:text-slate-900'">
+                                <i class="bi {{ $tab['icon'] }}"></i>
+                                <span>{{ $tab['label'] }}</span>
+                                @if (($tab['badge'] ?? 0) > 0)
+                                    <span class="inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-bold"
+                                        :class="section === '{{ $key }}' ? 'bg-white/20 text-white' : 'bg-indigo-100 text-indigo-700'">
+                                        {{ $tab['badge'] > 99 ? '99+' : $tab['badge'] }}
+                                    </span>
+                                @endif
+                            </button>
+                        @endforeach
+                    </div>
+                </div>
+            </nav>
+
             {{-- Filters --}}
             <section class="glass-panel !rounded-2xl px-4 py-3.5 sm:px-5">
-                <form method="GET" action="{{ route('cro.dashboard') }}" class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-                    <div class="grid flex-1 gap-3 sm:grid-cols-3">
-                        <div>
-                            <label for="cro_event" class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">Event</label>
-                            <select id="cro_event" name="event"
-                                class="w-full rounded-lg border border-white/70 bg-white/70 px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-200">
-                                <option value="">All events</option>
-                                @foreach ($eventFilter['events'] as $eventOption)
-                                    <option value="{{ $eventOption['id'] }}"
-                                        @selected((int) ($eventFilter['selectedEventId'] ?? 0) === (int) $eventOption['id'])>
-                                        {{ $eventOption['name'] }}
-                                        @if (! empty($eventOption['date']))
-                                            ({{ $eventOption['date'] }})
-                                        @endif
-                                    </option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div>
-                            <label for="cro_from" class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">From</label>
-                            <input type="date" id="cro_from" name="from" value="{{ $filters['from'] }}"
-                                class="w-full rounded-lg border border-white/70 bg-white/70 px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-200">
-                        </div>
-                        <div>
-                            <label for="cro_to" class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">To</label>
-                            <input type="date" id="cro_to" name="to" value="{{ $filters['to'] }}"
-                                class="w-full rounded-lg border border-white/70 bg-white/70 px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-200">
-                        </div>
+                <div class="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <h2 class="text-sm font-bold text-slate-900">Filters</h2>
+                        <p class="text-xs text-slate-500">Your assigned events only · applies across all tabs</p>
                     </div>
-                    <div class="flex flex-wrap items-center gap-2">
-                        @if ($eventFilter['selectedEventId'] || request()->filled('from') || request()->filled('to'))
-                            <p class="mr-1 text-xs text-slate-500">
-                                @if ($eventFilter['selectedEventName'])
-                                    Scoped to <span class="font-semibold text-slate-700">{{ $eventFilter['selectedEventName'] }}</span>
-                                @else
-                                    Platform-wide
-                                @endif
-                            </p>
-                        @endif
+                    <div class="flex flex-wrap items-center gap-1.5">
+                        @foreach ($datePresets as $preset)
+                            <a href="{{ route('cro.dashboard', array_merge($filterQueryBase, ['range' => $preset['key'], 'from' => $preset['from'], 'to' => $preset['to']])) }}"
+                                class="btn-smooth inline-flex rounded-lg px-3 py-1.5 text-xs font-semibold transition
+                                    {{ $activeRange === $preset['key']
+                                        ? 'bg-indigo-600 text-white shadow-sm'
+                                        : 'border border-white/70 bg-white/50 text-slate-600 hover:-translate-y-0.5 hover:bg-white/90' }}">
+                                {{ $preset['label'] }}
+                            </a>
+                        @endforeach
+                        <span class="inline-flex rounded-lg px-3 py-1.5 text-xs font-semibold
+                            {{ $activeRange === 'custom'
+                                ? 'bg-indigo-600 text-white shadow-sm'
+                                : 'border border-white/70 bg-white/40 text-slate-500' }}">
+                            Custom
+                        </span>
+                    </div>
+                </div>
+                <form method="GET" action="{{ route('cro.dashboard') }}" class="grid gap-3 lg:grid-cols-12 lg:items-end"
+                    @submit="$el.action = '{{ route('cro.dashboard') }}' + (section === 'reports' ? '#cro-reports' : '#' + section)">
+                    <input type="hidden" name="range" value="custom">
+                    <div class="lg:col-span-4">
+                        <label for="cro_event" class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">Event</label>
+                        <select id="cro_event" name="event"
+                            class="w-full rounded-xl border border-white/70 bg-white/70 px-3 py-2 text-sm text-slate-800 shadow-sm backdrop-blur focus:border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-200">
+                            <option value="">All assigned events</option>
+                            @foreach ($filterOptions['events'] as $eventOption)
+                                <option value="{{ $eventOption['id'] }}"
+                                    @selected((int) ($reportFilters['event'] ?? $eventFilter['selectedEventId'] ?? 0) === (int) $eventOption['id'])>
+                                    {{ $eventOption['name'] }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="lg:col-span-3">
+                        <label for="cro_from" class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">From</label>
+                        <input type="date" id="cro_from" name="from" value="{{ $reportFilters['from'] ?? $filters['from'] }}"
+                            class="w-full rounded-xl border border-white/70 bg-white/70 px-3 py-2 text-sm text-slate-800 shadow-sm backdrop-blur focus:border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-200">
+                    </div>
+                    <div class="lg:col-span-3">
+                        <label for="cro_to" class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">To</label>
+                        <input type="date" id="cro_to" name="to" value="{{ $reportFilters['to'] ?? $filters['to'] }}"
+                            class="w-full rounded-xl border border-white/70 bg-white/70 px-3 py-2 text-sm text-slate-800 shadow-sm backdrop-blur focus:border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-200">
+                    </div>
+                    <div class="flex flex-wrap gap-2 lg:col-span-2">
                         <button type="submit"
-                            class="btn-smooth inline-flex items-center gap-1.5 rounded-lg bg-indigo-600/95 px-3 py-2 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 sm:text-sm">
+                            class="btn-smooth inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:-translate-y-0.5 hover:bg-indigo-700 hover:shadow-md">
                             <i class="bi bi-funnel"></i>
                             Apply
                         </button>
                         <a href="{{ route('cro.dashboard') }}"
-                            class="btn-smooth inline-flex items-center gap-1.5 rounded-lg border border-white/70 bg-white/50 px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm hover:bg-white/80 sm:text-sm">
+                            class="btn-smooth inline-flex items-center justify-center rounded-xl border border-white/70 bg-white/50 px-3 py-2 text-sm font-semibold text-slate-700 hover:-translate-y-0.5 hover:bg-white/90">
                             Reset
                         </a>
                     </div>
@@ -225,562 +290,26 @@
             </section>
 
             @if (session('success'))
-                <div class="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{{ session('success') }}</div>
+                <div class="rounded-2xl border border-emerald-200/80 bg-emerald-50/80 px-4 py-3 text-sm text-emerald-800 backdrop-blur">{{ session('success') }}</div>
             @endif
             @if ($errors->any())
-                <div class="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{{ $errors->first() }}</div>
+                <div class="rounded-2xl border border-rose-200/80 bg-rose-50/80 px-4 py-3 text-sm text-rose-800 backdrop-blur">{{ $errors->first() }}</div>
             @endif
 
-            {{-- Today’s work queue --}}
-            <section class="glass-card overflow-hidden !p-0">
-                <div class="flex flex-col gap-3 border-b border-indigo-200/50 bg-indigo-50/50 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-                    <div>
-                        <h2 class="text-base font-bold text-indigo-950">Today’s work</h2>
-                        <p class="mt-0.5 text-sm text-indigo-700/80">New inquiries, pending refunds, and urgent complaints — claim or open in one click</p>
-                    </div>
-                    <span class="inline-flex h-8 min-w-8 items-center justify-center self-start rounded-lg bg-indigo-100 px-2 text-sm font-bold text-indigo-700">
-                        {{ count($todayWork) }}
-                    </span>
+            {{-- Tab panels --}}
+            <div>
+                <div x-show="section === 'today'" x-cloak x-transition.opacity.duration.200ms>
+                    @include('cro.partials.dashboard-tab-today')
                 </div>
-                <div class="divide-y divide-slate-100">
-                    @forelse ($todayWork as $item)
-                        @php
-                            $typeTone = match ($item['type'] ?? '') {
-                                'complaint' => ['badge' => 'bg-rose-100 text-rose-700', 'label' => 'Complaint'],
-                                'refund' => ['badge' => 'bg-amber-100 text-amber-800', 'label' => 'Refund'],
-                                default => ['badge' => 'bg-sky-100 text-sky-800', 'label' => 'Inquiry'],
-                            };
-                        @endphp
-                        <div class="flex flex-col gap-3 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:px-5 {{ !empty($item['urgent']) ? 'bg-rose-50/30' : '' }}">
-                            <div class="min-w-0 flex-1">
-                                <div class="flex flex-wrap items-center gap-2">
-                                    <span class="inline-flex rounded-md px-2 py-0.5 text-[11px] font-semibold {{ $typeTone['badge'] }}">{{ $typeTone['label'] }}</span>
-                                    @if (!empty($item['urgent']))
-                                        <span class="inline-flex rounded-md bg-rose-100 px-2 py-0.5 text-[11px] font-semibold text-rose-700">Urgent</span>
-                                    @endif
-                                    @if (!empty($item['age']))
-                                        <span class="text-[11px] font-medium text-slate-400">{{ $item['age'] }}</span>
-                                    @endif
-                                </div>
-                                <p class="mt-1 truncate font-semibold text-slate-900">{{ $item['title'] }}</p>
-                                <p class="mt-0.5 truncate text-xs text-slate-500">{{ $item['meta'] }}</p>
-                            </div>
-                            <div class="flex shrink-0 flex-wrap items-center gap-2">
-                                @if (!empty($item['claimUrl']))
-                                    <form method="POST" action="{{ $item['claimUrl'] }}">
-                                        @csrf
-                                        <button type="submit"
-                                            class="btn-smooth inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-2 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700">
-                                            <i class="bi bi-hand-index-thumb"></i>
-                                            Claim
-                                        </button>
-                                    </form>
-                                @endif
-                                <a href="{{ $item['href'] }}"
-                                    class="btn-smooth inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-sm hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700">
-                                    {{ $item['actionLabel'] === 'Claim' ? 'Open' : ($item['actionLabel'] ?? 'Open') }}
-                                    <i class="bi bi-arrow-right text-[10px]"></i>
-                                </a>
-                            </div>
-                        </div>
-                    @empty
-                        <div class="flex flex-col items-center justify-center px-4 py-12 text-center sm:px-5">
-                            <span class="mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
-                                <i class="bi bi-check-lg"></i>
-                            </span>
-                            <p class="text-sm font-medium text-slate-700">Queue clear</p>
-                            <p class="mt-0.5 text-xs text-slate-500">No open inquiries, refunds, or urgent complaints in your scope.</p>
-                        </div>
-                    @endforelse
+                <div x-show="section === 'performance'" x-cloak x-transition.opacity.duration.200ms>
+                    @include('cro.partials.dashboard-tab-performance')
                 </div>
-            </section>
-
-            {{-- Personal KPIs --}}
-            @if ($personalKpis)
-                <section>
-                    <div class="mb-3 flex items-end justify-between gap-3">
-                        <div>
-                            <h2 class="text-base font-bold text-slate-900">Your KPIs</h2>
-                            <p class="text-sm text-slate-500">First response, resolution, refund decisions, and satisfaction on your events</p>
-                        </div>
-                        <a href="{{ route('cro.reports', array_filter(['event' => $filters['event'] ?? null, 'from' => $filters['from'] ?? null, 'to' => $filters['to'] ?? null, 'cro' => Auth::id()])) }}"
-                            class="text-xs font-semibold text-indigo-600 hover:text-indigo-800">Full reports →</a>
-                    </div>
-                    <div class="grid grid-cols-2 gap-3 xl:grid-cols-4">
-                        @foreach ([
-                            ['label' => 'Avg first response', 'value' => $personalKpis['avgFirstResponseLabel'] ?? '—', 'sub' => 'On cases assigned to you', 'icon' => 'bi-lightning-charge', 'accent' => 'indigo'],
-                            ['label' => 'Avg resolution', 'value' => $personalKpis['avgResolutionLabel'] ?? '—', 'sub' => 'Inquiries & complaints', 'icon' => 'bi-hourglass-split', 'accent' => 'sky'],
-                            ['label' => 'Refund approve / decline', 'value' => (($personalKpis['refundApproveRate'] ?? null) !== null ? number_format($personalKpis['refundApproveRate'], 0).'% / '.number_format($personalKpis['refundDeclineRate'] ?? 0, 0).'%' : '—'), 'sub' => number_format($personalKpis['refundReviewed'] ?? 0).' reviewed in range', 'icon' => 'bi-arrow-counterclockwise', 'accent' => 'amber'],
-                            ['label' => 'Event satisfaction', 'value' => (($personalKpis['satisfactionAverage'] ?? null) !== null ? number_format($personalKpis['satisfactionAverage'], 1).'/5' : '—'), 'sub' => number_format($personalKpis['satisfactionCount'] ?? 0).' ratings on your events', 'icon' => 'bi-star', 'accent' => 'emerald'],
-                        ] as $kpi)
-                            @php
-                                $accent = match ($kpi['accent']) {
-                                    'sky' => ['top' => 'border-t-sky-500', 'iconBg' => 'bg-sky-100/70', 'iconText' => 'text-sky-600'],
-                                    'amber' => ['top' => 'border-t-amber-500', 'iconBg' => 'bg-amber-100/70', 'iconText' => 'text-amber-600'],
-                                    'emerald' => ['top' => 'border-t-emerald-500', 'iconBg' => 'bg-emerald-100/70', 'iconText' => 'text-emerald-600'],
-                                    default => ['top' => 'border-t-indigo-500', 'iconBg' => 'bg-indigo-100/70', 'iconText' => 'text-indigo-600'],
-                                };
-                            @endphp
-                            <div class="glass-card kpi-lift border-t-4 {{ $accent['top'] }} p-4 sm:p-5">
-                                <div class="flex items-start justify-between gap-3">
-                                    <div class="min-w-0">
-                                        <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ $kpi['label'] }}</p>
-                                        <p class="mt-1 truncate text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">{{ $kpi['value'] }}</p>
-                                        <p class="mt-1 text-xs font-medium text-slate-500">{{ $kpi['sub'] }}</p>
-                                    </div>
-                                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl {{ $accent['iconBg'] }}">
-                                        <i class="bi {{ $kpi['icon'] }} text-lg {{ $accent['iconText'] }}"></i>
-                                    </div>
-                                </div>
-                            </div>
-                        @endforeach
-                    </div>
-                </section>
-            @endif
-
-            {{-- Organizer handoffs --}}
-            @if (count($handoffs))
-                <section class="glass-card overflow-hidden !p-0">
-                    <div class="flex items-center justify-between gap-3 border-b border-amber-200/60 bg-amber-50/50 px-4 py-3.5 sm:px-5">
-                        <div>
-                            <h2 class="text-base font-bold text-amber-950">Organizer handoffs</h2>
-                            <p class="mt-0.5 text-sm text-amber-800/80">Postponed or cancelled events — clear inquiries and refunds</p>
-                        </div>
-                        <span class="inline-flex h-8 min-w-8 items-center justify-center rounded-lg bg-amber-100 px-2 text-sm font-bold text-amber-800">
-                            {{ count($handoffs) }}
-                        </span>
-                    </div>
-                    <div class="divide-y divide-amber-100/80">
-                        @foreach ($handoffs as $handoff)
-                            <a href="{{ $handoff['href'] }}"
-                                class="btn-smooth flex items-start gap-3 px-4 py-3.5 hover:bg-amber-50/60 sm:px-5">
-                                <span class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-700">
-                                    <i class="bi bi-clipboard-check text-sm"></i>
-                                </span>
-                                <div class="min-w-0 flex-1">
-                                    <div class="flex flex-wrap items-center gap-2">
-                                        <p class="font-semibold text-slate-900">{{ $handoff['event']['name'] ?? 'Event' }}</p>
-                                        <span class="rounded-md bg-white px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-amber-800 ring-1 ring-amber-200">
-                                            {{ $handoff['event']['statusLabel'] ?? ucfirst($handoff['type'] ?? '') }}
-                                        </span>
-                                    </div>
-                                    <p class="mt-0.5 text-xs text-slate-500">
-                                        {{ number_format($handoff['summary']['openInquiries'] ?? 0) }} open inquiries
-                                        · {{ number_format($handoff['summary']['pendingRefunds'] ?? 0) }} pending refunds
-                                    </p>
-                                </div>
-                                <i class="bi bi-chevron-right mt-1 text-xs text-amber-400"></i>
-                            </a>
-                        @endforeach
-                    </div>
-                </section>
-            @endif
-
-            {{-- 2. Performance KPIs --}}
-            <section class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                @foreach ([
-                    ['label' => 'Open Inquiries', 'value' => number_format($kpis['openInquiries']), 'sub' => 'Waiting for response', 'icon' => 'bi-envelope-open', 'accent' => 'amber', 'href' => route('cro.inquiries.index')],
-                    ['label' => 'Active Complaints', 'value' => number_format($kpis['activeComplaints']), 'sub' => 'Open & in progress', 'icon' => 'bi-exclamation-triangle', 'accent' => 'rose', 'href' => route('cro.complaints.index')],
-                    ['label' => 'Resolved Today', 'value' => number_format($kpis['resolvedToday']), 'sub' => 'Cases completed today', 'icon' => 'bi-check2-circle', 'accent' => 'emerald', 'href' => null],
-                    ['label' => 'Avg. Response Time', 'value' => $kpis['avgResponseLabel'], 'sub' => 'First response speed', 'icon' => 'bi-stopwatch', 'accent' => 'indigo', 'href' => null],
-                ] as $kpi)
-                    @php
-                        $accent = match ($kpi['accent']) {
-                            'amber' => ['top' => 'border-t-amber-500', 'iconBg' => 'bg-amber-100/70', 'iconText' => 'text-amber-600'],
-                            'rose' => ['top' => 'border-t-rose-500', 'iconBg' => 'bg-rose-100/70', 'iconText' => 'text-rose-600'],
-                            'emerald' => ['top' => 'border-t-emerald-500', 'iconBg' => 'bg-emerald-100/70', 'iconText' => 'text-emerald-600'],
-                            default => ['top' => 'border-t-indigo-500', 'iconBg' => 'bg-indigo-100/70', 'iconText' => 'text-indigo-600'],
-                        };
-                        $cardClass = "glass-card kpi-lift group border-t-4 {$accent['top']} p-4 sm:p-5";
-                    @endphp
-                    @if ($kpi['href'])
-                        <a href="{{ $kpi['href'] }}" class="{{ $cardClass }}">
-                            <div class="flex items-start justify-between gap-3">
-                                <div class="min-w-0">
-                                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ $kpi['label'] }}</p>
-                                    <p class="mt-1 truncate text-2xl font-bold tracking-tight text-slate-900">{{ $kpi['value'] }}</p>
-                                    <p class="mt-1 text-xs font-medium text-slate-500">{{ $kpi['sub'] }}</p>
-                                </div>
-                                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl {{ $accent['iconBg'] }} transition-transform duration-300 group-hover:scale-110">
-                                    <i class="bi {{ $kpi['icon'] }} text-lg {{ $accent['iconText'] }}"></i>
-                                </div>
-                            </div>
-                        </a>
-                    @else
-                        <div class="{{ $cardClass }}">
-                            <div class="flex items-start justify-between gap-3">
-                                <div class="min-w-0">
-                                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ $kpi['label'] }}</p>
-                                    <p class="mt-1 truncate text-2xl font-bold tracking-tight text-slate-900">{{ $kpi['value'] }}</p>
-                                    <p class="mt-1 text-xs font-medium text-slate-500">{{ $kpi['sub'] }}</p>
-                                </div>
-                                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl {{ $accent['iconBg'] }} transition-transform duration-300 group-hover:scale-110">
-                                    <i class="bi {{ $kpi['icon'] }} text-lg {{ $accent['iconText'] }}"></i>
-                                </div>
-                            </div>
-                        </div>
-                    @endif
-                @endforeach
-            </section>
-
-            {{-- 3. Priority queue + satisfaction --}}
-            <div class="grid gap-4 lg:grid-cols-3">
-                <section class="glass-card overflow-hidden !p-0 lg:col-span-2">
-                    <div class="flex items-center justify-between gap-3 border-b border-rose-200/50 bg-rose-50/40 px-4 py-3.5 sm:px-5">
-                        <div>
-                            <h2 class="text-base font-bold text-rose-900">High Priority Cases</h2>
-                            <p class="mt-0.5 text-sm text-rose-600/80">Urgent issues requiring immediate attention</p>
-                        </div>
-                        <span class="inline-flex h-8 min-w-8 items-center justify-center rounded-lg bg-rose-100 px-2 text-sm font-bold text-rose-700">
-                            {{ count($dashboard['highPriority']) }}
-                        </span>
-                    </div>
-                    <div class="divide-y divide-rose-100/70">
-                        @forelse ($dashboard['highPriority'] as $case)
-                            <a href="{{ $case['href'] }}"
-                                class="btn-smooth flex items-start gap-3 px-4 py-3.5 hover:bg-rose-50/50 sm:px-5">
-                                <span class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-rose-100 text-rose-600">
-                                    <i class="bi bi-exclamation-triangle-fill text-sm"></i>
-                                </span>
-                                <div class="min-w-0 flex-1">
-                                    <p class="font-semibold text-rose-950">{{ $case['title'] }}</p>
-                                    <p class="mt-0.5 truncate text-xs text-slate-500">{{ $case['meta'] }}</p>
-                                </div>
-                                <i class="bi bi-chevron-right mt-1 text-xs text-rose-300"></i>
-                            </a>
-                        @empty
-                            <div class="flex flex-col items-center justify-center px-4 py-12 text-center sm:px-5">
-                                <span class="mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
-                                    <i class="bi bi-check-lg"></i>
-                                </span>
-                                <p class="text-sm font-medium text-slate-700">All clear</p>
-                                <p class="mt-0.5 text-xs text-slate-500">No high-priority cases right now.</p>
-                            </div>
-                        @endforelse
-                    </div>
-                </section>
-
-                <section class="glass-card flex flex-col p-4 sm:p-5">
-                    <div>
-                        <h2 class="text-base font-bold text-slate-900">Customer Satisfaction</h2>
-                        <p class="mt-0.5 text-sm text-slate-500">{{ $satisfaction['label'] }}</p>
-                    </div>
-                    <div class="mt-4 flex items-end gap-2">
-                        @if ($satisfaction['average'] !== null)
-                            <p class="text-4xl font-bold tracking-tight text-slate-900">
-                                {{ number_format($satisfaction['average'], 1) }}
-                            </p>
-                            <p class="mb-1 text-lg font-semibold text-slate-400">/ 5</p>
-                        @else
-                            <p class="text-4xl font-bold tracking-tight text-slate-300">—</p>
-                        @endif
-                    </div>
-                    <div class="mt-2 flex items-center gap-1 text-amber-400" aria-hidden="true">
-                        @for ($i = 1; $i <= 5; $i++)
-                            <i class="bi {{ $satisfaction['average'] !== null && $i <= round($satisfaction['average']) ? 'bi-star-fill' : 'bi-star' }} text-sm"></i>
-                        @endfor
-                    </div>
-                    <div class="mt-4 h-36">
-                        <canvas id="croSatisfactionDistributionChart"></canvas>
-                    </div>
-                    @if (($ratingDist['total'] ?? 0) === 0)
-                        <p class="mt-2 text-center text-[11px] text-slate-400">No star ratings yet for this scope.</p>
-                    @endif
-                    <div class="mt-4 rounded-xl border border-emerald-200/60 bg-emerald-50/60 px-3.5 py-3">
-                        <div class="flex items-center justify-between gap-2">
-                            <p class="text-xs font-semibold uppercase tracking-wide text-emerald-700">Positive share</p>
-                            <p class="text-xl font-bold text-emerald-700">{{ number_format($satisfaction['happyPercent'], 0) }}%</p>
-                        </div>
-                        <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-emerald-100">
-                            <div class="h-full rounded-full bg-emerald-500 transition-all"
-                                style="width: {{ min(100, max(0, $satisfaction['happyPercent'])) }}%"></div>
-                        </div>
-                    </div>
-                    @if (count($feedbackThemes))
-                        <div class="mt-4">
-                            <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Top feedback themes</p>
-                            <div class="mt-2 space-y-1.5">
-                                @foreach ($feedbackThemes as $theme)
-                                    <div class="flex items-center justify-between gap-2 rounded-lg border border-white/60 bg-white/45 px-2.5 py-1.5">
-                                        <p class="truncate text-xs font-medium text-slate-700">{{ $theme['label'] }}</p>
-                                        <p class="shrink-0 text-xs font-bold text-slate-900">{{ $theme['count'] }} · {{ number_format($theme['percent'], 0) }}%</p>
-                                    </div>
-                                @endforeach
-                            </div>
-                        </div>
-                    @endif
-                </section>
-            </div>
-
-            {{-- 4. Work queues --}}
-            <div class="grid gap-4 lg:grid-cols-2">
-                <section class="glass-card overflow-hidden !p-0">
-                    <div class="flex items-center justify-between gap-3 border-b border-white/50 bg-white/30 px-4 py-3.5 sm:px-5">
-                        <div>
-                            <h2 class="text-base font-bold text-slate-900">Recent Inquiries</h2>
-                            <p class="mt-0.5 text-sm text-slate-500">Latest customer messages</p>
-                        </div>
-                        <a href="{{ route('cro.inquiries.index') }}"
-                            class="btn-smooth text-xs font-semibold text-indigo-600 hover:text-indigo-800 whitespace-nowrap">
-                            View all →
-                        </a>
-                    </div>
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full text-sm">
-                            <thead class="bg-white/35 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                                <tr>
-                                    <th class="px-4 py-2.5 sm:px-5">Customer</th>
-                                    <th class="px-4 py-2.5 sm:px-5">Subject</th>
-                                    <th class="px-4 py-2.5 sm:px-5">Status</th>
-                                    <th class="px-4 py-2.5 sm:px-5">Time</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-white/40">
-                                @forelse ($dashboard['recentInquiries'] as $inquiry)
-                                    <tr class="btn-smooth cursor-pointer hover:bg-white/45"
-                                        onclick="window.location.href='{{ $inquiry['href'] }}'">
-                                        <td class="px-4 py-3 sm:px-5">
-                                            <p class="font-medium text-slate-900 whitespace-nowrap">{{ $inquiry['customer'] }}</p>
-                                            <p class="mt-0.5 max-w-[9rem] truncate text-[11px] text-slate-400">{{ $inquiry['event'] }}</p>
-                                        </td>
-                                        <td class="px-4 py-3 sm:px-5 text-slate-700 max-w-[10rem] truncate">{{ $inquiry['subject'] }}</td>
-                                        <td class="px-4 py-3 sm:px-5">
-                                            <span class="inline-flex rounded-md px-2 py-0.5 text-xs font-semibold {{ $inquiry['statusClass'] }}">
-                                                {{ $inquiry['status'] }}
-                                            </span>
-                                        </td>
-                                        <td class="px-4 py-3 sm:px-5 text-slate-500 whitespace-nowrap text-xs">{{ $inquiry['time'] }}</td>
-                                    </tr>
-                                @empty
-                                    <tr>
-                                        <td colspan="4" class="px-4 py-10 text-center text-slate-500">No inquiries yet.</td>
-                                    </tr>
-                                @endforelse
-                            </tbody>
-                        </table>
-                    </div>
-                </section>
-
-                <section class="glass-card overflow-hidden !p-0">
-                    <div class="flex items-center justify-between gap-3 border-b border-white/50 bg-white/30 px-4 py-3.5 sm:px-5">
-                        <div>
-                            <h2 class="text-base font-bold text-slate-900">Pending Refunds</h2>
-                            <p class="mt-0.5 text-sm text-slate-500">Awaiting review</p>
-                        </div>
-                        <a href="{{ route('cro.refund-requests.index') }}"
-                            class="btn-smooth text-xs font-semibold text-indigo-600 hover:text-indigo-800 whitespace-nowrap">
-                            Review →
-                        </a>
-                    </div>
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full text-sm">
-                            <thead class="bg-white/35 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                                <tr>
-                                    <th class="px-4 py-2.5 sm:px-5">Customer</th>
-                                    <th class="px-4 py-2.5 sm:px-5">Event</th>
-                                    <th class="px-4 py-2.5 sm:px-5">Amount</th>
-                                    <th class="px-4 py-2.5 sm:px-5">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-white/40">
-                                @forelse ($dashboard['pendingRefunds'] as $refund)
-                                    <tr class="btn-smooth cursor-pointer hover:bg-white/45"
-                                        onclick="window.location.href='{{ $refund['href'] }}'">
-                                        <td class="px-4 py-3 sm:px-5 font-medium text-slate-900 whitespace-nowrap">{{ $refund['customer'] }}</td>
-                                        <td class="px-4 py-3 sm:px-5 text-slate-700 max-w-[9rem] truncate">{{ $refund['event'] }}</td>
-                                        <td class="px-4 py-3 sm:px-5 font-semibold text-emerald-700 whitespace-nowrap">{{ $refund['amount'] }}</td>
-                                        <td class="px-4 py-3 sm:px-5">
-                                            <span class="inline-flex rounded-md px-2 py-0.5 text-xs font-semibold {{ $refund['statusClass'] }}">
-                                                {{ $refund['status'] }}
-                                            </span>
-                                        </td>
-                                    </tr>
-                                @empty
-                                    <tr>
-                                        <td colspan="4" class="px-4 py-10 text-center text-slate-500">No pending refunds.</td>
-                                    </tr>
-                                @endforelse
-                            </tbody>
-                        </table>
-                    </div>
-                </section>
-            </div>
-
-            {{-- 5. Analytics --}}
-            <div class="grid gap-4 xl:grid-cols-12">
-                <section class="glass-panel !rounded-2xl p-4 sm:p-5 xl:col-span-8">
-                    <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                        <div>
-                            <h2 class="text-lg font-bold text-slate-900">Support Analytics</h2>
-                            <p class="text-sm text-slate-500">
-                                Trends for inquiries, complaints, and refunds
-                                @if ($eventFilter['selectedEventName'])
-                                    · <span class="font-medium text-slate-700">{{ $eventFilter['selectedEventName'] }}</span>
-                                @endif
-                            </p>
-                        </div>
-                        <div class="flex flex-wrap items-center gap-2">
-                            <div class="inline-flex rounded-lg border border-white/70 bg-white/40 p-0.5 shadow-sm">
-                                @foreach (['week' => 'Weekly', 'month' => 'Monthly'] as $key => $label)
-                                    <button type="button"
-                                        data-cro-period="{{ $key }}"
-                                        @click="setChartPeriod('{{ $key }}')"
-                                        class="btn-smooth rounded-md px-3 py-1.5 text-xs font-semibold {{ ($dashboard['charts']['defaultPeriod'] ?? 'week') === $key ? 'bg-indigo-600 text-white' : 'bg-white/60 text-slate-600' }}">
-                                        {{ $label }}
-                                    </button>
-                                @endforeach
-                            </div>
-                            <a href="{{ route('cro.reports') }}" class="btn-smooth text-sm font-semibold text-indigo-600 hover:text-indigo-700">
-                                Full reports →
-                            </a>
-                        </div>
-                    </div>
-                    <div class="grid gap-4 lg:grid-cols-2">
-                        <section class="glass-card !shadow-none border-white/50 p-4 sm:p-5 lg:col-span-2">
-                            <div class="mb-3 flex items-start justify-between gap-3">
-                                <div>
-                                    <h3 class="text-base font-bold text-slate-900">Support Trends</h3>
-                                    <p class="mt-0.5 text-sm text-slate-500">
-                                        <span data-cro-period-label>{{ ($dashboard['charts']['periods']['week']['label'] ?? 'Weekly') }}</span>
-                                        volume
-                                    </p>
-                                </div>
-                                <button type="button"
-                                    @click="openChart('supportTrend', @js('Support Trends'), @js('Inquiries, complaints, and refunds over time'))"
-                                    class="btn-smooth flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/60 bg-indigo-50/70 text-indigo-600 hover:bg-indigo-100/90"
-                                    title="View fullscreen"
-                                    aria-label="View Support Trends fullscreen">
-                                    <i class="bi bi-arrows-fullscreen text-xs"></i>
-                                </button>
-                            </div>
-                            <button type="button"
-                                @click="openChart('supportTrend', @js('Support Trends'), @js('Inquiries, complaints, and refunds over time'))"
-                                class="btn-smooth block h-56 w-full cursor-pointer rounded-xl text-left hover:bg-white/40 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:h-64"
-                                aria-label="Open Support Trends fullscreen">
-                                <canvas id="croSupportTrendChart" class="pointer-events-none"></canvas>
-                            </button>
-                        </section>
-                        <section class="glass-card !shadow-none border-white/50 p-4 sm:p-5">
-                            <div class="mb-3 flex items-start justify-between gap-3">
-                                <div>
-                                    <h3 class="text-base font-bold text-slate-900">Complaint Resolution</h3>
-                                    <p class="mt-0.5 text-sm text-slate-500">Resolved · Pending · In Progress</p>
-                                </div>
-                                <button type="button"
-                                    @click="openChart('complaintStatus', @js('Complaint Resolution Status'), @js('Current complaint mix'))"
-                                    class="btn-smooth flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/60 bg-indigo-50/70 text-indigo-600 hover:bg-indigo-100/90"
-                                    title="View fullscreen"
-                                    aria-label="View Complaint Resolution fullscreen">
-                                    <i class="bi bi-arrows-fullscreen text-xs"></i>
-                                </button>
-                            </div>
-                            <button type="button"
-                                @click="openChart('complaintStatus', @js('Complaint Resolution Status'), @js('Current complaint mix'))"
-                                class="btn-smooth block h-44 w-full cursor-pointer rounded-xl text-left hover:bg-white/40 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:h-48"
-                                aria-label="Open Complaint Resolution fullscreen">
-                                <canvas id="croComplaintStatusChart" class="pointer-events-none"></canvas>
-                            </button>
-                            <div class="mt-3 grid grid-cols-3 gap-2">
-                                @foreach ([
-                                    ['label' => 'Resolved', 'percent' => $complaintStatus['percents'][0] ?? 0, 'color' => 'text-emerald-700', 'bg' => 'bg-emerald-50/70'],
-                                    ['label' => 'Pending', 'percent' => $complaintStatus['percents'][1] ?? 0, 'color' => 'text-amber-700', 'bg' => 'bg-amber-50/70'],
-                                    ['label' => 'In Progress', 'percent' => $complaintStatus['percents'][2] ?? 0, 'color' => 'text-blue-700', 'bg' => 'bg-blue-50/70'],
-                                ] as $stat)
-                                    <div class="rounded-lg border border-white/60 {{ $stat['bg'] }} px-2 py-2 text-center">
-                                        <p class="text-[10px] font-medium text-slate-500">{{ $stat['label'] }}</p>
-                                        <p class="text-sm font-bold {{ $stat['color'] }}">{{ $stat['percent'] }}%</p>
-                                    </div>
-                                @endforeach
-                            </div>
-                        </section>
-                        <x-report-chart-card
-                            class="glass-card !shadow-none border-white/50 hover:!-translate-y-1"
-                            title="Feedback Themes"
-                            description="Common problem areas in range"
-                            canvas-id="croSupportCategoriesChart"
-                            expand-key="supportCategories"
-                        />
-                    </div>
-                </section>
-
-                <div class="xl:col-span-4">
-                    <x-dashboard-mini-calendar :calendar="$dashboard['miniCalendar']" class="h-full" />
+                <div x-show="section === 'analytics'" x-cloak x-transition.opacity.duration.200ms>
+                    @include('cro.partials.dashboard-tab-analytics')
                 </div>
-            </div>
-
-            {{-- 6. Context: events + activity --}}
-            <div class="grid gap-4 lg:grid-cols-5">
-                <section class="glass-card overflow-hidden !p-0 lg:col-span-3">
-                    <div class="border-b border-white/50 bg-white/30 px-4 py-3.5 sm:px-5">
-                        <h2 class="text-base font-bold text-slate-900">Event Support Overview</h2>
-                        <p class="mt-0.5 text-sm text-slate-500">Events happening today</p>
-                    </div>
-                    <div class="divide-y divide-white/40">
-                        @forelse ($dashboard['eventsToday'] as $event)
-                            <div class="btn-smooth px-4 py-3.5 hover:bg-white/45 sm:px-5">
-                                <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                                    <p class="font-semibold text-slate-900">{{ $event['name'] }}</p>
-                                    <div class="flex flex-wrap gap-2">
-                                        <span class="inline-flex items-center gap-1 rounded-md border border-cyan-200/50 bg-cyan-50/70 px-2 py-0.5 text-[11px] font-semibold text-cyan-700">
-                                            <i class="bi bi-people"></i>
-                                            {{ number_format($event['attendees']) }} attendees
-                                        </span>
-                                        <span class="inline-flex items-center gap-1 rounded-md border border-amber-200/50 bg-amber-50/70 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
-                                            <i class="bi bi-envelope"></i>
-                                            {{ number_format($event['openInquiries']) }} inquiries
-                                        </span>
-                                        <span class="inline-flex items-center gap-1 rounded-md border border-rose-200/50 bg-rose-50/70 px-2 py-0.5 text-[11px] font-semibold text-rose-700">
-                                            <i class="bi bi-arrow-counterclockwise"></i>
-                                            {{ number_format($event['pendingRefunds']) }} refunds
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-                        @empty
-                            <div class="flex flex-col items-center justify-center px-4 py-12 text-center sm:px-5">
-                                <span class="mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-400">
-                                    <i class="bi bi-calendar-x"></i>
-                                </span>
-                                <p class="text-sm text-slate-500">No events happening today.</p>
-                            </div>
-                        @endforelse
-                    </div>
-                </section>
-
-                <section class="glass-card overflow-hidden !p-0 lg:col-span-2">
-                    <div class="border-b border-white/50 bg-white/30 px-4 py-3.5 sm:px-5">
-                        <h2 class="text-base font-bold text-slate-900">Recent Activity</h2>
-                        <p class="mt-0.5 text-sm text-slate-500">Latest support actions</p>
-                    </div>
-                    <div class="max-h-80 divide-y divide-white/40 overflow-y-auto">
-                        @forelse ($dashboard['recentActivity'] as $activity)
-                            @php
-                                $color = match ($activity['color']) {
-                                    'emerald' => 'bg-emerald-100 text-emerald-600',
-                                    'amber' => 'bg-amber-100 text-amber-600',
-                                    'blue' => 'bg-blue-100 text-blue-600',
-                                    default => 'bg-indigo-100 text-indigo-600',
-                                };
-                            @endphp
-                            <div class="btn-smooth flex items-start gap-3 px-4 py-3 hover:bg-white/45 sm:px-5">
-                                <span class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg {{ $color }}">
-                                    <i class="bi {{ $activity['icon'] }} text-sm"></i>
-                                </span>
-                                <div class="min-w-0 flex-1">
-                                    <div class="flex items-start justify-between gap-2">
-                                        <p class="text-sm font-semibold text-slate-900">{{ $activity['title'] }}</p>
-                                        <span class="shrink-0 text-[11px] font-medium text-slate-400">{{ $activity['time'] }}</span>
-                                    </div>
-                                    <p class="mt-0.5 truncate text-xs text-slate-500">{{ $activity['meta'] }}</p>
-                                </div>
-                            </div>
-                        @empty
-                            <div class="px-4 py-12 text-center text-sm text-slate-500 sm:px-5">
-                                No recent activity yet.
-                            </div>
-                        @endforelse
-                    </div>
-                </section>
+                <div x-show="section === 'reports'" x-cloak x-transition.opacity.duration.200ms>
+                    @include('cro.partials.reports-section')
+                </div>
             </div>
         </div>
 
@@ -831,13 +360,19 @@
     @push('styles')
         <style>
             [x-cloak] { display: none !important; }
+            .segmented-control {
+                box-shadow:
+                    0 1px 0 rgba(255, 255, 255, 0.65) inset,
+                    0 10px 30px -12px rgba(79, 70, 229, 0.18);
+            }
         </style>
     @endpush
 
     @push('scripts')
         <script>
             window.croDashboardData = @json($dashboard);
+            window.croReportData = @json($reports);
         </script>
-        @vite('resources/js/cro-dashboard.js')
+        @vite(['resources/js/cro-dashboard.js', 'resources/js/cro-reports.js'])
     @endpush
 </x-app-layout>

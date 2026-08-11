@@ -7,10 +7,9 @@ use App\Http\Controllers\Controller;
 use App\Services\CroReportService;
 use App\Services\Exports\CroReportExportBuilder;
 use App\Services\ReportExportService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
-use Illuminate\View\View;
 
 class ReportController extends Controller
 {
@@ -24,12 +23,14 @@ class ReportController extends Controller
         protected ReportExportService $exportService,
     ) {}
 
-    public function index(Request $request): View
+    /**
+     * Reports live on the CRO dashboard — keep this route as a stable bookmark.
+     */
+    public function index(Request $request): RedirectResponse
     {
-        $filters = $this->validatedFilters($request);
-        $reports = $this->reportService->getAllReports($filters, (int) Auth::id());
-
-        return view('cro.reports.index', compact('reports'));
+        return redirect()
+            ->route('cro.dashboard', $request->query())
+            ->withFragment('cro-reports');
     }
 
     public function exportExcel(Request $request)
@@ -64,7 +65,6 @@ class ReportController extends Controller
     {
         $request->merge([
             'event' => $request->filled('event') ? $request->input('event') : null,
-            'cro' => $request->filled('cro') ? $request->input('cro') : null,
             'range' => $request->filled('range') ? $request->input('range') : null,
             'from' => $request->filled('from') ? $request->input('from') : null,
             'to' => $request->filled('to') ? $request->input('to') : null,
@@ -72,7 +72,6 @@ class ReportController extends Controller
 
         $validated = $request->validate([
             'event' => ['nullable', 'integer', 'exists:events,id'],
-            'cro' => ['nullable', 'integer', 'exists:users,id'],
             'range' => ['nullable', Rule::in(['week', 'month', 'custom'])],
             'from' => ['nullable', 'date'],
             'to' => ['nullable', 'date', 'after_or_equal:from'],
@@ -80,7 +79,7 @@ class ReportController extends Controller
 
         return [
             'event' => isset($validated['event']) ? (int) $validated['event'] : null,
-            'cro' => isset($validated['cro']) ? (int) $validated['cro'] : null,
+            'cro' => null,
             'range' => $validated['range'] ?? null,
             'from' => $validated['from'] ?? null,
             'to' => $validated['to'] ?? null,

@@ -50,7 +50,7 @@ class Complaint extends Model
     }
 
     /**
-     * Platform-wide complaints: "mine" = unassigned or assigned to this CRO.
+     * Scope to complainants who booked events where this CRO is contact_person.
      * Pass $scope = 'all' to disable filtering.
      */
     public function scopeForCroQueue(Builder $query, int $croId, string $scope = 'mine'): Builder
@@ -59,10 +59,9 @@ class Complaint extends Model
             return $query;
         }
 
-        return $query->where(function (Builder $q) use ($croId) {
-            $q->whereNull('assigned_to')
-                ->orWhere('assigned_to', $croId);
-        });
+        return $query->whereIn('user_id', ticketBooking::query()
+            ->whereIn('event_id', Event::query()->where('contact_person', $croId)->select('id'))
+            ->select('user_id'));
     }
 
     public function scopeAssignmentFilter(Builder $query, string $assignment, int $croId): Builder
@@ -85,10 +84,13 @@ class Complaint extends Model
     }
 
     /**
-     * Whether this complaint is in the CRO's actionable ("mine") queue.
+     * Whether this complaint belongs to an attendee of the CRO's assigned events.
      */
     public function isInCroQueue(int $croId): bool
     {
-        return $this->isUnassigned() || $this->isAssignedTo($croId);
+        return ticketBooking::query()
+            ->where('user_id', $this->user_id)
+            ->whereHas('event', fn (Builder $event) => $event->where('contact_person', $croId))
+            ->exists();
     }
 }

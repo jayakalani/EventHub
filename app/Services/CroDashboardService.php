@@ -829,12 +829,10 @@ class CroDashboardService
             ->joinSub($firstResponses, 'fr', 'fr.inquiry_id', '=', 'i.id')
             ->when($eventId, fn ($q) => $q->where('i.event_id', $eventId))
             ->when($this->activeCroId, function ($q) {
-                $q->where(function ($inner) {
-                    $inner->where('i.assigned_to', $this->activeCroId)
-                        ->orWhereIn('i.event_id', Event::query()
-                            ->where('contact_person', $this->activeCroId)
-                            ->select('id'));
-                });
+                $q->whereIn(
+                    'i.event_id',
+                    Event::query()->where('contact_person', $this->activeCroId)->select('id')
+                );
             });
 
         $avg = $query->avg(DB::raw('TIMESTAMPDIFF(MINUTE, i.created_at, fr.first_response_at)'));

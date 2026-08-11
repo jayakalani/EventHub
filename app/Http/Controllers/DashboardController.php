@@ -10,6 +10,7 @@ use App\Models\UserRole;
 use App\Services\AdminReportService;
 use App\Services\AttendeeCalendarService;
 use App\Services\CroDashboardService;
+use App\Services\CroReportService;
 use App\Services\EventNotificationService;
 use App\Services\Exports\AdminDashboardExportBuilder;
 use App\Services\Exports\CroDashboardExportBuilder;
@@ -28,6 +29,7 @@ class DashboardController extends Controller
         protected AdminReportService $adminReportService,
         protected OrganizerDashboardService $organizerDashboardService,
         protected CroDashboardService $croDashboardService,
+        protected CroReportService $croReportService,
         protected ReportExportService $exportService,
         protected AdminDashboardExportBuilder $adminDashboardExportBuilder,
         protected OrganizerDashboardExportBuilder $organizerDashboardExportBuilder,
@@ -197,14 +199,28 @@ class DashboardController extends Controller
     }
 
     /**
-     * CRO Dashboard
+     * CRO Dashboard (includes operational queue + report analytics)
      */
     public function cro(Request $request): View
     {
-        $filters = $this->validatedCroDashboardFilters($request);
-        $dashboard = $this->croDashboardService->getDashboardData($filters, (int) Auth::id());
+        $filters = $this->validatedCroCombinedFilters($request);
+        $croId = (int) Auth::id();
 
-        return view('cro.dashboard', compact('dashboard'));
+        if ($filters['event'] && ! Event::query()
+            ->where('id', $filters['event'])
+            ->where('contact_person', $croId)
+            ->exists()) {
+            $filters['event'] = null;
+        }
+
+        $dashboard = $this->croDashboardService->getDashboardData([
+            'event' => $filters['event'],
+            'from' => $filters['from'],
+            'to' => $filters['to'],
+        ], $croId);
+        $reports = $this->croReportService->getAllReports($filters, $croId);
+
+        return view('cro.dashboard', compact('dashboard', 'reports'));
     }
 
     /**
@@ -215,7 +231,16 @@ class DashboardController extends Controller
         abort_unless(Auth::user()?->userRole?->name_en === UserRole::CRO, 403);
 
         $filters = $this->validatedCroDashboardFilters($request);
-        $payload = $this->croDashboardExportBuilder->build($filters, (int) Auth::id());
+        $croId = (int) Auth::id();
+
+        if ($filters['event'] && ! Event::query()
+            ->where('id', $filters['event'])
+            ->where('contact_person', $croId)
+            ->exists()) {
+            $filters['event'] = null;
+        }
+
+        $payload = $this->croDashboardExportBuilder->build($filters, $croId);
         $payload['charts'] = $this->validatedDashboardChartImages($request);
 
         return $this->exportService->downloadPdf(
@@ -523,20 +548,38 @@ class DashboardController extends Controller
      */
     private function validatedCroDashboardFilters(Request $request): array
     {
+        $filters = $this->validatedCroCombinedFilters($request);
+
+        return [
+            'event' => $filters['event'],
+            'from' => $filters['from'],
+            'to' => $filters['to'],
+        ];
+    }
+
+    /**
+     * @return array{event: int|null, cro: int|null, range: string|null, from: string|null, to: string|null}
+     */
+    private function validatedCroCombinedFilters(Request $request): array
+    {
         $request->merge([
             'event' => $request->filled('event') ? $request->input('event') : null,
+            'range' => $request->filled('range') ? $request->input('range') : null,
             'from' => $request->filled('from') ? $request->input('from') : null,
             'to' => $request->filled('to') ? $request->input('to') : null,
         ]);
 
         $validated = $request->validate([
             'event' => ['nullable', 'integer', 'exists:events,id'],
+            'range' => ['nullable', Rule::in(['week', 'month', 'custom'])],
             'from' => ['nullable', 'date'],
             'to' => ['nullable', 'date', 'after_or_equal:from'],
         ]);
 
         return [
             'event' => isset($validated['event']) ? (int) $validated['event'] : null,
+            'cro' => null,
+            'range' => $validated['range'] ?? null,
             'from' => $validated['from'] ?? null,
             'to' => $validated['to'] ?? null,
         ];

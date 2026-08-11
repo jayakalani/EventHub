@@ -28,18 +28,17 @@ class InquiryController extends Controller
 
     public function index(Request $request): View
     {
-        $queueScope = $this->resolveQueueScope($request);
         $croId = (int) Auth::id();
         $filters = $this->validatedFilters($request);
 
-        $baseQuery = Inquiry::query()->forCroQueue($croId, $queueScope);
+        // Always limited to events where this CRO is the assigned contact person.
+        $baseQuery = Inquiry::query()->forCroQueue($croId, 'mine');
 
         $counts = [
             'open' => (clone $baseQuery)->where('status', SupportTicketStatusEnum::Open)->count(),
             'in_progress' => (clone $baseQuery)->where('status', SupportTicketStatusEnum::InProgress)->count(),
             'resolved' => (clone $baseQuery)->where('status', SupportTicketStatusEnum::Resolved)->count(),
             'closed' => (clone $baseQuery)->where('status', SupportTicketStatusEnum::Closed)->count(),
-            'unassigned' => (clone $baseQuery)->whereNull('assigned_to')->count(),
         ];
 
         $inquiries = $this->applyFilters(clone $baseQuery, $filters, $croId)
@@ -49,7 +48,7 @@ class InquiryController extends Controller
             ->withQueryString();
 
         $events = Event::query()
-            ->whereIn('id', (clone $baseQuery)->whereNotNull('event_id')->select('event_id'))
+            ->where('contact_person', $croId)
             ->orderBy('name')
             ->get(['id', 'name']);
 
@@ -59,7 +58,6 @@ class InquiryController extends Controller
             'inquiries',
             'counts',
             'filters',
-            'queueScope',
             'events',
             'statuses',
         ));
@@ -167,13 +165,12 @@ class InquiryController extends Controller
     }
 
     /**
-     * @return array{status: ?string, assignment: string, q: ?string, event: ?int, from: ?string, to: ?string}
+     * @return array{status: ?string, q: ?string, event: ?int, from: ?string, to: ?string}
      */
     private function validatedFilters(Request $request): array
     {
         $validated = $request->validate([
             'status' => ['nullable', 'string', Rule::in(array_column(SupportTicketStatusEnum::cases(), 'value'))],
-            'assignment' => ['nullable', 'string', Rule::in(['all', 'unassigned', 'me'])],
             'q' => ['nullable', 'string', 'max:120'],
             'event' => ['nullable', 'integer', 'exists:events,id'],
             'from' => ['nullable', 'date'],
@@ -188,7 +185,6 @@ class InquiryController extends Controller
 
         return [
             'status' => $validated['status'] ?? null,
-            'assignment' => $validated['assignment'] ?? 'all',
             'q' => filled($validated['q'] ?? null) ? trim($validated['q']) : null,
             'event' => isset($validated['event']) ? (int) $validated['event'] : null,
             'from' => $from,
@@ -197,19 +193,21 @@ class InquiryController extends Controller
     }
 
     /**
-     * @param  array{status: ?string, assignment: string, q: ?string, event: ?int, from: ?string, to: ?string}  $filters
+     * @param  array{status: ?string, q: ?string, event: ?int, from: ?string, to: ?string}  $filters
      */
     private function applyFilters(Builder $query, array $filters, int $croId): Builder
     {
         return $query
-            ->assignmentFilter($filters['assignment'], $croId)
             ->when($filters['status'], fn (Builder $q, string $status) => $q->where('status', $status))
-            ->when($filters['event'], fn (Builder $q, int $eventId) => $q->where('event_id', $eventId))
+            ->when($filters['event'], function (Builder $q, int $eventId) use ($croId) {
+                $q->where('event_id', $eventId)
+                    ->whereHas('event', fn (Builder $event) => $event->where('contact_person', $croId));
+            })
             ->when($filters['from'], fn (Builder $q, string $from) => $q->whereDate('created_at', '>=', $from))
             ->when($filters['to'], fn (Builder $q, string $to) => $q->whereDate('created_at', '<=', $to))
-            ->when($filters['q'], function (Builder $q, string $search) {
+            ->when($filters['q'], function (Builder $q, string $search) use ($croId) {
                 $like = '%'.$search.'%';
-                $q->where(function (Builder $inner) use ($like) {
+                $q->where(function (Builder $inner) use ($like, $croId) {
                     $inner->where('subject', 'like', $like)
                         ->orWhere('message', 'like', $like)
                         ->orWhereHas('user', function (Builder $user) use ($like) {
@@ -218,7 +216,10 @@ class InquiryController extends Controller
                                 ->orWhere('email', 'like', $like)
                                 ->orWhereRaw("CONCAT(first_name, ' ', last_name) like ?", [$like]);
                         })
-                        ->orWhereHas('event', fn (Builder $event) => $event->where('name', 'like', $like));
+                        ->orWhereHas('event', function (Builder $event) use ($like, $croId) {
+                            $event->where('contact_person', $croId)
+                                ->where('name', 'like', $like);
+                        });
                 });
             });
     }
@@ -231,10 +232,5 @@ class InquiryController extends Controller
             ->orderBy('first_name')
             ->orderBy('last_name')
             ->get(['id', 'first_name', 'last_name']);
-    }
-
-    private function resolveQueueScope(Request $request): string
-    {
-        return $request->query('scope') === 'all' ? 'all' : 'mine';
     }
 }

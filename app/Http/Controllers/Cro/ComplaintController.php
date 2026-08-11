@@ -29,21 +29,20 @@ class ComplaintController extends Controller
 
     public function index(Request $request): View
     {
-        $queueScope = $this->resolveQueueScope($request);
         $croId = (int) Auth::id();
         $filters = $this->validatedFilters($request);
 
-        $baseQuery = Complaint::query()->forCroQueue($croId, $queueScope);
+        // Always limited to complainants who booked the CRO's assigned events.
+        $baseQuery = Complaint::query()->forCroQueue($croId, 'mine');
 
         $counts = [
             'open' => (clone $baseQuery)->where('status', SupportTicketStatusEnum::Open)->count(),
             'in_progress' => (clone $baseQuery)->where('status', SupportTicketStatusEnum::InProgress)->count(),
             'resolved' => (clone $baseQuery)->where('status', SupportTicketStatusEnum::Resolved)->count(),
             'closed' => (clone $baseQuery)->where('status', SupportTicketStatusEnum::Closed)->count(),
-            'unassigned' => (clone $baseQuery)->whereNull('assigned_to')->count(),
         ];
 
-        $complaints = $this->applyFilters(clone $baseQuery, $filters, $croId)
+        $complaints = $this->applyFilters(clone $baseQuery, $filters)
             ->with(['user', 'attachments', 'assignee'])
             ->oldest('created_at')
             ->paginate(20)
@@ -55,7 +54,6 @@ class ComplaintController extends Controller
             'complaints',
             'counts',
             'filters',
-            'queueScope',
             'statuses',
         ));
     }
@@ -174,13 +172,12 @@ class ComplaintController extends Controller
     }
 
     /**
-     * @return array{status: ?string, assignment: string, q: ?string, from: ?string, to: ?string}
+     * @return array{status: ?string, q: ?string, from: ?string, to: ?string}
      */
     private function validatedFilters(Request $request): array
     {
         $validated = $request->validate([
             'status' => ['nullable', 'string', Rule::in(array_column(SupportTicketStatusEnum::cases(), 'value'))],
-            'assignment' => ['nullable', 'string', Rule::in(['all', 'unassigned', 'me'])],
             'q' => ['nullable', 'string', 'max:120'],
             'from' => ['nullable', 'date'],
             'to' => ['nullable', 'date'],
@@ -194,7 +191,6 @@ class ComplaintController extends Controller
 
         return [
             'status' => $validated['status'] ?? null,
-            'assignment' => $validated['assignment'] ?? 'all',
             'q' => filled($validated['q'] ?? null) ? trim($validated['q']) : null,
             'from' => $from,
             'to' => $to,
@@ -202,12 +198,11 @@ class ComplaintController extends Controller
     }
 
     /**
-     * @param  array{status: ?string, assignment: string, q: ?string, from: ?string, to: ?string}  $filters
+     * @param  array{status: ?string, q: ?string, from: ?string, to: ?string}  $filters
      */
-    private function applyFilters(Builder $query, array $filters, int $croId): Builder
+    private function applyFilters(Builder $query, array $filters): Builder
     {
         return $query
-            ->assignmentFilter($filters['assignment'], $croId)
             ->when($filters['status'], fn (Builder $q, string $status) => $q->where('status', $status))
             ->when($filters['from'], fn (Builder $q, string $from) => $q->whereDate('created_at', '>=', $from))
             ->when($filters['to'], fn (Builder $q, string $to) => $q->whereDate('created_at', '<=', $to))
@@ -234,10 +229,5 @@ class ComplaintController extends Controller
             ->orderBy('first_name')
             ->orderBy('last_name')
             ->get(['id', 'first_name', 'last_name']);
-    }
-
-    private function resolveQueueScope(Request $request): string
-    {
-        return $request->query('scope') === 'all' ? 'all' : 'mine';
     }
 }

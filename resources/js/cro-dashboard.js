@@ -377,6 +377,13 @@ function initCroDashboard() {
         if (fullscreenChart) fullscreenChart.resize();
     });
 
+    window.addEventListener('cro-dashboard-section-changed', () => {
+        requestAnimationFrame(() => {
+            chartInstances.forEach((chart) => chart?.resize?.());
+            supportTrendChart?.resize?.();
+        });
+    });
+
     bindDashboardPdfExportButtons();
 }
 

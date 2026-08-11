@@ -394,6 +394,7 @@ function initCroReports() {
 
     const resizeCharts = () => charts.forEach((chart) => chart.resize());
     window.addEventListener('cro-reports-tab-changed', resizeCharts);
+    window.addEventListener('cro-dashboard-section-changed', resizeCharts);
     window.addEventListener('resize', resizeCharts);
 
     bindDashboardPdfExportButtons();

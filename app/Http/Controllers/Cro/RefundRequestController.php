@@ -25,11 +25,11 @@ class RefundRequestController extends Controller
 
     public function index(Request $request): View
     {
-        $queueScope = $this->resolveQueueScope($request);
         $croId = (int) Auth::id();
         $filters = $this->validatedFilters($request);
 
-        $baseQuery = RefundRequest::query()->forCroQueue($croId, $queueScope);
+        // Always limited to events where this CRO is the assigned contact person.
+        $baseQuery = RefundRequest::query()->forCroQueue($croId, 'mine');
 
         $counts = [
             'pending' => (clone $baseQuery)->where('status', RefundRequestStatusEnum::Pending)->count(),
@@ -42,7 +42,7 @@ class RefundRequestController extends Controller
             ])->count(),
         ];
 
-        $refundRequests = $this->applyFilters(clone $baseQuery, $filters)
+        $refundRequests = $this->applyFilters(clone $baseQuery, $filters, $croId)
             ->with([
                 'user',
                 'reviewer',
@@ -54,13 +54,8 @@ class RefundRequestController extends Controller
             ->paginate(15)
             ->withQueryString();
 
-        $eventIds = (clone $baseQuery)
-            ->join('ticket_bookings', 'ticket_bookings.id', '=', 'refund_requests.ticket_booking_id')
-            ->distinct()
-            ->pluck('ticket_bookings.event_id');
-
         $events = Event::query()
-            ->whereIn('id', $eventIds)
+            ->where('contact_person', $croId)
             ->orderBy('name')
             ->get(['id', 'name']);
 
@@ -69,7 +64,6 @@ class RefundRequestController extends Controller
         return view('cro.refund-requests.index', compact(
             'refundRequests',
             'counts',
-            'queueScope',
             'filters',
             'events',
             'statuses',
@@ -168,7 +162,7 @@ class RefundRequestController extends Controller
     /**
      * @param  array{status: ?string, event: ?int, from: ?string, to: ?string, q: ?string}  $filters
      */
-    private function applyFilters(Builder $query, array $filters): Builder
+    private function applyFilters(Builder $query, array $filters, int $croId): Builder
     {
         return $query
             ->when($filters['status'] === 'processed', function (Builder $q) {
@@ -182,14 +176,17 @@ class RefundRequestController extends Controller
                 $filters['status'] && $filters['status'] !== 'processed',
                 fn (Builder $q) => $q->where('status', $filters['status'])
             )
-            ->when($filters['event'], function (Builder $q, int $eventId) {
-                $q->whereHas('ticketBooking', fn (Builder $booking) => $booking->where('event_id', $eventId));
+            ->when($filters['event'], function (Builder $q, int $eventId) use ($croId) {
+                $q->whereHas('ticketBooking', function (Builder $booking) use ($eventId, $croId) {
+                    $booking->where('event_id', $eventId)
+                        ->whereHas('event', fn (Builder $event) => $event->where('contact_person', $croId));
+                });
             })
             ->when($filters['from'], fn (Builder $q, string $from) => $q->whereDate('created_at', '>=', $from))
             ->when($filters['to'], fn (Builder $q, string $to) => $q->whereDate('created_at', '<=', $to))
-            ->when($filters['q'], function (Builder $q, string $search) {
+            ->when($filters['q'], function (Builder $q, string $search) use ($croId) {
                 $like = '%'.$search.'%';
-                $q->where(function (Builder $inner) use ($like) {
+                $q->where(function (Builder $inner) use ($like, $croId) {
                     $inner->where('reason', 'like', $like)
                         ->orWhere('cro_notes', 'like', $like)
                         ->orWhereHas('user', function (Builder $user) use ($like) {
@@ -198,16 +195,14 @@ class RefundRequestController extends Controller
                                 ->orWhere('email', 'like', $like)
                                 ->orWhereRaw("CONCAT(first_name, ' ', last_name) like ?", [$like]);
                         })
-                        ->orWhereHas('ticketBooking', function (Builder $booking) use ($like) {
+                        ->orWhereHas('ticketBooking', function (Builder $booking) use ($like, $croId) {
                             $booking->where('ticket_number', 'like', $like)
-                                ->orWhereHas('event', fn (Builder $event) => $event->where('name', 'like', $like));
+                                ->orWhereHas('event', function (Builder $event) use ($like, $croId) {
+                                    $event->where('contact_person', $croId)
+                                        ->where('name', 'like', $like);
+                                });
                         });
                 });
             });
-    }
-
-    private function resolveQueueScope(Request $request): string
-    {
-        return $request->query('scope') === 'all' ? 'all' : 'mine';
     }
 }

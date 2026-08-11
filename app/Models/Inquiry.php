@@ -50,9 +50,9 @@ class Inquiry extends Model
         return $this->hasMany(InquiryResponse::class)->latest();
     }
 
-    /**
-     * Scope to the CRO's assigned events (contact_person), or tickets already assigned to them.
-     * Pass $scope = 'all' to disable filtering.
+/**
+     * Scope to the CRO's assigned events (contact_person only).
+     * Pass $scope = 'all' to disable filtering (admin-style views).
      */
     public function scopeForCroQueue(Builder $query, int $croId, string $scope = 'mine'): Builder
     {
@@ -60,10 +60,7 @@ class Inquiry extends Model
             return $query;
         }
 
-        return $query->where(function (Builder $q) use ($croId) {
-            $q->where('assigned_to', $croId)
-                ->orWhereHas('event', fn (Builder $event) => $event->where('contact_person', $croId));
-        });
+        return $query->whereHas('event', fn (Builder $event) => $event->where('contact_person', $croId));
     }
 
     public function scopeAssignmentFilter(Builder $query, string $assignment, int $croId): Builder
@@ -86,14 +83,10 @@ class Inquiry extends Model
     }
 
     /**
-     * Whether this inquiry is in the CRO's actionable ("mine") queue.
+     * Whether this inquiry belongs to an event assigned to the CRO.
      */
     public function isInCroQueue(int $croId): bool
     {
-        if ($this->isAssignedTo($croId)) {
-            return true;
-        }
-
         $this->loadMissing('event');
 
         return (int) ($this->event?->contact_person) === $croId;

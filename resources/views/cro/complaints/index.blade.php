@@ -1,10 +1,7 @@
 @php
-    $queueScope = $queueScope ?? 'mine';
-    $filters = $filters ?? ['status' => null, 'assignment' => 'all', 'q' => null, 'from' => null, 'to' => null];
-    $scopeQuery = $queueScope === 'all' ? ['scope' => 'all'] : [];
+    $filters = $filters ?? ['status' => null, 'q' => null, 'from' => null, 'to' => null];
     $filterQuery = array_filter([
         'status' => $filters['status'] ?? null,
-        'assignment' => (($filters['assignment'] ?? 'all') !== 'all') ? $filters['assignment'] : null,
         'q' => $filters['q'] ?? null,
         'from' => $filters['from'] ?? null,
         'to' => $filters['to'] ?? null,
@@ -17,7 +14,7 @@
         <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
                 <h2 class="text-3xl font-bold text-slate-900">Complaints</h2>
-                <p class="mt-1 text-slate-500">Oldest open first · claim before you reply to avoid collisions.</p>
+                <p class="mt-1 text-slate-500">Your assigned events only · claim before you reply to avoid collisions.</p>
             </div>
             <a href="{{ route('cro.dashboard') }}"
                 class="inline-flex items-center gap-2 rounded-2xl bg-slate-800 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-900">
@@ -35,36 +32,23 @@
                 <div class="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-red-800">{{ $errors->first() }}</div>
             @endif
 
-            @include('partials.cro-queue-scope', [
-                'routeName' => 'cro.complaints.index',
-                'queueScope' => $queueScope,
-                'mineLabel' => 'My queue',
-                'allLabel' => 'All complaints',
-                'mineHint' => 'Showing unassigned complaints and ones assigned to you.',
-                'extraQuery' => $filterQuery,
-            ])
+            <div class="rounded-2xl border border-indigo-200/70 bg-indigo-50/70 px-4 py-3 text-sm text-indigo-800">
+                Showing complaints from attendees of events where you are the assigned CRO.
+            </div>
 
-            <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+            <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 @foreach ($statuses as $s)
-                    <a href="{{ route('cro.complaints.index', array_merge($scopeQuery, array_filter(array_merge($filterQuery, ['status' => $s->value])))) }}"
+                    <a href="{{ route('cro.complaints.index', array_filter(array_merge($filterQuery, ['status' => $s->value]))) }}"
                         class="rounded-3xl border p-5 transition {{ ($filters['status'] ?? '') === $s->value ? 'border-indigo-300 bg-indigo-50' : 'border-slate-200 bg-white hover:border-slate-300' }}">
                         <p class="text-sm font-medium text-slate-500">{{ $s->label() }}</p>
                         <p class="mt-1 text-3xl font-bold text-slate-900">{{ $counts[$s->value] ?? 0 }}</p>
                     </a>
                 @endforeach
-                <a href="{{ route('cro.complaints.index', array_merge($scopeQuery, array_filter(array_merge($filterQuery, ['assignment' => 'unassigned', 'status' => null])))) }}"
-                    class="rounded-3xl border p-5 transition {{ ($filters['assignment'] ?? '') === 'unassigned' ? 'border-amber-300 bg-amber-50' : 'border-slate-200 bg-white hover:border-slate-300' }}">
-                    <p class="text-sm font-medium text-slate-500">Unassigned</p>
-                    <p class="mt-1 text-3xl font-bold text-amber-600">{{ number_format($counts['unassigned']) }}</p>
-                </a>
             </div>
 
             <form method="GET" action="{{ route('cro.complaints.index') }}"
                 class="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-                @if ($queueScope === 'all')
-                    <input type="hidden" name="scope" value="all">
-                @endif
-                <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+                <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                     <div class="xl:col-span-2">
                         <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Search</label>
                         <input type="text" name="q" value="{{ $filters['q'] ?? '' }}"
@@ -78,14 +62,6 @@
                             @foreach ($statuses as $s)
                                 <option value="{{ $s->value }}" @selected(($filters['status'] ?? null) === $s->value)>{{ $s->label() }}</option>
                             @endforeach
-                        </select>
-                    </div>
-                    <div>
-                        <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Assignment</label>
-                        <select name="assignment" class="w-full rounded-xl border-slate-300 text-sm">
-                            <option value="all" @selected(($filters['assignment'] ?? 'all') === 'all')>All</option>
-                            <option value="unassigned" @selected(($filters['assignment'] ?? '') === 'unassigned')>Unassigned</option>
-                            <option value="me" @selected(($filters['assignment'] ?? '') === 'me')>Assigned to me</option>
                         </select>
                     </div>
                     <div class="grid grid-cols-2 gap-2">
@@ -102,7 +78,7 @@
                 <div class="mt-3 flex flex-wrap gap-2">
                     <button type="submit" class="rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700">Apply</button>
                     @if ($hasActiveFilters)
-                        <a href="{{ route('cro.complaints.index', $scopeQuery) }}" class="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">Clear</a>
+                        <a href="{{ route('cro.complaints.index') }}" class="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">Clear</a>
                     @endif
                 </div>
             </form>
@@ -110,7 +86,7 @@
             @if ($complaints->isEmpty())
                 <div class="rounded-3xl border border-dashed border-slate-300 bg-white p-16 text-center">
                     <h3 class="text-2xl font-bold text-slate-800">No Complaints</h3>
-                    <p class="mt-2 text-slate-500">No complaints match the selected filters.</p>
+                    <p class="mt-2 text-slate-500">No complaints match the selected filters for your assigned events.</p>
                 </div>
             @else
                 <div class="space-y-3">

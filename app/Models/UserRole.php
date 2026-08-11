@@ -19,6 +19,53 @@ class UserRole extends Model
     public const ATTENDEE = 'attendee';
 
     /**
+     * Staff roles that can be assigned when creating employees.
+     *
+     * @return list<string>
+     */
+    public static function staffRoleNames(): array
+    {
+        return [
+            self::ADMIN,
+            self::ORGANIZER,
+            self::CRO,
+        ];
+    }
+
+    /**
+     * Roles an admin may assign when editing any user.
+     *
+     * @return list<string>
+     */
+    public static function assignableRoleNames(): array
+    {
+        return [
+            ...self::staffRoleNames(),
+            self::ATTENDEE,
+        ];
+    }
+
+    /**
+     * Active staff roles for employee create forms.
+     */
+    public static function activeStaffRoles()
+    {
+        return static::query()
+            ->whereIn('name_en', self::staffRoleNames())
+            ->where('is_active', true);
+    }
+
+    /**
+     * Active roles available on the user edit form.
+     */
+    public static function assignableRoles()
+    {
+        return static::query()
+            ->whereIn('name_en', self::assignableRoleNames())
+            ->where('is_active', true);
+    }
+
+    /**
      * The table associated with the model.
      *
      * @var string

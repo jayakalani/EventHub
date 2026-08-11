@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Models\UserRole;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Redirect;
+use Illuminate\Validation\Rule;
 
 class UserController extends Controller
 {
@@ -94,8 +95,14 @@ class UserController extends Controller
      */
     public function edit($id)
     {
-        $user = User::findOrFail($id);
-        $roles = UserRole::all();
+        $user = User::with('userRole')->findOrFail($id);
+
+        $roles = UserRole::assignableRoles()->orderBy('name_en')->get();
+
+        // Keep the current role selectable if it was deactivated.
+        if ($user->userRole && ! $roles->contains('id', $user->role_id)) {
+            $roles->push($user->userRole);
+        }
 
         return view('admin.users.user-edit', compact('user', 'roles'));
     }
@@ -111,8 +118,19 @@ class UserController extends Controller
             'first_name' => ['required', 'string', 'max:255'],
             'last_name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email,'.$id],
-            'contact_number' => ['nullable', 'string', 'max:20'],
-            'role_id' => ['required', 'exists:user_roles,id'],
+            'contact_number' => ['required', 'string', 'max:20'],
+            'role_id' => [
+                'required',
+                Rule::exists('user_roles', 'id')->where(function ($query) use ($user) {
+                    $query->whereNull('deleted_at')
+                        ->where(function ($inner) use ($user) {
+                            $inner->where(function ($assignable) {
+                                $assignable->whereIn('name_en', UserRole::assignableRoleNames())
+                                    ->where('is_active', true);
+                            })->orWhere('id', $user->role_id);
+                        });
+                }),
+            ],
         ]);
 
         $user->update($validated);

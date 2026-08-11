@@ -11,6 +11,11 @@
             </x-footer-link>
         </li>
         <li>
+            <x-footer-link :href="route('organizer.artists')" :active="request()->routeIs('organizer.artists', 'organizer.artists.*', 'organizer.artist.*')">
+                {{ t(['en' => 'Artists', 'si' => 'කලාකරුවන්']) }}
+            </x-footer-link>
+        </li>
+        <li>
             <x-footer-link :href="route('organizer.calendar.index')" :active="request()->routeIs('organizer.calendar.*')">
                 {{ t(['en' => 'Calendar', 'si' => 'දින දසුන']) }}
             </x-footer-link>

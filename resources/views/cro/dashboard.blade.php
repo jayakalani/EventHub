@@ -2,6 +2,9 @@
     @php
         $kpis = $dashboard['kpis'];
         $todayTasks = $dashboard['todayTasks'];
+        $todayWork = $dashboard['todayWork'] ?? [];
+        $personalKpis = $dashboard['personalKpis'] ?? null;
+        $handoffs = $dashboard['handoffs'] ?? [];
         $complaintStatus = $dashboard['charts']['complaintStatus'];
         $satisfaction = $dashboard['satisfaction'];
         $eventFilter = $dashboard['eventFilter'] ?? ['selectedEventId' => null, 'selectedEventName' => null, 'events' => []];
@@ -80,12 +83,15 @@
                                     {{ $greeting }}, {{ $displayName }}
                                 </p>
                                 <h1 class="truncate text-2xl font-bold tracking-tight text-white sm:text-3xl">
-                                    CRO Dashboard
+                                    Today’s work
                                 </h1>
                             </div>
                         </div>
                         <p class="mt-2 text-sm text-blue-100">
-                            Customer relations workspace · {{ now()->format('l, M j, Y') }}
+                            Your daily queue · {{ now()->format('l, M j, Y') }}
+                            @if (($todayTasks['queueTotal'] ?? 0) > 0)
+                                · {{ number_format($todayTasks['queueTotal']) }} items waiting
+                            @endif
                         </p>
                     </div>
 
@@ -217,6 +223,158 @@
                     </div>
                 </form>
             </section>
+
+            @if (session('success'))
+                <div class="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{{ session('success') }}</div>
+            @endif
+            @if ($errors->any())
+                <div class="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{{ $errors->first() }}</div>
+            @endif
+
+            {{-- Today’s work queue --}}
+            <section class="glass-card overflow-hidden !p-0">
+                <div class="flex flex-col gap-3 border-b border-indigo-200/50 bg-indigo-50/50 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+                    <div>
+                        <h2 class="text-base font-bold text-indigo-950">Today’s work</h2>
+                        <p class="mt-0.5 text-sm text-indigo-700/80">New inquiries, pending refunds, and urgent complaints — claim or open in one click</p>
+                    </div>
+                    <span class="inline-flex h-8 min-w-8 items-center justify-center self-start rounded-lg bg-indigo-100 px-2 text-sm font-bold text-indigo-700">
+                        {{ count($todayWork) }}
+                    </span>
+                </div>
+                <div class="divide-y divide-slate-100">
+                    @forelse ($todayWork as $item)
+                        @php
+                            $typeTone = match ($item['type'] ?? '') {
+                                'complaint' => ['badge' => 'bg-rose-100 text-rose-700', 'label' => 'Complaint'],
+                                'refund' => ['badge' => 'bg-amber-100 text-amber-800', 'label' => 'Refund'],
+                                default => ['badge' => 'bg-sky-100 text-sky-800', 'label' => 'Inquiry'],
+                            };
+                        @endphp
+                        <div class="flex flex-col gap-3 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:px-5 {{ !empty($item['urgent']) ? 'bg-rose-50/30' : '' }}">
+                            <div class="min-w-0 flex-1">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <span class="inline-flex rounded-md px-2 py-0.5 text-[11px] font-semibold {{ $typeTone['badge'] }}">{{ $typeTone['label'] }}</span>
+                                    @if (!empty($item['urgent']))
+                                        <span class="inline-flex rounded-md bg-rose-100 px-2 py-0.5 text-[11px] font-semibold text-rose-700">Urgent</span>
+                                    @endif
+                                    @if (!empty($item['age']))
+                                        <span class="text-[11px] font-medium text-slate-400">{{ $item['age'] }}</span>
+                                    @endif
+                                </div>
+                                <p class="mt-1 truncate font-semibold text-slate-900">{{ $item['title'] }}</p>
+                                <p class="mt-0.5 truncate text-xs text-slate-500">{{ $item['meta'] }}</p>
+                            </div>
+                            <div class="flex shrink-0 flex-wrap items-center gap-2">
+                                @if (!empty($item['claimUrl']))
+                                    <form method="POST" action="{{ $item['claimUrl'] }}">
+                                        @csrf
+                                        <button type="submit"
+                                            class="btn-smooth inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-2 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700">
+                                            <i class="bi bi-hand-index-thumb"></i>
+                                            Claim
+                                        </button>
+                                    </form>
+                                @endif
+                                <a href="{{ $item['href'] }}"
+                                    class="btn-smooth inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-sm hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700">
+                                    {{ $item['actionLabel'] === 'Claim' ? 'Open' : ($item['actionLabel'] ?? 'Open') }}
+                                    <i class="bi bi-arrow-right text-[10px]"></i>
+                                </a>
+                            </div>
+                        </div>
+                    @empty
+                        <div class="flex flex-col items-center justify-center px-4 py-12 text-center sm:px-5">
+                            <span class="mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+                                <i class="bi bi-check-lg"></i>
+                            </span>
+                            <p class="text-sm font-medium text-slate-700">Queue clear</p>
+                            <p class="mt-0.5 text-xs text-slate-500">No open inquiries, refunds, or urgent complaints in your scope.</p>
+                        </div>
+                    @endforelse
+                </div>
+            </section>
+
+            {{-- Personal KPIs --}}
+            @if ($personalKpis)
+                <section>
+                    <div class="mb-3 flex items-end justify-between gap-3">
+                        <div>
+                            <h2 class="text-base font-bold text-slate-900">Your KPIs</h2>
+                            <p class="text-sm text-slate-500">First response, resolution, refund decisions, and satisfaction on your events</p>
+                        </div>
+                        <a href="{{ route('cro.reports', array_filter(['event' => $filters['event'] ?? null, 'from' => $filters['from'] ?? null, 'to' => $filters['to'] ?? null, 'cro' => Auth::id()])) }}"
+                            class="text-xs font-semibold text-indigo-600 hover:text-indigo-800">Full reports →</a>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3 xl:grid-cols-4">
+                        @foreach ([
+                            ['label' => 'Avg first response', 'value' => $personalKpis['avgFirstResponseLabel'] ?? '—', 'sub' => 'On cases assigned to you', 'icon' => 'bi-lightning-charge', 'accent' => 'indigo'],
+                            ['label' => 'Avg resolution', 'value' => $personalKpis['avgResolutionLabel'] ?? '—', 'sub' => 'Inquiries & complaints', 'icon' => 'bi-hourglass-split', 'accent' => 'sky'],
+                            ['label' => 'Refund approve / decline', 'value' => (($personalKpis['refundApproveRate'] ?? null) !== null ? number_format($personalKpis['refundApproveRate'], 0).'% / '.number_format($personalKpis['refundDeclineRate'] ?? 0, 0).'%' : '—'), 'sub' => number_format($personalKpis['refundReviewed'] ?? 0).' reviewed in range', 'icon' => 'bi-arrow-counterclockwise', 'accent' => 'amber'],
+                            ['label' => 'Event satisfaction', 'value' => (($personalKpis['satisfactionAverage'] ?? null) !== null ? number_format($personalKpis['satisfactionAverage'], 1).'/5' : '—'), 'sub' => number_format($personalKpis['satisfactionCount'] ?? 0).' ratings on your events', 'icon' => 'bi-star', 'accent' => 'emerald'],
+                        ] as $kpi)
+                            @php
+                                $accent = match ($kpi['accent']) {
+                                    'sky' => ['top' => 'border-t-sky-500', 'iconBg' => 'bg-sky-100/70', 'iconText' => 'text-sky-600'],
+                                    'amber' => ['top' => 'border-t-amber-500', 'iconBg' => 'bg-amber-100/70', 'iconText' => 'text-amber-600'],
+                                    'emerald' => ['top' => 'border-t-emerald-500', 'iconBg' => 'bg-emerald-100/70', 'iconText' => 'text-emerald-600'],
+                                    default => ['top' => 'border-t-indigo-500', 'iconBg' => 'bg-indigo-100/70', 'iconText' => 'text-indigo-600'],
+                                };
+                            @endphp
+                            <div class="glass-card kpi-lift border-t-4 {{ $accent['top'] }} p-4 sm:p-5">
+                                <div class="flex items-start justify-between gap-3">
+                                    <div class="min-w-0">
+                                        <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ $kpi['label'] }}</p>
+                                        <p class="mt-1 truncate text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">{{ $kpi['value'] }}</p>
+                                        <p class="mt-1 text-xs font-medium text-slate-500">{{ $kpi['sub'] }}</p>
+                                    </div>
+                                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl {{ $accent['iconBg'] }}">
+                                        <i class="bi {{ $kpi['icon'] }} text-lg {{ $accent['iconText'] }}"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                </section>
+            @endif
+
+            {{-- Organizer handoffs --}}
+            @if (count($handoffs))
+                <section class="glass-card overflow-hidden !p-0">
+                    <div class="flex items-center justify-between gap-3 border-b border-amber-200/60 bg-amber-50/50 px-4 py-3.5 sm:px-5">
+                        <div>
+                            <h2 class="text-base font-bold text-amber-950">Organizer handoffs</h2>
+                            <p class="mt-0.5 text-sm text-amber-800/80">Postponed or cancelled events — clear inquiries and refunds</p>
+                        </div>
+                        <span class="inline-flex h-8 min-w-8 items-center justify-center rounded-lg bg-amber-100 px-2 text-sm font-bold text-amber-800">
+                            {{ count($handoffs) }}
+                        </span>
+                    </div>
+                    <div class="divide-y divide-amber-100/80">
+                        @foreach ($handoffs as $handoff)
+                            <a href="{{ $handoff['href'] }}"
+                                class="btn-smooth flex items-start gap-3 px-4 py-3.5 hover:bg-amber-50/60 sm:px-5">
+                                <span class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-700">
+                                    <i class="bi bi-clipboard-check text-sm"></i>
+                                </span>
+                                <div class="min-w-0 flex-1">
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <p class="font-semibold text-slate-900">{{ $handoff['event']['name'] ?? 'Event' }}</p>
+                                        <span class="rounded-md bg-white px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-amber-800 ring-1 ring-amber-200">
+                                            {{ $handoff['event']['statusLabel'] ?? ucfirst($handoff['type'] ?? '') }}
+                                        </span>
+                                    </div>
+                                    <p class="mt-0.5 text-xs text-slate-500">
+                                        {{ number_format($handoff['summary']['openInquiries'] ?? 0) }} open inquiries
+                                        · {{ number_format($handoff['summary']['pendingRefunds'] ?? 0) }} pending refunds
+                                    </p>
+                                </div>
+                                <i class="bi bi-chevron-right mt-1 text-xs text-amber-400"></i>
+                            </a>
+                        @endforeach
+                    </div>
+                </section>
+            @endif
 
             {{-- 2. Performance KPIs --}}
             <section class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -379,7 +537,8 @@
                             </thead>
                             <tbody class="divide-y divide-white/40">
                                 @forelse ($dashboard['recentInquiries'] as $inquiry)
-                                    <tr class="btn-smooth hover:bg-white/45">
+                                    <tr class="btn-smooth cursor-pointer hover:bg-white/45"
+                                        onclick="window.location.href='{{ $inquiry['href'] }}'">
                                         <td class="px-4 py-3 sm:px-5">
                                             <p class="font-medium text-slate-900 whitespace-nowrap">{{ $inquiry['customer'] }}</p>
                                             <p class="mt-0.5 max-w-[9rem] truncate text-[11px] text-slate-400">{{ $inquiry['event'] }}</p>
@@ -425,7 +584,8 @@
                             </thead>
                             <tbody class="divide-y divide-white/40">
                                 @forelse ($dashboard['pendingRefunds'] as $refund)
-                                    <tr class="btn-smooth hover:bg-white/45">
+                                    <tr class="btn-smooth cursor-pointer hover:bg-white/45"
+                                        onclick="window.location.href='{{ $refund['href'] }}'">
                                         <td class="px-4 py-3 sm:px-5 font-medium text-slate-900 whitespace-nowrap">{{ $refund['customer'] }}</td>
                                         <td class="px-4 py-3 sm:px-5 text-slate-700 max-w-[9rem] truncate">{{ $refund['event'] }}</td>
                                         <td class="px-4 py-3 sm:px-5 font-semibold text-emerald-700 whitespace-nowrap">{{ $refund['amount'] }}</td>

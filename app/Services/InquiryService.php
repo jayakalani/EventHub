@@ -104,4 +104,56 @@ class InquiryService
 
         $this->auditService->logStatusChange('inquiry', $inquiry->id, $oldStatus, $status->value);
     }
+
+    public function claim(Inquiry $inquiry, User $cro): void
+    {
+        if (! $inquiry->isUnassigned() && ! $inquiry->isAssignedTo($cro->id)) {
+            throw new RuntimeException('This inquiry is already claimed by another CRO. Use Reassign instead.');
+        }
+
+        if ($inquiry->isAssignedTo($cro->id)) {
+            return;
+        }
+
+        $from = $inquiry->assigned_to;
+        $payload = ['assigned_to' => $cro->id];
+
+        if ($inquiry->status === SupportTicketStatusEnum::Open) {
+            $payload['status'] = SupportTicketStatusEnum::InProgress;
+            $this->auditService->logStatusChange(
+                'inquiry',
+                $inquiry->id,
+                SupportTicketStatusEnum::Open->value,
+                SupportTicketStatusEnum::InProgress->value,
+            );
+        }
+
+        $inquiry->update($payload);
+        $this->auditService->logAssignmentChange('inquiry', $inquiry->id, $from, $cro->id);
+    }
+
+    public function reassign(Inquiry $inquiry, User $actor, ?User $assignee): void
+    {
+        $toId = $assignee?->id;
+        $fromId = $inquiry->assigned_to;
+
+        if ((int) $fromId === (int) $toId) {
+            return;
+        }
+
+        if ($assignee && ! app(CroNotificationService::class)->isCro($assignee)) {
+            throw new RuntimeException('You can only reassign to an active CRO.');
+        }
+
+        $inquiry->update(['assigned_to' => $toId]);
+        $this->auditService->logAssignmentChange('inquiry', $inquiry->id, $fromId, $toId);
+    }
+
+    public function updateInternalNotes(Inquiry $inquiry, User $cro, ?string $notes): void
+    {
+        $inquiry->update([
+            'internal_notes' => filled($notes) ? trim($notes) : null,
+            'assigned_to' => $inquiry->assigned_to ?? $cro->id,
+        ]);
+    }
 }

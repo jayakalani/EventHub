@@ -8,17 +8,17 @@ use App\Enums\EventReminderTypeEnum;
 use App\Mail\EventRatingNudgeMail;
 use App\Mail\EventReminderMail;
 use App\Mail\EventUpdatedMail;
-use App\Mail\NewEventFromHostMail;
+use App\Mail\NewEventFromArtistMail;
 use App\Models\Event;
 use App\Models\EventReminderLog;
-use App\Models\FollowHost;
+use App\Models\FollowArtist;
 use App\Models\Rating;
 use App\Models\SavedEvent;
 use App\Models\ticketBooking;
 use App\Models\User;
 use App\Models\UserRole;
 use App\Notifications\EventRatingNudgeNotification;
-use App\Notifications\NewEventFromHostNotification;
+use App\Notifications\NewEventFromArtistNotification;
 use App\Notifications\EventUpdatedNotification;
 use App\Notifications\EventReminderNotification;
 use Illuminate\Database\Eloquent\Collection;
@@ -49,7 +49,7 @@ class EventNotificationService
 
         $recipients = $this->mergeRecipients(
             $this->getUsersWhoSavedEvent($event),
-            $this->getHostFollowers((int) $event->hosted_by),
+            $this->getArtistFollowersForEvent($event),
         );
 
         if ($recipients->isEmpty()) {
@@ -70,9 +70,9 @@ class EventNotificationService
             return;
         }
 
-        $event->loadMissing('host');
+        $event->loadMissing('artists');
         $recipients = $this->mergeRecipients(
-            $this->getHostFollowers((int) $event->hosted_by),
+            $this->getArtistFollowersForEvent($event),
             $this->getUsersWhoSavedEvent($event),
         );
 
@@ -82,8 +82,8 @@ class EventNotificationService
 
         DB::afterCommit(function () use ($event, $recipients) {
             foreach ($recipients as $user) {
-                Mail::to($user)->queue(new NewEventFromHostMail($event, $user));
-                $user->notify(new NewEventFromHostNotification($event));
+                Mail::to($user)->queue(new NewEventFromArtistMail($event, $user));
+                $user->notify(new NewEventFromArtistNotification($event));
             }
 
             $savedUsers = $this->getUsersWhoSavedEvent($event);
@@ -178,7 +178,7 @@ class EventNotificationService
         return $this->mergeRecipients(
             $this->getConfirmedTicketHolders($event),
             $this->getUsersWhoSavedEvent($event),
-            $this->getHostFollowers((int) $event->hosted_by),
+            $this->getArtistFollowersForEvent($event),
         );
     }
 
@@ -328,14 +328,21 @@ class EventNotificationService
     }
 
     /**
-     * Attendees who follow the host.
+     * Attendees who follow any artist linked to the event.
      *
      * @return Collection<int, User>
      */
-    public function getHostFollowers(int $hostId): Collection
+    public function getArtistFollowersForEvent(Event $event): Collection
     {
-        $userIds = FollowHost::query()
-            ->where('host_id', $hostId)
+        $event->loadMissing('artists');
+        $artistIds = $event->artists->pluck('id');
+
+        if ($artistIds->isEmpty()) {
+            return new Collection;
+        }
+
+        $userIds = FollowArtist::query()
+            ->whereIn('artist_id', $artistIds)
             ->pluck('user_id');
 
         if ($userIds->isEmpty()) {

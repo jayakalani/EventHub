@@ -11,8 +11,8 @@
             </x-footer-link>
         </li>
         <li>
-            <x-footer-link :href="route('attendee.hosts.index')" :active="request()->routeIs('attendee.hosts.*')">
-                {{ t(['en' => 'Hosts', 'si' => 'සත්කාරක']) }}
+            <x-footer-link :href="route('attendee.artists.index')" :active="request()->routeIs('attendee.artists.*')">
+                {{ t(['en' => 'Artists', 'si' => 'කලාකරුවන්']) }}
             </x-footer-link>
         </li>
         <li>

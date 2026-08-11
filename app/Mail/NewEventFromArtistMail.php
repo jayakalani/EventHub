@@ -11,7 +11,7 @@ use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
-class NewEventFromHostMail extends Mailable implements ShouldQueue
+class NewEventFromArtistMail extends Mailable implements ShouldQueue
 {
     use Queueable, SerializesModels;
 
@@ -22,18 +22,19 @@ class NewEventFromHostMail extends Mailable implements ShouldQueue
 
     public function envelope(): Envelope
     {
-        $this->event->loadMissing('host');
-        $hostName = $this->event->host?->name ?? 'a host you follow';
+        $this->event->loadMissing('artists');
+        $artistName = $this->event->artists->pluck('name')->filter()->implode(', ');
+        $artistName = $artistName !== '' ? $artistName : 'an artist you follow';
 
         return new Envelope(
-            subject: 'New event from '.$hostName.' — '.$this->event->name,
+            subject: 'New event from '.$artistName.' — '.$this->event->name,
         );
     }
 
     public function content(): Content
     {
-        $this->event->loadMissing('host');
+        $this->event->loadMissing('artists');
 
-        return new Content(view: 'mail.new-event-from-host');
+        return new Content(view: 'mail.new-event-from-artist');
     }
 }

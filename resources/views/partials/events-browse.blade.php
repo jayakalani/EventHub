@@ -5,7 +5,7 @@
     $hideCategoryBar = $hideCategoryBar ?? false;
     $emptyMessage = $emptyMessage ?? null;
     $browseQuery = array_filter([
-        'host' => request('host'),
+        'artist' => request('artist'),
         'search' => request('search'),
         'date' => request('date'),
     ]);

@@ -27,8 +27,8 @@
         ],
         [
             'label' => 'Categories',
-            'route' => 'admin.event-categories',
-            'active' => request()->routeIs('admin.event-categories', 'admin.event-categories.*', 'admin.event.category.*'),
+            'route' => 'admin.event-categories.index',
+            'active' => request()->routeIs('admin.event-categories.*', 'admin.event.category.*'),
         ],
         [
             'label' => 'Reports',
@@ -73,9 +73,9 @@
                         class="rounded-xl px-3.5 py-2 text-sm font-medium transition {{ request()->routeIs('attendee.saved.*') ? $navActive : $navIdle }}">
                         {{ t(['en' => 'Saved', 'si' => 'සුරකින ලද']) }}
                     </a>
-                    <a href="{{ route('attendee.hosts.index') }}"
-                        class="rounded-xl px-3.5 py-2 text-sm font-medium transition {{ request()->routeIs('attendee.hosts.*') ? $navActive : $navIdle }}">
-                        {{ t(['en' => 'Hosts', 'si' => 'සත්කාරකයන්']) }}
+                    <a href="{{ route('attendee.artists.index') }}"
+                        class="rounded-xl px-3.5 py-2 text-sm font-medium transition {{ request()->routeIs('attendee.artists.*') ? $navActive : $navIdle }}">
+                        {{ t(['en' => 'Artists', 'si' => 'කලාකරුවන්']) }}
                     </a>
                     <a href="{{ route('attendee.bookings.index') }}"
                         class="rounded-xl px-3.5 py-2 text-sm font-medium transition {{ request()->routeIs('attendee.bookings.*') ? $navActive : $navIdle }}">
@@ -113,6 +113,10 @@
                     <a href="{{ route('organizer.hosts') }}"
                         class="rounded-xl px-3.5 py-2 text-sm font-medium transition {{ request()->routeIs('organizer.hosts', 'organizer.hosts.*', 'organizer.host.*') ? $navActive : $navIdle }}">
                         Hosts
+                    </a>
+                    <a href="{{ route('organizer.artists') }}"
+                        class="rounded-xl px-3.5 py-2 text-sm font-medium transition {{ request()->routeIs('organizer.artists', 'organizer.artists.*', 'organizer.artist.*') ? $navActive : $navIdle }}">
+                        Artists
                     </a>
                     <a href="{{ route('organizer.calendar.index') }}"
                         class="rounded-xl px-3.5 py-2 text-sm font-medium transition {{ request()->routeIs('organizer.calendar.*') ? $navActive : $navIdle }}">
@@ -359,9 +363,9 @@
                     class="block rounded-xl px-3 py-2.5 transition hover:bg-[#0F0363]/5 hover:text-[#0F0363] {{ request()->routeIs('attendee.saved.*') ? $navActive : 'text-slate-700' }}">
                     {{ t(['en' => 'Saved', 'si' => 'සුරකින ලද']) }}
                 </a>
-                <a href="{{ route('attendee.hosts.index') }}"
-                    class="block rounded-xl px-3 py-2.5 transition hover:bg-[#0F0363]/5 hover:text-[#0F0363] {{ request()->routeIs('attendee.hosts.*') ? $navActive : 'text-slate-700' }}">
-                    {{ t(['en' => 'Hosts', 'si' => 'සත්කාරක']) }}
+                <a href="{{ route('attendee.artists.index') }}"
+                    class="block rounded-xl px-3 py-2.5 transition hover:bg-[#0F0363]/5 hover:text-[#0F0363] {{ request()->routeIs('attendee.artists.*') ? $navActive : 'text-slate-700' }}">
+                    {{ t(['en' => 'Artists', 'si' => 'කලාකරුවන්']) }}
                 </a>
                 <a href="{{ route('attendee.bookings.index') }}"
                     class="flex items-center justify-between rounded-xl px-3 py-2.5 transition hover:bg-[#0F0363]/5 hover:text-[#0F0363] {{ request()->routeIs('attendee.bookings.*') ? $navActive : 'text-slate-700' }}">
@@ -417,6 +421,10 @@
                 <a href="{{ route('organizer.hosts') }}"
                     class="block rounded-xl px-3 py-2.5 transition hover:bg-[#0F0363]/5 hover:text-[#0F0363] {{ request()->routeIs('organizer.hosts', 'organizer.hosts.*', 'organizer.host.*') ? $navActive : 'text-slate-700' }}">
                     Hosts
+                </a>
+                <a href="{{ route('organizer.artists') }}"
+                    class="block rounded-xl px-3 py-2.5 transition hover:bg-[#0F0363]/5 hover:text-[#0F0363] {{ request()->routeIs('organizer.artists', 'organizer.artists.*', 'organizer.artist.*') ? $navActive : 'text-slate-700' }}">
+                    Artists
                 </a>
                 <a href="{{ route('organizer.calendar.index') }}"
                     class="block rounded-xl px-3 py-2.5 transition hover:bg-[#0F0363]/5 hover:text-[#0F0363] {{ request()->routeIs('organizer.calendar.*') ? $navActive : 'text-slate-700' }}">

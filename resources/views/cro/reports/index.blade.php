@@ -4,6 +4,7 @@
         $complaints = $reports['complaints'];
         $satisfaction = $reports['satisfaction'] ?? ['average' => null, 'reviewCount' => 0, 'distribution' => ['labels' => [], 'counts' => [], 'percents' => [], 'total' => 0], 'trend' => []];
         $summary = $reports['summary'] ?? [];
+        $personalKpis = $reports['personalKpis'] ?? null;
         $activeFilters = $reports['filters'] ?? ['event' => null, 'cro' => null, 'range' => 'month', 'from' => null, 'to' => null];
         $filterOptions = $reports['filterOptions'] ?? ['events' => [], 'cros' => []];
         $validTabs = ['inquiries', 'complaints'];
@@ -172,6 +173,47 @@
                     </div>
                 </form>
             </section>
+
+            {{-- Personal CRO KPIs --}}
+            @if ($personalKpis)
+                <section>
+                    <div class="mb-3">
+                        <h2 class="text-base font-bold text-slate-900">
+                            {{ ($activeFilters['selectedCroName'] ?? null) ? 'CRO KPIs · '.$activeFilters['selectedCroName'] : 'Your personal KPIs' }}
+                        </h2>
+                        <p class="text-sm text-slate-500">Avg first response, resolution time, refund approve/decline rate, satisfaction on assigned events</p>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3 xl:grid-cols-4">
+                        @foreach ([
+                            ['label' => 'Avg first response', 'value' => $personalKpis['avgFirstResponseLabel'] ?? '—', 'sub' => 'Assigned cases', 'icon' => 'bi-lightning-charge', 'accent' => 'indigo'],
+                            ['label' => 'Avg resolution', 'value' => $personalKpis['avgResolutionLabel'] ?? '—', 'sub' => 'Inquiries & complaints', 'icon' => 'bi-hourglass-split', 'accent' => 'sky'],
+                            ['label' => 'Refund approve / decline', 'value' => (($personalKpis['refundApproveRate'] ?? null) !== null ? number_format($personalKpis['refundApproveRate'], 0).'% / '.number_format($personalKpis['refundDeclineRate'] ?? 0, 0).'%' : '—'), 'sub' => number_format($personalKpis['refundReviewed'] ?? 0).' reviewed', 'icon' => 'bi-arrow-counterclockwise', 'accent' => 'amber'],
+                            ['label' => 'Event satisfaction', 'value' => (($personalKpis['satisfactionAverage'] ?? null) !== null ? number_format($personalKpis['satisfactionAverage'], 1).'/5' : '—'), 'sub' => number_format($personalKpis['satisfactionCount'] ?? 0).' ratings', 'icon' => 'bi-star', 'accent' => 'emerald'],
+                        ] as $kpi)
+                            @php
+                                $accent = match ($kpi['accent']) {
+                                    'sky' => ['top' => 'border-t-sky-500', 'iconBg' => 'bg-sky-100/70', 'iconText' => 'text-sky-600'],
+                                    'amber' => ['top' => 'border-t-amber-500', 'iconBg' => 'bg-amber-100/70', 'iconText' => 'text-amber-600'],
+                                    'emerald' => ['top' => 'border-t-emerald-500', 'iconBg' => 'bg-emerald-100/70', 'iconText' => 'text-emerald-600'],
+                                    default => ['top' => 'border-t-indigo-500', 'iconBg' => 'bg-indigo-100/70', 'iconText' => 'text-indigo-600'],
+                                };
+                            @endphp
+                            <div class="glass-card kpi-lift border-t-4 {{ $accent['top'] }} p-4 sm:p-5">
+                                <div class="flex items-start justify-between gap-3">
+                                    <div class="min-w-0">
+                                        <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ $kpi['label'] }}</p>
+                                        <p class="mt-1 truncate text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">{{ $kpi['value'] }}</p>
+                                        <p class="mt-1 text-xs font-medium text-slate-500">{{ $kpi['sub'] }}</p>
+                                    </div>
+                                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl {{ $accent['iconBg'] }}">
+                                        <i class="bi {{ $kpi['icon'] }} text-lg {{ $accent['iconText'] }}"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                </section>
+            @endif
 
             {{-- Summary KPIs --}}
             <section class="grid grid-cols-2 gap-3 xl:grid-cols-5">

@@ -27,15 +27,15 @@
 
         <div class="relative mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
 
-            @if (! empty($selectedHost))
+            @if (! empty($selectedArtist))
                 <div class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3 shadow-sm shadow-primary/10 backdrop-blur-sm">
                     <div class="flex min-w-0 items-center gap-3">
                         <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary text-white">
                             <i class="bi bi-funnel" aria-hidden="true"></i>
                         </span>
                         <p class="text-sm text-slate-800">
-                            {{ t(['en' => 'Showing events hosted by', 'si' => ' මෙම සත්කාරකයාගේ ප්‍රසංග']) }}
-                            <span class="font-semibold">{{ $selectedHost->name }}</span>
+                            {{ t(['en' => 'Showing events featuring', 'si' => 'මෙම කලාකරු සහිත ප්‍රසංග']) }}
+                            <span class="font-semibold">{{ $selectedArtist->name }}</span>
                         </p>
                     </div>
                     <a href="{{ route('attendee.dashboard') }}"
@@ -78,8 +78,8 @@
 
                         <div class="grid gap-2 sm:grid-cols-[1fr_auto_auto_auto]">
 
-                            @if (request('host'))
-                                <input type="hidden" name="host" value="{{ request('host') }}">
+                            @if (request('artist'))
+                                <input type="hidden" name="artist" value="{{ request('artist') }}">
                             @endif
 
                             <input type="text" name="search" value="{{ request('search') }}"
@@ -93,7 +93,7 @@
                                 {{ t(['en' => 'Search', 'si' => 'සොයන්න']) }}
                             </button>
 
-                            <a href="{{ route('attendee.dashboard', array_filter(['host' => request('host')])) }}"
+                            <a href="{{ route('attendee.dashboard', array_filter(['artist' => request('artist')])) }}"
                                 class="inline-flex items-center justify-center rounded-xl border border-white/40 bg-white/10 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-white/20">
                                 {{ t(['en' => 'Reset', 'si' => 'යළි සකසන්න']) }}
                             </a>

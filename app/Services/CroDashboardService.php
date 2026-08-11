@@ -19,6 +19,8 @@ use Illuminate\Support\Facades\DB;
 
 class CroDashboardService
 {
+    private ?int $activeCroId = null;
+
     /**
      * @param  array{
      *     event?: int|null,
@@ -27,8 +29,10 @@ class CroDashboardService
      * }  $filters
      * @return array<string, mixed>
      */
-    public function getDashboardData(array $filters = []): array
+    public function getDashboardData(array $filters = [], ?int $croId = null): array
     {
+        $this->activeCroId = $croId;
+
         $eventId = isset($filters['event']) ? (int) $filters['event'] : null;
         $from = $this->parseDate($filters['from'] ?? null)?->startOfDay();
         $to = $this->parseDate($filters['to'] ?? null)?->endOfDay();
@@ -82,12 +86,16 @@ class CroDashboardService
             ->visibleToAttendees()
             ->whereDate('date', today())
             ->where('status', '!=', Event::STATUS_CANCELLED)
+            ->when($croId, fn (Builder $q) => $q->where('contact_person', $croId))
             ->when($selectedEventId, fn (Builder $q) => $q->where('id', $selectedEventId))
             ->count();
 
         $complaintByStatus = $this->complaintStatusBreakdown($selectedEventId);
+        $personalKpis = $croId ? $this->personalKpis($croId, $selectedEventId, $from, $to) : null;
+        $todayWork = $croId ? $this->todayWorkQueue($croId, $selectedEventId, 12) : [];
+        $handoffs = $croId ? app(CroHandoffService::class)->activeForCro($croId, 4) : [];
 
-        return [
+        $data = [
             'filters' => [
                 'event' => $selectedEventId,
                 'from' => $from?->toDateString(),
@@ -101,11 +109,15 @@ class CroDashboardService
                 'avgResponseMinutes' => $this->averageResponseMinutes($selectedEventId),
                 'avgResponseLabel' => $this->formatResponseTime($this->averageResponseMinutes($selectedEventId)),
             ],
+            'personalKpis' => $personalKpis,
+            'todayWork' => $todayWork,
+            'handoffs' => $handoffs,
             'todayTasks' => [
                 'newInquiries' => $newInquiriesToday,
                 'refundRequests' => $pendingRefundCount,
                 'urgentComplaints' => $urgentComplaintCount,
                 'eventsToday' => $eventsToday,
+                'queueTotal' => count($todayWork),
             ],
             'charts' => [
                 'defaultPeriod' => 'week',
@@ -137,6 +149,10 @@ class CroDashboardService
                         ->count(),
             ],
         ];
+
+        $this->activeCroId = null;
+
+        return $data;
     }
 
     /**
@@ -145,6 +161,7 @@ class CroDashboardService
     private function eventFilterOptions(?int $eventId): array
     {
         $events = Event::query()
+            ->when($this->activeCroId, fn (Builder $q) => $q->where('contact_person', $this->activeCroId))
             ->where(function (Builder $query) {
                 $query->whereIn('id', Inquiry::query()->whereNotNull('event_id')->select('event_id'))
                     ->orWhereIn('id', ticketBooking::query()
@@ -170,7 +187,9 @@ class CroDashboardService
         $selected = collect($events)->firstWhere('id', $eventId);
 
         if ($eventId && ! $selected) {
-            $fallback = Event::query()->find($eventId);
+            $fallback = Event::query()
+                ->when($this->activeCroId, fn (Builder $q) => $q->where('contact_person', $this->activeCroId))
+                ->find($eventId);
             if ($fallback) {
                 $selected = [
                     'id' => $fallback->id,
@@ -190,23 +209,29 @@ class CroDashboardService
 
     private function inquiryQuery(?int $eventId): Builder
     {
-        return Inquiry::query()->when($eventId, fn (Builder $q) => $q->where('event_id', $eventId));
+        return Inquiry::query()
+            ->when($this->activeCroId, fn (Builder $q) => $q->forCroQueue($this->activeCroId, 'mine'))
+            ->when($eventId, fn (Builder $q) => $q->where('event_id', $eventId));
     }
 
     private function complaintQuery(?int $eventId): Builder
     {
-        return Complaint::query()->when($eventId, function (Builder $q) use ($eventId) {
-            $q->whereIn('user_id', ticketBooking::query()
-                ->where('event_id', $eventId)
-                ->select('user_id'));
-        });
+        return Complaint::query()
+            ->when($this->activeCroId, fn (Builder $q) => $q->forCroQueue($this->activeCroId, 'mine'))
+            ->when($eventId, function (Builder $q) use ($eventId) {
+                $q->whereIn('user_id', ticketBooking::query()
+                    ->where('event_id', $eventId)
+                    ->select('user_id'));
+            });
     }
 
     private function refundQuery(?int $eventId): Builder
     {
-        return RefundRequest::query()->when($eventId, function (Builder $q) use ($eventId) {
-            $q->whereHas('ticketBooking', fn (Builder $booking) => $booking->where('event_id', $eventId));
-        });
+        return RefundRequest::query()
+            ->when($this->activeCroId, fn (Builder $q) => $q->forCroQueue($this->activeCroId, 'mine'))
+            ->when($eventId, function (Builder $q) use ($eventId) {
+                $q->whereHas('ticketBooking', fn (Builder $booking) => $booking->where('event_id', $eventId));
+            });
     }
 
     /**
@@ -326,6 +351,7 @@ class CroDashboardService
                     : $inquiry->status->label(),
                 'statusClass' => $inquiry->status->badgeClass(),
                 'time' => $inquiry->created_at?->diffForHumans() ?? '—',
+                'href' => route('cro.inquiries.show', $inquiry),
             ])
             ->all();
     }
@@ -347,7 +373,7 @@ class CroDashboardService
                 $cases->push([
                     'title' => 'Refund Pending',
                     'meta' => trim(($refund->user?->full_name ?? 'Customer').' · '.($refund->ticketBooking?->event?->name ?? 'Event')),
-                    'href' => route('cro.refund-requests.index'),
+                    'href' => route('cro.refund-requests.show', $refund),
                     'type' => 'refund',
                     'sort' => $refund->created_at?->timestamp ?? 0,
                 ]);
@@ -366,7 +392,7 @@ class CroDashboardService
                 $cases->push([
                     'title' => $this->priorityTitle($complaint->subject),
                     'meta' => ($complaint->user?->full_name ?? 'Customer').' · Complaint',
-                    'href' => route('cro.complaints.index'),
+                    'href' => route('cro.complaints.show', $complaint),
                     'type' => 'complaint',
                     'sort' => $complaint->created_at?->timestamp ?? 0,
                 ]);
@@ -383,7 +409,7 @@ class CroDashboardService
                 $cases->push([
                     'title' => $this->priorityTitle($inquiry->subject),
                     'meta' => trim(($inquiry->user?->full_name ?? 'Customer').' · '.($inquiry->event?->name ?? 'Inquiry')),
-                    'href' => route('cro.inquiries.index'),
+                    'href' => route('cro.inquiries.show', $inquiry),
                     'type' => 'inquiry',
                     'sort' => $inquiry->created_at?->timestamp ?? 0,
                 ]);
@@ -411,15 +437,7 @@ class CroDashboardService
 
     private function isUrgentSubject(string $subject): bool
     {
-        $subject = strtolower($subject);
-
-        return str_contains($subject, 'payment')
-            || str_contains($subject, 'refund')
-            || str_contains($subject, 'duplicate')
-            || str_contains($subject, 'cancel')
-            || str_contains($subject, 'urgent')
-            || str_contains($subject, 'failed')
-            || str_contains($subject, 'fraud');
+        return \App\Support\CroSupportSla::isUrgentSubject($subject);
     }
 
     private function priorityTitle(string $subject): string
@@ -459,6 +477,7 @@ class CroDashboardService
                 'amount' => 'LKR '.number_format((float) $refund->refund_amount, 0),
                 'status' => 'Waiting Approval',
                 'statusClass' => 'bg-amber-100 text-amber-700',
+                'href' => route('cro.refund-requests.show', $refund),
             ])
             ->all();
     }
@@ -475,6 +494,10 @@ class CroDashboardService
     private function customerSatisfaction(?int $eventId): array
     {
         $ratingsQuery = Rating::query()
+            ->when($this->activeCroId, fn (Builder $q) => $q->whereIn(
+                'event_id',
+                Event::query()->where('contact_person', $this->activeCroId)->select('id')
+            ))
             ->when($eventId, fn (Builder $q) => $q->where('event_id', $eventId));
 
         $reviewCount = (clone $ratingsQuery)->count();
@@ -804,11 +827,167 @@ class CroDashboardService
 
         $query = DB::table('inquiries as i')
             ->joinSub($firstResponses, 'fr', 'fr.inquiry_id', '=', 'i.id')
-            ->when($eventId, fn ($q) => $q->where('i.event_id', $eventId));
+            ->when($eventId, fn ($q) => $q->where('i.event_id', $eventId))
+            ->when($this->activeCroId, function ($q) {
+                $q->where(function ($inner) {
+                    $inner->where('i.assigned_to', $this->activeCroId)
+                        ->orWhereIn('i.event_id', Event::query()
+                            ->where('contact_person', $this->activeCroId)
+                            ->select('id'));
+                });
+            });
 
         $avg = $query->avg(DB::raw('TIMESTAMPDIFF(MINUTE, i.created_at, fr.first_response_at)'));
 
         return $avg !== null ? round((float) $avg, 1) : null;
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function todayWorkQueue(int $croId, ?int $eventId, int $limit = 12): array
+    {
+        $openStatuses = [SupportTicketStatusEnum::Open, SupportTicketStatusEnum::InProgress];
+        $items = collect();
+
+        $this->inquiryQuery($eventId)
+            ->with(['user', 'event'])
+            ->whereIn('status', $openStatuses)
+            ->oldest()
+            ->limit($limit)
+            ->get()
+            ->each(function (Inquiry $inquiry) use ($items) {
+                $urgent = $this->isUrgentSubject($inquiry->subject);
+                $items->push([
+                    'type' => 'inquiry',
+                    'title' => $inquiry->subject,
+                    'meta' => trim(($inquiry->user?->full_name ?? 'Attendee').' · '.($inquiry->event?->name ?? 'Inquiry')),
+                    'href' => route('cro.inquiries.show', $inquiry),
+                    'claimUrl' => $inquiry->isUnassigned() ? route('cro.inquiries.claim', $inquiry) : null,
+                    'actionLabel' => $inquiry->isUnassigned() ? 'Claim' : 'Open',
+                    'urgent' => $urgent,
+                    'age' => \App\Support\CroSupportSla::ageLabel($inquiry->created_at),
+                    'sort' => ($urgent ? 0 : 1) * 1_000_000_000 + ($inquiry->created_at?->timestamp ?? 0),
+                ]);
+            });
+
+        $this->complaintQuery($eventId)
+            ->with('user')
+            ->whereIn('status', $openStatuses)
+            ->oldest()
+            ->limit($limit)
+            ->get()
+            ->each(function (Complaint $complaint) use ($items) {
+                $urgent = $this->isUrgentSubject($complaint->subject);
+                $items->push([
+                    'type' => 'complaint',
+                    'title' => $complaint->subject,
+                    'meta' => ($complaint->user?->full_name ?? 'Attendee').' · Complaint',
+                    'href' => route('cro.complaints.show', $complaint),
+                    'claimUrl' => $complaint->isUnassigned() ? route('cro.complaints.claim', $complaint) : null,
+                    'actionLabel' => $complaint->isUnassigned() ? 'Claim' : 'Open',
+                    'urgent' => $urgent,
+                    'age' => \App\Support\CroSupportSla::ageLabel($complaint->created_at),
+                    'sort' => ($urgent ? 0 : 1) * 1_000_000_000 + ($complaint->created_at?->timestamp ?? 0),
+                ]);
+            });
+
+        $this->refundQuery($eventId)
+            ->with(['user', 'ticketBooking.event'])
+            ->where('status', RefundRequestStatusEnum::Pending)
+            ->oldest()
+            ->limit($limit)
+            ->get()
+            ->each(function (RefundRequest $refund) use ($items) {
+                $items->push([
+                    'type' => 'refund',
+                    'title' => 'Refund pending',
+                    'meta' => trim(($refund->user?->full_name ?? 'Attendee').' · '.($refund->ticketBooking?->event?->name ?? 'Event').' · Rs '.number_format((float) $refund->refund_amount, 0)),
+                    'href' => route('cro.refund-requests.show', $refund),
+                    'claimUrl' => null,
+                    'actionLabel' => 'Review',
+                    'urgent' => true,
+                    'age' => \App\Support\CroSupportSla::ageLabel($refund->created_at),
+                    'sort' => ($refund->created_at?->timestamp ?? 0),
+                ]);
+            });
+
+        return $items
+            ->sortBy('sort')
+            ->take($limit)
+            ->values()
+            ->map(fn (array $item) => collect($item)->except('sort')->all())
+            ->all();
+    }
+
+    /**
+     * Personal CRO performance for the selected date/event scope.
+     *
+     * @return array<string, mixed>
+     */
+    public function personalKpis(int $croId, ?int $eventId, Carbon $from, Carbon $to): array
+    {
+        $firstResponses = InquiryResponse::query()
+            ->select('inquiry_id', DB::raw('MIN(created_at) as first_response_at'))
+            ->groupBy('inquiry_id');
+
+        $avgFirst = DB::table('inquiries as i')
+            ->joinSub($firstResponses, 'fr', 'fr.inquiry_id', '=', 'i.id')
+            ->where('i.assigned_to', $croId)
+            ->when($eventId, fn ($q) => $q->where('i.event_id', $eventId))
+            ->whereBetween('i.created_at', [$from, $to])
+            ->avg(DB::raw('TIMESTAMPDIFF(MINUTE, i.created_at, fr.first_response_at)'));
+
+        $avgResolution = Inquiry::query()
+            ->where('assigned_to', $croId)
+            ->whereIn('status', [SupportTicketStatusEnum::Resolved, SupportTicketStatusEnum::Closed])
+            ->when($eventId, fn (Builder $q) => $q->where('event_id', $eventId))
+            ->whereBetween('updated_at', [$from, $to])
+            ->avg(DB::raw('TIMESTAMPDIFF(MINUTE, created_at, updated_at)'));
+
+        $complaintResolution = Complaint::query()
+            ->where('assigned_to', $croId)
+            ->whereIn('status', [SupportTicketStatusEnum::Resolved, SupportTicketStatusEnum::Closed])
+            ->when($eventId, function (Builder $q) use ($eventId) {
+                $q->whereIn('user_id', ticketBooking::query()
+                    ->where('event_id', $eventId)
+                    ->select('user_id'));
+            })
+            ->whereBetween('updated_at', [$from, $to])
+            ->avg(DB::raw('TIMESTAMPDIFF(MINUTE, created_at, updated_at)'));
+
+        $resolutionMinutes = collect([$avgResolution, $complaintResolution])
+            ->filter(fn ($v) => $v !== null)
+            ->avg();
+
+        $refunds = RefundRequest::query()
+            ->where('reviewed_by', $croId)
+            ->whereIn('status', [RefundRequestStatusEnum::Approved, RefundRequestStatusEnum::Declined])
+            ->when($eventId, fn (Builder $q) => $q->whereHas('ticketBooking', fn (Builder $b) => $b->where('event_id', $eventId)))
+            ->whereBetween('reviewed_at', [$from, $to])
+            ->get(['status']);
+
+        $reviewed = $refunds->count();
+        $approved = $refunds->where('status', RefundRequestStatusEnum::Approved)->count();
+        $declined = $refunds->where('status', RefundRequestStatusEnum::Declined)->count();
+
+        $ratings = Rating::query()
+            ->whereIn('event_id', Event::query()->where('contact_person', $croId)->select('id'))
+            ->when($eventId, fn (Builder $q) => $q->where('event_id', $eventId))
+            ->whereBetween('created_at', [$from, $to]);
+
+        $ratingCount = (clone $ratings)->count();
+        $ratingAvg = $ratingCount > 0 ? round((float) (clone $ratings)->avg('score'), 1) : null;
+
+        return [
+            'avgFirstResponseLabel' => $this->formatResponseTime($avgFirst !== null ? round((float) $avgFirst, 1) : null),
+            'avgResolutionLabel' => $this->formatResponseTime($resolutionMinutes !== null ? round((float) $resolutionMinutes, 1) : null),
+            'refundReviewed' => $reviewed,
+            'refundApproveRate' => $reviewed > 0 ? round(($approved / $reviewed) * 100, 1) : null,
+            'refundDeclineRate' => $reviewed > 0 ? round(($declined / $reviewed) * 100, 1) : null,
+            'satisfactionAverage' => $ratingAvg,
+            'satisfactionCount' => $ratingCount,
+        ];
     }
 
     private function formatResponseTime(?float $minutes): string

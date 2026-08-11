@@ -19,13 +19,15 @@ use App\Http\Controllers\EventLikeController;
 use App\Http\Controllers\EventRatingController;
 use App\Http\Controllers\EventSaveController;
 use App\Http\Controllers\HelpController;
+use App\Http\Controllers\ArtistController;
+use App\Http\Controllers\ArtistFollowController;
+use App\Http\Controllers\ArtistLikeController;
 use App\Http\Controllers\HostController;
-use App\Http\Controllers\HostLikeController;
-use App\Http\Controllers\HostFollowController;
 use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ComplaintController;
 use App\Http\Controllers\Cro\ComplaintController as CroComplaintController;
+use App\Http\Controllers\Cro\HandoffController as CroHandoffController;
 use App\Http\Controllers\Cro\InquiryController as CroInquiryController;
 use App\Http\Controllers\Cro\ReportController as CroReportController;
 use App\Http\Controllers\Cro\RefundRequestController as CroRefundRequestController;
@@ -149,22 +151,20 @@ Route::prefix('admin')->name('admin.')->group(function () {
         // Employee Management
         Route::get('/employees/create', [EmployeeController::class, 'create'])->name('employees.create');
         Route::post('/employees', [EmployeeController::class, 'store'])->name('employee.store');
-        Route::get('/admin/employees', [EmployeeController::class, 'index'])->name('employees.index');
-        Route::get('/admin/employees/export/csv', [EmployeeController::class, 'exportCsv'])->name('employees.export.csv');
-        Route::get('/admin/employees/export/pdf', [EmployeeController::class, 'exportPdf'])->name('employees.export.pdf');
+        Route::get('/employees/export/csv', [EmployeeController::class, 'exportCsv'])->name('employees.export.csv');
+        Route::get('/employees/export/pdf', [EmployeeController::class, 'exportPdf'])->name('employees.export.pdf');
 
         // Event category Management
-        Route::get('/event-categories', [EventCategoryController::class, 'index'])->name('event-categories');
+        Route::get('/event-categories', [EventCategoryController::class, 'index'])->name('event-categories.index');
         Route::get('/event/category/form', [EventCategoryController::class, 'createEventCategory'])->name('event.category.create');
         Route::post('/event/category/store', [EventCategoryController::class, 'storeEventCategory'])->name('event.category.store');
-        Route::get('/admin/event-categories/export/csv', [EventCategoryController::class, 'exportCsv'])->name('event-categories.export.csv');
-        Route::get('/admin/event-categories/export/pdf', [EventCategoryController::class, 'exportPdf'])->name('event-categories.export.pdf');
+        Route::get('/event-categories/export/csv', [EventCategoryController::class, 'exportCsv'])->name('event-categories.export.csv');
+        Route::get('/event-categories/export/pdf', [EventCategoryController::class, 'exportPdf'])->name('event-categories.export.pdf');
         Route::get('/event/category/{id}/edit', [EventCategoryController::class, 'edit'])->name('event.category.edit');
         Route::put('/event/category/{id}', [EventCategoryController::class, 'update'])->name('event.category.update');
         Route::post('/event/category/{id}/toggle-lock', [EventCategoryController::class, 'toggleLock'])->name('event.category.toggleLock');
         Route::post('/event/category/{id}/toggle-active', [EventCategoryController::class, 'toggleActive'])->name('event.category.toggleActive');
         Route::delete('/event/category/{id}', [EventCategoryController::class, 'destroy'])->name('event.category.destroy');
-        Route::get('/admin/event-categories', [EventCategoryController::class, 'index'])->name('event-categories.index');
 
         // Audit Logs
         Route::get('/audit-logs', [AuditLogController::class, 'index'])->name('audit-logs');
@@ -248,6 +248,18 @@ Route::prefix('organizer')->name('organizer.')->middleware(['auth', 'verified', 
     Route::put('hosts/{id}', [HostController::class, 'update'])->name('hosts.update');
     Route::delete('hosts/{id}', [HostController::class, 'destroy'])->name('hosts.destroy');
 
+    // Artist routes
+    Route::get('/artists', [ArtistController::class, 'index'])->name('artists');
+    Route::get('/artists/export/csv', [ArtistController::class, 'exportCsv'])->name('artists.export.csv');
+    Route::get('/artists/export/pdf', [ArtistController::class, 'exportPdf'])->name('artists.export.pdf');
+    Route::get('/artists/{artist}', [ArtistController::class, 'organizerShow'])->name('artists.show');
+    Route::get('/artist/form', [ArtistController::class, 'create'])->name('artist.create');
+    Route::post('/artist/store', [ArtistController::class, 'store'])->name('artist.store');
+    Route::post('artists/{id}/toggle-active', [ArtistController::class, 'toggleActive'])->name('artists.toggleActive');
+    Route::get('artists/{id}/edit', [ArtistController::class, 'edit'])->name('artists.edit');
+    Route::put('artists/{id}', [ArtistController::class, 'update'])->name('artists.update');
+    Route::delete('artists/{id}', [ArtistController::class, 'destroy'])->name('artists.destroy');
+
     // Reports & Analytics
     Route::get('/reports', [OrganizerReportController::class, 'index'])->name('reports');
     Route::get('/reports/tab-data', [OrganizerReportController::class, 'tabData'])->name('reports.tab-data');
@@ -267,15 +279,25 @@ Route::prefix('organizer')->name('organizer.')->middleware(['auth', 'verified', 
 Route::prefix('cro')->name('cro.')->middleware(['auth', 'verified', 'prevent-back', 'role:'.UserRole::CRO])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'cro'])->name('dashboard');
     Route::post('/dashboard/export/pdf', [DashboardController::class, 'exportCroPdf'])->name('dashboard.export.pdf');
+    Route::get('/handoffs/{event}', [CroHandoffController::class, 'show'])->name('handoffs.show');
     Route::get('/refund-requests', [CroRefundRequestController::class, 'index'])->name('refund-requests.index');
+    Route::get('/refund-requests/{refundRequest}', [CroRefundRequestController::class, 'show'])->name('refund-requests.show');
     Route::post('/refund-requests/{refundRequest}/approve', [CroRefundRequestController::class, 'approve'])->name('refund-requests.approve');
     Route::post('/refund-requests/{refundRequest}/decline', [CroRefundRequestController::class, 'decline'])->name('refund-requests.decline');
     Route::get('/inquiries', [CroInquiryController::class, 'index'])->name('inquiries.index');
+    Route::get('/inquiries/{inquiry}', [CroInquiryController::class, 'show'])->name('inquiries.show');
     Route::post('/inquiries/{inquiry}/reply', [CroInquiryController::class, 'reply'])->name('inquiries.reply');
     Route::patch('/inquiries/{inquiry}/status', [CroInquiryController::class, 'updateStatus'])->name('inquiries.update-status');
+    Route::post('/inquiries/{inquiry}/claim', [CroInquiryController::class, 'claim'])->name('inquiries.claim');
+    Route::post('/inquiries/{inquiry}/reassign', [CroInquiryController::class, 'reassign'])->name('inquiries.reassign');
+    Route::patch('/inquiries/{inquiry}/notes', [CroInquiryController::class, 'updateNotes'])->name('inquiries.notes');
     Route::get('/complaints', [CroComplaintController::class, 'index'])->name('complaints.index');
+    Route::get('/complaints/{complaint}', [CroComplaintController::class, 'show'])->name('complaints.show');
     Route::post('/complaints/{complaint}/reply', [CroComplaintController::class, 'reply'])->name('complaints.reply');
     Route::patch('/complaints/{complaint}/status', [CroComplaintController::class, 'updateStatus'])->name('complaints.update-status');
+    Route::post('/complaints/{complaint}/claim', [CroComplaintController::class, 'claim'])->name('complaints.claim');
+    Route::post('/complaints/{complaint}/reassign', [CroComplaintController::class, 'reassign'])->name('complaints.reassign');
+    Route::patch('/complaints/{complaint}/notes', [CroComplaintController::class, 'updateNotes'])->name('complaints.notes');
     Route::get('/complaints/{complaint}/attachments/{attachment}', [CroComplaintController::class, 'downloadAttachment'])->name('complaints.attachments.download');
 
     // Reports & Analytics
@@ -301,10 +323,10 @@ Route::prefix('attendee')->name('attendee.')->middleware(['auth', 'verified', 'p
     Route::get('/dashboard', [DashboardController::class, 'attendee'])->name('dashboard');
     Route::post('/postponement-alerts/dismiss', [PostponementAlertController::class, 'dismiss'])->name('postponement-alerts.dismiss');
     Route::post('/bookings/{ticketBooking}/keep-postponement', [PostponementAlertController::class, 'keepTicket'])->name('bookings.keep-postponement');
-    Route::get('/hosts', [HostController::class, 'attendeeIndex'])->name('hosts.index');
-    Route::get('/hosts/{host}', [HostController::class, 'attendeeShow'])->name('hosts.show');
-    Route::post('/hosts/{host}/like', [HostLikeController::class, 'toggle'])->name('hosts.like');
-    Route::post('/hosts/{host}/follow', [HostFollowController::class, 'toggle'])->name('hosts.follow');
+    Route::get('/artists', [ArtistController::class, 'attendeeIndex'])->name('artists.index');
+    Route::get('/artists/{artist}', [ArtistController::class, 'attendeeShow'])->name('artists.show');
+    Route::post('/artists/{artist}/like', [ArtistLikeController::class, 'toggle'])->name('artists.like');
+    Route::post('/artists/{artist}/follow', [ArtistFollowController::class, 'toggle'])->name('artists.follow');
     Route::get('/saved', [EventSaveController::class, 'index'])->name('saved.index');
     Route::get('/calendar', [CalendarController::class, 'index'])->name('calendar.index');
     Route::get('/cart', [CartController::class, 'index'])->name('cart.index');

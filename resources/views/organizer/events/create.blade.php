@@ -105,18 +105,18 @@
 
                                 <div
                                     class="rounded-xl border border-gray-100 bg-gray-50/70 p-3 transition focus-within:border-indigo-200 focus-within:bg-white focus-within:shadow-sm">
-                                    <label for="hosted_by" class="block text-xs font-semibold uppercase tracking-wide text-gray-500">Hosted By</label>
-                                    <select id="hosted_by" name="hosted_by"
+                                    <label for="host_id" class="block text-xs font-semibold uppercase tracking-wide text-gray-500">Host</label>
+                                    <select id="host_id" name="host_id"
                                         class="mt-1.5 block w-full rounded-xl border-gray-200 bg-white text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                                         required>
-                                        <option value="">Select Host Person</option>
+                                        <option value="">Select Host</option>
                                         @foreach ($hosts as $host)
-                                            <option value="{{ $host->id }}" {{ old('hosted_by') == $host->id ? 'selected' : '' }}>
+                                            <option value="{{ $host->id }}" {{ old('host_id') == $host->id ? 'selected' : '' }}>
                                                 {{ $host->name }}
                                             </option>
                                         @endforeach
                                     </select>
-                                    @error('hosted_by')
+                                    @error('host_id')
                                         <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                                     @enderror
                                 </div>
@@ -129,12 +129,34 @@
                                         required>
                                         <option value="">Select Category</option>
                                         @foreach ($event_categories as $event_category)
-                                            <option value="{{ $event_category->id }}" {{ old('category_id') == $event_category->id ? 'selected' : '' }}>
+                                            <option value="{{ $event_category->id }}"
+                                                data-allows-artists="{{ $event_category->allows_artists ? '1' : '0' }}"
+                                                {{ old('category_id') == $event_category->id ? 'selected' : '' }}>
                                                 {{ $event_category->name }}
                                             </option>
                                         @endforeach
                                     </select>
                                     @error('category_id')
+                                        <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                                    @enderror
+                                </div>
+
+                                <div id="artists-field"
+                                    class="rounded-xl border border-gray-100 bg-gray-50/70 p-3 transition focus-within:border-indigo-200 focus-within:bg-white focus-within:shadow-sm md:col-span-2 hidden">
+                                    <label for="artist_ids" class="block text-xs font-semibold uppercase tracking-wide text-gray-500">Artists</label>
+                                    <p class="mt-1 text-xs text-gray-500">Select one or more artists (Music &amp; Entertainment only).</p>
+                                    <select id="artist_ids" name="artist_ids[]" multiple
+                                        class="mt-1.5 block w-full rounded-xl border-gray-200 bg-white text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 min-h-[7.5rem]">
+                                        @foreach ($artists as $artist)
+                                            <option value="{{ $artist->id }}" {{ collect(old('artist_ids', []))->contains($artist->id) ? 'selected' : '' }}>
+                                                {{ $artist->name }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                    @error('artist_ids')
+                                        <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                                    @enderror
+                                    @error('artist_ids.*')
                                         <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                                     @enderror
                                 </div>
@@ -338,4 +360,31 @@
             </div>
         </div>
     </div>
+
+    <script>
+        (function () {
+            const categorySelect = document.getElementById('category_id');
+            const artistsField = document.getElementById('artists-field');
+            const artistsSelect = document.getElementById('artist_ids');
+
+            if (!categorySelect || !artistsField || !artistsSelect) {
+                return;
+            }
+
+            const syncArtistsVisibility = () => {
+                const selected = categorySelect.options[categorySelect.selectedIndex];
+                const allows = selected && selected.dataset.allowsArtists === '1';
+                artistsField.classList.toggle('hidden', !allows);
+                artistsSelect.disabled = !allows;
+                if (!allows) {
+                    Array.from(artistsSelect.options).forEach((option) => {
+                        option.selected = false;
+                    });
+                }
+            };
+
+            categorySelect.addEventListener('change', syncArtistsVisibility);
+            syncArtistsVisibility();
+        })();
+    </script>
 </x-app-layout>

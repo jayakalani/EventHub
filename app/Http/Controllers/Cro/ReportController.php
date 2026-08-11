@@ -8,6 +8,7 @@ use App\Services\CroReportService;
 use App\Services\Exports\CroReportExportBuilder;
 use App\Services\ReportExportService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -26,7 +27,7 @@ class ReportController extends Controller
     public function index(Request $request): View
     {
         $filters = $this->validatedFilters($request);
-        $reports = $this->reportService->getAllReports($filters);
+        $reports = $this->reportService->getAllReports($filters, (int) Auth::id());
 
         return view('cro.reports.index', compact('reports'));
     }

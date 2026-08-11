@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\BookingStatusEnum;
+use App\Models\Artist;
 use App\Models\AuditLog;
 use App\Models\Comment;
 use App\Models\Event;
@@ -86,6 +87,7 @@ class OrganizerDashboardService
                 'cancelledEvents' => $statusCounts['cancelled'] ?? 0,
                 'postponedEvents' => $statusCounts['postponed'] ?? 0,
                 'totalHosts' => Host::where('created_by', $organizerId)->count(),
+                'totalArtists' => Artist::where('created_by', $organizerId)->count(),
                 'totalAttendees' => $totalAttendees,
                 'ticketsSold' => $sales['totalTicketsSold'],
                 'grossRevenue' => $revenue['grossRevenue'],
@@ -1432,15 +1434,22 @@ class OrganizerDashboardService
             ->where('created_by', $organizerId)
             ->pluck('id');
 
+        $artistIds = Artist::query()
+            ->where('created_by', $organizerId)
+            ->pluck('id');
+
         $auditItems = AuditLog::query()
             ->where('user_id', $organizerId)
-            ->where(function ($query) use ($eventIds, $hostIds) {
+            ->where(function ($query) use ($eventIds, $hostIds, $artistIds) {
                 $query->where(function ($eventQuery) use ($eventIds) {
                     $eventQuery->where('model_type', Event::class)
                         ->whereIn('model_id', $eventIds);
                 })->orWhere(function ($hostQuery) use ($hostIds) {
                     $hostQuery->where('model_type', Host::class)
                         ->whereIn('model_id', $hostIds);
+                })->orWhere(function ($artistQuery) use ($artistIds) {
+                    $artistQuery->where('model_type', Artist::class)
+                        ->whereIn('model_id', $artistIds);
                 });
             })
             ->latest()
@@ -1448,7 +1457,8 @@ class OrganizerDashboardService
             ->get()
             ->map(function (AuditLog $log) {
                 $isEvent = $log->model_type === Event::class;
-                $label = $isEvent ? 'Event' : 'Host';
+                $isArtist = $log->model_type === Artist::class;
+                $label = $isEvent ? 'Event' : ($isArtist ? 'Artist' : 'Host');
                 $name = $this->resolveAuditSubjectName($log);
                 $action = strtolower((string) $log->action);
 
@@ -1471,7 +1481,9 @@ class OrganizerDashboardService
                     'timestamp' => $log->created_at?->timestamp ?? 0,
                     'url' => $isEvent && $log->model_id
                         ? route('organizer.events.show', $log->model_id)
-                        : ($isEvent ? route('organizer.events.index') : route('organizer.hosts')),
+                        : ($isEvent
+                            ? route('organizer.events.index')
+                            : ($isArtist ? route('organizer.artists') : route('organizer.hosts'))),
                 ];
             });
 

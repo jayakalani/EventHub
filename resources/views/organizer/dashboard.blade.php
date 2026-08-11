@@ -246,6 +246,7 @@
                             ['label' => 'Manage Events', 'route' => route('organizer.events.index'), 'icon' => 'bi-calendar-event'],
                             ['label' => 'Calendar', 'route' => route('organizer.calendar.index'), 'icon' => 'bi-calendar3'],
                             ['label' => 'Hosts', 'route' => route('organizer.hosts'), 'icon' => 'bi-building'],
+                            ['label' => 'Artists', 'route' => route('organizer.artists'), 'icon' => 'bi-mic'],
                             ['label' => 'Attendees', 'route' => route('organizer.reports', ['tab' => 'attendees']), 'icon' => 'bi-people'],
                         ] as $shortcut)
                             <a href="{{ $shortcut['route'] }}"

@@ -1,145 +1,150 @@
 @php
-    $statuses = \App\Enums\SupportTicketStatusEnum::cases();
+    $queueScope = $queueScope ?? 'mine';
+    $filters = $filters ?? ['status' => null, 'assignment' => 'all', 'q' => null, 'from' => null, 'to' => null];
+    $scopeQuery = $queueScope === 'all' ? ['scope' => 'all'] : [];
+    $filterQuery = array_filter([
+        'status' => $filters['status'] ?? null,
+        'assignment' => (($filters['assignment'] ?? 'all') !== 'all') ? $filters['assignment'] : null,
+        'q' => $filters['q'] ?? null,
+        'from' => $filters['from'] ?? null,
+        'to' => $filters['to'] ?? null,
+    ], fn ($value) => $value !== null && $value !== '');
+    $hasActiveFilters = count($filterQuery) > 0;
 @endphp
 
 <x-app-layout>
-
     <x-slot name="header">
-        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
                 <h2 class="text-3xl font-bold text-slate-900">Complaints</h2>
-                <p class="mt-1 text-slate-500">Review and respond to attendee complaints.</p>
+                <p class="mt-1 text-slate-500">Oldest open first · claim before you reply to avoid collisions.</p>
             </div>
             <a href="{{ route('cro.dashboard') }}"
-                class="inline-flex items-center gap-2 rounded-2xl bg-slate-800 px-5 py-3 text-sm font-semibold text-white hover:bg-slate-900 transition">
+                class="inline-flex items-center gap-2 rounded-2xl bg-slate-800 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-900">
                 Back to Dashboard
             </a>
         </div>
     </x-slot>
 
     <div class="py-8">
-        <div class="max-w-7xl mx-auto px-6 space-y-8">
-
-            @if(session('success'))
+        <div class="mx-auto max-w-7xl space-y-6 px-6">
+            @if (session('success'))
                 <div class="rounded-2xl border border-green-200 bg-green-50 px-5 py-4 text-green-800">{{ session('success') }}</div>
             @endif
-            @if($errors->any())
+            @if ($errors->any())
                 <div class="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-red-800">{{ $errors->first() }}</div>
             @endif
 
-            <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                @foreach($statuses as $s)
-                    <a href="{{ route('cro.complaints.index', ['status' => $s->value]) }}"
-                        class="rounded-2xl border p-5 transition {{ ($status ?? '') === $s->value ? 'border-indigo-300 bg-indigo-50' : 'border-slate-200 bg-white hover:border-slate-300' }}">
+            @include('partials.cro-queue-scope', [
+                'routeName' => 'cro.complaints.index',
+                'queueScope' => $queueScope,
+                'mineLabel' => 'My queue',
+                'allLabel' => 'All complaints',
+                'mineHint' => 'Showing unassigned complaints and ones assigned to you.',
+                'extraQuery' => $filterQuery,
+            ])
+
+            <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+                @foreach ($statuses as $s)
+                    <a href="{{ route('cro.complaints.index', array_merge($scopeQuery, array_filter(array_merge($filterQuery, ['status' => $s->value])))) }}"
+                        class="rounded-3xl border p-5 transition {{ ($filters['status'] ?? '') === $s->value ? 'border-indigo-300 bg-indigo-50' : 'border-slate-200 bg-white hover:border-slate-300' }}">
                         <p class="text-sm font-medium text-slate-500">{{ $s->label() }}</p>
                         <p class="mt-1 text-3xl font-bold text-slate-900">{{ $counts[$s->value] ?? 0 }}</p>
                     </a>
                 @endforeach
-            </div>
-
-            <div class="flex gap-2">
-                <a href="{{ route('cro.complaints.index') }}"
-                    class="rounded-xl px-4 py-2 text-sm font-semibold {{ empty($status) ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200' }}">
-                    All
+                <a href="{{ route('cro.complaints.index', array_merge($scopeQuery, array_filter(array_merge($filterQuery, ['assignment' => 'unassigned', 'status' => null])))) }}"
+                    class="rounded-3xl border p-5 transition {{ ($filters['assignment'] ?? '') === 'unassigned' ? 'border-amber-300 bg-amber-50' : 'border-slate-200 bg-white hover:border-slate-300' }}">
+                    <p class="text-sm font-medium text-slate-500">Unassigned</p>
+                    <p class="mt-1 text-3xl font-bold text-amber-600">{{ number_format($counts['unassigned']) }}</p>
                 </a>
-                @foreach($statuses as $s)
-                    <a href="{{ route('cro.complaints.index', ['status' => $s->value]) }}"
-                        class="rounded-xl px-4 py-2 text-sm font-semibold {{ ($status ?? '') === $s->value ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200' }}">
-                        {{ $s->label() }}
-                    </a>
-                @endforeach
             </div>
 
-            @if($complaints->isEmpty())
+            <form method="GET" action="{{ route('cro.complaints.index') }}"
+                class="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+                @if ($queueScope === 'all')
+                    <input type="hidden" name="scope" value="all">
+                @endif
+                <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+                    <div class="xl:col-span-2">
+                        <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Search</label>
+                        <input type="text" name="q" value="{{ $filters['q'] ?? '' }}"
+                            placeholder="Attendee, email, subject…"
+                            class="w-full rounded-xl border-slate-300 text-sm focus:border-indigo-500 focus:ring-indigo-500">
+                    </div>
+                    <div>
+                        <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Status</label>
+                        <select name="status" class="w-full rounded-xl border-slate-300 text-sm">
+                            <option value="">All statuses</option>
+                            @foreach ($statuses as $s)
+                                <option value="{{ $s->value }}" @selected(($filters['status'] ?? null) === $s->value)>{{ $s->label() }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div>
+                        <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Assignment</label>
+                        <select name="assignment" class="w-full rounded-xl border-slate-300 text-sm">
+                            <option value="all" @selected(($filters['assignment'] ?? 'all') === 'all')>All</option>
+                            <option value="unassigned" @selected(($filters['assignment'] ?? '') === 'unassigned')>Unassigned</option>
+                            <option value="me" @selected(($filters['assignment'] ?? '') === 'me')>Assigned to me</option>
+                        </select>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">From</label>
+                            <input type="date" name="from" value="{{ $filters['from'] ?? '' }}" class="w-full rounded-xl border-slate-300 text-sm">
+                        </div>
+                        <div>
+                            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">To</label>
+                            <input type="date" name="to" value="{{ $filters['to'] ?? '' }}" class="w-full rounded-xl border-slate-300 text-sm">
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-3 flex flex-wrap gap-2">
+                    <button type="submit" class="rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700">Apply</button>
+                    @if ($hasActiveFilters)
+                        <a href="{{ route('cro.complaints.index', $scopeQuery) }}" class="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">Clear</a>
+                    @endif
+                </div>
+            </form>
+
+            @if ($complaints->isEmpty())
                 <div class="rounded-3xl border border-dashed border-slate-300 bg-white p-16 text-center">
                     <h3 class="text-2xl font-bold text-slate-800">No Complaints</h3>
-                    <p class="mt-2 text-slate-500">No complaints match the selected filter.</p>
+                    <p class="mt-2 text-slate-500">No complaints match the selected filters.</p>
                 </div>
             @else
-                <div class="space-y-6">
-                    @foreach($complaints as $complaint)
-                        <div class="rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-                            <div class="border-b border-slate-100 bg-slate-50 px-6 py-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-                                <div>
-                                    <h3 class="text-lg font-bold text-slate-900">{{ $complaint->subject }}</h3>
+                <div class="space-y-3">
+                    @foreach ($complaints as $complaint)
+                        <a href="{{ route('cro.complaints.show', $complaint) }}"
+                            class="block overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm transition hover:border-indigo-200 hover:shadow-md">
+                            <div class="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+                                <div class="min-w-0 space-y-2">
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <h3 class="truncate text-lg font-bold text-slate-900">{{ $complaint->subject }}</h3>
+                                        @include('partials.cro-sla-badges', ['ticket' => $complaint])
+                                    </div>
                                     <p class="text-sm text-slate-500">
                                         {{ $complaint->created_at->format('d M Y, H:i') }}
                                         by {{ $complaint->user->full_name }}
+                                        · {{ $complaint->assignee?->full_name ?? 'Unassigned' }}
+                                        @if ($complaint->attachments->isNotEmpty())
+                                            · {{ $complaint->attachments->count() }} attachment{{ $complaint->attachments->count() === 1 ? '' : 's' }}
+                                        @endif
                                     </p>
+                                    <p class="line-clamp-2 text-sm text-slate-600">{{ $complaint->message }}</p>
                                 </div>
-                                @include('partials.support-status-badge', ['status' => $complaint->status])
-                            </div>
-
-                            <div class="p-6">
-                                <div class="rounded-2xl bg-slate-50 p-4 mb-4">
-                                    <p class="text-xs uppercase tracking-wide text-slate-500 mb-2">Attendee Message</p>
-                                    <p class="text-sm text-slate-700 leading-relaxed">{{ $complaint->message }}</p>
+                                <div class="flex shrink-0 items-center gap-3">
+                                    @include('partials.support-status-badge', ['status' => $complaint->status])
+                                    <span class="text-sm font-semibold text-indigo-600">Open →</span>
                                 </div>
-
-                                @if($complaint->attachments->isNotEmpty())
-                                    <div class="mb-4">
-                                        <p class="text-sm font-bold text-slate-800 mb-2">Attachments</p>
-                                        <div class="flex flex-wrap gap-2">
-                                            @foreach($complaint->attachments as $attachment)
-                                                <a href="{{ route('cro.complaints.attachments.download', [$complaint, $attachment]) }}"
-                                                    class="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-50">
-                                                    <i class="bi bi-paperclip"></i>
-                                                    {{ $attachment->original_filename }}
-                                                    <span class="text-slate-400">({{ number_format($attachment->file_size / 1024, 1) }} KB)</span>
-                                                </a>
-                                            @endforeach
-                                        </div>
-                                    </div>
-                                @endif
-
-                                @if($complaint->responses->isNotEmpty())
-                                    <div class="space-y-3 mb-6">
-                                        <h4 class="text-sm font-bold text-slate-800">Previous Responses</h4>
-                                        @foreach($complaint->responses->sortBy('created_at') as $response)
-                                            <div class="rounded-2xl border border-indigo-100 bg-indigo-50/60 p-4">
-                                                <div class="flex justify-between gap-2 mb-1">
-                                                    <p class="text-sm font-semibold text-indigo-800">{{ $response->user->full_name }}</p>
-                                                    <span class="text-xs text-slate-500">{{ $response->created_at->format('d M Y, H:i') }}</span>
-                                                </div>
-                                                <p class="text-sm text-slate-700">{{ $response->message }}</p>
-                                            </div>
-                                        @endforeach
-                                    </div>
-                                @endif
-
-                                <form action="{{ route('cro.complaints.reply', $complaint) }}" method="POST" class="space-y-3 mb-4">
-                                    @csrf
-                                    <label class="block text-sm font-semibold text-slate-700">Reply to attendee</label>
-                                    <textarea name="message" rows="3" required minlength="5" maxlength="2000"
-                                        placeholder="Type your response..."
-                                        class="w-full rounded-xl border-slate-300 text-sm"></textarea>
-                                    <button type="submit" class="rounded-2xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700">
-                                        Send Reply
-                                    </button>
-                                </form>
-
-                                <form action="{{ route('cro.complaints.update-status', $complaint) }}" method="POST" class="flex flex-wrap items-end gap-3 border-t border-slate-100 pt-4">
-                                    @csrf
-                                    @method('PATCH')
-                                    <div>
-                                        <label class="block text-sm font-semibold text-slate-700 mb-1">Update Status</label>
-                                        <select name="status" class="rounded-xl border-slate-300 text-sm">
-                                            @foreach($statuses as $s)
-                                                <option value="{{ $s->value }}" @selected($complaint->status === $s)>{{ $s->label() }}</option>
-                                            @endforeach
-                                        </select>
-                                    </div>
-                                    <button type="submit" class="rounded-2xl bg-slate-800 px-5 py-2.5 text-sm font-semibold text-white hover:bg-slate-900">
-                                        Update Status
-                                    </button>
-                                </form>
                             </div>
-                        </div>
+                        </a>
                     @endforeach
                 </div>
+                @if ($complaints->hasPages())
+                    <div class="pt-2">{{ $complaints->links() }}</div>
+                @endif
             @endif
-
         </div>
     </div>
-
 </x-app-layout>

@@ -32,4 +32,17 @@ class SupportAuditService
             'ip_address' => request()->ip(),
         ]);
     }
+
+    public function logAssignmentChange(string $type, int $ticketId, ?int $fromUserId, ?int $toUserId): void
+    {
+        AuditLog::create([
+            'user_id' => Auth::id(),
+            'action' => "CRO {$type} assignment change",
+            'model_type' => $type === 'inquiry' ? 'App\\Models\\Inquiry' : 'App\\Models\\Complaint',
+            'model_id' => $ticketId,
+            'old_values' => json_encode(['assigned_to' => $fromUserId]),
+            'new_values' => json_encode(['assigned_to' => $toUserId]),
+            'ip_address' => request()->ip(),
+        ]);
+    }
 }

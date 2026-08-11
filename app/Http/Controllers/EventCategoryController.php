@@ -38,6 +38,7 @@ class EventCategoryController extends Controller
             'cover' => $fileName,
             'created_by' => Auth::user()->id,
             'is_active' => true, // default true
+            'allows_artists' => $this->categoryAllowsArtists($validatedData['name']),
         ]);
 
         return redirect()->route('admin.event-categories.index')->with('success', 'New Event Category was added successfully.');
@@ -166,6 +167,7 @@ class EventCategoryController extends Controller
         }
 
         $eventCategory->name = $validatedData['name'];
+        $eventCategory->allows_artists = $this->categoryAllowsArtists($validatedData['name']);
 
         $eventCategory->save();
 
@@ -234,5 +236,12 @@ class EventCategoryController extends Controller
 
         return redirect()->route('admin.event-categories.index')->with('success', "Event category {$categoryName} has been deleted.");
 
+    }
+
+    private function categoryAllowsArtists(string $name): bool
+    {
+        $normalized = strtolower($name);
+
+        return str_contains($normalized, 'music') || str_contains($normalized, 'entertainment');
     }
 }

@@ -132,7 +132,8 @@
             <tr>
                 <th style="width: 28px;">ID</th>
                 <th>Event Name</th>
-                <th>Hosted By</th>
+                <th>Host</th>
+                <th>Artists</th>
                 <th>Category</th>
                 <th>Date</th>
                 <th>Time</th>
@@ -158,6 +159,7 @@
                     <td>{{ $event->id }}</td>
                     <td><strong>{{ $event->name }}</strong></td>
                     <td>{{ $event->host->name ?? 'N/A' }}</td>
+                    <td>{{ $event->artists->isNotEmpty() ? $event->artists->pluck('name')->implode(', ') : 'N/A' }}</td>
                     <td>{{ $event->eventCategory->name ?? 'N/A' }}</td>
                     <td>{{ $event->date }}</td>
                     <td>{{ $event->time }}</td>
@@ -168,7 +170,7 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="10" class="empty">No events available for export.</td>
+                    <td colspan="11" class="empty">No events available for export.</td>
                 </tr>
             @endforelse
         </tbody>

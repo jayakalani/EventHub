@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Artist;
 use App\Models\CartItem;
 use App\Models\Event;
 use App\Enums\BookingStatusEnum;
@@ -63,6 +64,9 @@ class EventController extends Controller
                     ->orWhereHas('host', function ($hostQuery) use ($search) {
                         $hostQuery->where('name', 'like', "%{$search}%");
                     })
+                    ->orWhereHas('artists', function ($artistQuery) use ($search) {
+                        $artistQuery->where('name', 'like', "%{$search}%");
+                    })
                     ->orWhereHas('eventCategory', function ($catQuery) use ($search) {
                         $catQuery->where('name', 'like', "%{$search}%");
                     });
@@ -84,6 +88,7 @@ class EventController extends Controller
         }
 
         $events = $query
+            ->with(['host', 'artists', 'eventCategory'])
             ->withSum('ticketCategories', 'no_of_tickets')
             ->withCount('ticketBookings')
             ->paginate(10)
@@ -99,14 +104,15 @@ class EventController extends Controller
     {
         $this->authorize('create', Event::class);
 
-        $hosts = Host::all();
+        $hosts = Host::query()->where('is_active', true)->orderBy('name')->get();
+        $artists = Artist::query()->where('is_active', true)->orderBy('name')->get();
         $event_categories = EventCategory::all();
 
         $croUsers = User::whereHas('userRole', function ($q) {
             $q->where('name_en', UserRole::CRO);
         })->get();
 
-        return view('organizer.events.create', compact('hosts', 'event_categories', 'croUsers'));
+        return view('organizer.events.create', compact('hosts', 'artists', 'event_categories', 'croUsers'));
     }
 
     /**
@@ -117,11 +123,15 @@ class EventController extends Controller
         $this->authorize('create', Event::class);
 
         $scheduleTba = $request->boolean('schedule_tba');
+        $category = EventCategory::find($request->input('category_id'));
+        $allowsArtists = $category?->allowsArtists() ?? false;
 
         $validatedData = $request->validate([
             'name' => 'required|string|max:255',
-            'hosted_by' => 'required|exists:users,id',
+            'host_id' => 'required|exists:hosts,id',
             'category_id' => 'required|exists:event_categories,id',
+            'artist_ids' => [$allowsArtists ? 'nullable' : 'prohibited', 'array'],
+            'artist_ids.*' => 'integer|exists:artists,id',
             'schedule_tba' => 'sometimes|boolean',
             'date' => ($scheduleTba ? 'nullable' : 'required').'|date',
             'time' => ($scheduleTba ? 'nullable' : 'required'),
@@ -147,7 +157,7 @@ class EventController extends Controller
 
         $event = Event::create([
             'name' => $validatedData['name'],
-            'hosted_by' => $validatedData['hosted_by'],
+            'host_id' => $validatedData['host_id'],
             'category_id' => $validatedData['category_id'],
             'date' => $scheduleTba ? null : $validatedData['date'],
             'time' => $scheduleTba ? null : $validatedData['time'],
@@ -170,6 +180,8 @@ class EventController extends Controller
                 ? (int) $validatedData['refund_partial_percentage']
                 : 75,
         ]);
+
+        $event->artists()->sync($allowsArtists ? ($validatedData['artist_ids'] ?? []) : []);
 
         $this->croNotificationService->notifyEventAssigned($event);
 
@@ -349,13 +361,16 @@ class EventController extends Controller
     {
         $this->authorize('update', $event);
 
-        $hosts = Host::all();
+        $hosts = Host::query()->where('is_active', true)->orderBy('name')->get();
+        $artists = Artist::query()->where('is_active', true)->orderBy('name')->get();
         $event_categories = EventCategory::all();
         $croUsers = User::whereHas('userRole', function ($q) {
             $q->where('name_en', UserRole::CRO);
         })->get();
 
-        return view('organizer.events.edit', compact('event', 'hosts', 'event_categories', 'croUsers'));
+        $event->load('artists');
+
+        return view('organizer.events.edit', compact('event', 'hosts', 'artists', 'event_categories', 'croUsers'));
     }
 
     /**
@@ -367,11 +382,15 @@ class EventController extends Controller
 
         $policyLocked = $event->hasSoldTickets();
         $scheduleTba = $request->boolean('schedule_tba');
+        $category = EventCategory::find($request->input('category_id'));
+        $allowsArtists = $category?->allowsArtists() ?? false;
 
         $rules = [
             'name' => 'required|string|max:255',
-            'hosted_by' => 'required|exists:users,id',
+            'host_id' => 'required|exists:hosts,id',
             'category_id' => 'required|exists:event_categories,id',
+            'artist_ids' => [$allowsArtists ? 'nullable' : 'prohibited', 'array'],
+            'artist_ids.*' => 'integer|exists:artists,id',
             'schedule_tba' => 'sometimes|boolean',
             'date' => ($scheduleTba ? 'nullable' : 'required').'|date',
             'time' => ($scheduleTba ? 'nullable' : 'required'),
@@ -411,7 +430,7 @@ class EventController extends Controller
         ];
 
         $event->name = $validatedData['name'];
-        $event->hosted_by = $validatedData['hosted_by'];
+        $event->host_id = $validatedData['host_id'];
         $event->category_id = $validatedData['category_id'];
 
         if ($scheduleTba && ! $wasPostponed) {
@@ -455,6 +474,8 @@ class EventController extends Controller
         }
 
         $event->save();
+
+        $event->artists()->sync($allowsArtists ? ($validatedData['artist_ids'] ?? []) : []);
 
         if ($paymentSettingsChanged) {
             $this->adminNotificationService->notifyPaymentSettingsChanged($event->fresh(), Auth::user());
@@ -556,7 +577,7 @@ class EventController extends Controller
     {
         $this->authorize('viewAny', Event::class);
 
-        $events = $this->organizerEventsQuery()->get();
+        $events = $this->organizerEventsQuery()->with(['host', 'artists', 'eventCategory'])->get();
         $pdf = \PDF::loadView('organizer.exports.events_pdf', compact('events'));
 
         return $pdf->download('events_'.now()->format('Ymd_His').'.pdf');
@@ -569,7 +590,7 @@ class EventController extends Controller
         $event->refresh();
 
         $event->loadCount(['likes', 'saves', 'comments', 'ratings', 'ticketBookings']);
-        $event->load(['comments.user', 'ratings.user']);
+        $event->load(['host', 'artists', 'comments.user', 'ratings.user']);
         $event->loadAvg('ratings', 'score');
         $ticketCategories = $event->ticketCategories()
             ->withCount([
@@ -620,7 +641,7 @@ class EventController extends Controller
     {
         $this->authorize('view', $event);
 
-        $event->load(['host', 'eventCategory', 'contactPerson']);
+        $event->load(['host', 'artists', 'eventCategory', 'contactPerson']);
         $ticketCategories = $event->ticketCategories;
         $pdf = Pdf::loadView('organizer.exports.show_pdf', compact('event', 'ticketCategories'));
 
@@ -640,7 +661,7 @@ class EventController extends Controller
             'session_id' => substr((string) request()->session()->getId(), 0, 64),
         ]);
 
-        $event->load(['host', 'eventCategory', 'contactPerson', 'ticketCategories', 'comments.user', 'ratings.user']);
+        $event->load(['host', 'artists', 'eventCategory', 'contactPerson', 'ticketCategories', 'comments.user', 'ratings.user']);
         $event->loadCount(['likes', 'comments', 'ratings']);
         $event->loadAvg('ratings', 'score');
 

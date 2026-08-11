@@ -836,7 +836,7 @@
                         <p class="mt-1 text-sm text-slate-500">Key oversight metrics</p>
                         <dl class="mt-6 space-y-3">
                             @foreach ([
-                                ['Hosts', $admin['totalHosts']],
+                                ['Artists', $admin['totalArtists']],
                                 ['Categories', $admin['totalCategories']],
                                 ['Gross Revenue', 'LKR ' . number_format($admin['totalRevenue'], 2)],
                                 ['Refunds Deducted', 'LKR ' . number_format($admin['totalRevenue'] - $admin['netRevenue'], 2)],

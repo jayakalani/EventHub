@@ -5,11 +5,13 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class HostLike extends Model
+class FollowArtist extends Model
 {
+    protected $table = 'follow_artists';
+
     protected $fillable = [
         'user_id',
-        'host_id',
+        'artist_id',
     ];
 
     public function user(): BelongsTo
@@ -17,8 +19,8 @@ class HostLike extends Model
         return $this->belongsTo(User::class);
     }
 
-    public function host(): BelongsTo
+    public function artist(): BelongsTo
     {
-        return $this->belongsTo(Host::class);
+        return $this->belongsTo(Artist::class);
     }
 }

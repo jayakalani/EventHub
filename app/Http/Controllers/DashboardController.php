@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Artist;
 use App\Models\Event;
 use App\Models\EventCategory;
-use App\Models\Host;
 use App\Models\User;
 use App\Models\UserRole;
 use App\Services\AdminReportService;
@@ -204,7 +204,7 @@ class DashboardController extends Controller
     public function cro(Request $request): View
     {
         $filters = $this->validatedCroDashboardFilters($request);
-        $dashboard = $this->croDashboardService->getDashboardData($filters);
+        $dashboard = $this->croDashboardService->getDashboardData($filters, (int) Auth::id());
 
         return view('cro.dashboard', compact('dashboard'));
     }
@@ -217,7 +217,7 @@ class DashboardController extends Controller
         abort_unless(Auth::user()?->userRole?->name_en === UserRole::CRO, 403);
 
         $filters = $this->validatedCroDashboardFilters($request);
-        $payload = $this->croDashboardExportBuilder->build($filters);
+        $payload = $this->croDashboardExportBuilder->build($filters, (int) Auth::id());
         $payload['charts'] = $this->validatedDashboardChartImages($request);
 
         return $this->exportService->downloadPdf(
@@ -265,8 +265,8 @@ class DashboardController extends Controller
 
         $selectedCategory = $request->category ?? null;
 
-        $selectedHost = $request->filled('host')
-            ? Host::query()->where('is_active', true)->find($request->host)
+        $selectedArtist = $request->filled('artist')
+            ? Artist::query()->where('is_active', true)->find($request->artist)
             : null;
 
         $upcomingThisWeek = $calendarService->getThisWeekBookedEvents((int) Auth::id());
@@ -277,7 +277,7 @@ class DashboardController extends Controller
             'pastEvents',
             'eventCategories',
             'selectedCategory',
-            'selectedHost',
+            'selectedArtist',
             'upcomingThisWeek',
             'pendingRatingPrompts',
         ));
@@ -560,8 +560,10 @@ class DashboardController extends Controller
             $query->where('category_id', $request->category);
         }
 
-        if ($request->filled('host')) {
-            $query->where('hosted_by', $request->host);
+        if ($request->filled('artist')) {
+            $query->whereHas('artists', function ($artistQuery) use ($request) {
+                $artistQuery->where('artists.id', $request->artist);
+            });
         }
 
         return $query->withCount('likes');
@@ -583,8 +585,10 @@ class DashboardController extends Controller
             $query->where('category_id', $request->category);
         }
 
-        if ($request->filled('host')) {
-            $query->where('hosted_by', $request->host);
+        if ($request->filled('artist')) {
+            $query->whereHas('artists', function ($artistQuery) use ($request) {
+                $artistQuery->where('artists.id', $request->artist);
+            });
         }
 
         return $query->withCount('likes');

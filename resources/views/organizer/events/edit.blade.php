@@ -115,19 +115,19 @@
 
                                 <div
                                     class="rounded-xl border border-gray-100 bg-gray-50/70 p-3 transition focus-within:border-indigo-200 focus-within:bg-white focus-within:shadow-sm">
-                                    <x-input-label for="hosted_by" value="Hosted By" />
-                                    <select id="hosted_by" name="hosted_by"
+                                    <x-input-label for="host_id" value="Host" />
+                                    <select id="host_id" name="host_id"
                                         class="mt-1.5 block w-full rounded-xl border-gray-200 bg-white text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                                         required>
-                                        <option value="">Select Host Person</option>
+                                        <option value="">Select Host</option>
                                         @foreach ($hosts as $host)
                                             <option value="{{ $host->id }}"
-                                                {{ old('hosted_by', $event->hosted_by) == $host->id ? 'selected' : '' }}>
+                                                {{ old('host_id', $event->host_id) == $host->id ? 'selected' : '' }}>
                                                 {{ $host->name }}
                                             </option>
                                         @endforeach
                                     </select>
-                                    <x-input-error :messages="$errors->get('hosted_by')" class="mt-1" />
+                                    <x-input-error :messages="$errors->get('host_id')" class="mt-1" />
                                 </div>
 
                                 <div
@@ -139,12 +139,32 @@
                                         <option value="">Select Category</option>
                                         @foreach ($event_categories as $event_category)
                                             <option value="{{ $event_category->id }}"
+                                                data-allows-artists="{{ $event_category->allows_artists ? '1' : '0' }}"
                                                 {{ old('category_id', $event->category_id) == $event_category->id ? 'selected' : '' }}>
                                                 {{ $event_category->name }}
                                             </option>
                                         @endforeach
                                     </select>
                                     <x-input-error :messages="$errors->get('category_id')" class="mt-1" />
+                                </div>
+
+                                @php
+                                    $selectedArtistIds = collect(old('artist_ids', $event->artists->pluck('id')->all()));
+                                @endphp
+                                <div id="artists-field"
+                                    class="rounded-xl border border-gray-100 bg-gray-50/70 p-3 transition focus-within:border-indigo-200 focus-within:bg-white focus-within:shadow-sm md:col-span-2 hidden">
+                                    <x-input-label for="artist_ids" value="Artists" />
+                                    <p class="mt-1 text-xs text-gray-500">Select one or more artists (Music &amp; Entertainment only).</p>
+                                    <select id="artist_ids" name="artist_ids[]" multiple
+                                        class="mt-1.5 block w-full rounded-xl border-gray-200 bg-white text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 min-h-[7.5rem]">
+                                        @foreach ($artists as $artist)
+                                            <option value="{{ $artist->id }}" {{ $selectedArtistIds->contains($artist->id) ? 'selected' : '' }}>
+                                                {{ $artist->name }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                    <x-input-error :messages="$errors->get('artist_ids')" class="mt-1" />
+                                    <x-input-error :messages="$errors->get('artist_ids.*')" class="mt-1" />
                                 </div>
 
                                 <div class="md:col-span-2 rounded-xl border border-indigo-100 bg-indigo-50/40 p-3"
@@ -334,4 +354,31 @@
             </div>
         </div>
     </div>
+
+    <script>
+        (function () {
+            const categorySelect = document.getElementById('category_id');
+            const artistsField = document.getElementById('artists-field');
+            const artistsSelect = document.getElementById('artist_ids');
+
+            if (!categorySelect || !artistsField || !artistsSelect) {
+                return;
+            }
+
+            const syncArtistsVisibility = () => {
+                const selected = categorySelect.options[categorySelect.selectedIndex];
+                const allows = selected && selected.dataset.allowsArtists === '1';
+                artistsField.classList.toggle('hidden', !allows);
+                artistsSelect.disabled = !allows;
+                if (!allows) {
+                    Array.from(artistsSelect.options).forEach((option) => {
+                        option.selected = false;
+                    });
+                }
+            };
+
+            categorySelect.addEventListener('change', syncArtistsVisibility);
+            syncArtistsVisibility();
+        })();
+    </script>
 </x-app-layout>

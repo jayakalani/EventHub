@@ -6,12 +6,12 @@ use App\Enums\BookingStatusEnum;
 use App\Enums\PaymentStatusEnum;
 use App\Enums\RefundRequestStatusEnum;
 use App\Enums\SupportTicketStatusEnum;
+use App\Models\Artist;
 use App\Models\AuditLog;
 use App\Models\CartItem;
 use App\Models\Complaint;
 use App\Models\Event;
 use App\Models\EventCategory;
-use App\Models\Host;
 use App\Models\Inquiry;
 use App\Models\Payment;
 use App\Models\RefundRequest;
@@ -419,9 +419,9 @@ class AdminReportService
             ->sum('amount');
         $totalRefunded = (float) $this->scopedRefundAmount($scopeFilter);
 
-        $hostsQuery = Host::query();
+        $artistsQuery = Artist::query();
         if ($isScoped) {
-            $hostsQuery->where(function ($query) use ($scopeFilter) {
+            $artistsQuery->where(function ($query) use ($scopeFilter) {
                 if ($scopeFilter['scope'] === 'event' && $scopeFilter['selectedEventId']) {
                     $query->whereHas('events', fn ($eventQuery) => $eventQuery->where('events.id', $scopeFilter['selectedEventId']));
                 } elseif ($scopeFilter['selectedOrganizerId']) {
@@ -437,7 +437,7 @@ class AdminReportService
         return [
             'totalUsers' => User::count(),
             'totalEvents' => $this->scopedEventsQuery($scopeFilter)->count(),
-            'totalHosts' => $hostsQuery->count(),
+            'totalArtists' => $artistsQuery->count(),
             'totalCategories' => $categoriesCount,
             'totalTicketsSold' => $this->scopedBookingsQuery($scopeFilter)
                 ->where('status', BookingStatusEnum::Confirmed)

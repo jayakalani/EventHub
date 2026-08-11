@@ -4,6 +4,7 @@ namespace App\Services\Exports;
 
 use App\Services\CroReportService;
 use App\Services\ReportExportService;
+use Illuminate\Support\Facades\Auth;
 
 class CroReportExportBuilder
 {
@@ -18,14 +19,15 @@ class CroReportExportBuilder
      */
     public function build(string $section, array $filters = []): array
     {
-        $reports = $this->reportService->getAllReports($filters);
+        $reports = $this->reportService->getAllReports($filters, Auth::id() ? (int) Auth::id() : null);
         $labels = $reports['chartLabels'];
         $filterMeta = $reports['filters'] ?? [];
         $summary = $reports['summary'] ?? [];
+        $personal = $reports['personalKpis'] ?? [];
 
         return match ($section) {
-            'inquiries' => $this->buildInquiries($reports['inquiries'], $labels, $filterMeta, $summary, $reports['satisfaction'] ?? []),
-            'complaints' => $this->buildComplaints($reports['complaints'], $labels, $filterMeta, $summary, $reports['satisfaction'] ?? []),
+            'inquiries' => $this->buildInquiries($reports['inquiries'], $labels, $filterMeta, $summary, $reports['satisfaction'] ?? [], $personal),
+            'complaints' => $this->buildComplaints($reports['complaints'], $labels, $filterMeta, $summary, $reports['satisfaction'] ?? [], $personal),
             default => abort(404),
         };
     }
@@ -36,12 +38,13 @@ class CroReportExportBuilder
      * @param  array<string, mixed>  $filterMeta
      * @param  array<string, mixed>  $summary
      * @param  array<string, mixed>  $satisfaction
+     * @param  array<string, mixed>  $personal
      */
-    private function buildInquiries(array $data, array $labels, array $filterMeta, array $summary, array $satisfaction): array
+    private function buildInquiries(array $data, array $labels, array $filterMeta, array $summary, array $satisfaction, array $personal = []): array
     {
         return [
             'title' => 'CRO Reports — Inquiry Resolution',
-            'summary' => [
+            'summary' => array_merge([
                 ['label' => 'Event scope', 'value' => $this->eventScopeLabel($filterMeta)],
                 ['label' => 'CRO scope', 'value' => $this->croScopeLabel($filterMeta)],
                 ['label' => 'Date range', 'value' => ($filterMeta['from'] ?? '—').' → '.($filterMeta['to'] ?? '—')],
@@ -58,7 +61,7 @@ class CroReportExportBuilder
                         ? number_format((float) $satisfaction['average'], 1).'/5'
                         : '—',
                 ],
-            ],
+            ], $this->personalKpiSummaryRows($personal)),
             'tables' => [
                 [
                     'heading' => 'Status breakdown',
@@ -114,12 +117,13 @@ class CroReportExportBuilder
      * @param  array<string, mixed>  $filterMeta
      * @param  array<string, mixed>  $summary
      * @param  array<string, mixed>  $satisfaction
+     * @param  array<string, mixed>  $personal
      */
-    private function buildComplaints(array $data, array $labels, array $filterMeta, array $summary, array $satisfaction): array
+    private function buildComplaints(array $data, array $labels, array $filterMeta, array $summary, array $satisfaction, array $personal = []): array
     {
         return [
             'title' => 'CRO Reports — Complaint Statistics',
-            'summary' => [
+            'summary' => array_merge([
                 ['label' => 'Event scope', 'value' => $this->eventScopeLabel($filterMeta)],
                 ['label' => 'CRO scope', 'value' => $this->croScopeLabel($filterMeta)],
                 ['label' => 'Date range', 'value' => ($filterMeta['from'] ?? '—').' → '.($filterMeta['to'] ?? '—')],
@@ -136,7 +140,7 @@ class CroReportExportBuilder
                         ? number_format((float) $satisfaction['average'], 1).'/5'
                         : '—',
                 ],
-            ],
+            ], $this->personalKpiSummaryRows($personal)),
             'tables' => [
                 [
                     'heading' => 'Complaints by status',
@@ -179,6 +183,27 @@ class CroReportExportBuilder
                     ])->all(),
                 ],
             ],
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $personal
+     * @return list<array{label: string, value: string|int|float}>
+     */
+    private function personalKpiSummaryRows(array $personal): array
+    {
+        if ($personal === []) {
+            return [];
+        }
+
+        return [
+            ['label' => 'My avg first response', 'value' => $personal['avgFirstResponseLabel'] ?? '—'],
+            ['label' => 'My avg resolution', 'value' => $personal['avgResolutionLabel'] ?? '—'],
+            ['label' => 'My refund approve rate', 'value' => isset($personal['refundApproveRate']) ? $personal['refundApproveRate'].'%' : '—'],
+            ['label' => 'My refund decline rate', 'value' => isset($personal['refundDeclineRate']) ? $personal['refundDeclineRate'].'%' : '—'],
+            ['label' => 'My events satisfaction', 'value' => isset($personal['satisfactionAverage'])
+                ? number_format((float) $personal['satisfactionAverage'], 1).'/5 ('.$personal['satisfactionCount'].')'
+                : '—'],
         ];
     }
 

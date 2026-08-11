@@ -18,6 +18,10 @@ use Illuminate\Support\Facades\DB;
 
 class CroReportService
 {
+    public function __construct(
+        protected CroDashboardService $dashboardService,
+    ) {}
+
     /**
      * @param  array{
      *     event?: int|null,
@@ -28,7 +32,7 @@ class CroReportService
      * }  $filters
      * @return array<string, mixed>
      */
-    public function getAllReports(array $filters = []): array
+    public function getAllReports(array $filters = [], ?int $viewerCroId = null): array
     {
         $normalized = $this->normalizeFilters($filters);
         $eventId = $normalized['event'];
@@ -46,6 +50,11 @@ class CroReportService
 
         $eventOptions = $this->eventOptions();
         $croOptions = $this->croOptions();
+
+        $personalCroId = $croId ?: $viewerCroId;
+        $personalKpis = $personalCroId
+            ? $this->dashboardService->personalKpis($personalCroId, $eventId, $from, $to)
+            : null;
 
         return [
             'filters' => [
@@ -68,6 +77,7 @@ class CroReportService
                 'resolutionRate' => $inquiries['resolutionRate'] ?? 0,
                 'csatAverage' => $satisfaction['average'],
             ],
+            'personalKpis' => $personalKpis,
             'inquiries' => $inquiries,
             'complaints' => $complaints,
             'satisfaction' => $satisfaction,

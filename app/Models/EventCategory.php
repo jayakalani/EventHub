@@ -28,8 +28,22 @@ class EventCategory extends Model
         'name',
         'cover',
         'is_active',
+        'allows_artists',
         'created_by',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'is_active' => 'boolean',
+            'allows_artists' => 'boolean',
+        ];
+    }
+
+    public function allowsArtists(): bool
+    {
+        return (bool) $this->allows_artists;
+    }
 
     public function events()
     {

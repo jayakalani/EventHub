@@ -19,12 +19,11 @@ class Host extends Model
         'name',
     ];
 
-     /**
+    /**
      * The attributes that are mass assignable.
      *
      * @var array<int, string>
      */
-
     protected $fillable = [
         'name',
         'email',
@@ -34,47 +33,8 @@ class Host extends Model
         'is_active',
     ];
 
-
     public function events()
     {
-        return $this->hasMany(Event::class,'hosted_by');
-    }
-
-    public function hostLikes()
-    {
-        return $this->hasMany(HostLike::class, 'host_id');
-    }
-
-    public function likedByUsers()
-    {
-        return $this->belongsToMany(User::class, 'host_likes', 'host_id', 'user_id')->withTimestamps();
-    }
-
-    public function isLikedBy(?User $user): bool
-    {
-        if (! $user) {
-            return false;
-        }
-
-        return $this->hostLikes()->where('user_id', $user->id)->exists();
-    }
-
-    public function hostFollows()
-    {
-        return $this->hasMany(FollowHost::class, 'host_id');
-    }
-
-    public function followedByUsers()
-    {
-        return $this->belongsToMany(User::class, 'follow_hosts', 'host_id', 'user_id')->withTimestamps();
-    }
-
-    public function isFollowedBy(?User $user): bool
-    {
-        if (! $user) {
-            return false;
-        }
-
-        return $this->hostFollows()->where('user_id', $user->id)->exists();
+        return $this->hasMany(Event::class, 'host_id');
     }
 }

@@ -6,7 +6,7 @@
             </x-footer-link>
         </li>
         <li>
-            <x-footer-link :href="route('admin.event-categories')" :active="request()->routeIs('admin.event-categories', 'admin.event-categories.*', 'admin.event.category.*')">
+            <x-footer-link :href="route('admin.event-categories.index')" :active="request()->routeIs('admin.event-categories.*', 'admin.event.category.*')">
                 {{ t(['en' => 'Categories', 'si' => 'ප්‍රවර්ග']) }}
             </x-footer-link>
         </li>

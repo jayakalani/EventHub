@@ -80,27 +80,6 @@
                                         </div>
                                     </div>
 
-                                    <div class="flex items-center justify-center gap-3 sm:justify-end">
-                                        <div class="rounded-xl bg-white/15 px-3.5 py-2 ring-1 ring-white/20 backdrop-blur-sm">
-                                            <p class="text-[10px] font-semibold uppercase tracking-wider text-violet-200">
-                                                Followers
-                                            </p>
-                                            <p class="mt-0.5 inline-flex items-center gap-1.5 text-lg font-bold text-white">
-                                                <i class="bi bi-person-check text-indigo-200" aria-hidden="true"></i>
-                                                {{ $host->host_follows_count ?? 0 }}
-                                            </p>
-                                        </div>
-
-                                        <div class="rounded-xl bg-white/15 px-3.5 py-2 ring-1 ring-white/20 backdrop-blur-sm">
-                                            <p class="text-[10px] font-semibold uppercase tracking-wider text-violet-200">
-                                                Likes
-                                            </p>
-                                            <p class="mt-0.5 inline-flex items-center gap-1.5 text-lg font-bold text-white">
-                                                <i class="bi bi-hand-thumbs-up text-[#60A5FA]" aria-hidden="true"></i>
-                                                {{ $host->host_likes_count ?? 0 }}
-                                            </p>
-                                        </div>
-                                    </div>
                                 </div>
                             </div>
                         </div>

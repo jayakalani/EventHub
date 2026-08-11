@@ -241,19 +241,32 @@
                             </div>
 
                             {{-- Bottom: compact stats with icons --}}
-                            <div class="grid grid-cols-2 gap-2.5 rounded-xl border border-slate-100 bg-slate-50/70 px-3 py-2.5 sm:grid-cols-3 lg:grid-cols-5">
+                            <div class="grid grid-cols-2 gap-2.5 rounded-xl border border-slate-100 bg-slate-50/70 px-3 py-2.5 sm:grid-cols-3 lg:grid-cols-6">
                                 <div class="flex items-center gap-2.5">
                                     <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
-                                        <i class="bi bi-person-badge text-sm" aria-hidden="true"></i>
+                                        <i class="bi bi-building text-sm" aria-hidden="true"></i>
                                     </div>
                                     <div class="min-w-0">
                                         <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{{ t(['en' => 'Host', 'si' => 'සත්කාරක']) }}</p>
-                                        @if($event->host)
-                                            <a href="{{ route('attendee.hosts.show', $event->host) }}"
-                                                title="{{ $event->host->name }}"
-                                                class="block truncate text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:underline transition">
-                                                {{ $event->host->name }}
-                                            </a>
+                                        <p class="truncate text-xs font-bold text-slate-800" title="{{ $event->host->name ?? '' }}">
+                                            {{ $event->host->name ?? '—' }}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-2.5">
+                                    <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-fuchsia-50 text-fuchsia-600">
+                                        <i class="bi bi-people text-sm" aria-hidden="true"></i>
+                                    </div>
+                                    <div class="min-w-0">
+                                        <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{{ t(['en' => 'Artists', 'si' => 'කලාකරුවන්']) }}</p>
+                                        @if ($event->artists->isNotEmpty())
+                                            <p class="truncate text-xs font-bold text-slate-800">
+                                                @foreach ($event->artists as $artist)
+                                                    <a href="{{ route('attendee.artists.show', $artist) }}"
+                                                        title="{{ $artist->name }}"
+                                                        class="text-indigo-600 hover:text-indigo-800 hover:underline transition">{{ $artist->name }}</a>@if (! $loop->last)<span class="text-slate-400">, </span>@endif
+                                                @endforeach
+                                            </p>
                                         @else
                                             <p class="truncate text-xs font-bold text-slate-800">—</p>
                                         @endif

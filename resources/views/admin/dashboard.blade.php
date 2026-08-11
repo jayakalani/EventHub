@@ -194,7 +194,7 @@
                     <div class="relative mt-3 flex flex-wrap gap-1.5">
                         @foreach ([
                             ['label' => 'Users', 'route' => route('admin.users'), 'icon' => 'bi-people'],
-                            ['label' => 'Categories', 'route' => route('admin.event-categories'), 'icon' => 'bi-tags'],
+                            ['label' => 'Categories', 'route' => route('admin.event-categories.index'), 'icon' => 'bi-tags'],
                             ['label' => 'Reports', 'route' => route('admin.reports'), 'icon' => 'bi-bar-chart'],
                             ['label' => 'Support', 'route' => route('admin.support-reports'), 'icon' => 'bi-headset'],
                             ['label' => 'Audit Logs', 'route' => route('admin.audit-logs'), 'icon' => 'bi-journal-text'],

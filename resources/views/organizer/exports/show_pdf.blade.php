@@ -173,33 +173,40 @@
     <table class="details">
         <tr>
             <td>
-                <p class="label">Hosted By</p>
+                <p class="label">Host</p>
                 <p class="value">{{ $event->host->name ?? 'N/A' }}</p>
             </td>
+            <td>
+                <p class="label">Artists</p>
+                <p class="value">{{ $event->artists->isNotEmpty() ? $event->artists->pluck('name')->implode(', ') : 'N/A' }}</p>
+            </td>
+        </tr>
+        <tr>
             <td>
                 <p class="label">Category</p>
                 <p class="value">{{ $event->eventCategory->name ?? 'N/A' }}</p>
             </td>
-        </tr>
-        <tr>
             <td>
                 <p class="label">Date &amp; Time</p>
                 <p class="value">{{ $event->date }} {{ $event->time }}</p>
             </td>
+        </tr>
+        <tr>
             <td>
                 <p class="label">Place</p>
                 <p class="value">{{ $event->place }}</p>
             </td>
-        </tr>
-        <tr>
             <td>
                 <p class="label">Total Tickets</p>
                 <p class="value">{{ number_format($event->no_of_tickets) }}</p>
             </td>
+        </tr>
+        <tr>
             <td>
                 <p class="label">Contact Person</p>
                 <p class="value">{{ $event->contactPerson->name ?? 'N/A' }}</p>
             </td>
+            <td></td>
         </tr>
     </table>
 

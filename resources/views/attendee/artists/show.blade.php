@@ -2,15 +2,15 @@
 
     <x-slot name="header">
         <div class="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-0.5 sm:gap-x-3">
-            <a href="{{ route('attendee.hosts.index') }}"
+            <a href="{{ route('attendee.artists.index') }}"
                 class="shrink-0 text-xs font-semibold text-blue-600 hover:text-blue-800 sm:text-sm">
-                &larr; {{ t(['en' => 'Back to Hosts', 'si' => 'සත්කාරකයන් වෙත ආපසු']) }}
+                &larr; {{ t(['en' => 'Back to Artists', 'si' => 'කලාකරුවන් වෙත ආපසු']) }}
             </a>
             <span class="hidden h-3.5 w-px shrink-0 bg-slate-200 sm:block" aria-hidden="true"></span>
             <p class="min-w-0 truncate text-xs text-slate-500 sm:text-sm">
-                <span class="text-slate-400">{{ t(['en' => 'Host details and events', 'si' => 'සත්කාරක විස්තර සහ ප්‍රසංග']) }}</span>
+                <span class="text-slate-400">{{ t(['en' => 'Artist details and events', 'si' => 'කලාකරු විස්තර සහ ප්‍රසංග']) }}</span>
                 <span class="mx-1.5 text-slate-300" aria-hidden="true">·</span>
-                <span class="font-medium text-slate-700">{{ $host->name }}</span>
+                <span class="font-medium text-slate-700">{{ $artist->name }}</span>
             </p>
         </div>
     </x-slot>
@@ -18,7 +18,7 @@
     <div class="py-4">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-4">
 
-            {{-- Host profile header --}}
+            {{-- Artist profile header --}}
             <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
                 <div
                     class="relative px-5 py-6 sm:px-6 sm:py-7"
@@ -29,18 +29,18 @@
 
                     <div class="relative z-10 flex flex-col items-center gap-5 sm:flex-row sm:items-center sm:gap-6">
                         <div class="relative shrink-0">
-                            @if ($host->cover)
+                            @if ($artist->cover)
                                 <div class="absolute -inset-3 overflow-hidden rounded-full opacity-60">
                                     <img
-                                        src="{{ asset('uploads/covers/hosts/' . $host->cover) }}"
+                                        src="{{ asset('uploads/covers/artists/' . $artist->cover) }}"
                                         alt=""
                                         aria-hidden="true"
                                         class="h-full w-full scale-150 object-cover blur-xl"
                                     >
                                 </div>
                                 <img
-                                    src="{{ asset('uploads/covers/hosts/' . $host->cover) }}"
-                                    alt="{{ $host->name }}"
+                                    src="{{ asset('uploads/covers/artists/' . $artist->cover) }}"
+                                    alt="{{ $artist->name }}"
                                     class="relative z-10 h-28 w-28 rounded-full border-4 border-blue-500 object-cover object-top shadow-lg transition duration-300 hover:scale-105 hover:shadow-xl sm:h-32 sm:w-32"
                                 >
                             @else
@@ -55,7 +55,7 @@
                                 <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                                     <div class="min-w-0 text-center sm:text-left">
                                         <h3 class="truncate text-xl font-bold tracking-tight text-white sm:text-2xl">
-                                            {{ $host->name }}
+                                            {{ $artist->name }}
                                         </h3>
                                         <div class="mt-2.5 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
                                             <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-500 px-3 py-1 text-xs font-semibold text-white shadow-sm">
@@ -76,7 +76,7 @@
                                             </p>
                                             <p class="mt-0.5 inline-flex items-center gap-1.5 text-lg font-bold text-white">
                                                 <i class="bi bi-person-check text-indigo-200" aria-hidden="true"></i>
-                                                {{ $host->host_follows_count ?? 0 }}
+                                                {{ $artist->artist_follows_count ?? 0 }}
                                             </p>
                                         </div>
 
@@ -86,35 +86,35 @@
                                             </p>
                                             <p class="mt-0.5 inline-flex items-center gap-1.5 text-lg font-bold text-white">
                                                 <i class="bi bi-hand-thumbs-up text-[#60A5FA]" aria-hidden="true"></i>
-                                                {{ $host->host_likes_count ?? 0 }}
+                                                {{ $artist->artist_likes_count ?? 0 }}
                                             </p>
                                         </div>
 
-                                        <form action="{{ route('attendee.hosts.follow', $host) }}" method="POST">
+                                        <form action="{{ route('attendee.artists.follow', $artist) }}" method="POST">
                                             @csrf
                                             <button type="submit"
-                                                aria-label="{{ $host->is_followed ? t(['en' => 'Unfollow host', 'si' => 'අනුගමනය නවත්වන්න']) : t(['en' => 'Follow host', 'si' => 'අනුගමනය කරන්න']) }}"
+                                                aria-label="{{ $artist->is_followed ? t(['en' => 'Unfollow artist', 'si' => 'අනුගමනය නවත්වන්න']) : t(['en' => 'Follow artist', 'si' => 'අනුගමනය කරන්න']) }}"
                                                 class="inline-flex h-12 items-center justify-center gap-1.5 rounded-full px-4 text-sm font-semibold shadow-md transition
-                                                {{ $host->is_followed
+                                                {{ $artist->is_followed
                                                     ? 'bg-indigo-500 text-white hover:bg-indigo-600'
                                                     : 'bg-white text-slate-700 hover:bg-slate-50' }}">
-                                                <i class="bi {{ $host->is_followed ? 'bi-person-check-fill' : 'bi-person-plus' }}"
+                                                <i class="bi {{ $artist->is_followed ? 'bi-person-check-fill' : 'bi-person-plus' }}"
                                                     aria-hidden="true"></i>
-                                                {{ $host->is_followed
+                                                {{ $artist->is_followed
                                                     ? t(['en' => 'Following', 'si' => 'අනුගමනය'])
                                                     : t(['en' => 'Follow', 'si' => 'අනුගමනය']) }}
                                             </button>
                                         </form>
 
-                                        <form action="{{ route('attendee.hosts.like', $host) }}" method="POST">
+                                        <form action="{{ route('attendee.artists.like', $artist) }}" method="POST">
                                             @csrf
                                             <button type="submit"
-                                                aria-label="{{ $host->is_liked ? t(['en' => 'Unlike host', 'si' => 'කැමති නැත']) : t(['en' => 'Like host', 'si' => 'කැමතියි']) }}"
+                                                aria-label="{{ $artist->is_liked ? t(['en' => 'Unlike artist', 'si' => 'කැමති නැත']) : t(['en' => 'Like artist', 'si' => 'කැමතියි']) }}"
                                                 class="inline-flex h-12 w-12 items-center justify-center rounded-full text-xl shadow-md transition
-                                                {{ $host->is_liked
+                                                {{ $artist->is_liked
                                                     ? 'bg-[#1877F2] text-white hover:bg-[#166fe5]'
                                                     : 'bg-white text-slate-600 hover:bg-slate-50' }}">
-                                                <i class="bi {{ $host->is_liked ? 'bi-hand-thumbs-up-fill' : 'bi-hand-thumbs-up' }}"
+                                                <i class="bi {{ $artist->is_liked ? 'bi-hand-thumbs-up-fill' : 'bi-hand-thumbs-up' }}"
                                                     aria-hidden="true"></i>
                                             </button>
                                         </form>
@@ -129,9 +129,9 @@
             <div>
                 <div class="mb-3 flex items-center justify-between gap-3">
                     <h3 class="text-base font-semibold text-slate-900">
-                        {{ t(['en' => 'Events by this host', 'si' => 'මෙම සත්කාරකයාගේ ප්‍රසංග']) }}
+                        {{ t(['en' => 'Events by this artist', 'si' => 'මෙම කලාකරුගේ ප්‍රසංග']) }}
                     </h3>
-                    <a href="{{ route('attendee.dashboard', ['host' => $host->id]) }}"
+                    <a href="{{ route('attendee.dashboard', ['artist' => $artist->id]) }}"
                         class="text-xs font-semibold text-[#0F0363] hover:opacity-80 sm:text-sm">
                         {{ t(['en' => 'Browse in Events', 'si' => 'ප්‍රසංග තුළ බලන්න']) }}
                     </a>
@@ -188,7 +188,7 @@
                         </div>
                     @empty
                         <div class="col-span-full rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-8 text-center text-sm text-slate-500">
-                            {{ t(['en' => 'This host has no events yet.', 'si' => 'මෙම සත්කාරකයාට තවම ප්‍රසංග නැත.']) }}
+                            {{ t(['en' => 'This artist has no events yet.', 'si' => 'මෙම කලාකරුවාට තවම ප්‍රසංග නැත.']) }}
                         </div>
                     @endforelse
                 </div>

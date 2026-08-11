@@ -134,34 +134,34 @@ class User extends Authenticatable implements MustVerifyEmailContract
         return $this->likes()->where('event_id', $event->id)->exists();
     }
 
-    public function hostLikes()
+    public function artistLikes()
     {
-        return $this->hasMany(HostLike::class);
+        return $this->hasMany(ArtistLike::class);
     }
 
-    public function likedHosts()
+    public function likedArtists()
     {
-        return $this->belongsToMany(Host::class, 'host_likes', 'user_id', 'host_id')->withTimestamps();
+        return $this->belongsToMany(Artist::class, 'artist_likes', 'user_id', 'artist_id')->withTimestamps();
     }
 
-    public function hasLikedHost(Host $host): bool
+    public function hasLikedArtist(Artist $artist): bool
     {
-        return $this->hostLikes()->where('host_id', $host->id)->exists();
+        return $this->artistLikes()->where('artist_id', $artist->id)->exists();
     }
 
-    public function hostFollows()
+    public function artistFollows()
     {
-        return $this->hasMany(FollowHost::class);
+        return $this->hasMany(FollowArtist::class);
     }
 
-    public function followedHosts()
+    public function followedArtists()
     {
-        return $this->belongsToMany(Host::class, 'follow_hosts', 'user_id', 'host_id')->withTimestamps();
+        return $this->belongsToMany(Artist::class, 'follow_artists', 'user_id', 'artist_id')->withTimestamps();
     }
 
-    public function hasFollowedHost(Host $host): bool
+    public function hasFollowedArtist(Artist $artist): bool
     {
-        return $this->hostFollows()->where('host_id', $host->id)->exists();
+        return $this->artistFollows()->where('artist_id', $artist->id)->exists();
     }
 
     public function savedEvents()

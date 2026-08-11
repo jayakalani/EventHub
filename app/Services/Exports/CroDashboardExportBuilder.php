@@ -14,13 +14,14 @@ class CroDashboardExportBuilder
      * @param  array{event?: int|null, from?: string|null, to?: string|null}  $filters
      * @return array{title: string, summary: list<array{label: string, value: string|int|float}>, tables: list<array{heading: string, headers: list<string>, rows: list<list<string|int|float|null>>}>}
      */
-    public function build(array $filters = []): array
+    public function build(array $filters = [], ?int $croId = null): array
     {
-        $dashboard = $this->dashboardService->getDashboardData($filters);
+        $dashboard = $this->dashboardService->getDashboardData($filters, $croId);
 
         $eventFilter = $dashboard['eventFilter'] ?? [];
         $filterMeta = $dashboard['filters'] ?? [];
         $kpis = $dashboard['kpis'] ?? [];
+        $personal = $dashboard['personalKpis'] ?? [];
         $today = $dashboard['todayTasks'] ?? [];
         $satisfaction = $dashboard['satisfaction'] ?? [];
         $weekTrend = $dashboard['charts']['periods']['week'] ?? [];
@@ -41,10 +42,18 @@ class CroDashboardExportBuilder
             'summary' => [
                 ['label' => 'Event scope', 'value' => $scope],
                 ['label' => 'Date range', 'value' => $dateRange],
+                ['label' => 'Today’s work queue', 'value' => $today['queueTotal'] ?? 0],
                 ['label' => 'Open inquiries', 'value' => $kpis['openInquiries'] ?? 0],
                 ['label' => 'Active complaints', 'value' => $kpis['activeComplaints'] ?? 0],
                 ['label' => 'Resolved today', 'value' => $kpis['resolvedToday'] ?? 0],
                 ['label' => 'Avg response time', 'value' => $kpis['avgResponseLabel'] ?? '—'],
+                ['label' => 'My avg first response', 'value' => $personal['avgFirstResponseLabel'] ?? '—'],
+                ['label' => 'My avg resolution', 'value' => $personal['avgResolutionLabel'] ?? '—'],
+                ['label' => 'My refund approve rate', 'value' => isset($personal['refundApproveRate']) ? $personal['refundApproveRate'].'%' : '—'],
+                ['label' => 'My refund decline rate', 'value' => isset($personal['refundDeclineRate']) ? $personal['refundDeclineRate'].'%' : '—'],
+                ['label' => 'My events satisfaction', 'value' => isset($personal['satisfactionAverage'])
+                    ? number_format((float) $personal['satisfactionAverage'], 1).'/5 ('.$personal['satisfactionCount'].')'
+                    : '—'],
                 ['label' => 'Today — New inquiries', 'value' => $today['newInquiries'] ?? 0],
                 ['label' => 'Today — Pending refunds', 'value' => $today['refundRequests'] ?? 0],
                 ['label' => 'Today — Urgent complaints', 'value' => $today['urgentComplaints'] ?? 0],
@@ -59,6 +68,27 @@ class CroDashboardExportBuilder
                 ['label' => 'Reviews / cases used', 'value' => $satisfaction['reviewCount'] ?? 0],
             ],
             'tables' => [
+                [
+                    'heading' => 'Today’s work',
+                    'headers' => ['Type', 'Title', 'Detail', 'Age', 'Action'],
+                    'rows' => collect($dashboard['todayWork'] ?? [])->map(fn ($row) => [
+                        ucfirst((string) ($row['type'] ?? '—')),
+                        $row['title'] ?? '—',
+                        $row['meta'] ?? '—',
+                        $row['age'] ?? '—',
+                        $row['actionLabel'] ?? 'Open',
+                    ])->all(),
+                ],
+                [
+                    'heading' => 'Event handoffs',
+                    'headers' => ['Event', 'Status', 'Open inquiries', 'Pending refunds'],
+                    'rows' => collect($dashboard['handoffs'] ?? [])->map(fn ($row) => [
+                        $row['event']['name'] ?? '—',
+                        $row['event']['statusLabel'] ?? ($row['type'] ?? '—'),
+                        $row['summary']['openInquiries'] ?? 0,
+                        $row['summary']['pendingRefunds'] ?? 0,
+                    ])->all(),
+                ],
                 [
                     'heading' => 'Support trend — weekly',
                     'headers' => ['Period', 'Inquiries', 'Complaints', 'Refunds'],

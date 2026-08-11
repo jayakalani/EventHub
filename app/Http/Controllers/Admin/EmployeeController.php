@@ -9,34 +9,49 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Response;
+use Illuminate\Validation\Rule;
 
 class EmployeeController extends Controller
 {
+    /**
+     * Users with staff roles (excludes attendees).
+     */
+    private function employeesQuery()
+    {
+        return User::with('userRole')
+            ->whereHas('userRole', function ($query) {
+                $query->whereIn('name_en', UserRole::staffRoleNames());
+            })
+            ->latest();
+    }
+
     public function create()
     {
-
-        $roles = UserRole::whereIn('name_en', [
-            'admin',
-            'event organizer',
-            'customer relations officer',
-        ])->where('is_active', true)->get();
+        $roles = UserRole::activeStaffRoles()->get();
 
         return view('admin.users.create-employee', compact('roles'));
     }
 
     public function store(Request $request)
     {
-        // Validate input
         $validated = $request->validate([
             'first_name' => 'required|string|max:255',
             'last_name' => 'required|string|max:255',
             'nic' => 'required|string|max:20|unique:users,nic',
             'email' => 'required|email|unique:users,email',
             'contact_number' => 'required|string|max:20',
-            'role_id' => 'required|exists:user_roles,id',
+            'role_id' => [
+                'required',
+                Rule::exists('user_roles', 'id')->where(function ($query) {
+                    $query->whereIn('name_en', UserRole::staffRoleNames())
+                        ->where('is_active', true)
+                        ->whereNull('deleted_at');
+                }),
+            ],
         ]);
 
-        // Create employee (assuming you’re saving into users table)
+        // Admin-created staff are trusted and marked verified so they can
+        // access role-gated routes that require the `verified` middleware.
         $employee = User::create([
             'first_name' => $validated['first_name'],
             'last_name' => $validated['last_name'],
@@ -44,17 +59,18 @@ class EmployeeController extends Controller
             'email' => $validated['email'],
             'contact_number' => $validated['contact_number'],
             'role_id' => $validated['role_id'],
-            'password' => Hash::make('Temp123'), // ✅ temporary password
+            'password' => Hash::make('Temp123'),
         ]);
 
-        // Redirect back with success message
+        $employee->markEmailAsVerified();
+
         return redirect()->route('admin.users')
             ->with('success', 'Employee created successfully.');
     }
 
     public function exportCsv(Request $request)
     {
-        $employees = User::with('userRole')->get();
+        $employees = $this->employeesQuery()->get();
 
         $csvData = [];
         $csvData[] = ['ID', 'Name', 'Email', 'Contact Number', 'Role', 'Is Locked', 'Is Active'];
@@ -89,7 +105,7 @@ class EmployeeController extends Controller
 
     public function exportPdf(Request $request)
     {
-        $employees = User::with('userRole')->get();
+        $employees = $this->employeesQuery()->get();
 
         $pdf = Pdf::loadView('admin.exports.employees_pdf', compact('employees'));
 

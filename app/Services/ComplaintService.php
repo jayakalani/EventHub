@@ -105,6 +105,58 @@ class ComplaintService
         $this->auditService->logStatusChange('complaint', $complaint->id, $oldStatus, $status->value);
     }
 
+    public function claim(Complaint $complaint, User $cro): void
+    {
+        if (! $complaint->isUnassigned() && ! $complaint->isAssignedTo($cro->id)) {
+            throw new RuntimeException('This complaint is already claimed by another CRO. Use Reassign instead.');
+        }
+
+        if ($complaint->isAssignedTo($cro->id)) {
+            return;
+        }
+
+        $from = $complaint->assigned_to;
+        $payload = ['assigned_to' => $cro->id];
+
+        if ($complaint->status === SupportTicketStatusEnum::Open) {
+            $payload['status'] = SupportTicketStatusEnum::InProgress;
+            $this->auditService->logStatusChange(
+                'complaint',
+                $complaint->id,
+                SupportTicketStatusEnum::Open->value,
+                SupportTicketStatusEnum::InProgress->value,
+            );
+        }
+
+        $complaint->update($payload);
+        $this->auditService->logAssignmentChange('complaint', $complaint->id, $from, $cro->id);
+    }
+
+    public function reassign(Complaint $complaint, User $actor, ?User $assignee): void
+    {
+        $toId = $assignee?->id;
+        $fromId = $complaint->assigned_to;
+
+        if ((int) $fromId === (int) $toId) {
+            return;
+        }
+
+        if ($assignee && ! app(CroNotificationService::class)->isCro($assignee)) {
+            throw new RuntimeException('You can only reassign to an active CRO.');
+        }
+
+        $complaint->update(['assigned_to' => $toId]);
+        $this->auditService->logAssignmentChange('complaint', $complaint->id, $fromId, $toId);
+    }
+
+    public function updateInternalNotes(Complaint $complaint, User $cro, ?string $notes): void
+    {
+        $complaint->update([
+            'internal_notes' => filled($notes) ? trim($notes) : null,
+            'assigned_to' => $complaint->assigned_to ?? $cro->id,
+        ]);
+    }
+
     protected function storeAttachment(Complaint $complaint, UploadedFile $file): ComplaintAttachment
     {
         $directory = public_path('uploads/complaints');

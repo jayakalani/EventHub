@@ -111,7 +111,7 @@
                                     <x-input-label for="contact_number" :value="__('Contact Number')" />
                                     <x-text-input id="contact_number"
                                         class="mt-2 block w-full rounded-xl border-gray-200 bg-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                        type="text" name="contact_number" :value="old('contact_number', $user->contact_number)" />
+                                        type="text" name="contact_number" :value="old('contact_number', $user->contact_number)" required />
                                     <x-input-error :messages="$errors->get('contact_number')" class="mt-2" />
                                 </div>
 

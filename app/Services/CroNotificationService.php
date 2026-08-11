@@ -95,7 +95,7 @@ class CroNotificationService
             CroNotificationCategory::Interaction,
             'inquiry_submitted',
             'New inquiry about "'.$event->name.'": "'.$subject.'".',
-            route('cro.inquiries.index'),
+            route('cro.inquiries.show', $inquiryId),
             ['inquiry_id' => $inquiryId],
         );
     }
@@ -106,7 +106,7 @@ class CroNotificationService
             CroNotificationCategory::Interaction,
             'complaint_submitted',
             'A new complaint was submitted: "'.$subject.'".',
-            route('cro.complaints.index'),
+            route('cro.complaints.show', $complaintId),
             ['complaint_id' => $complaintId],
         );
     }
@@ -118,7 +118,7 @@ class CroNotificationService
             CroNotificationCategory::Refund,
             'refund_request_submitted',
             'A refund request was submitted for "'.$event->name.'" and needs review.',
-            route('cro.refund-requests.index'),
+            route('cro.refund-requests.show', $refundRequestId),
             ['refund_request_id' => $refundRequestId],
         );
     }
@@ -129,13 +129,23 @@ class CroNotificationService
         if ($reason !== '') {
             $message .= ' Reason: '.$reason;
         }
+        $message .= ' Open the handoff checklist to clear inquiries and refunds.';
+
+        $handoff = app(CroHandoffService::class)->forEvent($event);
 
         $this->notifyEventCro(
             $event,
             CroNotificationCategory::Event,
             'event_postponed',
             $message,
-            route('cro.dashboard', ['event' => $event->id]),
+            route('cro.handoffs.show', $event),
+            [
+                'handoff' => [
+                    'type' => 'postponed',
+                    'open_inquiries' => $handoff['summary']['openInquiries'],
+                    'pending_refunds' => $handoff['summary']['pendingRefunds'],
+                ],
+            ],
         );
     }
 
@@ -146,7 +156,7 @@ class CroNotificationService
             CroNotificationCategory::Event,
             'event_rescheduled',
             'Your assigned event "'.$event->name.'" was rescheduled.',
-            route('cro.dashboard', ['event' => $event->id]),
+            route('cro.dashboard'),
         );
     }
 
@@ -156,13 +166,23 @@ class CroNotificationService
         if ($reason !== '') {
             $message .= ' Reason: '.$reason;
         }
+        $message .= ' Open the handoff checklist to clear inquiries and refunds.';
+
+        $handoff = app(CroHandoffService::class)->forEvent($event);
 
         $this->notifyEventCro(
             $event,
             CroNotificationCategory::Event,
             'event_cancelled',
             $message,
-            route('cro.dashboard', ['event' => $event->id]),
+            route('cro.handoffs.show', $event),
+            [
+                'handoff' => [
+                    'type' => 'cancelled',
+                    'open_inquiries' => $handoff['summary']['openInquiries'],
+                    'pending_refunds' => $handoff['summary']['pendingRefunds'],
+                ],
+            ],
         );
     }
 

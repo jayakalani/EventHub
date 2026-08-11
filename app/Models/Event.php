@@ -36,7 +36,7 @@ class Event extends Model
 
     protected $fillable = [
         'name',
-        'hosted_by',
+        'host_id',
         'category_id',
         'date',
         'time',
@@ -333,7 +333,12 @@ class Event extends Model
 
     public function host()
     {
-        return $this->belongsTo(Host::class, 'hosted_by');
+        return $this->belongsTo(Host::class, 'host_id');
+    }
+
+    public function artists()
+    {
+        return $this->belongsToMany(Artist::class, 'event_artist', 'event_id', 'artist_id')->withTimestamps();
     }
 
     public function eventCategory()

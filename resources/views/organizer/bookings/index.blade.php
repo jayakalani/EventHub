@@ -11,10 +11,18 @@
             </div>
 
             <div class="flex flex-wrap gap-2">
-                <a href="{{ route('organizer.bookings.scan', request()->only('event_id')) }}"
-                    class="inline-flex items-center rounded-xl bg-indigo-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700">
-                    Scan / Check-in
-                </a>
+                @if ($hasOngoingEvents)
+                    <a href="{{ route('organizer.bookings.scan', request()->only('event_id')) }}"
+                        class="inline-flex items-center rounded-xl bg-indigo-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700">
+                        Scan / Check-in
+                    </a>
+                @else
+                    <span
+                        title="Set an event to Ongoing on the Events page to enable check-in."
+                        class="inline-flex cursor-not-allowed items-center rounded-xl bg-slate-200 px-3.5 py-2 text-sm font-semibold text-slate-500">
+                        Scan / Check-in
+                    </span>
+                @endif
                 <a href="{{ route('organizer.bookings.export.csv', request()->query()) }}"
                     class="inline-flex items-center rounded-xl bg-emerald-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700">
                     Export CSV
@@ -235,17 +243,7 @@
                                                 View
                                             </a>
 
-                                            @if ($booking->isCheckedIn())
-                                                <form action="{{ route('organizer.bookings.undo-check-in', $booking) }}"
-                                                    method="POST"
-                                                    onsubmit="return confirm('Undo check-in for this guest?')">
-                                                    @csrf
-                                                    <button type="submit"
-                                                        class="rounded-lg bg-slate-50 px-2.5 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-100">
-                                                        Undo
-                                                    </button>
-                                                </form>
-                                            @elseif ($booking->canCheckIn())
+                                            @if ($booking->canCheckIn())
                                                 <form action="{{ route('organizer.bookings.check-in', $booking) }}"
                                                     method="POST">
                                                     @csrf

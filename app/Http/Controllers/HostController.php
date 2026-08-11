@@ -20,11 +20,11 @@ class HostController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:hosts'],
             'contact_number' => ['required', 'string', 'max:20'],
-            'cover' => 'required|image|mimes:jpg,jpeg,png,gif|max:2048',
+            'cover' => 'nullable|image|mimes:jpg,jpeg,png,gif|max:2048',
         ]);
 
         $fileName = null;
-        if ($request->hasfile('cover')) {
+        if ($request->hasFile('cover')) {
             $file = $request->file('cover');
             $extension = $file->getClientOriginalExtension();
             $fileName = time().'.'.$extension;
@@ -105,14 +105,12 @@ class HostController extends Controller
             'cover' => 'nullable|image|mimes:jpg,jpeg,png,gif|max:2048',
         ]);
 
-        if ($request->hasfile('cover')) {
+        if ($request->hasFile('cover')) {
             $file = $request->file('cover');
             $extension = $file->getClientOriginalExtension();
             $fileName = time().'.'.$extension;
             $file->move('uploads/covers/hosts/', $fileName);
             $host->cover = $fileName;
-        } else {
-            $host->cover = $host->cover ?? 'images/default-cover.jpg';
         }
 
         $host->name = $validatedData['name'];

@@ -24,6 +24,6 @@ class TicketBookingPolicy
 
     public function undoCheckIn(User $user, ticketBooking $ticketBooking): bool
     {
-        return $this->view($user, $ticketBooking) && $ticketBooking->isCheckedIn();
+        return false;
     }
 }

@@ -283,14 +283,16 @@
                                                         data-event-date="{{ $event->date }}"
                                                         data-event-time="{{ $event->time }}"
                                                         data-event-place="{{ $event->place }}"
+                                                        data-date-tba="{{ $event->hasDateYetToBeScheduled() ? '1' : '0' }}"
                                                         data-current-status="{{ $event->status }}"
                                                         onchange="window.organizerHandleEventStatusChange(this)"
                                                         class="rounded-lg border-slate-300 text-xs focus:border-indigo-500 focus:ring-indigo-500">
                                                         <option value="postponed" selected>Postponed</option>
+                                                        <option value="ongoing">Ongoing</option>
                                                         <option value="cancelled">Cancel Event</option>
                                                     </select>
                                                 </form>
-                                                <p class="text-[10px] text-slate-400">Status stays Postponed. Cancel only if the event will not happen.</p>
+                                                <p class="text-[10px] text-slate-400">Set schedule if needed, then mark Ongoing when the event is running. Cancel only if it will not happen.</p>
                                             </div>
                                         @elseif ($event->status === 'upcoming' && $event->hasDateYetToBeScheduled())
                                             <div class="space-y-1.5">
@@ -328,6 +330,34 @@
                                                         <option value="cancelled">Cancel Event</option>
                                                     </select>
                                                 </form>
+                                            </div>
+                                        @elseif ($event->status === 'ongoing')
+                                            <div class="space-y-1.5">
+                                                <form action="{{ route('organizer.events.updateStatus', $event->id) }}"
+                                                    method="POST">
+                                                    @csrf
+                                                    @method('PATCH')
+                                                    <select name="status"
+                                                        data-event-id="{{ $event->id }}"
+                                                        data-event-name="{{ $event->name }}"
+                                                        data-event-date="{{ $event->date }}"
+                                                        data-event-time="{{ $event->time }}"
+                                                        data-event-place="{{ $event->place }}"
+                                                        data-current-status="{{ $event->status }}"
+                                                        data-has-passed="{{ $event->hasPassed() ? '1' : '0' }}"
+                                                        onchange="window.organizerHandleEventStatusChange(this)"
+                                                        class="rounded-lg border-slate-300 text-xs focus:border-indigo-500 focus:ring-indigo-500">
+                                                        <option value="ongoing" selected>Ongoing</option>
+                                                        <option value="completed"
+                                                            @disabled(! $event->hasPassed())
+                                                            title="{{ $event->hasPassed() ? 'Mark event as completed' : 'Available after the event date has passed' }}">
+                                                            Completed
+                                                        </option>
+                                                    </select>
+                                                </form>
+                                                @unless ($event->hasPassed())
+                                                    <p class="text-[10px] text-slate-400">Completed unlocks after the event date has passed.</p>
+                                                @endunless
                                             </div>
                                         @else
                                             <form action="{{ route('organizer.events.updateStatus', $event->id) }}"

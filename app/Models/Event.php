@@ -100,6 +100,11 @@ class Event extends Model
         return $this->status === self::STATUS_COMPLETED;
     }
 
+    public function isOngoing(): bool
+    {
+        return $this->status === self::STATUS_ONGOING;
+    }
+
     public function isPostponed(): bool
     {
         return $this->status === self::STATUS_POSTPONED;
@@ -323,6 +328,10 @@ class Event extends Model
 
         if ($this->isCancelled()) {
             abort(403, 'This event has been cancelled and is no longer available for interaction.');
+        }
+
+        if (! $this->isCompleted()) {
+            abort(403, 'Ratings and reviews are only available after the event has ended.');
         }
     }
 

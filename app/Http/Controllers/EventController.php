@@ -15,7 +15,6 @@ use App\Services\AdminNotificationService;
 use App\Services\CroNotificationService;
 use App\Services\CartInventoryService;
 use App\Services\EventCancellationService;
-use App\Services\EventCompletionService;
 use App\Services\EventNotificationService;
 use App\Services\EventPostponementService;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -29,7 +28,6 @@ class EventController extends Controller
     public function __construct(
         protected CartInventoryService $cartInventoryService,
         protected EventCancellationService $eventCancellationService,
-        protected EventCompletionService $eventCompletionService,
         protected EventNotificationService $eventNotificationService,
         protected EventPostponementService $eventPostponementService,
         protected CroNotificationService $croNotificationService,
@@ -50,8 +48,6 @@ class EventController extends Controller
     public function index(Request $request)
     {
         $this->authorize('viewAny', Event::class);
-
-        $this->eventCompletionService->completePastEvents();
 
         $query = $this->organizerEventsQuery();
 
@@ -227,14 +223,36 @@ class EventController extends Controller
         }
 
         if ($event->isPostponed()) {
-            return back()->withErrors([
-                'status' => 'Postponed events cannot be changed to Upcoming. Status stays Postponed — set a new date/time, or cancel the event if it will not happen.',
-            ]);
+            if ($request->status !== Event::STATUS_ONGOING) {
+                return back()->withErrors([
+                    'status' => 'Postponed events can only be changed to Ongoing (or cancelled). Status cannot be set to Upcoming.',
+                ]);
+            }
+
+            if ($event->hasDateYetToBeScheduled()) {
+                return back()->withErrors([
+                    'status' => 'Set a place/date/time for this postponed event before marking it Ongoing.',
+                ]);
+            }
         }
 
-        if ($request->status === Event::STATUS_COMPLETED && ! $event->hasPassed()) {
+        if ($event->isOngoing()) {
+            if ($request->status !== Event::STATUS_COMPLETED) {
+                return back()->withErrors([
+                    'status' => 'Ongoing events can only be changed to Completed.',
+                ]);
+            }
+
+            if (! $event->hasPassed()) {
+                return back()->withErrors([
+                    'status' => 'Events can only be marked completed after the event date has passed.',
+                ]);
+            }
+        }
+
+        if ($request->status === Event::STATUS_COMPLETED && ! $event->isOngoing()) {
             return back()->withErrors([
-                'status' => 'Events can only be marked completed after the event date has passed.',
+                'status' => 'Only ongoing events can be marked as completed.',
             ]);
         }
 
@@ -586,8 +604,6 @@ class EventController extends Controller
     public function show(Event $event)
     {
         $this->authorize('view', $event);
-        $this->eventCompletionService->completeIfPast($event);
-        $event->refresh();
 
         $event->loadCount(['likes', 'saves', 'comments', 'ratings', 'ticketBookings']);
         $event->load(['host', 'artists', 'comments.user', 'ratings.user']);
@@ -650,9 +666,6 @@ class EventController extends Controller
 
     public function showPublishedEvent(Event $event)
     {
-        $this->eventCompletionService->completeIfPast($event);
-        $event->refresh();
-
         $event->ensureVisibleToAttendees();
 
         EventView::query()->create([

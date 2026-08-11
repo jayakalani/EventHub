@@ -2,69 +2,27 @@
 
 namespace App\Services;
 
-use App\Models\Event;
-use Carbon\Carbon;
-use Illuminate\Support\Facades\DB;
-
+/**
+ * Automatic past-event completion has been disabled.
+ * Organizers mark events completed via the status dropdown after hasPassed().
+ *
+ * @deprecated Kept only so older references fail closed if reintroduced.
+ */
 class EventCompletionService
 {
     /**
-     * Mark eligible events as completed once their event date has passed.
+     * @deprecated Automatic bulk completion is disabled.
      */
     public function completePastEvents(): int
     {
-        $today = Carbon::today()->toDateString();
-
-        $events = Event::query()
-            ->whereNotNull('date')
-            ->whereDate('date', '<', $today)
-            ->where('date_tba', false)
-            ->whereNotIn('status', [
-                Event::STATUS_COMPLETED,
-                Event::STATUS_CANCELLED,
-            ])
-            ->get();
-
-        $count = 0;
-
-        foreach ($events as $event) {
-            if ($this->completeIfPast($event)) {
-                $count++;
-            }
-        }
-
-        return $count;
+        return 0;
     }
 
     /**
-     * Ensure a single event is marked completed when its date has passed.
+     * @deprecated Automatic single-event completion is disabled.
      */
-    public function completeIfPast(Event $event): bool
+    public function completeIfPast(\App\Models\Event $event): bool
     {
-        if ($event->isCompleted() || $event->isCancelled() || $event->hasDateYetToBeScheduled() || ! $event->hasPassed()) {
-            return false;
-        }
-
-        return DB::transaction(function () use ($event) {
-            $event->refresh();
-
-            if ($event->isCompleted() || $event->isCancelled() || $event->hasDateYetToBeScheduled() || ! $event->hasPassed()) {
-                return false;
-            }
-
-            $event->update(['status' => Event::STATUS_COMPLETED]);
-
-            $eventId = $event->id;
-
-            DB::afterCommit(function () use ($eventId) {
-                $completed = Event::query()->find($eventId);
-
-                if ($completed) {
-                    app(EventNotificationService::class)->notifyEventCompleted($completed);
-                }
-            });
-
-            return true;
-        });
+        return false;
     }
 }

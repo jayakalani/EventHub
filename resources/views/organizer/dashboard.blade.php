@@ -243,11 +243,7 @@
                         @foreach ([
                             ['label' => 'Scan tickets', 'route' => $dayOfOps['scan_url'] ?? route('organizer.bookings.scan'), 'icon' => 'bi-qr-code-scan', 'emphasis' => true],
                             ['label' => 'Guest list', 'route' => $dayOfOps['guest_list_url'] ?? route('organizer.bookings.index'), 'icon' => 'bi-people', 'emphasis' => true],
-                            ['label' => 'Manage Events', 'route' => route('organizer.events.index'), 'icon' => 'bi-calendar-event'],
-                            ['label' => 'Calendar', 'route' => route('organizer.calendar.index'), 'icon' => 'bi-calendar3'],
-                            ['label' => 'Hosts', 'route' => route('organizer.hosts'), 'icon' => 'bi-building'],
-                            ['label' => 'Artists', 'route' => route('organizer.artists'), 'icon' => 'bi-mic'],
-                            ['label' => 'Attendees', 'route' => route('organizer.reports', ['tab' => 'attendees']), 'icon' => 'bi-people'],
+                            
                         ] as $shortcut)
                             <a href="{{ $shortcut['route'] }}"
                                 @class([

@@ -2,21 +2,19 @@
 
 namespace App\Console\Commands;
 
-use App\Services\EventCompletionService;
 use Illuminate\Console\Command;
 
 class CompletePastEvents extends Command
 {
     protected $signature = 'events:complete-past';
 
-    protected $description = 'Mark past events as completed once their event date has passed';
+    protected $description = 'Disabled: event completion is organizer-only (status dropdown after the event date has passed)';
 
-    public function handle(EventCompletionService $eventCompletionService): int
+    public function handle(): int
     {
-        $count = $eventCompletionService->completePastEvents();
+        $this->error('Automatic event completion is disabled.');
+        $this->line('Organizers must set status to Completed manually after the event date has passed.');
 
-        $this->info("Marked {$count} event(s) as completed.");
-
-        return self::SUCCESS;
+        return self::FAILURE;
     }
 }

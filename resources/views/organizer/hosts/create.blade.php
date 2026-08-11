@@ -59,10 +59,10 @@
 
                 <!-- Cover Upload -->
                 <div>
-                    <label for="cover" class="block text-sm font-medium text-gray-700">Cover Image</label>
+                    <label for="cover" class="block text-sm font-medium text-gray-700">Cover Image <span class="font-normal text-gray-400">(optional)</span></label>
                     <input id="cover" type="file" name="cover"
                         class="mt-1 block w-full text-sm text-gray-700 border-gray-300 rounded-md focus:border-indigo-500 focus:ring-indigo-500"
-                        accept=".jpg,.jpeg,.png" required>
+                        accept=".jpg,.jpeg,.png">
                     <p class="text-xs text-gray-500 mt-1">Accepted: JPG, JPEG, PNG | Max 2MB</p>
                 </div>
 

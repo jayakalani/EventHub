@@ -10,7 +10,6 @@ use App\Models\UserRole;
 use App\Services\AdminReportService;
 use App\Services\AttendeeCalendarService;
 use App\Services\CroDashboardService;
-use App\Services\EventCompletionService;
 use App\Services\EventNotificationService;
 use App\Services\Exports\AdminDashboardExportBuilder;
 use App\Services\Exports\CroDashboardExportBuilder;
@@ -26,7 +25,6 @@ use Illuminate\View\View;
 class DashboardController extends Controller
 {
     public function __construct(
-        protected EventCompletionService $eventCompletionService,
         protected AdminReportService $adminReportService,
         protected OrganizerDashboardService $organizerDashboardService,
         protected CroDashboardService $croDashboardService,
@@ -231,8 +229,6 @@ class DashboardController extends Controller
      */
     public function welcome(Request $request): View
     {
-        $this->eventCompletionService->completePastEvents();
-
         $events = $this->withUserEventFlags($this->filteredEventsQuery($request))->get();
         $carouselEvents = $this->withUserEventFlags(
             Event::query()->activeForAttendees()->withCount('likes')
@@ -256,8 +252,6 @@ class DashboardController extends Controller
         AttendeeCalendarService $calendarService,
         EventNotificationService $eventNotificationService,
     ): View {
-        $this->eventCompletionService->completePastEvents();
-
         $events = $this->withUserEventFlags($this->filteredEventsQuery($request))->get();
         $pastEvents = $this->withUserEventFlags($this->pastEventsQuery($request))->get();
 

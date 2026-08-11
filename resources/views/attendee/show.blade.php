@@ -160,7 +160,7 @@
                             <div class="text-sm">
                                 <p class="font-semibold text-slate-900">{{ t(['en' => 'Event Completed', 'si' => 'ප්‍රසංගය අවසන්']) }}</p>
                                 <p class="mt-1 text-slate-700">
-                                    {{ t(['en' => 'This event has ended. You can still review event details, your ticket history, and any comments, likes, or ratings you submitted.', 'si' => 'මෙම ප්‍රසංගය අවසන් වී ඇත. ඔබට තවමත් ප්‍රසංගය් විස්තර, ටිකට් ඉතිහාසය සහ ඔබ ඉදිරිපත් කළ අදහස්, කැමති හෝ ශ්‍රේණිගත කිරීම් සමාලෝචනය කළ හැක.']) }}
+                                    {{ t(['en' => 'This event has ended. You can still review event details, your ticket history, and any reviews, likes, or ratings you submitted.', 'si' => 'මෙම ප්‍රසංගය අවසන් වී ඇත. ඔබට තවමත් ප්‍රසංගය් විස්තර, ටිකට් ඉතිහාසය සහ ඔබ ඉදිරිපත් කළ සමාලෝචන, කැමති හෝ ශ්‍රේණිගත කිරීම් සමාලෝචනය කළ හැක.']) }}
                                 </p>
                             </div>
                         </div>
@@ -241,7 +241,7 @@
                             </div>
 
                             {{-- Bottom: compact stats with icons --}}
-                            <div class="grid grid-cols-2 gap-2.5 rounded-xl border border-slate-100 bg-slate-50/70 px-3 py-2.5 sm:grid-cols-3 lg:grid-cols-6">
+                            <div class="grid grid-cols-2 gap-3 rounded-xl border border-slate-100 bg-slate-50/70 px-3.5 py-3 sm:grid-cols-3 {{ $isCompleted ? 'lg:grid-cols-6' : 'lg:grid-cols-5' }}">
                                 <div class="flex items-center gap-2.5">
                                     <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
                                         <i class="bi bi-building text-sm" aria-hidden="true"></i>
@@ -290,6 +290,7 @@
                                         <p class="truncate text-xs font-bold text-slate-800">{{ $event->contactPerson->full_name ?? '—' }}</p>
                                     </div>
                                 </div>
+                                @if ($isCompleted)
                                 <div class="flex items-center gap-2.5">
                                     <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-500">
                                         <i class="bi bi-star-fill text-sm" aria-hidden="true"></i>
@@ -306,6 +307,7 @@
                                         </p>
                                     </div>
                                 </div>
+                                @endif
                                 <div class="flex items-center gap-2.5">
                                     <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#1877F2]/10 text-[#1877F2]">
                                         <i class="bi bi-hand-thumbs-up-fill text-sm" aria-hidden="true"></i>
@@ -341,8 +343,8 @@
                             </div>
                         </section>
 
-                        {{-- Ratings --}}
-                        @unless ($isCancelled)
+                        {{-- Ratings (past / completed events only) --}}
+                        @if ($isCompleted)
                         <section id="ratings" class="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm sm:p-8 scroll-mt-24" x-data="{ hover: 0, selected: {{ $userRating ?? 0 }} }">
                             <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                                 <div class="flex items-center gap-3">
@@ -443,18 +445,18 @@
                                 @endforelse
                             </div>
                         </section>
-                        @endunless
+                        @endif
 
-                        {{-- Comments --}}
-                        @unless ($isCancelled)
-                        <section id="comments" class="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm sm:p-8 scroll-mt-24" x-data="{ editingId: null }">
+                        {{-- Reviews (past / completed events only) --}}
+                        @if ($isCompleted)
+                        <section id="reviews" class="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm sm:p-8 scroll-mt-24" x-data="{ editingId: null }">
                             <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                                 <div class="flex items-center gap-3">
                                     <div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
                                         <i class="bi bi-chat-left-text" aria-hidden="true"></i>
                                     </div>
                                     <div>
-                                        <h2 class="text-xl font-bold text-slate-900">{{ t(['en' => 'Comments', 'si' => 'අදහස්']) }}</h2>
+                                        <h2 class="text-xl font-bold text-slate-900">{{ t(['en' => 'Reviews', 'si' => 'සමාලෝචන']) }}</h2>
                                         <p class="text-sm text-slate-500">{{ t(['en' => 'Share your thoughts about this event.', 'si' => 'මෙම ප්‍රසංගය පිළිබඳ ඔබේ අදහස් බෙදා ගන්න.']) }}</p>
                                     </div>
                                 </div>
@@ -465,9 +467,9 @@
 
                             <form action="{{ route('attendee.events.comments.store', $event) }}" method="POST" class="mb-6">
                                 @csrf
-                                <label for="comment-body" class="sr-only">{{ t(['en' => 'Add a comment', 'si' => 'අදහසක් එකතු කරන්න']) }}</label>
+                                <label for="comment-body" class="sr-only">{{ t(['en' => 'Add a review', 'si' => 'සමාලෝචනයක් එකතු කරන්න']) }}</label>
                                 <textarea id="comment-body" name="body" rows="4" required maxlength="1000"
-                                    placeholder="{{ t(['en' => 'Write your comment here...', 'si' => 'ඔබේ අදහස මෙහි ලියන්න...']) }}"
+                                    placeholder="{{ t(['en' => 'Write your review here...', 'si' => 'ඔබේ සමාලෝචනය මෙහි ලියන්න...']) }}"
                                     class="w-full rounded-2xl border border-slate-200 px-4 py-3 text-slate-800 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">{{ old('body') }}</textarea>
                                 @error('body')
                                     <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
@@ -476,7 +478,7 @@
                                     <button type="submit"
                                         class="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700">
                                         <i class="bi bi-send" aria-hidden="true"></i>
-                                        {{ t(['en' => 'Add Comment', 'si' => 'අදහස එකතු කරන්න']) }}
+                                        {{ t(['en' => 'Add Review', 'si' => 'සමාලෝචනය එකතු කරන්න']) }}
                                     </button>
                                 </div>
                             </form>
@@ -537,7 +539,7 @@
                                                     </button>
                                                     <form action="{{ route('attendee.events.comments.destroy', [$event, $comment]) }}"
                                                         method="POST"
-                                                        onsubmit="return confirm(@js(t(['en' => 'Delete this comment?', 'si' => 'මෙම අදහස මකන්නද?'])))">
+                                                        onsubmit="return confirm(@js(t(['en' => 'Delete this review?', 'si' => 'මෙම සමාලෝචනය මකන්නද?'])))">
                                                         @csrf
                                                         @method('DELETE')
                                                         <button type="submit"
@@ -551,12 +553,12 @@
                                     </div>
                                 @empty
                                     <div class="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-10 text-center text-slate-500">
-                                        {{ t(['en' => 'No comments yet. Be the first to share your thoughts!', 'si' => 'තවම අදහස් නැත. ඔබේ අදහස් බෙදා ගන්නා පළමු අයා වන්න!']) }}
+                                        {{ t(['en' => 'No reviews yet. Be the first to share your thoughts!', 'si' => 'තවම සමාලෝචන නැත. ඔබේ අදහස් බෙදා ගන්නා පළමු අයා වන්න!']) }}
                                     </div>
                                 @endforelse
                             </div>
                         </section>
-                        @endunless
+                        @endif
 
                         {{-- Submit Inquiry --}}
                         <section class="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm sm:p-8">

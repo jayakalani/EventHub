@@ -51,9 +51,21 @@ class BookingController extends Controller
             ->orderBy('name')
             ->get(['id', 'name']);
 
-        $statuses = BookingStatusEnum::cases();
+        $hasOngoingEvents = Event::query()
+            ->createdByOrganizer($organizerId)
+            ->where('status', Event::STATUS_ONGOING)
+            ->exists();
 
-        return view('organizer.bookings.index', compact('bookings', 'stats', 'events', 'statuses', 'filters'));
+        $statuses = BookingStatusEnum::retainedSaleStatuses();
+
+        return view('organizer.bookings.index', compact(
+            'bookings',
+            'stats',
+            'events',
+            'statuses',
+            'filters',
+            'hasOngoingEvents',
+        ));
     }
 
     public function show(ticketBooking $ticketBooking): View
@@ -92,8 +104,9 @@ class BookingController extends Controller
         $organizerId = (int) Auth::id();
         $events = Event::query()
             ->createdByOrganizer($organizerId)
+            ->where('status', Event::STATUS_ONGOING)
             ->orderBy('name')
-            ->get(['id', 'name']);
+            ->get(['id', 'name', 'status']);
 
         $eventId = $request->filled('event_id') ? (int) $request->input('event_id') : null;
         if ($eventId && ! $events->contains('id', $eventId)) {
@@ -115,7 +128,9 @@ class BookingController extends Controller
             'event_id' => [
                 'nullable',
                 'integer',
-                Rule::exists('events', 'id')->where(fn ($query) => $query->where('created_by', Auth::id())),
+                Rule::exists('events', 'id')->where(fn ($query) => $query
+                    ->where('created_by', Auth::id())
+                    ->where('status', Event::STATUS_ONGOING)),
             ],
         ]);
 
@@ -146,6 +161,14 @@ class BookingController extends Controller
 
         $this->authorize('view', $booking);
 
+        $booking->loadMissing('event');
+
+        if (! $booking->event?->isOngoing()) {
+            return back()
+                ->withInput()
+                ->with('error', 'Check-in is only available for ongoing events. Set this event\'s status to Ongoing first.');
+        }
+
         $error = $this->markCheckedIn($booking);
         if ($error !== null) {
             return redirect()
@@ -173,14 +196,7 @@ class BookingController extends Controller
 
     public function undoCheckIn(ticketBooking $ticketBooking): RedirectResponse
     {
-        $this->authorize('undoCheckIn', $ticketBooking);
-
-        $ticketBooking->forceFill([
-            'checked_in_at' => null,
-            'checked_in_by' => null,
-        ])->save();
-
-        return back()->with('success', 'Check-in has been undone.');
+        abort(403, 'Check-in cannot be undone.');
     }
 
     public function exportCsv(Request $request): Response
@@ -314,7 +330,7 @@ class BookingController extends Controller
             'status' => [
                 'nullable',
                 'string',
-                Rule::in(array_column(BookingStatusEnum::cases(), 'value')),
+                Rule::in(array_column(BookingStatusEnum::retainedSaleStatuses(), 'value')),
             ],
             'check_in' => ['nullable', 'string', Rule::in(['checked_in', 'not_checked_in'])],
             'from_date' => ['nullable', 'date'],
@@ -328,7 +344,8 @@ class BookingController extends Controller
     private function bookingsQuery(int $organizerId, array $filters): Builder
     {
         $query = ticketBooking::query()
-            ->whereHas('event', fn (Builder $q) => $q->createdByOrganizer($organizerId));
+            ->whereHas('event', fn (Builder $q) => $q->createdByOrganizer($organizerId))
+            ->whereIn('status', BookingStatusEnum::retainedSaleStatuses());
 
         if (! empty($filters['event_id'])) {
             $query->where('event_id', $filters['event_id']);

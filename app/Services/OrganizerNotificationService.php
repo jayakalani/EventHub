@@ -207,6 +207,47 @@ class OrganizerNotificationService
     }
 
     /**
+     * Remind the organizer to mark an ongoing event as completed after the event date has passed.
+     *
+     * @return bool True when a notification was sent
+     */
+    public function notifyMarkEventCompleted(Event $event): bool
+    {
+        $event->loadMissing('organizer.userRole');
+
+        if ($event->status !== Event::STATUS_ONGOING || ! $event->hasPassed()) {
+            return false;
+        }
+
+        $organizer = $event->organizer;
+
+        if (! $organizer || ! $this->isOrganizer($organizer)) {
+            return false;
+        }
+
+        $alreadySentToday = $organizer->notifications()
+            ->where('data->type', 'mark_event_completed')
+            ->where('data->event_id', $event->id)
+            ->whereDate('created_at', today())
+            ->exists();
+
+        if ($alreadySentToday) {
+            return false;
+        }
+
+        $this->send(
+            $organizer,
+            OrganizerNotificationCategory::Reminder,
+            'mark_event_completed',
+            'Your event "'.$event->name.'" date has passed. Please change its status from Ongoing to Completed.',
+            route('organizer.events.index', ['status' => Event::STATUS_ONGOING]),
+            ['event_id' => $event->id],
+        );
+
+        return true;
+    }
+
+    /**
      * Daily digest of new post-event ratings for an organizer-owned event.
      *
      * @return bool True when a digest notification was sent

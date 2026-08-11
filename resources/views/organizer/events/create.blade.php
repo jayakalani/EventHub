@@ -143,16 +143,25 @@
 
                                 <div id="artists-field"
                                     class="rounded-xl border border-gray-100 bg-gray-50/70 p-3 transition focus-within:border-indigo-200 focus-within:bg-white focus-within:shadow-sm md:col-span-2 hidden">
-                                    <label for="artist_ids" class="block text-xs font-semibold uppercase tracking-wide text-gray-500">Artists</label>
+                                    <label class="block text-xs font-semibold uppercase tracking-wide text-gray-500">Artists</label>
                                     <p class="mt-1 text-xs text-gray-500">Select one or more artists (Music &amp; Entertainment only).</p>
-                                    <select id="artist_ids" name="artist_ids[]" multiple
-                                        class="mt-1.5 block w-full rounded-xl border-gray-200 bg-white text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 min-h-[7.5rem]">
-                                        @foreach ($artists as $artist)
-                                            <option value="{{ $artist->id }}" {{ collect(old('artist_ids', []))->contains($artist->id) ? 'selected' : '' }}>
-                                                {{ $artist->name }}
-                                            </option>
-                                        @endforeach
-                                    </select>
+                                    <div id="artist-ids" class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                        @forelse ($artists as $artist)
+                                            <label class="group flex cursor-pointer items-center gap-3 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm shadow-sm transition hover:border-indigo-300 has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-50 has-[:checked]:ring-1 has-[:checked]:ring-indigo-500">
+                                                <input type="checkbox"
+                                                    name="artist_ids[]"
+                                                    value="{{ $artist->id }}"
+                                                    class="artist-checkbox rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                                    {{ collect(old('artist_ids', []))->contains($artist->id) ? 'checked' : '' }}>
+                                                <span class="min-w-0 flex-1 font-medium text-gray-800">{{ $artist->name }}</span>
+                                                <span class="shrink-0 rounded-lg bg-gray-100 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-gray-500 group-has-[:checked]:bg-indigo-600 group-has-[:checked]:text-white">
+                                                    Select
+                                                </span>
+                                            </label>
+                                        @empty
+                                            <p class="text-sm text-gray-500 sm:col-span-2">No active artists available. Add artists first.</p>
+                                        @endforelse
+                                    </div>
                                     @error('artist_ids')
                                         <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                                     @enderror
@@ -365,9 +374,9 @@
         (function () {
             const categorySelect = document.getElementById('category_id');
             const artistsField = document.getElementById('artists-field');
-            const artistsSelect = document.getElementById('artist_ids');
+            const artistCheckboxes = () => document.querySelectorAll('.artist-checkbox');
 
-            if (!categorySelect || !artistsField || !artistsSelect) {
+            if (!categorySelect || !artistsField) {
                 return;
             }
 
@@ -375,12 +384,12 @@
                 const selected = categorySelect.options[categorySelect.selectedIndex];
                 const allows = selected && selected.dataset.allowsArtists === '1';
                 artistsField.classList.toggle('hidden', !allows);
-                artistsSelect.disabled = !allows;
-                if (!allows) {
-                    Array.from(artistsSelect.options).forEach((option) => {
-                        option.selected = false;
-                    });
-                }
+                artistCheckboxes().forEach((checkbox) => {
+                    checkbox.disabled = !allows;
+                    if (!allows) {
+                        checkbox.checked = false;
+                    }
+                });
             };
 
             categorySelect.addEventListener('change', syncArtistsVisibility);

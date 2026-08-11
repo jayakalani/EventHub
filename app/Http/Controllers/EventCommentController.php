@@ -27,7 +27,7 @@ class EventCommentController extends Controller
             'body' => $validated['body'],
         ]);
 
-        return back()->with('success', 'Comment added.');
+        return back()->with('success', 'Review added.');
     }
 
     /**
@@ -45,7 +45,7 @@ class EventCommentController extends Controller
             'body' => $validated['body'],
         ]);
 
-        return back()->with('success', 'Comment updated.');
+        return back()->with('success', 'Review updated.');
     }
 
     /**
@@ -57,7 +57,7 @@ class EventCommentController extends Controller
 
         $comment->delete();
 
-        return back()->with('success', 'Comment deleted.');
+        return back()->with('success', 'Review deleted.');
     }
 
     protected function authorizeComment(Event $event, Comment $comment): void

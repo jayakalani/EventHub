@@ -57,6 +57,7 @@ enum OrganizerNotificationCategory: string
                 'event_starts_tomorrow' => 'Event starts tomorrow',
                 'event_starts_in_one_hour' => 'Event starts in 1 hour',
                 'ticket_sales_closing_soon' => 'Ticket sales closing soon',
+                'mark_event_completed' => 'Mark event as completed',
             ],
             self::Feedback => [
                 'event_review_digest' => 'Post-event review digest',

@@ -6,7 +6,7 @@
                     Ticket Check-in
                 </h2>
                 <p class="mt-0.5 text-sm text-slate-500">
-                    Scan a guest QR code or enter a ticket number to mark attendance.
+                    Scan tickets only for events you have marked as Ongoing.
                 </p>
             </div>
 
@@ -32,70 +32,84 @@
                 </div>
             @endif
 
-            <div class="space-y-4">
-                <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                    <form method="POST" action="{{ route('organizer.bookings.scan.submit') }}" id="scan-form"
-                        class="space-y-3">
-                        @csrf
-
-                        <div>
-                            <label for="event_id" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                                Limit to event (optional)
-                            </label>
-                            <select name="event_id" id="event_id"
-                                class="w-full rounded-xl border-slate-300 text-sm focus:border-indigo-500 focus:ring-indigo-500">
-                                <option value="">All my events</option>
-                                @foreach ($events as $event)
-                                    <option value="{{ $event->id }}" @selected((string) $eventId === (string) $event->id)>
-                                        {{ $event->name }}
-                                    </option>
-                                @endforeach
-                            </select>
-                        </div>
-
-                        <div>
-                            <label for="code" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                                Ticket number or QR payload
-                            </label>
-                            <input type="text" name="code" id="code" value="{{ old('code') }}" required autofocus
-                                placeholder="TKT-XXXXXXXXXXXX or scanned QR text"
-                                class="w-full rounded-xl border-slate-300 font-mono text-sm focus:border-indigo-500 focus:ring-indigo-500">
-                            @error('code')
-                                <p class="mt-1 text-sm text-rose-600">{{ $message }}</p>
-                            @enderror
-                        </div>
-
-                        <button type="submit"
-                            class="w-full rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700">
-                            Check In Guest
-                        </button>
-                    </form>
-                </div>
-
-                <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm" x-data="ticketScanner()">
-                    <div class="flex items-start justify-between gap-3">
-                        <div>
-                            <h3 class="text-sm font-semibold text-slate-900">Camera scan</h3>
-                            <p class="mt-1 text-sm text-slate-500">
-                                Use the device camera to read ticket QR codes. Falls back to manual entry if unsupported.
-                            </p>
-                        </div>
-                        <button type="button" @click="toggle()"
-                            class="shrink-0 rounded-xl bg-indigo-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700"
-                            x-text="active ? 'Stop Camera' : 'Start Camera'"></button>
-                    </div>
-
-                    <p class="mt-3 text-sm text-amber-700" x-show="error" x-text="error" x-cloak></p>
-
-                    <div class="mt-4 overflow-hidden rounded-xl bg-slate-900" x-show="active" x-cloak>
-                        <video x-ref="video" class="aspect-video w-full object-cover" playsinline muted></video>
-                    </div>
-
-                    <p class="mt-3 text-xs text-slate-500" x-show="active" x-cloak>
-                        Point the camera at the ticket QR. A successful scan submits check-in automatically.
+            @if ($events->isEmpty())
+                <div class="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
+                    <p class="font-semibold">No ongoing events</p>
+                    <p class="mt-1 text-amber-800">
+                        Check-in opens only after you set an event's status to
+                        <span class="font-semibold">Ongoing</span> on your Events page. Status does not change automatically.
                     </p>
+                    <a href="{{ route('organizer.events.index') }}"
+                        class="mt-3 inline-flex rounded-xl bg-amber-600 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-amber-700">
+                        Go to Events
+                    </a>
                 </div>
-            </div>
+            @else
+                <div class="space-y-4">
+                    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                        <form method="POST" action="{{ route('organizer.bookings.scan.submit') }}" id="scan-form"
+                            class="space-y-3">
+                            @csrf
+
+                            <div>
+                                <label for="event_id" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                    Ongoing event (optional filter)
+                                </label>
+                                <select name="event_id" id="event_id"
+                                    class="w-full rounded-xl border-slate-300 text-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                    <option value="">All ongoing events</option>
+                                    @foreach ($events as $event)
+                                        <option value="{{ $event->id }}" @selected((string) $eventId === (string) $event->id)>
+                                            {{ $event->name }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+
+                            <div>
+                                <label for="code" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                    Ticket number or QR payload
+                                </label>
+                                <input type="text" name="code" id="code" value="{{ old('code') }}" required autofocus
+                                    placeholder="TKT-XXXXXXXXXXXX or scanned QR text"
+                                    class="w-full rounded-xl border-slate-300 font-mono text-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                @error('code')
+                                    <p class="mt-1 text-sm text-rose-600">{{ $message }}</p>
+                                @enderror
+                            </div>
+
+                            <button type="submit"
+                                class="w-full rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700">
+                                Check In Guest
+                            </button>
+                        </form>
+                    </div>
+
+                    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm" x-data="ticketScanner()">
+                        <div class="flex items-start justify-between gap-3">
+                            <div>
+                                <h3 class="text-sm font-semibold text-slate-900">Camera scan</h3>
+                                <p class="mt-1 text-sm text-slate-500">
+                                    Use the device camera to read ticket QR codes. Falls back to manual entry if unsupported.
+                                </p>
+                            </div>
+                            <button type="button" @click="toggle()"
+                                class="shrink-0 rounded-xl bg-indigo-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700"
+                                x-text="active ? 'Stop Camera' : 'Start Camera'"></button>
+                        </div>
+
+                        <p class="mt-3 text-sm text-amber-700" x-show="error" x-text="error" x-cloak></p>
+
+                        <div class="mt-4 overflow-hidden rounded-xl bg-slate-900" x-show="active" x-cloak>
+                            <video x-ref="video" class="aspect-video w-full object-cover" playsinline muted></video>
+                        </div>
+
+                        <p class="mt-3 text-xs text-slate-500" x-show="active" x-cloak>
+                            Point the camera at the ticket QR. A successful scan submits check-in automatically.
+                        </p>
+                    </div>
+                </div>
+            @endif
         </div>
     </div>
 

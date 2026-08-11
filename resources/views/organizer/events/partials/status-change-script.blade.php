@@ -50,8 +50,36 @@
 
         if (currentStatus === 'postponed' && select.value === 'upcoming') {
             select.value = currentStatus;
-            window.alert('Postponed events cannot be changed to Upcoming. Status stays Postponed — set a new date/time, or cancel if the event will not happen.');
+            window.alert('Postponed events cannot be changed to Upcoming. Mark as Ongoing when the event is running, or cancel if it will not happen.');
             return;
+        }
+
+        if (currentStatus === 'postponed' && select.value === 'ongoing') {
+            if (select.dataset.dateTba === '1') {
+                select.value = currentStatus;
+                window.alert('Set a place/date/time for this postponed event before marking it Ongoing.');
+                return;
+            }
+        }
+
+        if (currentStatus === 'ongoing' && select.value !== 'ongoing' && select.value !== 'completed') {
+            select.value = currentStatus;
+            window.alert('Ongoing events can only be changed to Completed.');
+            return;
+        }
+
+        if (select.value === 'completed') {
+            if (currentStatus !== 'ongoing') {
+                select.value = currentStatus;
+                window.alert('Only ongoing events can be marked as completed.');
+                return;
+            }
+
+            if (select.dataset.hasPassed !== '1') {
+                select.value = currentStatus;
+                window.alert('Events can only be marked completed after the event date has passed.');
+                return;
+            }
         }
 
         if (currentStatus === 'cancelled' || select.value === currentStatus) {

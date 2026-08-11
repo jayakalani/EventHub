@@ -44,14 +44,6 @@
 
                     </select>
 
-                    <!-- From -->
-                    <input type="date" name="from_date" value="{{ request('from_date') }}"
-                        class="px-3 py-2 text-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
-
-                    <!-- To -->
-                    <input type="date" name="to_date" value="{{ request('to_date') }}"
-                        class="px-3 py-2 text-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
-
                     <!-- Apply -->
                     <button type="submit"
                         class="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-xl hover:bg-indigo-700 transition">

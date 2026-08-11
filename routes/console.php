@@ -8,8 +8,8 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
-Schedule::command('events:complete-past')->hourly();
 Schedule::command('events:send-reminders')->hourly();
+Schedule::command('events:notify-mark-completed')->hourly();
 Schedule::command('events:send-rating-nudges')->hourly();
 Schedule::command('events:send-organizer-review-digests')->dailyAt('10:00');
 Schedule::command('organizer:send-weekly-digests')->weeklyOn(1, '09:00');

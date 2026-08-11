@@ -96,6 +96,11 @@ class ticketBooking extends Model
             return false;
         }
 
+        // Check-in is only allowed while the organizer has set the event to ongoing.
+        if (! $this->event?->isOngoing()) {
+            return false;
+        }
+
         return true;
     }
 
@@ -125,6 +130,10 @@ class ticketBooking extends Model
 
         if ($this->event?->isCancelled()) {
             return 'This event is cancelled and check-in is closed.';
+        }
+
+        if (! $this->event?->isOngoing()) {
+            return 'Check-in is only available for ongoing events. Set this event\'s status to Ongoing first.';
         }
 
         if (! in_array($this->status, BookingStatusEnum::retainedSaleStatuses(), true)) {

@@ -6,7 +6,7 @@
                     Sales
                 </h2>
                 <p class="mt-0.5 text-sm text-slate-500">
-                    Transaction list of ticket purchases · for charts &amp; trends open
+                    Ticket-by-ticket sales list · for charts &amp; trends open
                     <a href="{{ route('organizer.reports', array_filter([
                         'event_id' => $filters['event_id'] ?? null,
                         'from' => $filters['from_date'] ?? null,
@@ -74,7 +74,7 @@
                 <form method="GET" action="{{ route('organizer.sales.index') }}"
                     class="grid grid-cols-1 gap-2.5 md:grid-cols-3 lg:grid-cols-6">
                     <input type="text" name="search" value="{{ $filters['search'] ?? '' }}"
-                        placeholder="Search buyer, email, event..."
+                        placeholder="Search ticket #, event, category..."
                         class="rounded-xl border-slate-300 text-sm focus:border-indigo-500 focus:ring-indigo-500 lg:col-span-2">
 
                     <select name="event_id"
@@ -106,13 +106,13 @@
                 </form>
             </div>
 
-            {{-- Feed --}}
+            {{-- Ticket list --}}
             <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
                 <div class="border-b border-slate-100 px-5 py-3.5">
                     <h3 class="text-base font-semibold text-slate-900">
-                        Activity feed
+                        Tickets
                         <span class="ml-2 text-sm font-normal text-slate-500">
-                            {{ number_format($sales->total()) }} purchases
+                            {{ number_format($sales->total()) }} {{ Str::plural('ticket', $sales->total()) }}
                         </span>
                     </h3>
                 </div>
@@ -122,16 +122,13 @@
                         <thead class="bg-slate-50">
                             <tr>
                                 <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
-                                    Buyer
+                                    Ticket number
                                 </th>
                                 <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
                                     Event
                                 </th>
                                 <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
-                                    Tickets
-                                </th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
-                                    Qty
+                                    Ticket category
                                 </th>
                                 <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
                                     Amount
@@ -139,85 +136,69 @@
                                 <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
                                     When
                                 </th>
-                                <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-500">
-                                    Actions
+                                <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                                    Check-in
+                                </th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                                    Ticket status
                                 </th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100">
-                            @forelse ($sales as $purchase)
+                            @forelse ($sales as $ticket)
                                 <tr class="transition hover:bg-slate-50">
                                     <td class="px-4 py-3">
-                                        <div class="flex items-center gap-3">
-                                            <div
-                                                class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-sm font-bold text-indigo-700">
-                                                {{ strtoupper(substr($purchase['buyer'], 0, 1)) }}
-                                            </div>
-                                            <div class="min-w-0">
-                                                <div class="text-sm font-semibold text-slate-900">
-                                                    {{ $purchase['buyer'] }}
-                                                </div>
-                                                <div class="mt-0.5 truncate text-xs text-slate-500">
-                                                    {{ $purchase['email'] }}
-                                                </div>
-                                                @if (! empty($purchase['payment_reference']))
-                                                    <div class="mt-0.5 font-mono text-[11px] text-slate-400">
-                                                        {{ $purchase['payment_reference'] }}
-                                                    </div>
-                                                @endif
-                                            </div>
-                                        </div>
-                                    </td>
-
-                                    <td class="px-4 py-3">
-                                        <a href="{{ $purchase['event_url'] }}"
-                                            class="text-sm font-medium text-indigo-600 hover:text-indigo-800">
-                                            {{ $purchase['event'] }}
+                                        <a href="{{ $ticket['url'] }}"
+                                            class="font-mono text-sm font-semibold text-indigo-600 hover:text-indigo-800">
+                                            {{ $ticket['ticket_number'] }}
                                         </a>
                                     </td>
 
                                     <td class="px-4 py-3">
-                                        <div class="flex flex-wrap gap-1.5">
-                                            @foreach ($purchase['category_badges'] ?? [] as $badge)
-                                                <span
-                                                    class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold text-slate-700 ring-1 ring-inset ring-black/5"
-                                                    style="background-color: {{ ($badge['color'] ?? '#6366f1') }}18;">
-                                                    <span class="h-1.5 w-1.5 rounded-full"
-                                                        style="background-color: {{ $badge['color'] ?? '#6366f1' }}"></span>
-                                                    {{ $badge['label'] }}
-                                                </span>
-                                            @endforeach
-                                        </div>
+                                        <a href="{{ $ticket['event_url'] }}"
+                                            class="text-sm font-medium text-indigo-600 hover:text-indigo-800">
+                                            {{ $ticket['event'] }}
+                                        </a>
                                     </td>
 
-                                    <td class="px-4 py-3 text-sm font-medium text-slate-800">
-                                        {{ number_format($purchase['quantity']) }}
+                                    <td class="px-4 py-3">
+                                        <span
+                                            class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold text-slate-700 ring-1 ring-inset ring-black/5"
+                                            style="background-color: {{ ($ticket['category_color'] ?? '#6366f1') }}18;">
+                                            <span class="h-1.5 w-1.5 rounded-full"
+                                                style="background-color: {{ $ticket['category_color'] ?? '#6366f1' }}"></span>
+                                            {{ $ticket['category'] }}
+                                        </span>
                                     </td>
 
                                     <td class="px-4 py-3 text-sm font-semibold text-slate-900">
-                                        LKR {{ number_format($purchase['amount'], 2) }}
+                                        LKR {{ number_format($ticket['amount'], 2) }}
                                     </td>
 
                                     <td class="px-4 py-3">
                                         <div class="text-sm text-slate-700">
-                                            {{ $purchase['booked_at_formatted'] }}
+                                            {{ $ticket['booked_at_formatted'] }}
                                         </div>
                                         <div class="mt-0.5 text-xs text-slate-500">
-                                            {{ $purchase['booked_at'] }}
+                                            {{ $ticket['booked_at'] }}
                                         </div>
                                     </td>
 
                                     <td class="px-4 py-3">
-                                        <div class="flex items-center justify-end gap-2">
-                                            <a href="{{ $purchase['event_url'] }}"
-                                                class="inline-flex rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700">
-                                                Event
-                                            </a>
-                                            <a href="{{ $purchase['guests_url'] }}"
-                                                class="inline-flex rounded-lg bg-indigo-600 px-2.5 py-1.5 text-xs font-semibold text-white transition hover:bg-indigo-700">
-                                                Buyer tickets
-                                            </a>
-                                        </div>
+                                        <span class="inline-flex rounded-lg px-2.5 py-1 text-xs font-semibold {{ $ticket['check_in_badge_classes'] }}">
+                                            {{ $ticket['check_in_status'] }}
+                                        </span>
+                                        @if (! empty($ticket['checked_in_at']))
+                                            <div class="mt-1 text-[11px] text-slate-500">
+                                                {{ $ticket['checked_in_at'] }}
+                                            </div>
+                                        @endif
+                                    </td>
+
+                                    <td class="px-4 py-3">
+                                        <span class="inline-flex rounded-lg px-2.5 py-1 text-xs font-semibold {{ $ticket['status_badge_classes'] }}">
+                                            {{ $ticket['status'] }}
+                                        </span>
                                     </td>
                                 </tr>
                             @empty
@@ -225,10 +206,10 @@
                                     <td colspan="7" class="px-4 py-12 text-center">
                                         <div class="mx-auto max-w-sm">
                                             <h3 class="text-base font-semibold text-slate-800">
-                                                No sales found
+                                                No tickets found
                                             </h3>
                                             <p class="mt-1 text-sm text-slate-500">
-                                                No confirmed purchases match your filters.
+                                                No confirmed ticket sales match your filters.
                                             </p>
                                             <a href="{{ route('organizer.sales.index') }}"
                                                 class="mt-4 inline-flex rounded-xl bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-700">

@@ -321,8 +321,7 @@ function formatNumber(value) {
 }
 
 function renderPurchaseCard(purchase) {
-    const buyer = purchase.buyer || 'Unknown';
-    const initial = escapeHtml(buyer.charAt(0).toUpperCase() || '?');
+    const ticketNumber = purchase.ticket_number || '—';
     const badges = (purchase.category_badges?.length
         ? purchase.category_badges
         : [{ label: purchase.category || 'General', color: '#6366f1' }])
@@ -336,12 +335,12 @@ function renderPurchaseCard(purchase) {
         .join('');
 
     return `<a href="${escapeHtml(purchase.url || '#')}" class="btn-smooth flex items-start gap-3 px-5 py-4 hover:bg-white/45">
-        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/60 bg-indigo-50/80 text-sm font-bold text-indigo-700 backdrop-blur-sm">
-            ${initial}
+        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/60 bg-emerald-50/80 text-sm font-bold text-emerald-700 backdrop-blur-sm">
+            <i class="bi bi-ticket-perforated"></i>
         </div>
         <div class="min-w-0 flex-1">
             <div class="flex items-start justify-between gap-3">
-                <p class="truncate text-sm font-semibold text-slate-900">${escapeHtml(buyer)}</p>
+                <p class="truncate font-mono text-sm font-semibold text-slate-900">${escapeHtml(ticketNumber)}</p>
                 <p class="shrink-0 text-[11px] font-medium text-slate-400">${escapeHtml(purchase.booked_at || '—')}</p>
             </div>
             <div class="mt-1.5 flex flex-wrap gap-1.5">${badges}</div>

@@ -269,6 +269,7 @@ Route::prefix('organizer')->name('organizer.')->middleware(['auth', 'verified', 
     // Calendar
     Route::get('/calendar', [CalendarController::class, 'organizer'])->name('calendar.index');
     Route::put('/revenue-goal', [DashboardController::class, 'updateRevenueGoal'])->name('revenue-goal.update');
+    Route::delete('/revenue-goal/{revenueGoal}', [DashboardController::class, 'destroyRevenueGoal'])->name('revenue-goal.destroy');
 });
 
 /*

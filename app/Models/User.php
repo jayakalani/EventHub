@@ -124,6 +124,11 @@ class User extends Authenticatable implements MustVerifyEmailContract
         return $this->hasMany(Like::class);
     }
 
+    public function revenueGoals()
+    {
+        return $this->hasMany(OrganizerRevenueGoal::class)->latest('starts_at');
+    }
+
     public function likedEvents()
     {
         return $this->belongsToMany(Event::class, 'likes', 'user_id', 'event_id')->withTimestamps();

@@ -117,7 +117,7 @@
         <h1>Sales Export</h1>
         <p class="meta">
             Generated {{ now()->format('M j, Y \a\t H:i') }}
-            · {{ number_format(count($sales)) }} {{ count($sales) === 1 ? 'purchase' : 'purchases' }}
+            · {{ number_format(count($sales)) }} {{ count($sales) === 1 ? 'ticket' : 'tickets' }}
             @if ($filterBits !== [])
                 · {{ implode(' · ', $filterBits) }}
             @endif
@@ -148,34 +148,29 @@
     <table class="data">
         <thead>
             <tr>
-                <th style="width: 110px;">Purchased At</th>
-                <th>Buyer</th>
+                <th style="width: 130px;">Ticket Number</th>
                 <th>Event</th>
-                <th>Ticket Types</th>
-                <th class="right" style="width: 50px;">Qty</th>
+                <th style="width: 110px;">Category</th>
                 <th class="right" style="width: 90px;">Amount</th>
-                <th style="width: 130px;">Payment Ref</th>
-                <th style="width: 70px;">Method</th>
+                <th style="width: 110px;">When</th>
+                <th style="width: 100px;">Check-in</th>
+                <th style="width: 100px;">Status</th>
             </tr>
         </thead>
         <tbody>
-            @forelse ($sales as $purchase)
+            @forelse ($sales as $ticket)
                 <tr>
-                    <td>{{ $purchase['booked_at_formatted'] ?? '—' }}</td>
-                    <td>
-                        <strong>{{ $purchase['buyer'] ?? 'Unknown' }}</strong><br>
-                        <span style="color:#64748b;">{{ $purchase['email'] ?? '—' }}</span>
-                    </td>
-                    <td>{{ $purchase['event'] ?? '—' }}</td>
-                    <td>{{ implode(', ', $purchase['categories'] ?? ['General']) }}</td>
-                    <td class="right">{{ number_format($purchase['quantity'] ?? 0) }}</td>
-                    <td class="right">LKR {{ number_format((float) ($purchase['amount'] ?? 0), 2) }}</td>
-                    <td class="mono">{{ $purchase['payment_reference'] ?? '—' }}</td>
-                    <td>{{ ucfirst($purchase['payment_method'] ?? '—') }}</td>
+                    <td class="mono">{{ $ticket['ticket_number'] ?? '—' }}</td>
+                    <td>{{ $ticket['event'] ?? '—' }}</td>
+                    <td>{{ $ticket['category'] ?? 'General' }}</td>
+                    <td class="right">LKR {{ number_format((float) ($ticket['amount'] ?? 0), 2) }}</td>
+                    <td>{{ $ticket['booked_at_formatted'] ?? '—' }}</td>
+                    <td>{{ $ticket['check_in_status'] ?? '—' }}</td>
+                    <td>{{ $ticket['status'] ?? '—' }}</td>
                 </tr>
             @empty
                 <tr>
-                    <td colspan="8" class="empty">No confirmed sales match the selected filters.</td>
+                    <td colspan="7" class="empty">No confirmed ticket sales match the selected filters.</td>
                 </tr>
             @endforelse
         </tbody>

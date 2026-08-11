@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Artist;
 use App\Models\Event;
 use App\Models\EventCategory;
+use App\Models\OrganizerRevenueGoal;
 use App\Models\User;
 use App\Models\UserRole;
 use App\Services\AdminReportService;
@@ -150,7 +151,7 @@ class DashboardController extends Controller
     }
 
     /**
-     * Update the organizer monthly revenue goal or a per-event revenue goal.
+     * Update an event revenue goal, or create an all-events date-range goal.
      */
     public function updateRevenueGoal(Request $request): RedirectResponse
     {
@@ -158,18 +159,18 @@ class DashboardController extends Controller
             $request->merge(['focus_event' => null]);
         }
 
-        $validated = $request->validate([
-            'revenue_goal' => ['required', 'numeric', 'min:1000', 'max:999999999'],
-            'goal_event' => ['nullable', 'integer', 'exists:events,id'],
-            'focus_event' => ['nullable', 'integer', 'exists:events,id'],
-            'kpi_event' => ['nullable', 'string', 'max:32'],
-            'chart_event' => ['nullable', 'string', 'max:32'],
-            'engagement_event' => ['nullable', 'string', 'max:32'],
-        ]);
-
         $redirectParams = $this->organizerDashboardRedirectParams($request);
 
-        if (! empty($validated['goal_event'])) {
+        if ($request->filled('goal_event')) {
+            $validated = $request->validate([
+                'revenue_goal' => ['required', 'numeric', 'min:1000', 'max:999999999'],
+                'goal_event' => ['required', 'integer', 'exists:events,id'],
+                'focus_event' => ['nullable', 'integer', 'exists:events,id'],
+                'kpi_event' => ['nullable', 'string', 'max:32'],
+                'chart_event' => ['nullable', 'string', 'max:32'],
+                'engagement_event' => ['nullable', 'string', 'max:32'],
+            ]);
+
             $event = Event::query()
                 ->createdByOrganizer(Auth::id())
                 ->findOrFail($validated['goal_event']);
@@ -177,7 +178,6 @@ class DashboardController extends Controller
             $event->revenue_goal = $validated['revenue_goal'];
             $event->save();
 
-            // Keep the goal section pinned to this event after save.
             $redirectParams['goal_event'] = (string) $event->id;
 
             return redirect()
@@ -185,17 +185,45 @@ class DashboardController extends Controller
                 ->with('success', 'Successfully set revenue goal for '.$event->name.'.');
         }
 
-        /** @var User $user */
-        $user = Auth::user();
-        $user->monthly_revenue_goal = $validated['revenue_goal'];
-        $user->save();
+        $validated = $request->validate([
+            'revenue_goal' => ['required', 'numeric', 'min:1000', 'max:999999999'],
+            'starts_at' => ['required', 'date'],
+            'ends_at' => ['required', 'date', 'after_or_equal:starts_at'],
+            'focus_event' => ['nullable', 'integer', 'exists:events,id'],
+            'kpi_event' => ['nullable', 'string', 'max:32'],
+            'chart_event' => ['nullable', 'string', 'max:32'],
+            'engagement_event' => ['nullable', 'string', 'max:32'],
+        ]);
 
-        // Monthly goal — clear any goal-section override so it follows focus.
+        OrganizerRevenueGoal::query()->create([
+            'user_id' => Auth::id(),
+            'amount' => $validated['revenue_goal'],
+            'starts_at' => $validated['starts_at'],
+            'ends_at' => $validated['ends_at'],
+        ]);
+
         unset($redirectParams['goal_event']);
 
         return redirect()
             ->route('organizer.dashboard', $redirectParams)
-            ->with('success', 'Successfully set monthly revenue goal.');
+            ->with('success', 'Revenue goal added for the selected date range.');
+    }
+
+    /**
+     * Delete an all-events date-range revenue goal.
+     */
+    public function destroyRevenueGoal(Request $request, OrganizerRevenueGoal $revenueGoal): RedirectResponse
+    {
+        abort_unless((int) $revenueGoal->user_id === (int) Auth::id(), 403);
+
+        $revenueGoal->delete();
+
+        $redirectParams = $this->organizerDashboardRedirectParams($request);
+        unset($redirectParams['goal_event']);
+
+        return redirect()
+            ->route('organizer.dashboard', $redirectParams)
+            ->with('success', 'Revenue goal removed.');
     }
 
     /**

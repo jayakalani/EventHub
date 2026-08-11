@@ -49,42 +49,36 @@ class SalesController extends Controller
 
         $csvData = [];
         $csvData[] = [
-            'Purchased At',
-            'Buyer Name',
-            'Buyer Email',
+            'Ticket Number',
             'Event',
-            'Ticket Types',
-            'Quantity',
+            'Ticket Category',
             'Amount (LKR)',
-            'Payment Reference',
-            'Payment Method',
+            'Purchased At',
+            'Check-in Status',
+            'Ticket Status',
         ];
 
-        foreach ($sales as $purchase) {
+        foreach ($sales as $ticket) {
             $csvData[] = [
-                $purchase['booked_at_formatted'] ?? '',
-                $purchase['buyer'] ?? '',
-                $purchase['email'] ?? '',
-                $purchase['event'] ?? '',
-                implode('; ', $purchase['categories'] ?? []),
-                (string) ($purchase['quantity'] ?? 0),
-                number_format((float) ($purchase['amount'] ?? 0), 2, '.', ''),
-                $purchase['payment_reference'] ?? '',
-                $purchase['payment_method'] ?? '',
+                $ticket['ticket_number'] ?? '',
+                $ticket['event'] ?? '',
+                $ticket['category'] ?? '',
+                number_format((float) ($ticket['amount'] ?? 0), 2, '.', ''),
+                $ticket['booked_at_formatted'] ?? '',
+                $ticket['check_in_status'] ?? '',
+                $ticket['status'] ?? '',
             ];
         }
 
         $csvData[] = [];
         $csvData[] = [
             'Summary',
-            '',
-            '',
-            '',
-            '',
-            (string) $stats['tickets'],
-            number_format((float) $stats['revenue'], 2, '.', ''),
+            'Tickets: '.$stats['tickets'],
             'Purchases: '.$stats['purchases'],
+            number_format((float) $stats['revenue'], 2, '.', ''),
             'Buyers: '.$stats['unique_buyers'],
+            '',
+            '',
         ];
 
         $filename = 'sales_'.now()->format('Ymd_His').'.csv';

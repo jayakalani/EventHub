@@ -66,7 +66,19 @@ class OrganizerDashboardExportBuilder
             : 'All Events';
         $goalScope = ! empty($revenueGoal['selectedEventName'])
             ? $revenueGoal['selectedEventName']
-            : ($revenueGoal['label'] ?? 'Monthly');
+            : ((($revenueGoal['mode'] ?? '') === 'period')
+                ? 'All Events (date ranges)'
+                : ($revenueGoal['label'] ?? 'All Events'));
+
+        $periodGoals = collect($revenueGoal['goals'] ?? []);
+        $goalProgressSummary = (($revenueGoal['mode'] ?? '') === 'period' && $periodGoals->isNotEmpty())
+            ? $periodGoals->map(fn ($goal) => ($goal['label'] ?? 'Goal').': '
+                .number_format((float) ($goal['progress'] ?? 0), 1).'% · LKR '
+                .number_format((float) ($goal['current'] ?? 0), 0)
+                .' / '.number_format((float) ($goal['goal'] ?? 0), 0))->implode(' | ')
+            : number_format((float) ($revenueGoal['progress'] ?? 0), 1).'% · LKR '
+                .number_format((float) ($revenueGoal['current'] ?? 0), 0)
+                .' / '.number_format((float) ($revenueGoal['goal'] ?? 0), 0);
 
         return [
             'title' => 'Organizer Dashboard',
@@ -102,9 +114,7 @@ class OrganizerDashboardExportBuilder
                 ])->all(),
                 [
                     'label' => 'Revenue goal progress',
-                    'value' => number_format((float) ($revenueGoal['progress'] ?? 0), 1).'% · LKR '
-                        .number_format((float) ($revenueGoal['current'] ?? 0), 0)
-                        .' / '.number_format((float) ($revenueGoal['goal'] ?? 0), 0),
+                    'value' => $goalProgressSummary,
                 ],
                 [
                     'label' => 'Avg rating',
@@ -163,10 +173,11 @@ class OrganizerDashboardExportBuilder
                 ],
                 [
                     'heading' => 'Recent ticket purchases',
-                    'headers' => ['Customer', 'Event', 'Amount (LKR)', 'When'],
+                    'headers' => ['Ticket Number', 'Event', 'Category', 'Amount (LKR)', 'When'],
                     'rows' => collect($purchases)->map(fn ($purchase) => [
-                        $purchase['buyer'] ?? '—',
+                        $purchase['ticket_number'] ?? '—',
                         $purchase['event'] ?? '—',
+                        $purchase['category'] ?? '—',
                         number_format((float) ($purchase['amount'] ?? 0), 2),
                         $purchase['booked_at'] ?? '—',
                     ])->all(),

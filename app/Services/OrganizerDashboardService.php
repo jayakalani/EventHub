@@ -9,6 +9,7 @@ use App\Models\Comment;
 use App\Models\Event;
 use App\Models\Host;
 use App\Models\Like;
+use App\Models\OrganizerRevenueGoal;
 use App\Models\Rating;
 use App\Models\SavedEvent;
 use App\Models\ticketBooking;
@@ -1285,42 +1286,67 @@ class OrganizerDashboardService
             return $this->eventRevenueGoal($organizerId, $filter);
         }
 
-        $organizer = User::find($organizerId);
+        return $this->periodRevenueGoals($organizerId, $filter);
+    }
 
-        $thisMonthRevenue = (float) $this->organizerConfirmedBookings($organizerId)
-            ->where('created_at', '>=', now()->startOfMonth())
-            ->sum('ticket_price');
+    /**
+     * All-events mode: multiple custom date-range revenue goals.
+     *
+     * @param  array{selectedEventId: int|null, selectedEventName: string|null, events: list<array{id: int, name: string}>}  $filter
+     * @return array<string, mixed>
+     */
+    private function periodRevenueGoals(int $organizerId, array $filter): array
+    {
+        $goals = OrganizerRevenueGoal::query()
+            ->where('user_id', $organizerId)
+            ->orderByDesc('starts_at')
+            ->orderByDesc('id')
+            ->get();
 
-        $lastMonthRevenue = (float) $this->organizerConfirmedBookings($organizerId)
-            ->whereBetween('created_at', [
-                now()->subMonthNoOverflow()->startOfMonth(),
-                now()->subMonthNoOverflow()->endOfMonth(),
-            ])
-            ->sum('ticket_price');
+        $items = $goals->map(function (OrganizerRevenueGoal $goal) use ($organizerId) {
+            $from = $goal->starts_at->copy()->startOfDay();
+            $to = $goal->ends_at->copy()->endOfDay();
+            $amount = (float) $goal->amount;
 
-        $suggestedGoal = max(50000, (int) (ceil(($lastMonthRevenue * 1.15) / 5000) * 5000));
-        if ($suggestedGoal < $thisMonthRevenue) {
-            $suggestedGoal = (int) (ceil(($thisMonthRevenue * 1.1) / 5000) * 5000);
-        }
+            $current = (float) $this->organizerConfirmedBookings($organizerId)
+                ->whereBetween('created_at', [$from, $to])
+                ->sum('ticket_price');
 
-        $goal = (float) ($organizer?->monthly_revenue_goal ?: $suggestedGoal);
-        $progress = $goal > 0 ? min(100, round(($thisMonthRevenue / $goal) * 100, 1)) : 0;
-        $remaining = max(0, $goal - $thisMonthRevenue);
+            $progress = $amount > 0 ? min(100, round(($current / $amount) * 100, 1)) : 0;
+            $remaining = max(0, $amount - $current);
+            $label = $goal->starts_at->format('M j, Y').' → '.$goal->ends_at->format('M j, Y');
+
+            return [
+                'id' => $goal->id,
+                'goal' => $amount,
+                'current' => $current,
+                'remaining' => $remaining,
+                'progress' => $progress,
+                'starts_at' => $goal->starts_at->toDateString(),
+                'ends_at' => $goal->ends_at->toDateString(),
+                'label' => $label,
+                'achieved' => $current >= $amount && $amount > 0,
+                'is_active' => now()->greaterThanOrEqualTo($from) && now()->lessThanOrEqualTo($to),
+            ];
+        })->values()->all();
+
+        $active = collect($items)->firstWhere('is_active') ?? ($items[0] ?? null);
 
         return [
-            'mode' => 'monthly',
+            'mode' => 'period',
             'selectedEventId' => null,
             'selectedEventName' => null,
             'events' => $filter['events'],
-            'goal' => $goal,
-            'current' => $thisMonthRevenue,
-            'remaining' => $remaining,
-            'progress' => $progress,
-            'label' => now()->format('F Y'),
-            'description' => 'Track progress toward your monthly sales target across all events.',
-            'is_custom' => $organizer?->monthly_revenue_goal !== null,
-            'suggested' => $suggestedGoal,
-            'achieved' => $thisMonthRevenue >= $goal && $goal > 0,
+            'goals' => $items,
+            'goal' => $active['goal'] ?? 0,
+            'current' => $active['current'] ?? 0,
+            'remaining' => $active['remaining'] ?? 0,
+            'progress' => $active['progress'] ?? 0,
+            'label' => $active['label'] ?? 'Date-range goals',
+            'description' => 'Set one or more revenue targets across all events with a custom start and end date.',
+            'is_custom' => count($items) > 0,
+            'suggested' => null,
+            'achieved' => (bool) ($active['achieved'] ?? false),
         ];
     }
 
@@ -1354,6 +1380,7 @@ class OrganizerDashboardService
             'selectedEventId' => $filter['selectedEventId'],
             'selectedEventName' => $filter['selectedEventName'],
             'events' => $filter['events'],
+            'goals' => [],
             'goal' => $goal,
             'current' => $currentRevenue,
             'remaining' => $remaining,
@@ -1494,7 +1521,7 @@ class OrganizerDashboardService
                 'icon' => 'bi-ticket-perforated-fill',
                 'color' => 'emerald',
                 'title' => 'Ticket Purchased',
-                'description' => "{$purchase['buyer']} · {$purchase['event']}",
+                'description' => ($purchase['ticket_number'] ?? 'Ticket').' · '.($purchase['event'] ?? 'Event'),
                 'time' => $purchase['booked_at'],
                 'timestamp' => isset($purchase['booked_raw'])
                     ? Carbon::parse($purchase['booked_raw'])->timestamp

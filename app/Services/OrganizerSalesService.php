@@ -6,14 +6,12 @@ use App\Enums\BookingStatusEnum;
 use App\Models\ticketBooking;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Pagination\LengthAwarePaginator as Paginator;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class OrganizerSalesService
 {
     /**
-     * Dashboard slice of recent retained-sale purchases (payment-grouped).
+     * Dashboard slice of recent retained-sale tickets.
      *
      * @return list<array<string, mixed>>
      */
@@ -28,35 +26,21 @@ class OrganizerSalesService
      */
     public function paginate(int $organizerId, array $filters = [], int $perPage = 20, ?int $page = null): LengthAwarePaginator
     {
-        $page = $page ?? Paginator::resolveCurrentPage();
-        $groupExpr = $this->groupKeyExpression();
-
-        $keysPaginator = $this->bookingsQuery($organizerId, $filters)
-            ->toBase()
-            ->selectRaw("{$groupExpr} as group_key")
-            ->selectRaw('MAX(ticket_bookings.created_at) as latest_at')
-            ->groupByRaw($groupExpr)
-            ->orderByDesc('latest_at')
+        $paginator = $this->bookingsQuery($organizerId, $filters)
+            ->with(['user', 'event', 'ticketCategory'])
+            ->latest('ticket_bookings.created_at')
+            ->latest('ticket_bookings.id')
             ->paginate($perPage, ['*'], 'page', $page);
 
-        $groupKeys = collect($keysPaginator->items())->pluck('group_key')->filter()->values();
-
-        $sales = $this->loadGroupedSales($organizerId, $groupKeys);
-
-        return new Paginator(
-            $sales,
-            $keysPaginator->total(),
-            $perPage,
-            $page,
-            [
-                'path' => Paginator::resolveCurrentPath(),
-                'query' => request()->query(),
-            ]
+        $paginator->setCollection(
+            $paginator->getCollection()->map(fn (ticketBooking $booking) => $this->mapTicketSale($booking))
         );
+
+        return $paginator;
     }
 
     /**
-     * Aggregate stats for the current filters (confirmed + refund-declined purchases).
+     * Aggregate stats for the current filters (confirmed + refund-declined tickets).
      *
      * @param  array{search?: string|null, event_id?: int|null, from_date?: string|null, to_date?: string|null}  $filters
      * @return array{purchases: int, tickets: int, revenue: float, unique_buyers: int}
@@ -80,24 +64,21 @@ class OrganizerSalesService
     }
 
     /**
-     * All matching purchase groups for CSV/PDF export (no pagination).
+     * All matching tickets for CSV/PDF export (no pagination).
      *
      * @param  array{search?: string|null, event_id?: int|null, from_date?: string|null, to_date?: string|null}  $filters
      * @return list<array<string, mixed>>
      */
     public function all(int $organizerId, array $filters = []): array
     {
-        $groupExpr = $this->groupKeyExpression();
-
-        $groupKeys = $this->bookingsQuery($organizerId, $filters)
-            ->toBase()
-            ->selectRaw("{$groupExpr} as group_key")
-            ->selectRaw('MAX(ticket_bookings.created_at) as latest_at')
-            ->groupByRaw($groupExpr)
-            ->orderByDesc('latest_at')
-            ->pluck('group_key');
-
-        return $this->loadGroupedSales($organizerId, $groupKeys);
+        return $this->bookingsQuery($organizerId, $filters)
+            ->with(['user', 'event', 'ticketCategory'])
+            ->latest('ticket_bookings.created_at')
+            ->latest('ticket_bookings.id')
+            ->get()
+            ->map(fn (ticketBooking $booking) => $this->mapTicketSale($booking))
+            ->values()
+            ->all();
     }
 
     /**
@@ -124,13 +105,18 @@ class OrganizerSalesService
         if (! empty($filters['search'])) {
             $search = $filters['search'];
             $query->where(function (Builder $q) use ($search) {
-                $q->whereHas('user', function (Builder $userQuery) use ($search) {
-                    $userQuery->where('email', 'like', "%{$search}%")
-                        ->orWhere('first_name', 'like', "%{$search}%")
-                        ->orWhere('last_name', 'like', "%{$search}%");
-                })->orWhereHas('event', function (Builder $eventQuery) use ($search) {
-                    $eventQuery->where('name', 'like', "%{$search}%");
-                });
+                $q->where('ticket_number', 'like', "%{$search}%")
+                    ->orWhereHas('user', function (Builder $userQuery) use ($search) {
+                        $userQuery->where('email', 'like', "%{$search}%")
+                            ->orWhere('first_name', 'like', "%{$search}%")
+                            ->orWhere('last_name', 'like', "%{$search}%");
+                    })
+                    ->orWhereHas('event', function (Builder $eventQuery) use ($search) {
+                        $eventQuery->where('name', 'like', "%{$search}%");
+                    })
+                    ->orWhereHas('ticketCategory', function (Builder $categoryQuery) use ($search) {
+                        $categoryQuery->where('name', 'like', "%{$search}%");
+                    });
             });
         }
 
@@ -149,114 +135,49 @@ class OrganizerSalesService
     }
 
     /**
-     * @param  Collection<int, string>  $groupKeys
-     * @return list<array<string, mixed>>
-     */
-    private function loadGroupedSales(int $organizerId, Collection $groupKeys): array
-    {
-        if ($groupKeys->isEmpty()) {
-            return [];
-        }
-
-        $paymentIds = [];
-        $bookingIds = [];
-
-        foreach ($groupKeys as $key) {
-            if (str_starts_with((string) $key, 'p-')) {
-                $paymentIds[] = (int) substr((string) $key, 2);
-            } elseif (str_starts_with((string) $key, 'b-')) {
-                $bookingIds[] = (int) substr((string) $key, 2);
-            }
-        }
-
-        $bookings = ticketBooking::query()
-            ->whereHas('event', fn (Builder $q) => $q->createdByOrganizer($organizerId))
-            ->whereIn('status', BookingStatusEnum::retainedSaleStatuses())
-            ->with(['user', 'event', 'ticketCategory', 'payment'])
-            ->where(function (Builder $q) use ($paymentIds, $bookingIds) {
-                if ($paymentIds !== []) {
-                    $q->orWhereIn('payment_id', $paymentIds);
-                }
-                if ($bookingIds !== []) {
-                    $q->orWhereIn('id', $bookingIds);
-                }
-            })
-            ->latest()
-            ->get()
-            ->groupBy(fn (ticketBooking $booking) => $booking->payment_id
-                ? 'p-'.$booking->payment_id
-                : 'b-'.$booking->id);
-
-        return $groupKeys
-            ->map(function (string $key) use ($bookings) {
-                $group = $bookings->get($key);
-
-                return $group ? $this->mapPurchaseGroup($group) : null;
-            })
-            ->filter()
-            ->values()
-            ->all();
-    }
-
-    /**
-     * @param  Collection<int, ticketBooking>  $group
      * @return array<string, mixed>
      */
-    private function mapPurchaseGroup(Collection $group): array
+    private function mapTicketSale(ticketBooking $booking): array
     {
-        /** @var ticketBooking $first */
-        $first = $group->sortByDesc(fn (ticketBooking $b) => $b->created_at?->timestamp ?? 0)->first();
-
-        $categoryBadges = $group
-            ->groupBy(fn (ticketBooking $booking) => $booking->ticket_category_id ?? 'general')
-            ->map(function ($items) {
-                /** @var ticketBooking $item */
-                $item = $items->first();
-                $category = $item->ticketCategory;
-                $count = $items->count();
-                $name = $category?->name ?? 'General';
-
-                return [
-                    'name' => $name,
-                    'label' => $name.($count > 1 ? ' ×'.$count : ''),
-                    'count' => $count,
-                    'color' => $category?->ticket_color ?: '#6366f1',
-                ];
-            })
-            ->values()
-            ->all();
-
-        $categoryLines = collect($categoryBadges)->pluck('label')->all();
-        $buyerEmail = $first->user?->email;
-        $eventId = $first->event_id;
+        $category = $booking->ticketCategory;
+        $categoryName = $category?->name ?? 'General';
+        $categoryColor = $category?->ticket_color ?: '#6366f1';
+        $eventId = $booking->event_id;
+        $buyer = $booking->user?->full_name ?? 'Unknown';
+        $checkedIn = $booking->isCheckedIn();
 
         return [
-            'id' => $first->id,
-            'payment_id' => $first->payment_id,
-            'payment_reference' => $first->payment?->reference,
-            'payment_method' => $first->payment?->payment_method?->value,
-            'buyer' => $first->user?->full_name ?? 'Unknown',
-            'email' => $buyerEmail ?? '—',
-            'event' => $first->event?->name ?? '—',
+            'id' => $booking->id,
+            'ticket_number' => $booking->ticket_number,
+            'buyer' => $buyer,
+            'email' => $booking->user?->email ?? '—',
+            'event' => $booking->event?->name ?? '—',
             'event_id' => $eventId,
-            'category' => $categoryLines[0] ?? 'General',
-            'categories' => $categoryLines,
-            'category_badges' => $categoryBadges,
-            'quantity' => $group->count(),
-            'amount' => round((float) $group->sum('ticket_price'), 2),
-            'booked_at' => $first->created_at?->diffForHumans() ?? '—',
-            'booked_at_formatted' => $first->created_at?->format('M d, Y H:i') ?? '—',
-            'booked_raw' => $first->created_at?->toIso8601String(),
-            'url' => $eventId
-                ? route('organizer.events.show', $eventId)
-                : route('organizer.events.index'),
+            'category' => $categoryName,
+            'category_color' => $categoryColor,
+            'category_badges' => [[
+                'name' => $categoryName,
+                'label' => $categoryName,
+                'count' => 1,
+                'color' => $categoryColor,
+            ]],
+            'quantity' => 1,
+            'amount' => round((float) $booking->ticket_price, 2),
+            'booked_at' => $booking->created_at?->diffForHumans() ?? '—',
+            'booked_at_formatted' => $booking->created_at?->format('M d, Y H:i') ?? '—',
+            'booked_raw' => $booking->created_at?->toIso8601String(),
+            'checked_in' => $checkedIn,
+            'checked_in_at' => $booking->checked_in_at?->format('M d, H:i'),
+            'check_in_status' => $checkedIn ? 'Checked In' : 'Not checked in',
+            'check_in_badge_classes' => $checkedIn
+                ? 'bg-sky-100 text-sky-800'
+                : 'bg-slate-100 text-slate-600',
+            'status' => $booking->displayStatusLabel(),
+            'status_badge_classes' => $booking->displayStatusBadgeClasses(),
+            'url' => route('organizer.bookings.show', $booking),
             'event_url' => $eventId
                 ? route('organizer.events.show', $eventId)
                 : route('organizer.events.index'),
-            'guests_url' => route('organizer.bookings.index', array_filter([
-                'event_id' => $eventId,
-                'search' => $buyerEmail,
-            ])),
         ];
     }
 }

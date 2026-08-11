@@ -15,7 +15,8 @@
         @endif>
         <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" data-postponement-alert-close></div>
 
-        <div class="relative my-auto flex max-h-[calc(100vh-2rem)] w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl">
+        <div class="relative my-auto flex max-h-[calc(100vh-2rem)] w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl"
+            onclick="event.stopPropagation()">
             <div class="shrink-0 border-b border-slate-100 px-6 py-5">
                 <div class="flex items-start justify-between gap-4">
                     <div>

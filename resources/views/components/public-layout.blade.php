@@ -33,13 +33,21 @@
     @if ($withLoginModal)
         x-data="{
             showLoginModal: false,
+            loginRedirectTimer: null,
             promptLogin() {
                 this.showLoginModal = true;
-                setTimeout(() => {
+                clearTimeout(this.loginRedirectTimer);
+                this.loginRedirectTimer = setTimeout(() => {
                     window.location.href = '{{ route('login') }}';
                 }, 10000);
+            },
+            dismissLoginModal() {
+                this.showLoginModal = false;
+                clearTimeout(this.loginRedirectTimer);
+                this.loginRedirectTimer = null;
             }
         }"
+        @keydown.escape.window="if (showLoginModal) dismissLoginModal()"
     @endif>
 
     <div class="relative flex min-h-screen flex-col
@@ -79,15 +87,26 @@
             x-transition:enter-start="opacity-0"
             x-transition:enter-end="opacity-100"
             class="fixed inset-0 z-50 flex items-center justify-center p-4"
-            style="display: none;">
-            <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm"></div>
+            style="display: none;"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="login-required-title">
+            <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" @click="dismissLoginModal()"></div>
 
-            <div class="relative w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+            <div class="relative w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-700 dark:bg-slate-900"
+                @click.stop>
+                <button type="button"
+                    @click="dismissLoginModal()"
+                    class="absolute right-3 top-3 rounded-xl p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                    aria-label="{{ t(['en' => 'Close', 'si' => 'වසන්න']) }}">
+                    <i class="bi bi-x-lg" aria-hidden="true"></i>
+                </button>
+
                 <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary">
                     <i class="bi bi-lock-fill text-2xl" aria-hidden="true"></i>
                 </div>
 
-                <h3 class="mt-4 text-center text-xl font-bold text-slate-900 dark:text-white">{{ t(['en' => 'Login Required', 'si' => 'පිවිසීම අවශ්‍යයි']) }}</h3>
+                <h3 id="login-required-title" class="mt-4 text-center text-xl font-bold text-slate-900 dark:text-white">{{ t(['en' => 'Login Required', 'si' => 'පිවිසීම අවශ්‍යයි']) }}</h3>
                 <p class="mt-2 text-center text-sm leading-relaxed text-slate-600 dark:text-slate-400">
                     {{ t(['en' => 'Login required to like, save, or book events.', 'si' => 'ප්‍රසංග වලට ප්‍රතිචාර දැක්වීමට, සුරැකීමට හෝ වෙන්කරවා ගැනීමට පිවිසීම අවශ්‍යයි.']) }}
                 </p>

@@ -757,7 +757,8 @@
                     class="fixed inset-0 z-50 flex items-center justify-center p-4">
                     <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" @click="showModal = false"></div>
 
-                    <div class="relative z-50 w-full max-w-md overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-2xl">
+                    <div class="relative z-50 w-full max-w-md overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-2xl"
+                        @click.stop>
                         <div class="h-1.5" :style="'background-color:' + (selected.color || '#4f46e5')"></div>
 
                         <form action="{{ route('attendee.cart.store', $event) }}" method="POST" class="p-6">

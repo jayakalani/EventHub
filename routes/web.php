@@ -178,6 +178,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
         // Reports & Analytics
         Route::get('/reports', [ReportController::class, 'index'])->name('reports');
+        Route::post('/reports/generate', [ReportController::class, 'generate'])->name('reports.generate');
         Route::get('/reports/export/excel', [ReportController::class, 'exportExcel'])->name('reports.export.excel');
         Route::post('/reports/export/pdf', [ReportController::class, 'exportPdf'])->name('reports.export.pdf');
 

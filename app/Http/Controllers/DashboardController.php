@@ -66,7 +66,7 @@ class DashboardController extends Controller
     }
 
     /**
-     * Admin Dashboard
+     * Admin Dashboard (ops + insights / former reports)
      */
     public function admin(Request $request): View
     {
@@ -79,8 +79,12 @@ class DashboardController extends Controller
             $filters['support_cro'],
             $filters['support_event'],
         );
+        $reports = $this->adminReportService->getAllReports(
+            $filters['organizer'],
+            $filters['event'],
+        );
 
-        return view('admin.dashboard', compact('dashboard'));
+        return view('admin.dashboard', compact('dashboard', 'reports'));
     }
 
     /**
@@ -244,7 +248,7 @@ class DashboardController extends Controller
     }
 
     /**
-     * CRO Dashboard (includes operational queue + report analytics)
+     * CRO Dashboard (operational queue + performance + insights)
      */
     public function cro(Request $request): View
     {
@@ -262,6 +266,7 @@ class DashboardController extends Controller
             'event' => $filters['event'],
             'from' => $filters['from'],
             'to' => $filters['to'],
+            'range' => $filters['range'],
         ], $croId);
         $reports = $this->croReportService->getAllReports($filters, $croId);
 

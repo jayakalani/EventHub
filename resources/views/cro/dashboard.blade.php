@@ -11,11 +11,12 @@
         $filters = $dashboard['filters'] ?? ['event' => null, 'from' => null, 'to' => null];
         $feedbackThemes = $dashboard['feedbackThemes'] ?? [];
         $ratingDist = $dashboard['charts']['satisfactionDistribution'] ?? ['labels' => [], 'counts' => [], 'percents' => [], 'total' => 0];
-        $reportFilters = $reports['filters'] ?? ['event' => null, 'cro' => null, 'range' => 'month', 'from' => null, 'to' => null];
-        $filterOptions = $reports['filterOptions'] ?? ['events' => [], 'cros' => []];
-        $activeRange = $reportFilters['range'] ?? 'month';
+        $activeFilters = $reports['filters'] ?? ['event' => null, 'cro' => null, 'range' => 'month', 'from' => null, 'to' => null];
+        $filterOptions = $reports['filterOptions'] ?? ['events' => $eventFilter['events'] ?? [], 'cros' => []];
+        $activeRange = $activeFilters['range'] ?? 'month';
+        $chartPeriod = $activeRange === 'week' ? 'week' : 'month';
         $filterQueryBase = array_filter([
-            'event' => $reportFilters['event'] ?? null,
+            'event' => $activeFilters['event'] ?? $filters['event'] ?? null,
         ], fn ($value) => $value !== null && $value !== '');
         $datePresets = [
             'week' => [
@@ -41,8 +42,7 @@
         $sectionTabs = [
             'today' => ['label' => 'Today', 'icon' => 'bi-lightning-charge', 'badge' => $queueCount + $priorityCount],
             'performance' => ['label' => 'Performance', 'icon' => 'bi-speedometer2', 'badge' => null],
-            'analytics' => ['label' => 'Analytics', 'icon' => 'bi-graph-up', 'badge' => null],
-            'reports' => ['label' => 'Reports', 'icon' => 'bi-bar-chart-line', 'badge' => null],
+            'insights' => ['label' => 'Insights', 'icon' => 'bi-graph-up', 'badge' => null],
         ];
     @endphp
 
@@ -52,11 +52,11 @@
             chartKey: null,
             title: '',
             description: '',
-            chartPeriod: @js($dashboard['charts']['defaultPeriod'] ?? 'week'),
+            chartPeriod: @js($chartPeriod),
             section: (() => {
                 const hash = (window.location.hash || '').replace('#', '');
-                if (hash === 'cro-reports' || hash === 'reports') return 'reports';
-                if (['today', 'performance', 'analytics', 'reports'].includes(hash)) return hash;
+                if (['cro-reports', 'reports', 'analytics', 'cro-insights'].includes(hash)) return 'insights';
+                if (['today', 'performance', 'insights'].includes(hash)) return hash;
                 return 'today';
             })(),
             openChart(key, title, description) {
@@ -77,16 +77,12 @@
                 document.body.classList.remove('overflow-hidden');
                 window.dispatchEvent(new CustomEvent('cro-chart-collapse'));
             },
-            setChartPeriod(period) {
-                this.chartPeriod = period;
-            },
             setSection(section) {
                 this.section = section;
-                const hash = section === 'reports' ? 'cro-reports' : section;
-                history.replaceState(null, '', '#' + hash);
+                history.replaceState(null, '', '#' + section);
                 this.$nextTick(() => {
                     window.dispatchEvent(new CustomEvent('cro-dashboard-section-changed', { detail: { section } }));
-                    if (section === 'reports') {
+                    if (section === 'insights') {
                         window.dispatchEvent(new CustomEvent('cro-reports-tab-changed'));
                     }
                 });
@@ -202,7 +198,7 @@
             {{-- Segmented control --}}
             <nav class="sticky top-16 z-30 sm:top-20" aria-label="Dashboard sections">
                 <div class="segmented-control overflow-x-auto rounded-2xl border border-white/60 bg-white/55 p-1.5 shadow-lg shadow-indigo-500/5 backdrop-blur-2xl [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                    <div class="flex min-w-max gap-1 sm:min-w-0 sm:grid sm:grid-cols-4">
+                    <div class="flex min-w-max gap-1 sm:min-w-0 sm:grid sm:grid-cols-3">
                         @foreach ($sectionTabs as $key => $tab)
                             <button type="button"
                                 @click="setSection('{{ $key }}')"
@@ -250,7 +246,7 @@
                     </div>
                 </div>
                 <form method="GET" action="{{ route('cro.dashboard') }}" class="grid gap-3 lg:grid-cols-12 lg:items-end"
-                    @submit="$el.action = '{{ route('cro.dashboard') }}' + (section === 'reports' ? '#cro-reports' : '#' + section)">
+                    @submit="$el.action = '{{ route('cro.dashboard') }}' + '#' + section">
                     <input type="hidden" name="range" value="custom">
                     <div class="lg:col-span-4">
                         <label for="cro_event" class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">Event</label>
@@ -259,7 +255,7 @@
                             <option value="">All assigned events</option>
                             @foreach ($filterOptions['events'] as $eventOption)
                                 <option value="{{ $eventOption['id'] }}"
-                                    @selected((int) ($reportFilters['event'] ?? $eventFilter['selectedEventId'] ?? 0) === (int) $eventOption['id'])>
+                                    @selected((int) ($activeFilters['event'] ?? $eventFilter['selectedEventId'] ?? 0) === (int) $eventOption['id'])>
                                     {{ $eventOption['name'] }}
                                 </option>
                             @endforeach
@@ -267,12 +263,12 @@
                     </div>
                     <div class="lg:col-span-3">
                         <label for="cro_from" class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">From</label>
-                        <input type="date" id="cro_from" name="from" value="{{ $reportFilters['from'] ?? $filters['from'] }}"
+                        <input type="date" id="cro_from" name="from" value="{{ $activeFilters['from'] ?? $filters['from'] }}"
                             class="w-full rounded-xl border border-white/70 bg-white/70 px-3 py-2 text-sm text-slate-800 shadow-sm backdrop-blur focus:border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-200">
                     </div>
                     <div class="lg:col-span-3">
                         <label for="cro_to" class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">To</label>
-                        <input type="date" id="cro_to" name="to" value="{{ $reportFilters['to'] ?? $filters['to'] }}"
+                        <input type="date" id="cro_to" name="to" value="{{ $activeFilters['to'] ?? $filters['to'] }}"
                             class="w-full rounded-xl border border-white/70 bg-white/70 px-3 py-2 text-sm text-slate-800 shadow-sm backdrop-blur focus:border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-200">
                     </div>
                     <div class="flex flex-wrap gap-2 lg:col-span-2">
@@ -304,11 +300,8 @@
                 <div x-show="section === 'performance'" x-cloak x-transition.opacity.duration.200ms>
                     @include('cro.partials.dashboard-tab-performance')
                 </div>
-                <div x-show="section === 'analytics'" x-cloak x-transition.opacity.duration.200ms>
-                    @include('cro.partials.dashboard-tab-analytics')
-                </div>
-                <div x-show="section === 'reports'" x-cloak x-transition.opacity.duration.200ms>
-                    @include('cro.partials.reports-section')
+                <div x-show="section === 'insights'" x-cloak x-transition.opacity.duration.200ms>
+                    @include('cro.partials.dashboard-tab-insights')
                 </div>
             </div>
         </div>

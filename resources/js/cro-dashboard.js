@@ -321,26 +321,8 @@ function initCroDashboard() {
     const satisfactionChart = chartBuilders.satisfactionDistribution('croSatisfactionDistributionChart');
     const chartInstances = [supportTrendChart, complaintChart, categoriesChart, satisfactionChart].filter(Boolean);
 
-    document.querySelectorAll('[data-cro-period]').forEach((button) => {
-        button.addEventListener('click', () => {
-            const period = button.getAttribute('data-cro-period');
-            if (!period || period === currentPeriod) return;
-
-            currentPeriod = period;
-            document.querySelectorAll('[data-cro-period]').forEach((el) => {
-                const active = el.getAttribute('data-cro-period') === period;
-                el.classList.toggle('bg-indigo-600', active);
-                el.classList.toggle('text-white', active);
-                el.classList.toggle('bg-white/60', !active);
-                el.classList.toggle('text-slate-600', !active);
-            });
-
-            document.querySelectorAll('[data-cro-period-label]').forEach((el) => {
-                el.textContent = periods[period]?.label ?? period;
-            });
-
-            supportTrendChart = chartBuilders.supportTrend('croSupportTrendChart', { period });
-        });
+    document.querySelectorAll('[data-cro-period-label]').forEach((el) => {
+        el.textContent = periods[currentPeriod]?.label ?? currentPeriod;
     });
 
     let fullscreenChart = null;

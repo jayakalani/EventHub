@@ -25,7 +25,8 @@ class CroDashboardService
      * @param  array{
      *     event?: int|null,
      *     from?: string|null,
-     *     to?: string|null
+     *     to?: string|null,
+     *     range?: string|null
      * }  $filters
      * @return array<string, mixed>
      */
@@ -34,6 +35,8 @@ class CroDashboardService
         $this->activeCroId = $croId;
 
         $eventId = isset($filters['event']) ? (int) $filters['event'] : null;
+        $range = $filters['range'] ?? null;
+        $defaultPeriod = $range === 'week' ? 'week' : 'month';
         $from = $this->parseDate($filters['from'] ?? null)?->startOfDay();
         $to = $this->parseDate($filters['to'] ?? null)?->endOfDay();
 
@@ -120,7 +123,7 @@ class CroDashboardService
                 'queueTotal' => count($todayWork),
             ],
             'charts' => [
-                'defaultPeriod' => 'week',
+                'defaultPeriod' => $defaultPeriod,
                 'periods' => [
                     'week' => $this->supportTrend('week', $selectedEventId, $from, $to),
                     'month' => $this->supportTrend('month', $selectedEventId, $from, $to),

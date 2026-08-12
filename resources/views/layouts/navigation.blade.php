@@ -31,14 +31,14 @@
             'active' => request()->routeIs('admin.event-categories.*', 'admin.event.category.*'),
         ],
         [
-            'label' => 'Reports',
-            'route' => 'admin.reports',
-            'active' => request()->routeIs('admin.reports', 'admin.reports.*'),
-        ],
-        [
             'label' => 'Support',
             'route' => 'admin.support-reports',
             'active' => request()->routeIs('admin.support-reports', 'admin.support-reports.*'),
+        ],
+        [
+            'label' => 'Reports',
+            'route' => 'admin.reports',
+            'active' => request()->routeIs('admin.reports', 'admin.reports.*'),
         ],
         [
             'label' => 'Audit Logs',
@@ -149,10 +149,6 @@
                     <a href="{{ route('cro.refund-requests.index') }}"
                         class="rounded-xl px-3.5 py-2 text-sm font-medium transition {{ request()->routeIs('cro.refund-requests.*') ? $navActive : $navIdle }}">
                         Refunds
-                    </a>
-                    <a href="{{ route('cro.reports') }}"
-                        class="rounded-xl px-3.5 py-2 text-sm font-medium transition {{ request()->routeIs('cro.reports', 'cro.reports.*') ? $navActive : $navIdle }}">
-                        Reports
                     </a>
                 @else
                     <a href="{{ route('dashboard') }}"
@@ -457,10 +453,6 @@
                 <a href="{{ route('cro.refund-requests.index') }}"
                     class="block rounded-xl px-3 py-2.5 transition hover:bg-[#0F0363]/5 hover:text-[#0F0363] {{ request()->routeIs('cro.refund-requests.*') ? $navActive : 'text-slate-700' }}">
                     Refunds
-                </a>
-                <a href="{{ route('cro.reports') }}"
-                    class="block rounded-xl px-3 py-2.5 transition hover:bg-[#0F0363]/5 hover:text-[#0F0363] {{ request()->routeIs('cro.reports', 'cro.reports.*') ? $navActive : 'text-slate-700' }}">
-                    Reports
                 </a>
             @else
                 <a href="{{ route('dashboard') }}"

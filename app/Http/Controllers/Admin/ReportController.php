@@ -4,11 +4,14 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Concerns\ExportsReportSections;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\GenerateAdminReportRequest;
 use App\Services\AdminReportService;
+use App\Services\AdminReports\AdminReportRegistry;
 use App\Services\Exports\AdminReportExportBuilder;
 use App\Services\ReportExportService;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\Response;
 
 class ReportController extends Controller
 {
@@ -20,17 +23,38 @@ class ReportController extends Controller
         protected AdminReportService $reportService,
         protected AdminReportExportBuilder $exportBuilder,
         protected ReportExportService $exportService,
+        protected AdminReportRegistry $registry,
     ) {}
 
     public function index(Request $request): View
     {
-        $filters = $this->validatedScopeFilters($request);
-        $reports = $this->reportService->getAllReports(
-            $filters['organizer'],
-            $filters['event'],
-        );
+        $catalog = $this->registry->catalogFor($request->user());
+        abort_if($catalog === [], 403);
 
-        return view('admin.reports.index', compact('reports'));
+        $defaultKey = array_key_first($catalog);
+
+        return view('admin.reports.builder', [
+            'catalog' => $catalog,
+            'defaultReport' => $defaultKey,
+            'oldReport' => old('report', $defaultKey),
+            'oldFields' => old('fields', []),
+            'oldFilters' => old('filters', []),
+            'oldFormat' => old('format', 'pdf'),
+        ]);
+    }
+
+    public function generate(GenerateAdminReportRequest $request): Response
+    {
+        $reportKey = (string) $request->input('report');
+        $format = (string) $request->input('format');
+        $generator = $this->registry->generator($reportKey);
+
+        return $generator->generate(
+            $request->user(),
+            $request->selectedFields(),
+            $request->selectedFilters(),
+            $format,
+        );
     }
 
     public function exportExcel(Request $request)

@@ -139,18 +139,15 @@
                                     'support_event',
                                 ])"
                                 :charts="[
-                                    ['canvasId' => 'dashboardUserGrowthChart', 'title' => 'User Growth'],
-                                    ['canvasId' => 'dashboardUserDistributionChart', 'title' => 'User Distribution'],
-                                    ['canvasId' => 'dashboardRevenueChart', 'title' => 'Revenue Trend'],
-                                    ['canvasId' => 'dashboardTicketSalesChart', 'title' => 'Ticket Sales'],
                                     ['canvasId' => 'dashboardPaymentOverviewChart', 'title' => 'Payment Overview'],
+                                    ['canvasId' => 'dashboardUserDistributionChart', 'title' => 'User Distribution'],
                                     ['canvasId' => 'dashboardEventsByCategoryChart', 'title' => 'Events by Category'],
                                 ]"
                             />
-                            <a href="{{ route('admin.reports') }}"
+                            <a href="#insights"
                                 class="btn-smooth inline-flex items-center gap-1.5 rounded-lg bg-indigo-600/95 px-3 py-2 text-xs font-semibold text-white shadow-sm backdrop-blur hover:bg-indigo-700 hover:shadow-md sm:text-sm">
                                 <i class="bi bi-graph-up-arrow"></i>
-                                Full Reports
+                                Insights
                             </a>
                             <a href="{{ route('admin.users') }}"
                                 class="btn-smooth inline-flex items-center gap-1.5 rounded-lg border border-white/70 bg-white/50 px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm backdrop-blur hover:border-indigo-200 hover:bg-white/80 sm:text-sm">
@@ -195,7 +192,7 @@
                         @foreach ([
                             ['label' => 'Users', 'route' => route('admin.users'), 'icon' => 'bi-people'],
                             ['label' => 'Categories', 'route' => route('admin.event-categories.index'), 'icon' => 'bi-tags'],
-                            ['label' => 'Reports', 'route' => route('admin.reports'), 'icon' => 'bi-bar-chart'],
+                            ['label' => 'Insights', 'route' => '#insights', 'icon' => 'bi-bar-chart'],
                             ['label' => 'Support', 'route' => route('admin.support-reports'), 'icon' => 'bi-headset'],
                             ['label' => 'Audit Logs', 'route' => route('admin.audit-logs'), 'icon' => 'bi-journal-text'],
                         ] as $shortcut)
@@ -305,54 +302,12 @@
             </div>
             </section>
 
-            {{-- 3. Analytics + calendar --}}
-            <div class="grid grid-cols-1 gap-4 xl:grid-cols-12 xl:items-stretch">
-                <div class="xl:col-span-8">
-    {{-- 3. Analytics --}}
-                <section class="glass-panel !rounded-2xl p-4 sm:p-5">
-                    <div class="mb-4 flex items-end justify-between gap-3">
-                        <div>
-                            <h2 class="text-lg font-bold text-slate-900">Analytics</h2>
-                            <p class="text-sm text-slate-500">Click a chart to open fullscreen</p>
-                        </div>
-                        <a href="{{ route('admin.reports') }}" class="btn-smooth text-sm font-semibold text-indigo-600 hover:text-indigo-700">
-                            Open full reports →
-                        </a>
-                    </div>
-                    <div class="grid gap-4 lg:grid-cols-3">
-                        <x-report-chart-card
-                            class="glass-card !shadow-none border-white/50 hover:!-translate-y-1"
-                            title="User Growth"
-                            description="New registrations over time"
-                            canvas-id="dashboardUserGrowthChart"
-                            expand-key="userGrowth"
-                        />
-                        <x-report-chart-card
-                            class="glass-card !shadow-none border-white/50 hover:!-translate-y-1"
-                            title="Revenue Trend"
-                            description="Monthly platform revenue"
-                            canvas-id="dashboardRevenueChart"
-                            expand-key="revenue"
-                        />
-                        <x-report-chart-card
-                            class="glass-card !shadow-none border-white/50 hover:!-translate-y-1"
-                            title="Ticket Sales"
-                            description="Weekly confirmed sales"
-                            canvas-id="dashboardTicketSalesChart"
-                            expand-key="ticketSales"
-                        />
-                    </div>
-                </section>
-                </div>
-                <div class="xl:col-span-4">
-{{-- Mini calendar --}}
-                <section class="h-full">
-                    <x-dashboard-mini-calendar :calendar="$dashboard['miniCalendar']" class="h-full" />
-                </section>
-                </div>
-            </div>
+            {{-- 3. Mini calendar --}}
+            <section>
+                <x-dashboard-mini-calendar :calendar="$dashboard['miniCalendar']" />
+            </section>
 
-{{-- 4. Performance + payments --}}
+            {{-- 4. Performance + payments --}}
             <div class="grid gap-4 lg:grid-cols-5">
                 <section class="glass-card lg:col-span-3 overflow-hidden !p-0">
                     <div class="border-b border-white/50 bg-white/30 px-4 py-3.5 backdrop-blur-sm sm:px-5">
@@ -642,8 +597,8 @@
                 </section>
             </div>
 
-            
-
+            {{-- 6. Insights (former reports) --}}
+            @include('admin.partials.insights')
         </div>
 
         {{-- Fullscreen chart modal --}}
@@ -698,6 +653,7 @@
     @push('scripts')
         <script>
             window.adminDashboardData = @json($dashboard);
+            window.adminReportData = @json($reports);
             (function () {
                 var key = 'admin-dashboard-scroll';
                 var parentChild = {
@@ -733,12 +689,9 @@
 
                 document.addEventListener('DOMContentLoaded', function () {
                     document.querySelectorAll(
-                        '.admin-dashboard select[name="organizer"],' +
-                        '.admin-dashboard select[name="event"],' +
-                        '.admin-dashboard select[name="payment_organizer"],' +
-                        '.admin-dashboard select[name="payment_event"],' +
-                        '.admin-dashboard select[name="support_cro"],' +
-                        '.admin-dashboard select[name="support_event"]'
+                        '#admin_organizer, #admin_event,' +
+                        '#payment_organizer, #payment_event,' +
+                        '#support_cro, #support_event'
                     ).forEach(function (select) {
                         select.addEventListener('change', function () {
                             try {
@@ -754,9 +707,27 @@
                             if (this.form) this.form.submit();
                         });
                     });
+
+                    var reportsForm = document.getElementById('admin-reports-scope-filter');
+                    if (reportsForm) {
+                        reportsForm.querySelectorAll('select[name="organizer"], select[name="event"]').forEach(function (select) {
+                            select.addEventListener('change', function () {
+                                try {
+                                    sessionStorage.setItem(key, String(currentScrollY()));
+                                } catch (e) {}
+                                if (this.name === 'organizer') {
+                                    var eventSelect = reportsForm.querySelector('select[name="event"]');
+                                    if (eventSelect) {
+                                        eventSelect.selectedIndex = 0;
+                                    }
+                                }
+                                reportsForm.submit();
+                            });
+                        });
+                    }
                 });
             })();
         </script>
-        @vite('resources/js/admin-dashboard.js')
+        @vite(['resources/js/admin-dashboard.js', 'resources/js/admin-reports.js'])
     @endpush
 </x-app-layout>

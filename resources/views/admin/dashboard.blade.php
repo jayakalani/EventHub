@@ -9,6 +9,7 @@
         $todaySummary = $dashboard['todaySummary'];
         $organizerPerformance = $dashboard['organizerPerformance'];
         $platformAnalytics = $dashboard['platformAnalytics'];
+        $attentionQueue = $dashboard['attentionQueue'] ?? ['count' => 0, 'items' => []];
         $scopeFilter = $dashboard['scopeFilter'] ?? [
             'scope' => 'global',
             'organizers' => [],
@@ -53,8 +54,9 @@
             default => 'Transaction status mix',
         };
         $supportScopeCaption = match ($supportScopeFilter['scope'] ?? 'global') {
-            'event' => 'Support for '.$supportScopeFilter['selectedEventName'],
-            'cro' => 'Assigned to '.$supportScopeFilter['selectedCroName'],
+            'event' => 'Support for '.($supportScopeFilter['selectedEventName'] ?? 'selected event'),
+            'organizer' => 'Support for '.($supportScopeFilter['selectedOrganizerName'] ?? 'selected organizer'),
+            'cro' => 'Assigned to '.($supportScopeFilter['selectedCroName'] ?? 'selected CRO'),
             default => 'CRO module',
         };
 
@@ -77,6 +79,12 @@
         $hasActiveFilters = filled($scopeFilter['selectedOrganizerId'] ?? null)
             || filled($scopeFilter['selectedEventId'] ?? null)
             || filled($selectedCroId);
+        $loadInsights = $loadInsights ?? false;
+        $filterQuery = array_filter([
+            'organizer' => $scopeFilter['selectedOrganizerId'] ?? null,
+            'event' => $scopeFilter['selectedEventId'] ?? null,
+            'cro' => $selectedCroId,
+        ], fn ($value) => filled($value));
     @endphp
 
     <div class="admin-dashboard relative isolate overflow-hidden py-5 sm:py-6"
@@ -86,6 +94,8 @@
             title: '',
             description: '',
             analyticsTabs: @js($analyticsTabKeys),
+            insightsLoaded: @js($loadInsights),
+            insightsLoading: false,
             section: (() => {
                 const analytics = @js($analyticsTabKeys);
                 const hash = (window.location.hash || '').replace('#', '');
@@ -96,9 +106,29 @@
                 if (hash === 'performance' || hash === 'support' || analytics.includes(hash)) return hash;
                 return 'performance';
             })(),
+            insightsUrl(section) {
+                const url = new URL(@js(route('dashboard')), window.location.origin);
+                const params = @js($filterQuery);
+                Object.entries(params).forEach(([key, value]) => {
+                    if (value !== null && value !== undefined && value !== '') {
+                        url.searchParams.set(key, String(value));
+                    }
+                });
+                url.searchParams.set('insights', '1');
+                url.searchParams.set('section', section);
+                url.hash = section;
+                return url;
+            },
             setSection(section) {
                 const map = { admin: 'events', 'support-reports': 'support' };
                 section = map[section] || section;
+
+                if (this.analyticsTabs.includes(section) && ! this.insightsLoaded) {
+                    this.insightsLoading = true;
+                    window.location.assign(this.insightsUrl(section).toString());
+                    return;
+                }
+
                 this.section = section;
                 history.replaceState(null, '', '#' + section);
                 this.$nextTick(() => {
@@ -126,7 +156,14 @@
                 document.body.classList.remove('overflow-hidden');
                 window.dispatchEvent(new CustomEvent('admin-chart-collapse'));
             },
+            init() {
+                if (this.analyticsTabs.includes(this.section) && ! this.insightsLoaded) {
+                    this.insightsLoading = true;
+                    window.location.replace(this.insightsUrl(this.section).toString());
+                }
+            },
         }"
+        x-init="init()"
         @keydown.escape.window="if (open) closeChart()"
         @admin-open-overview.window="setSection('overview')"
         @admin-open-section.window="setSection($event.detail.section)">
@@ -191,19 +228,9 @@
                             <a href="{{ route('admin.reports') }}"
                                 class="btn-smooth inline-flex items-center gap-1.5 rounded-lg bg-indigo-600/95 px-3 py-2 text-xs font-semibold text-white shadow-sm backdrop-blur hover:bg-indigo-700 hover:shadow-md sm:text-sm">
                                 <i class="bi bi-sliders"></i>
-                                Export builder
+                                Reports
                             </a>
-                            <a href="{{ route('admin.users') }}"
-                                class="btn-smooth inline-flex items-center gap-1.5 rounded-lg border border-white/70 bg-white/50 px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm backdrop-blur hover:border-indigo-200 hover:bg-white/80 sm:text-sm">
-                                <i class="bi bi-people"></i>
-                                Users
-                            </a>
-                            <button type="button"
-                                @click="setSection('support')"
-                                class="btn-smooth inline-flex items-center gap-1.5 rounded-lg border border-white/70 bg-white/50 px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm backdrop-blur hover:border-indigo-200 hover:bg-white/80 sm:text-sm">
-                                <i class="bi bi-headset"></i>
-                                Support
-                            </button>
+                            
                         </div>
                     </div>
 
@@ -212,49 +239,86 @@
                             <p class="text-[11px] font-semibold uppercase tracking-wide text-indigo-600">Today</p>
                             <p class="text-xs text-slate-500">{{ now()->format('D, M j') }}</p>
                         </div>
+                        @php
+                            $todayDate = now()->toDateString();
+                            $todayTiles = [
+                                [
+                                    'label' => 'Organizers',
+                                    'value' => $todaySummary['newOrganizers'],
+                                    'hint' => 'New organizer accounts today',
+                                    'icon' => 'bi-person-badge',
+                                    'bg' => 'bg-indigo-50/60',
+                                    'iconBg' => 'bg-indigo-100/80',
+                                    'iconColor' => 'text-indigo-600',
+                                    'href' => route('admin.users', [
+                                        'role' => \App\Models\UserRole::ORGANIZER,
+                                        'from_date' => $todayDate,
+                                        'to_date' => $todayDate,
+                                    ]),
+                                    'section' => null,
+                                ],
+                                [
+                                    'label' => 'Events',
+                                    'value' => $todaySummary['newEvents'],
+                                    'hint' => 'Events created today',
+                                    'icon' => 'bi-calendar-event',
+                                    'bg' => 'bg-blue-50/60',
+                                    'iconBg' => 'bg-blue-100/80',
+                                    'iconColor' => 'text-blue-600',
+                                    'href' => route('admin.audit-logs', [
+                                        'model_type' => \App\Models\Event::class,
+                                        'action' => 'Created',
+                                        'from_date' => $todayDate,
+                                        'to_date' => $todayDate,
+                                    ]),
+                                    'section' => null,
+                                ],
+                                [
+                                    'label' => 'Tickets',
+                                    'value' => $todaySummary['ticketsSold'],
+                                    'hint' => 'Confirmed ticket sales today',
+                                    'icon' => 'bi-ticket-perforated',
+                                    'bg' => 'bg-cyan-50/60',
+                                    'iconBg' => 'bg-cyan-100/80',
+                                    'iconColor' => 'text-cyan-600',
+                                    'href' => route('dashboard', array_merge($filterQuery, [
+                                        'insights' => 1,
+                                        'section' => 'overview',
+                                    ])).'#overview',
+                                    'section' => 'overview',
+                                ],
+                                [
+                                    'label' => 'Support',
+                                    'value' => $todaySummary['supportRequests'],
+                                    'hint' => 'Inquiries and complaints opened today',
+                                    'icon' => 'bi-headset',
+                                    'bg' => 'bg-amber-50/60',
+                                    'iconBg' => 'bg-amber-100/80',
+                                    'iconColor' => 'text-amber-600',
+                                    'href' => route('dashboard', $filterQuery).'#support',
+                                    'section' => 'support',
+                                ],
+                            ];
+                        @endphp
                         <div class="grid min-w-0 flex-1 grid-cols-2 gap-2 sm:grid-cols-4">
-                            @foreach ([
-                                ['label' => 'Organizers', 'value' => $todaySummary['newOrganizers'], 'icon' => 'bi-person-badge', 'bg' => 'bg-indigo-50/60', 'iconBg' => 'bg-indigo-100/80', 'iconColor' => 'text-indigo-600'],
-                                ['label' => 'Events', 'value' => $todaySummary['newEvents'], 'icon' => 'bi-calendar-event', 'bg' => 'bg-blue-50/60', 'iconBg' => 'bg-blue-100/80', 'iconColor' => 'text-blue-600'],
-                                ['label' => 'Tickets', 'value' => $todaySummary['ticketsSold'], 'icon' => 'bi-ticket-perforated', 'bg' => 'bg-cyan-50/60', 'iconBg' => 'bg-cyan-100/80', 'iconColor' => 'text-cyan-600'],
-                                ['label' => 'Support', 'value' => $todaySummary['supportRequests'], 'icon' => 'bi-headset', 'bg' => 'bg-amber-50/60', 'iconBg' => 'bg-amber-100/80', 'iconColor' => 'text-amber-600'],
-                            ] as $item)
-                                <div class="btn-smooth flex items-center gap-2 rounded-lg border border-white/50 {{ $item['bg'] }} px-2 py-1.5 backdrop-blur-sm hover:-translate-y-0.5 hover:bg-white/70 sm:px-2.5">
+                            @foreach ($todayTiles as $item)
+                                <a href="{{ $item['href'] }}"
+                                    @if ($item['section'])
+                                        @click.prevent="setSection(@js($item['section']))"
+                                    @endif
+                                    title="{{ $item['hint'] }}"
+                                    class="btn-smooth group flex items-center gap-2 rounded-lg border border-white/50 {{ $item['bg'] }} px-2 py-1.5 backdrop-blur-sm hover:-translate-y-0.5 hover:bg-white/70 hover:shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 sm:px-2.5">
                                     <span class="hidden h-7 w-7 items-center justify-center rounded-md {{ $item['iconBg'] }} text-sm {{ $item['iconColor'] }} sm:flex">
                                         <i class="bi {{ $item['icon'] }}"></i>
                                     </span>
-                                    <div class="min-w-0">
+                                    <div class="min-w-0 flex-1">
                                         <p class="truncate text-sm font-bold text-slate-900">{{ number_format($item['value']) }}</p>
                                         <p class="truncate text-[10px] font-medium text-slate-500 sm:text-xs">{{ $item['label'] }}</p>
                                     </div>
-                                </div>
+                                    <i class="bi bi-arrow-up-right hidden text-xs text-slate-400 opacity-0 transition group-hover:opacity-100 sm:inline"></i>
+                                </a>
                             @endforeach
                         </div>
-                    </div>
-
-                    <div class="relative mt-3 flex flex-wrap gap-1.5">
-                        @foreach ([
-                            ['label' => 'Users', 'route' => route('admin.users'), 'icon' => 'bi-people'],
-                            ['label' => 'Categories', 'route' => route('admin.event-categories.index'), 'icon' => 'bi-tags'],
-                            ['label' => 'Overview', 'action' => 'overview', 'icon' => 'bi-bar-chart'],
-                            ['label' => 'Support', 'action' => 'support', 'icon' => 'bi-headset'],
-                            ['label' => 'Audit Logs', 'route' => route('admin.audit-logs'), 'icon' => 'bi-journal-text'],
-                        ] as $shortcut)
-                            @if (! empty($shortcut['action']))
-                                <button type="button"
-                                    @click="setSection(@js($shortcut['action']))"
-                                    class="btn-smooth inline-flex items-center gap-1.5 rounded-full border border-white/70 bg-white/45 px-2.5 py-1 text-[11px] font-semibold text-slate-600 backdrop-blur hover:-translate-y-0.5 hover:border-indigo-200 hover:bg-white/80 hover:text-indigo-700 hover:shadow-sm">
-                                    <i class="bi {{ $shortcut['icon'] }}"></i>
-                                    {{ $shortcut['label'] }}
-                                </button>
-                            @else
-                                <a href="{{ $shortcut['route'] }}"
-                                    class="btn-smooth inline-flex items-center gap-1.5 rounded-full border border-white/70 bg-white/45 px-2.5 py-1 text-[11px] font-semibold text-slate-600 backdrop-blur hover:-translate-y-0.5 hover:border-indigo-200 hover:bg-white/80 hover:text-indigo-700 hover:shadow-sm">
-                                    <i class="bi {{ $shortcut['icon'] }}"></i>
-                                    {{ $shortcut['label'] }}
-                                </a>
-                            @endif
-                        @endforeach
                     </div>
                 </div>
             </section>
@@ -271,7 +335,7 @@
                         </span>
                         <div>
                             <h2 class="text-sm font-bold tracking-tight text-slate-900">Filters</h2>
-                            <p class="text-xs text-slate-500">One set for the whole dashboard · keeps every tab in sync</p>
+                            <p class="text-xs text-slate-500">Shared controls · each filter applies to the tabs noted below</p>
                         </div>
                     </div>
                     @if ($hasActiveFilters)
@@ -287,6 +351,9 @@
                 <form id="admin-dashboard-filters" method="GET" action="{{ route('dashboard') }}"
                     class="relative grid gap-3 lg:grid-cols-12 lg:items-end"
                     @submit="$el.action = '{{ route('dashboard') }}' + '#' + section">
+                    <input type="hidden" name="insights" value="1"
+                        :disabled="!(insightsLoaded || analyticsTabs.includes(section))">
+                    <input type="hidden" name="section" :value="section">
                     <div class="lg:col-span-3">
                         <label for="admin_organizer" class="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">Organizer</label>
                         <select id="admin_organizer" name="organizer"
@@ -299,6 +366,7 @@
                                 </option>
                             @endforeach
                         </select>
+                        <p class="mt-1 text-[10px] font-medium text-slate-400">Performance · Insights · Support</p>
                     </div>
                     <div class="lg:col-span-3">
                         <label for="admin_event" class="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">Event</label>
@@ -313,6 +381,7 @@
                                 </option>
                             @endforeach
                         </select>
+                        <p class="mt-1 text-[10px] font-medium text-slate-400">Performance · Insights · Support</p>
                     </div>
                     <div class="lg:col-span-4">
                         <label for="admin_cro" class="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">CRO</label>
@@ -326,6 +395,7 @@
                                 </option>
                             @endforeach
                         </select>
+                        <p class="mt-1 text-[10px] font-medium text-slate-400">Support tab only</p>
                     </div>
                     <div class="flex gap-2 lg:col-span-2">
                         <button type="submit"
@@ -365,7 +435,18 @@
                     @include('admin.partials.dashboard-tab-support')
                 </div>
                 <div x-show="analyticsTabs.includes(section)" x-cloak x-transition.opacity.duration.200ms>
-                    @include('admin.partials.insights')
+                    @if ($loadInsights && $reports)
+                        @include('admin.partials.insights')
+                    @else
+                        <div class="glass-panel !rounded-2xl px-6 py-16 text-center">
+                            <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-indigo-100 text-indigo-600">
+                                <i class="bi bi-arrow-repeat animate-spin text-xl" x-show="insightsLoading"></i>
+                                <i class="bi bi-bar-chart-line text-xl" x-show="!insightsLoading"></i>
+                            </div>
+                            <p class="mt-4 text-sm font-semibold text-slate-800">Loading insights…</p>
+                            <p class="mt-1 text-xs text-slate-500">Charts and trends load only when you open this section.</p>
+                        </div>
+                    @endif
                 </div>
             </div>
         </div>
@@ -482,8 +563,18 @@
                             try {
                                 var hash = (window.location.hash || '').replace('#', '');
                                 var analytics = @json($analyticsTabKeys);
-                                if (hash === 'performance' || analytics.includes(hash)) section = hash;
+                                if (hash === 'performance' || hash === 'support' || analytics.includes(hash)) section = hash;
                             } catch (e) {}
+
+                            var insightsInput = form.querySelector('input[name="insights"]');
+                            if (insightsInput) {
+                                var wantsInsights = @js($loadInsights) || (typeof analytics !== 'undefined' && analytics.includes(section));
+                                insightsInput.disabled = !wantsInsights;
+                            }
+
+                            var sectionInput = form.querySelector('input[name="section"]');
+                            if (sectionInput) sectionInput.value = section;
+
                             form.action = @js(route('dashboard')) + '#' + section;
                             form.submit();
                         });

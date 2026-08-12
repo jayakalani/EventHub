@@ -336,26 +336,7 @@
         @keydown.escape.window="if (open) closeChart()"
         @organizer-dashboard-section-changed.window="syncFromDashboard($event.detail.section)">
 
-            {{-- Compact actions for analytics tabs --}}
-            <section class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <p class="text-sm text-slate-500">
-                    Charts and trends for the selected tab · purchase history in
-                    <a href="{{ route('organizer.sales.index', $salesDeepLink) }}" class="font-semibold text-indigo-600 hover:text-indigo-700">Sales</a>
-                </p>
-                <div class="flex flex-wrap items-center gap-2 sm:justify-end">
-                    <a href="{{ route('organizer.reports') }}"
-                        class="btn-smooth inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-700 shadow-sm hover:bg-indigo-100 sm:text-sm">
-                        <i class="bi bi-sliders"></i>
-                        Export builder
-                    </a>
-                    <a href="{{ route('organizer.sales.index', $salesDeepLink) }}"
-                        class="btn-smooth inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800 shadow-sm hover:bg-emerald-100 sm:text-sm">
-                        <i class="bi bi-receipt"></i>
-                        View sales detail
-                    </a>
-                </div>
-            </section>
-
+        
             @if (! $hasReportData)
                 <x-report-empty-state
                     class="!min-h-[10rem] border-slate-200 bg-white shadow-sm"

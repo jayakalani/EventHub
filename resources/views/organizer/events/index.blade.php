@@ -404,29 +404,39 @@
                                                 View
                                             </a>
 
-                                            <a href="{{ route('organizer.events.edit', $event->id) }}"
-                                                class="rounded-lg bg-blue-50 px-2.5 py-1.5 text-xs font-medium text-blue-600 transition hover:bg-blue-100">
-                                                Edit
-                                            </a>
+                                            @can('update', $event)
+                                                <a href="{{ route('organizer.events.edit', $event->id) }}"
+                                                    class="rounded-lg bg-blue-50 px-2.5 py-1.5 text-xs font-medium text-blue-600 transition hover:bg-blue-100">
+                                                    Edit
+                                                </a>
+                                            @endcan
 
-                                            @if ($event->hasSoldTickets())
-                                                <span
-                                                    title="This event cannot be deleted because at least one ticket has been sold."
-                                                    class="cursor-not-allowed rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs font-medium text-slate-400">
-                                                    Delete
-                                                </span>
-                                            @else
-                                                <form action="{{ route('organizer.events.destroy', $event->id) }}"
-                                                    method="POST">
-                                                    @csrf
-                                                    @method('DELETE')
+                                            @can('delete', $event)
+                                                @if ($event->hasBookingHistory())
+                                                    <form action="{{ route('organizer.events.destroy', $event->id) }}"
+                                                        method="POST">
+                                                        @csrf
+                                                        @method('DELETE')
 
-                                                    <button onclick="return confirm('Delete this event?')"
-                                                        class="rounded-lg bg-rose-50 px-2.5 py-1.5 text-xs font-medium text-rose-600 transition hover:bg-rose-100">
-                                                        Delete
-                                                    </button>
-                                                </form>
-                                            @endif
+                                                        <button
+                                                            onclick="return confirm('Archive this event? Booking history will be preserved.')"
+                                                            class="rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs font-medium text-amber-700 transition hover:bg-amber-100">
+                                                            Archive
+                                                        </button>
+                                                    </form>
+                                                @else
+                                                    <form action="{{ route('organizer.events.destroy', $event->id) }}"
+                                                        method="POST">
+                                                        @csrf
+                                                        @method('DELETE')
+
+                                                        <button onclick="return confirm('Delete this event?')"
+                                                            class="rounded-lg bg-rose-50 px-2.5 py-1.5 text-xs font-medium text-rose-600 transition hover:bg-rose-100">
+                                                            Delete
+                                                        </button>
+                                                    </form>
+                                                @endif
+                                            @endcan
                                         </div>
                                     </td>
                                 </tr>

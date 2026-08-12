@@ -98,8 +98,14 @@ class ReportController extends Controller
             'to' => $request->filled('to') ? $request->input('to') : null,
         ]);
 
+        $croId = (int) $request->user()?->id;
+
         $validated = $request->validate([
-            'event' => ['nullable', 'integer', 'exists:events,id'],
+            'event' => [
+                'nullable',
+                'integer',
+                Rule::exists('events', 'id')->where('contact_person', $croId),
+            ],
             'range' => ['nullable', Rule::in(['week', 'month', 'custom'])],
             'from' => ['nullable', 'date'],
             'to' => ['nullable', 'date', 'after_or_equal:from'],

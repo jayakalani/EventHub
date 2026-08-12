@@ -49,6 +49,7 @@ class EventCancellationService
                 ->get();
 
             $refundsByUser = [];
+            $cancelledBookingIds = [];
 
             foreach ($bookings as $booking) {
                 if ($booking->refundRequest?->isPending()) {
@@ -72,6 +73,7 @@ class EventCancellationService
                 );
 
                 $booking->update(['status' => BookingStatusEnum::EventCancelled]);
+                $cancelledBookingIds[] = $booking->id;
 
                 $refundsByUser[$booking->user_id]['user'] = $booking->user;
                 $refundsByUser[$booking->user_id]['total'] = ($refundsByUser[$booking->user_id]['total'] ?? 0) + (float) $booking->ticket_price;
@@ -79,28 +81,34 @@ class EventCancellationService
 
             $event->refresh();
 
-            DB::afterCommit(function () use ($event, $reason, $refundsByUser) {
-                $purchasers = ticketBooking::query()
-                    ->where('event_id', $event->id)
-                    ->with('user')
-                    ->get()
-                    ->groupBy('user_id');
+            DB::afterCommit(function () use ($event, $reason, $refundsByUser, $cancelledBookingIds) {
+                if ($cancelledBookingIds !== []) {
+                    $purchasers = ticketBooking::query()
+                        ->whereIn('id', $cancelledBookingIds)
+                        ->with('user')
+                        ->get()
+                        ->groupBy('user_id');
 
-                foreach ($purchasers as $userId => $userBookings) {
-                    /** @var User $user */
-                    $user = $userBookings->first()->user;
+                    foreach ($purchasers as $userId => $userBookings) {
+                        /** @var User $user */
+                        $user = $userBookings->first()->user;
 
-                    Mail::to($user)->queue(new EventCancelledMail(
-                        $event,
-                        $user,
-                        $reason,
-                        $userBookings,
-                        (float) ($refundsByUser[$userId]['total'] ?? 0),
-                    ));
+                        if (! $user) {
+                            continue;
+                        }
 
-                    foreach ($userBookings as $booking) {
-                        $user->notify(new \App\Notifications\TicketCancelledNotification($booking));
-                        $user->notify(new \App\Notifications\TicketRefundedNotification($booking));
+                        Mail::to($user)->queue(new EventCancelledMail(
+                            $event,
+                            $user,
+                            $reason,
+                            $userBookings,
+                            (float) ($refundsByUser[$userId]['total'] ?? 0),
+                        ));
+
+                        foreach ($userBookings as $booking) {
+                            $user->notify(new \App\Notifications\TicketCancelledNotification($booking));
+                            $user->notify(new \App\Notifications\TicketRefundedNotification($booking));
+                        }
                     }
                 }
 

@@ -70,7 +70,7 @@
 
                 <div class="grid gap-8 p-6 lg:grid-cols-[1fr_320px] lg:p-8">
                     <form method="POST" enctype="multipart/form-data"
-                        action="{{ route('organizer.artists.update', $artist->id) }}" class="space-y-8">
+                        action="{{ route('organizer.artists.update', $artist) }}" class="space-y-8">
                         @csrf
                         @method('PUT')
 

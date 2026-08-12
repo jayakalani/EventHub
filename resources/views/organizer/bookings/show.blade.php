@@ -377,9 +377,21 @@
                                     by {{ $ticketBooking->checkedInBy->full_name }}
                                 @endif
                             </p>
-                            <p class="mt-3 text-xs text-slate-500">
-                                Check-in cannot be undone.
-                            </p>
+                            @if ($ticketBooking->canUndoCheckIn())
+                                <form action="{{ route('organizer.bookings.undo-check-in', $ticketBooking) }}" method="POST"
+                                    class="mt-4">
+                                    @csrf
+                                    <button type="submit"
+                                        onclick="return confirm('Undo check-in for this guest?')"
+                                        class="w-full rounded-xl bg-amber-100 px-4 py-2.5 text-sm font-semibold text-amber-800 shadow-sm transition hover:bg-amber-200">
+                                        Undo Check-in
+                                    </button>
+                                </form>
+                            @else
+                                <p class="mt-3 text-xs text-slate-500">
+                                    Check-in can only be undone while the event is ongoing.
+                                </p>
+                            @endif
                         @elseif ($ticketBooking->canCheckIn())
                             <p class="mt-2 text-sm text-slate-600">
                                 This ticket is valid for entry.

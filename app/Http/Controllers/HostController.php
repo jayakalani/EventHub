@@ -11,11 +11,15 @@ class HostController extends Controller
 {
     public function create()
     {
+        $this->authorize('create', Host::class);
+
         return view('organizer.hosts.create');
     }
 
     public function store(Request $request)
     {
+        $this->authorize('create', Host::class);
+
         $validatedData = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:hosts'],
@@ -25,10 +29,7 @@ class HostController extends Controller
 
         $fileName = null;
         if ($request->hasFile('cover')) {
-            $file = $request->file('cover');
-            $extension = $file->getClientOriginalExtension();
-            $fileName = time().'.'.$extension;
-            $file->move('uploads/covers/hosts/', $fileName);
+            $fileName = $this->storeHostCover($request->file('cover'));
         }
 
         Host::create([
@@ -36,7 +37,7 @@ class HostController extends Controller
             'email' => $validatedData['email'],
             'contact_number' => $validatedData['contact_number'],
             'cover' => $fileName,
-            'created_by' => Auth::user()->id,
+            'created_by' => Auth::id(),
             'is_active' => true,
         ]);
 
@@ -45,32 +46,44 @@ class HostController extends Controller
 
     public function index(Request $request)
     {
-        $query = Host::query();
+        $this->authorize('viewAny', Host::class);
 
-        if ($request->filled('search')) {
-            $query->where('name', 'like', '%'.$request->search.'%');
+        $filters = $request->validate([
+            'search' => ['nullable', 'string', 'max:255'],
+            'status' => ['nullable', 'string', Rule::in(['active', 'inactive'])],
+            'from_date' => ['nullable', 'date'],
+            'to_date' => ['nullable', 'date', 'after_or_equal:from_date'],
+        ]);
+
+        $query = Host::query()->createdByOrganizer((int) Auth::id());
+
+        if (! empty($filters['search'])) {
+            $query->where('name', 'like', '%'.$filters['search'].'%');
         }
 
-        if ($request->filled('status')) {
-            $query->where('is_active', $request->status === 'active');
+        if (! empty($filters['status'])) {
+            $query->where('is_active', $filters['status'] === 'active');
         }
 
-        if ($request->filled('from_date')) {
-            $query->whereDate('created_at', '>=', $request->from_date);
+        if (! empty($filters['from_date'])) {
+            $query->whereDate('created_at', '>=', $filters['from_date']);
         }
 
-        if ($request->filled('to_date')) {
-            $query->whereDate('created_at', '<=', $request->to_date);
+        if (! empty($filters['to_date'])) {
+            $query->whereDate('created_at', '<=', $filters['to_date']);
         }
 
-        $hosts = $query->latest()->paginate(20)->withQueryString();
+        $hosts = $query->withCount('events')->latest()->paginate(20)->withQueryString();
 
         return view('organizer.hosts.index', compact('hosts'));
     }
 
     public function organizerShow(Host $host)
     {
+        $this->authorize('view', $host);
+
         $events = $host->events()
+            ->createdByOrganizer((int) Auth::id())
             ->with('eventCategory')
             ->latest()
             ->get();
@@ -78,25 +91,33 @@ class HostController extends Controller
         return view('organizer.hosts.show', compact('host', 'events'));
     }
 
-    public function toggleActive(int $id)
+    public function toggleActive(Host $host)
     {
-        $host = Host::findOrFail($id);
+        $this->authorize('toggleActive', $host);
+
+        if ($host->is_active && $host->hasLinkedEvents()) {
+            return redirect()->back()->with(
+                'error',
+                'This host cannot be deactivated because they are linked to one or more events.'
+            );
+        }
+
         $host->is_active = $host->is_active ? 0 : 1;
         $host->save();
 
         return redirect()->back()->with('success', 'Host status updated successfully.');
     }
 
-    public function edit(int $id)
+    public function edit(Host $host)
     {
-        $host = Host::findOrFail($id);
+        $this->authorize('update', $host);
 
         return view('organizer.hosts.edit', ['host' => $host]);
     }
 
-    public function update(int $id, Request $request)
+    public function update(Host $host, Request $request)
     {
-        $host = Host::findOrFail($id);
+        $this->authorize('update', $host);
 
         $validatedData = $request->validate([
             'name' => ['required', 'string', 'max:255'],
@@ -106,10 +127,8 @@ class HostController extends Controller
         ]);
 
         if ($request->hasFile('cover')) {
-            $file = $request->file('cover');
-            $extension = $file->getClientOriginalExtension();
-            $fileName = time().'.'.$extension;
-            $file->move('uploads/covers/hosts/', $fileName);
+            $fileName = $this->storeHostCover($request->file('cover'));
+            $this->deleteHostCoverFile($host->cover);
             $host->cover = $fileName;
         }
 
@@ -122,17 +141,29 @@ class HostController extends Controller
             ->with('success', 'Host updated successfully.');
     }
 
-    public function destroy(Request $request, $id)
+    public function destroy(Host $host)
     {
-        $host = Host::findOrFail($id);
+        $this->authorize('delete', $host);
+
+        if ($host->hasLinkedEvents()) {
+            return redirect()->back()->with(
+                'error',
+                'This host cannot be deleted because they are linked to one or more events.'
+            );
+        }
+
+        $name = $host->name;
+        $this->deleteHostCoverFile($host->cover);
         $host->delete();
 
-        return redirect()->route('organizer.hosts')->with('success', "Host {$host->name} has been deleted.");
+        return redirect()->route('organizer.hosts')->with('success', "Host {$name} has been deleted.");
     }
 
     public function exportCsv(Request $request)
     {
-        $hosts = Host::all();
+        $this->authorize('viewAny', Host::class);
+
+        $hosts = Host::query()->createdByOrganizer((int) Auth::id())->get();
 
         $csvData = [];
         $csvData[] = ['ID', 'Name', 'Email', 'Contact Number', 'Status', 'Created At'];
@@ -165,10 +196,33 @@ class HostController extends Controller
 
     public function exportPdf(Request $request)
     {
-        $hosts = Host::all();
+        $this->authorize('viewAny', Host::class);
+
+        $hosts = Host::query()->createdByOrganizer((int) Auth::id())->get();
 
         $pdf = \PDF::loadView('organizer.exports.hosts_pdf', compact('hosts'));
 
         return $pdf->download('hosts_'.now()->format('Ymd_His').'.pdf');
+    }
+
+    private function storeHostCover(\Illuminate\Http\UploadedFile $file): string
+    {
+        $fileName = uniqid('host_', true).'_'.time().'.'.$file->getClientOriginalExtension();
+        $file->move(public_path('uploads/covers/hosts'), $fileName);
+
+        return $fileName;
+    }
+
+    private function deleteHostCoverFile(?string $fileName): void
+    {
+        if (! $fileName) {
+            return;
+        }
+
+        $path = public_path('uploads/covers/hosts/'.$fileName);
+
+        if (is_file($path)) {
+            @unlink($path);
+        }
     }
 }

@@ -99,6 +99,12 @@
                 </div>
             @endif
 
+            @if (session('error'))
+                <div class="mb-5 px-4 py-3 rounded-xl bg-red-100 border border-red-200 text-red-700 text-sm">
+                    {{ session('error') }}
+                </div>
+            @endif
+
             <!-- Artists Grid -->
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-5">
 
@@ -174,38 +180,69 @@
                                 </a>
 
                                 <!-- Toggle -->
-                                <form action="{{ route('organizer.artists.toggleActive', $artist->id) }}" method="POST"
-                                    class="col-span-3">
-                                    @csrf
+                                @php
+                                    $artistLocked = $artist->events_count > 0 || $artist->artist_follows_count > 0;
+                                    $artistLockReason = $artist->artist_follows_count > 0
+                                        ? 'Followed by attendees — cannot deactivate'
+                                        : 'Linked to events — cannot deactivate';
+                                @endphp
+                                @if ($artist->is_active && $artistLocked)
+                                    <div class="col-span-3">
+                                        <button type="button" disabled
+                                            title="{{ $artistLockReason }}"
+                                            class="w-full py-2 rounded-xl text-xs font-medium bg-gray-100 text-gray-400 cursor-not-allowed">
+                                            Deactivate
+                                        </button>
+                                    </div>
+                                @else
+                                    <form action="{{ route('organizer.artists.toggleActive', $artist) }}" method="POST"
+                                        class="col-span-3">
+                                        @csrf
 
-                                    <button type="submit"
-                                        onclick="return confirm('Are you sure you want to {{ $artist->is_active ? 'deactivate' : 'activate' }} this artist?')"
-                                        class="w-full py-2 rounded-xl text-xs font-medium transition
-                                        {{ $artist->is_active
-                                            ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
+                                        <button type="submit"
+                                            onclick="return confirm('Are you sure you want to {{ $artist->is_active ? 'deactivate' : 'activate' }} this artist?')"
+                                            class="w-full py-2 rounded-xl text-xs font-medium transition
+                                            {{ $artist->is_active
+                                                ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
 
-                                        {{ $artist->is_active ? 'Deactivate' : 'Activate' }}
-                                    </button>
-                                </form>
+                                            {{ $artist->is_active ? 'Deactivate' : 'Activate' }}
+                                        </button>
+                                    </form>
+                                @endif
 
                                 <!-- Edit -->
-                                <a href="{{ route('organizer.artists.edit', $artist->id) }}"
+                                <a href="{{ route('organizer.artists.edit', $artist) }}"
                                     class="text-center px-3 py-2 rounded-xl bg-indigo-100 text-indigo-700 text-xs font-medium hover:bg-indigo-200 transition">
                                     Edit
                                 </a>
 
                                 <!-- Delete -->
-                                <form action="{{ route('organizer.artists.destroy', $artist->id) }}" method="POST"
-                                    class="col-span-2">
-                                    @csrf
-                                    @method('DELETE')
-
-                                    <button type="submit" onclick="return confirm('Delete this artist?')"
-                                        class="w-full px-3 py-2 rounded-xl bg-red-100 text-red-600 text-xs font-medium hover:bg-red-200 transition">
+                                @if ($artistLocked)
+                                    @php
+                                        $artistDeleteBlockMessage = $artist->artist_follows_count > 0
+                                            ? 'This artist cannot be deleted because attendees are following them.'
+                                            : 'This artist cannot be deleted because they are linked to '.$artist->events_count.' event(s). Remove or reassign those events first.';
+                                    @endphp
+                                    <button type="button"
+                                        onclick="alert(@js($artistDeleteBlockMessage))"
+                                        class="col-span-2 w-full px-3 py-2 rounded-xl bg-gray-100 text-gray-400 text-xs font-medium cursor-not-allowed"
+                                        title="{{ $artist->artist_follows_count > 0 ? 'Followed by attendees — cannot delete' : 'Linked to events — cannot delete' }}">
                                         Delete
                                     </button>
-                                </form>
+                                @else
+                                    <form action="{{ route('organizer.artists.destroy', $artist) }}" method="POST"
+                                        class="col-span-2">
+                                        @csrf
+                                        @method('DELETE')
+
+                                        <button type="submit"
+                                            onclick="return confirm('Delete this artist? This cannot be undone.')"
+                                            class="w-full px-3 py-2 rounded-xl bg-red-100 text-red-600 text-xs font-medium hover:bg-red-200 transition">
+                                            Delete
+                                        </button>
+                                    </form>
+                                @endif
 
                             </div>
 

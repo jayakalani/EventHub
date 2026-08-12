@@ -49,6 +49,115 @@
             </div>
             </section>
 
+            {{-- Needs attention --}}
+            @php
+                $attentionItems = $attentionQueue['items'] ?? [];
+                $attentionIssueCount = (int) ($attentionQueue['count'] ?? 0);
+                $attentionRowCount = count($attentionItems);
+            @endphp
+            <section class="glass-panel overflow-hidden !rounded-2xl {{ $attentionIssueCount > 0 ? 'border-amber-200/60' : 'border-emerald-200/50' }}"
+                @if ($attentionRowCount > 3)
+                    x-data="{ expanded: false }"
+                @endif>
+                <div class="flex flex-col gap-3 border-b px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:px-5
+                    {{ $attentionIssueCount > 0
+                        ? 'border-amber-100/70 bg-gradient-to-r from-amber-50/80 via-orange-50/40 to-rose-50/30'
+                        : 'border-emerald-100/70 bg-gradient-to-r from-emerald-50/70 via-cyan-50/40 to-white/40' }}">
+                    <div class="flex min-w-0 items-start gap-3">
+                        <span class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl shadow-sm ring-1
+                            {{ $attentionIssueCount > 0
+                                ? 'bg-amber-100 text-amber-700 ring-amber-200/70'
+                                : 'bg-emerald-100 text-emerald-700 ring-emerald-200/70' }}">
+                            <i class="bi {{ $attentionIssueCount > 0 ? 'bi-lightning-charge-fill' : 'bi-check2-circle' }}"></i>
+                        </span>
+                        <div class="min-w-0">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <h2 class="text-base font-bold text-slate-900">Needs attention</h2>
+                                @if ($attentionIssueCount > 0)
+                                    <span class="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-amber-600 px-2 text-xs font-bold text-white">
+                                        {{ number_format($attentionIssueCount) }}
+                                    </span>
+                                @endif
+                            </div>
+                            <p class="mt-0.5 text-xs text-slate-500 sm:text-sm">
+                                Locked accounts, unverified staff, refunds, complaints, and low inventory
+                            </p>
+                        </div>
+                    </div>
+
+                    @if ($attentionRowCount > 3)
+                        <button type="button"
+                            @click="expanded = !expanded"
+                            class="btn-smooth inline-flex items-center justify-center gap-1.5 self-start rounded-xl border border-white/70 bg-white/60 px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm backdrop-blur-sm hover:bg-white/90 sm:self-auto">
+                            <span x-text="expanded ? 'Show less' : 'Show all'"></span>
+                            <i class="bi" :class="expanded ? 'bi-chevron-up' : 'bi-chevron-down'"></i>
+                        </button>
+                    @endif
+                </div>
+
+                @if ($attentionRowCount === 0)
+                    <div class="px-4 py-4 sm:px-5">
+                        <p class="text-sm font-medium text-emerald-800">All clear — nothing in the ops queue right now.</p>
+                    </div>
+                @else
+                    <div class="divide-y divide-amber-100/60">
+                        @foreach ($attentionItems as $item)
+                            @php
+                                $accent = match ($item['accent'] ?? 'amber') {
+                                    'rose' => [
+                                        'icon' => 'bg-rose-100 text-rose-600 ring-rose-200/80',
+                                        'badge' => 'bg-rose-100 text-rose-700',
+                                        'count' => 'text-rose-700',
+                                        'cta' => 'text-rose-700 hover:text-rose-800',
+                                    ],
+                                    'orange' => [
+                                        'icon' => 'bg-orange-100 text-orange-600 ring-orange-200/80',
+                                        'badge' => 'bg-orange-100 text-orange-700',
+                                        'count' => 'text-orange-700',
+                                        'cta' => 'text-orange-700 hover:text-orange-800',
+                                    ],
+                                    default => [
+                                        'icon' => 'bg-amber-100 text-amber-700 ring-amber-200/80',
+                                        'badge' => 'bg-amber-100 text-amber-800',
+                                        'count' => 'text-amber-700',
+                                        'cta' => 'text-amber-700 hover:text-amber-800',
+                                    ],
+                                };
+                            @endphp
+                            <a href="{{ $item['href'] }}"
+                                @if (! empty($item['section']))
+                                    @click.prevent="setSection(@js($item['section']))"
+                                @endif
+                                class="btn-smooth flex items-start gap-3 px-4 py-3.5 hover:bg-amber-50/40 sm:px-5"
+                                @if ($loop->index >= 3)
+                                    x-show="expanded"
+                                    x-cloak
+                                    x-transition
+                                @endif>
+                                <span class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ring-1 {{ $accent['icon'] }}">
+                                    <i class="bi {{ $item['icon'] }} text-sm"></i>
+                                </span>
+                                <div class="min-w-0 flex-1">
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <span class="inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide {{ $accent['badge'] }}">
+                                            {{ $item['label'] }}
+                                        </span>
+                                        <p class="text-sm font-bold {{ $accent['count'] }}">{{ number_format($item['count']) }}</p>
+                                    </div>
+                                    <p class="mt-0.5 text-xs text-slate-500">{{ $item['message'] }}</p>
+                                    <div class="mt-1.5 flex justify-end">
+                                        <span class="inline-flex items-center gap-1 text-xs font-semibold {{ $accent['cta'] }}">
+                                            {{ $item['cta'] }}
+                                            <i class="bi bi-arrow-right text-[10px]"></i>
+                                        </span>
+                                    </div>
+                                </div>
+                            </a>
+                        @endforeach
+                    </div>
+                @endif
+            </section>
+
             {{-- 3. Performance + mini calendar --}}
             <div class="grid gap-4 lg:grid-cols-5">
                 <section class="glass-card lg:col-span-3 overflow-hidden !p-0">

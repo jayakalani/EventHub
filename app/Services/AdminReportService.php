@@ -23,6 +23,20 @@ use Illuminate\Support\Facades\DB;
 
 class AdminReportService
 {
+    private const LOW_INVENTORY_PERCENT = 15;
+
+    private const LOW_INVENTORY_ABSOLUTE = 10;
+
+    private ?array $userReportsMemo = null;
+
+    private ?array $ticketReportsMemo = null;
+
+    /** @var array<string, array<string, mixed>> */
+    private array $adminReportsMemo = [];
+
+    /** @var array<string, array<string, mixed>> */
+    private array $paymentReportsMemo = [];
+
     /**
      * @return array<string, mixed>
      */
@@ -58,7 +72,7 @@ class AdminReportService
 
         $scopeFilter = $this->resolveScopeFilter($organizerId, $eventId);
         $paymentScopeFilter = $this->resolveScopeFilter($paymentOrganizerId, $paymentEventId);
-        $supportScopeFilter = $this->resolveCroScopeFilter($supportCroId, $supportEventId);
+        $supportScopeFilter = $this->resolveCroScopeFilter($supportCroId, $supportEventId, $organizerId);
         $tickets = $this->getTicketReports();
         $kpis = $this->buildScopedKpis($scopeFilter, [
             'usersTotal' => $users['totalUsers'],
@@ -129,6 +143,7 @@ class AdminReportService
             'organizerPerformance' => $this->getOrganizerPerformance(),
             'platformAnalytics' => $platformAnalytics,
             'support' => $this->getSupportDashboardStats($supportScopeFilter),
+            'attentionQueue' => $this->getAttentionQueue($scopeFilter, $paymentScopeFilter, $supportScopeFilter),
             'miniCalendar' => app(DashboardCalendarWidgetService::class)->forAdmin(),
             'charts' => [
                 'userGrowth' => $users['registrationTrend'],
@@ -412,6 +427,12 @@ class AdminReportService
     public function getAdminReports(?array $scopeFilter = null): array
     {
         $scopeFilter ??= $this->globalScopeFilter();
+        $cacheKey = $this->scopeCacheKey($scopeFilter);
+
+        if (isset($this->adminReportsMemo[$cacheKey])) {
+            return $this->adminReportsMemo[$cacheKey];
+        }
+
         $isScoped = ($scopeFilter['scope'] ?? 'global') !== 'global';
 
         $completedRevenue = (float) $this->scopedPaymentsQuery($scopeFilter)
@@ -434,7 +455,7 @@ class AdminReportService
             ? (int) $this->scopedEventsQuery($scopeFilter)->whereNotNull('category_id')->distinct()->count('category_id')
             : EventCategory::count();
 
-        return [
+        return $this->adminReportsMemo[$cacheKey] = [
             'totalUsers' => User::count(),
             'totalEvents' => $this->scopedEventsQuery($scopeFilter)->count(),
             'totalArtists' => $artistsQuery->count(),
@@ -457,13 +478,17 @@ class AdminReportService
      */
     public function getUserReports(): array
     {
+        if ($this->userReportsMemo !== null) {
+            return $this->userReportsMemo;
+        }
+
         $roleCounts = User::query()
             ->join('user_roles', 'users.role_id', '=', 'user_roles.id')
             ->select('user_roles.name_en as role', DB::raw('COUNT(*) as count'))
             ->groupBy('user_roles.name_en')
             ->pluck('count', 'role');
 
-        return [
+        return $this->userReportsMemo = [
             'totalUsers' => User::count(),
             'activeUsers' => User::where('is_active', true)->count(),
             'inactiveUsers' => User::where('is_active', false)->count(),
@@ -500,6 +525,11 @@ class AdminReportService
     public function getPaymentReports(?array $scopeFilter = null): array
     {
         $scopeFilter ??= $this->globalScopeFilter();
+        $cacheKey = $this->scopeCacheKey($scopeFilter);
+
+        if (isset($this->paymentReportsMemo[$cacheKey])) {
+            return $this->paymentReportsMemo[$cacheKey];
+        }
 
         $completedRevenue = (float) $this->scopedPaymentsQuery($scopeFilter)
             ->where('status', PaymentStatusEnum::Completed)
@@ -517,7 +547,7 @@ class AdminReportService
             })
             ->count();
 
-        return [
+        return $this->paymentReportsMemo[$cacheKey] = [
             'totalRevenue' => $completedRevenue,
             'pendingPayments' => $this->scopedPaymentCountByStatus($scopeFilter, PaymentStatusEnum::Pending),
             'pendingAmount' => $pendingAmount,
@@ -1142,6 +1172,169 @@ class AdminReportService
     }
 
     /**
+     * Compact ops queue for the Performance tab (counts + deep links).
+     *
+     * @param  array{scope: string, selectedOrganizerId: int|null, selectedEventId: int|null}  $scopeFilter
+     * @param  array{scope: string, selectedOrganizerId: int|null, selectedEventId: int|null}  $paymentScopeFilter
+     * @param  array{scope: string, selectedCroId: int|null, selectedOrganizerId: int|null, selectedEventId: int|null}  $supportScopeFilter
+     * @return array{count: int, items: list<array<string, mixed>>}
+     */
+    private function getAttentionQueue(
+        array $scopeFilter,
+        array $paymentScopeFilter,
+        array $supportScopeFilter,
+    ): array {
+        $filterQuery = array_filter([
+            'organizer' => $scopeFilter['selectedOrganizerId'] ?? null,
+            'event' => $scopeFilter['selectedEventId'] ?? null,
+            'cro' => $supportScopeFilter['selectedCroId'] ?? null,
+        ], fn ($value) => filled($value));
+
+        $lockedUsers = User::query()->where('is_locked', true)->count();
+        $unverifiedStaff = User::query()
+            ->whereNull('email_verified_at')
+            ->whereHas('userRole', fn ($query) => $query->whereIn('name_en', UserRole::staffRoleNames()))
+            ->count();
+
+        $pendingRefunds = RefundRequest::query()
+            ->where('status', RefundRequestStatusEnum::Pending)
+            ->when(($paymentScopeFilter['scope'] ?? 'global') !== 'global', function ($query) use ($paymentScopeFilter) {
+                $query->whereHas('ticketBooking.event', function ($eventQuery) use ($paymentScopeFilter) {
+                    $this->applyEventScope($eventQuery, $paymentScopeFilter);
+                });
+            })
+            ->count();
+
+        $openStatuses = [SupportTicketStatusEnum::Open, SupportTicketStatusEnum::InProgress];
+        $complaintQuery = Complaint::query()->whereIn('status', $openStatuses);
+        $croId = $supportScopeFilter['selectedCroId'] ?? null;
+        $supportEventId = $supportScopeFilter['selectedEventId'] ?? null;
+        $supportOrganizerId = $supportScopeFilter['selectedOrganizerId'] ?? null;
+
+        if ($croId) {
+            $complaintQuery->where('assigned_to', $croId);
+        }
+        if ($supportEventId) {
+            $complaintQuery->where('event_id', $supportEventId);
+        } elseif ($supportOrganizerId) {
+            $complaintQuery->whereIn(
+                'event_id',
+                Event::query()->where('created_by', $supportOrganizerId)->select('id')
+            );
+        }
+        $openComplaints = $complaintQuery->count();
+
+        $lowInventoryEvents = $this->scopedEventsQuery($scopeFilter)
+            ->whereIn('status', [Event::STATUS_UPCOMING, Event::STATUS_ONGOING])
+            ->withCount([
+                'ticketBookings as tickets_sold' => fn ($query) => $query->where('status', BookingStatusEnum::Confirmed),
+            ])
+            ->get()
+            ->filter(function (Event $event) {
+                $capacity = (int) $event->total_tickets;
+                $remaining = max(0, $capacity - (int) $event->tickets_sold);
+
+                return $this->isLowInventory($event->status, $capacity, $remaining);
+            })
+            ->count();
+
+        $candidates = [
+            [
+                'key' => 'locked_users',
+                'label' => 'Locked users',
+                'count' => $lockedUsers,
+                'message' => 'Accounts blocked from signing in until unlocked',
+                'icon' => 'bi-lock-fill',
+                'accent' => 'rose',
+                'cta' => 'Review users',
+                'href' => route('admin.users', ['lock_status' => 'locked']),
+                'section' => null,
+            ],
+            [
+                'key' => 'unverified_staff',
+                'label' => 'Unverified staff',
+                'count' => $unverifiedStaff,
+                'message' => 'Admin, organizer, or CRO accounts without a verified email',
+                'icon' => 'bi-envelope-exclamation-fill',
+                'accent' => 'amber',
+                'cta' => 'Review staff',
+                'href' => route('admin.users', [
+                    'email_state' => 'no',
+                    'staff_only' => 1,
+                ]),
+                'section' => null,
+            ],
+            [
+                'key' => 'pending_refunds',
+                'label' => 'Pending refunds',
+                'count' => $pendingRefunds,
+                'message' => 'Refund requests waiting for CRO review',
+                'icon' => 'bi-cash-coin',
+                'accent' => 'orange',
+                'cta' => 'Open payments',
+                'href' => route('dashboard', array_merge($filterQuery, [
+                    'insights' => 1,
+                    'section' => 'payments',
+                ])).'#payments',
+                'section' => 'payments',
+            ],
+            [
+                'key' => 'open_complaints',
+                'label' => 'Open complaints',
+                'count' => $openComplaints,
+                'message' => 'Complaints still open or in progress',
+                'icon' => 'bi-exclamation-triangle-fill',
+                'accent' => 'rose',
+                'cta' => 'Open support',
+                'href' => route('dashboard', $filterQuery).'#support',
+                'section' => 'support',
+            ],
+            [
+                'key' => 'low_inventory',
+                'label' => 'Low-inventory events',
+                'count' => $lowInventoryEvents,
+                'message' => 'Upcoming or live events near sell-out',
+                'icon' => 'bi-ticket-perforated-fill',
+                'accent' => 'amber',
+                'cta' => 'View events',
+                'href' => route('dashboard', array_merge($filterQuery, [
+                    'insights' => 1,
+                    'section' => 'events',
+                ])).'#events',
+                'section' => 'events',
+            ],
+        ];
+
+        $items = array_values(array_filter(
+            $candidates,
+            fn (array $item) => (int) $item['count'] > 0
+        ));
+
+        return [
+            'count' => (int) array_sum(array_column($items, 'count')),
+            'items' => $items,
+        ];
+    }
+
+    private function isLowInventory(string $status, int $capacity, int $remaining): bool
+    {
+        if (! in_array($status, [Event::STATUS_UPCOMING, Event::STATUS_ONGOING], true)) {
+            return false;
+        }
+
+        if ($capacity <= 0 || $remaining <= 0) {
+            return $capacity > 0 && $remaining <= 0;
+        }
+
+        $threshold = max(
+            self::LOW_INVENTORY_ABSOLUTE,
+            (int) ceil($capacity * (self::LOW_INVENTORY_PERCENT / 100))
+        );
+
+        return $remaining <= $threshold;
+    }
+
+    /**
      * @param  array{scope: string, selectedOrganizerId: int|null, selectedEventId: int|null}|null  $scopeFilter
      * @return array{
      *     weekly: list<array{label: string, count: int}>,
@@ -1482,6 +1675,10 @@ class AdminReportService
      */
     private function getTicketReports(): array
     {
+        if ($this->ticketReportsMemo !== null) {
+            return $this->ticketReportsMemo;
+        }
+
         $reservationMinutes = (int) config('cart.reservation_minutes', 30);
 
         $reservedTickets = (int) CartItem::query()
@@ -1494,7 +1691,7 @@ class AdminReportService
             })
             ->sum('quantity');
 
-        return [
+        return $this->ticketReportsMemo = [
             'sold' => ticketBooking::where('status', BookingStatusEnum::Confirmed)->count(),
             'cancelled' => ticketBooking::whereIn('status', [
                 BookingStatusEnum::BookingCancelled,
@@ -1504,6 +1701,26 @@ class AdminReportService
             'reserved' => $reservedTickets,
             'total' => ticketBooking::count(),
         ];
+    }
+
+    /**
+     * @param  array{
+     *     scope?: string,
+     *     selectedOrganizerId?: int|null,
+     *     selectedEventId?: int|null
+     * }|null  $scopeFilter
+     */
+    private function scopeCacheKey(?array $scopeFilter): string
+    {
+        if ($scopeFilter === null) {
+            return 'global';
+        }
+
+        return implode(':', [
+            $scopeFilter['scope'] ?? 'global',
+            (string) ($scopeFilter['selectedOrganizerId'] ?? 0),
+            (string) ($scopeFilter['selectedEventId'] ?? 0),
+        ]);
     }
 
     /**
@@ -1517,7 +1734,7 @@ class AdminReportService
      *     selectedEventName: string|null
      * }
      */
-    private function resolveCroScopeFilter(?int $croId, ?int $eventId): array
+    private function resolveCroScopeFilter(?int $croId, ?int $eventId, ?int $organizerId = null): array
     {
         $croRoleId = UserRole::query()->where('name_en', UserRole::CRO)->value('id');
 
@@ -1537,6 +1754,8 @@ class AdminReportService
 
         $selectedCroId = null;
         $selectedCroName = null;
+        $selectedOrganizerId = null;
+        $selectedOrganizerName = null;
         $events = [];
         $selectedEventId = null;
         $selectedEventName = null;
@@ -1546,43 +1765,87 @@ class AdminReportService
             if ($selectedCro) {
                 $selectedCroId = (int) $selectedCro['id'];
                 $selectedCroName = $selectedCro['name'];
+            }
+        }
 
-                $eventIds = Inquiry::query()
-                    ->where('assigned_to', $selectedCroId)
-                    ->whereNotNull('event_id')
-                    ->distinct()
-                    ->pluck('event_id');
+        if ($organizerId) {
+            $organizer = User::query()
+                ->whereHas('userRole', fn ($q) => $q->where('name_en', UserRole::ORGANIZER))
+                ->find($organizerId);
+            if ($organizer) {
+                $selectedOrganizerId = (int) $organizer->id;
+                $selectedOrganizerName = $organizer->full_name;
+            }
+        }
 
-                $events = Event::query()
-                    ->whereIn('id', $eventIds)
-                    ->orderByDesc('date')
-                    ->orderByDesc('id')
-                    ->get(['id', 'name'])
-                    ->map(fn (Event $event) => [
-                        'id' => $event->id,
-                        'name' => $event->name,
-                    ])
-                    ->values()
-                    ->all();
+        $eventQuery = Event::query()->orderByDesc('date')->orderByDesc('id');
+        if ($selectedOrganizerId) {
+            $eventQuery->where('created_by', $selectedOrganizerId);
+        } elseif ($selectedCroId) {
+            $eventIds = Inquiry::query()
+                ->where('assigned_to', $selectedCroId)
+                ->whereNotNull('event_id')
+                ->distinct()
+                ->pluck('event_id')
+                ->merge(
+                    Complaint::query()
+                        ->where('assigned_to', $selectedCroId)
+                        ->whereNotNull('event_id')
+                        ->distinct()
+                        ->pluck('event_id')
+                )
+                ->unique()
+                ->values();
+            $eventQuery->whereIn('id', $eventIds);
+        }
 
-                if ($eventId) {
-                    $selectedEvent = collect($events)->firstWhere('id', $eventId);
-                    if ($selectedEvent) {
-                        $selectedEventId = (int) $selectedEvent['id'];
-                        $selectedEventName = $selectedEvent['name'];
+        if ($selectedOrganizerId || $selectedCroId) {
+            $events = $eventQuery
+                ->get(['id', 'name'])
+                ->map(fn (Event $event) => [
+                    'id' => $event->id,
+                    'name' => $event->name,
+                ])
+                ->values()
+                ->all();
+        }
+
+        if ($eventId) {
+            $eventLookup = Event::query()->where('id', $eventId);
+            if ($selectedOrganizerId) {
+                $eventLookup->where('created_by', $selectedOrganizerId);
+            }
+            $selectedEvent = $eventLookup->first(['id', 'name', 'created_by']);
+            if ($selectedEvent) {
+                $selectedEventId = (int) $selectedEvent->id;
+                $selectedEventName = $selectedEvent->name;
+                if (! $selectedOrganizerId && $selectedEvent->created_by) {
+                    $owner = User::query()->find($selectedEvent->created_by);
+                    if ($owner) {
+                        $selectedOrganizerId = (int) $owner->id;
+                        $selectedOrganizerName = $owner->full_name;
                     }
                 }
             }
         }
 
+        $scope = 'global';
+        if ($selectedEventId) {
+            $scope = 'event';
+        } elseif ($selectedOrganizerId) {
+            $scope = 'organizer';
+        } elseif ($selectedCroId) {
+            $scope = 'cro';
+        }
+
         return [
-            'scope' => $selectedEventId
-                ? 'event'
-                : ($selectedCroId ? 'cro' : 'global'),
+            'scope' => $scope,
             'cros' => $cros,
             'events' => $events,
             'selectedCroId' => $selectedCroId,
             'selectedCroName' => $selectedCroName,
+            'selectedOrganizerId' => $selectedOrganizerId,
+            'selectedOrganizerName' => $selectedOrganizerName,
             'selectedEventId' => $selectedEventId,
             'selectedEventName' => $selectedEventName,
         ];
@@ -1603,19 +1866,23 @@ class AdminReportService
         $scope = $scopeFilter['scope'] ?? 'global';
         $croId = $scopeFilter['selectedCroId'] ?? null;
         $eventId = $scopeFilter['selectedEventId'] ?? null;
+        $organizerId = $scopeFilter['selectedOrganizerId'] ?? null;
 
         $inquiryQuery = Inquiry::query();
         $complaintQuery = Complaint::query();
 
-        if ($scope !== 'global' && $croId) {
+        if ($croId) {
             $inquiryQuery->where('assigned_to', $croId);
             $complaintQuery->where('assigned_to', $croId);
         }
 
-        if ($scope === 'event' && $eventId) {
+        if ($eventId) {
             $inquiryQuery->where('event_id', $eventId);
-            // Complaints are not event-linked; hide them under event drill-down.
-            $complaintQuery->whereRaw('1 = 0');
+            $complaintQuery->where('event_id', $eventId);
+        } elseif ($organizerId) {
+            $organizerEventIds = Event::query()->where('created_by', $organizerId)->select('id');
+            $inquiryQuery->whereIn('event_id', $organizerEventIds);
+            $complaintQuery->whereIn('event_id', $organizerEventIds);
         }
 
         $totalInquiries = (clone $inquiryQuery)->count();
@@ -1640,13 +1907,25 @@ class AdminReportService
             ->where('role_id', $croRoleId)
             ->when($croId, fn ($query) => $query->where('id', $croId))
             ->get()
-            ->map(function (User $cro) use ($openStatuses, $handledStatuses, $eventId) {
+            ->map(function (User $cro) use ($openStatuses, $handledStatuses, $eventId, $organizerId) {
                 $assignedInquiries = Inquiry::query()
                     ->where('assigned_to', $cro->id)
-                    ->when($eventId, fn ($query) => $query->where('event_id', $eventId));
+                    ->when($eventId, fn ($query) => $query->where('event_id', $eventId))
+                    ->when(! $eventId && $organizerId, function ($query) use ($organizerId) {
+                        $query->whereIn(
+                            'event_id',
+                            Event::query()->where('created_by', $organizerId)->select('id')
+                        );
+                    });
                 $assignedComplaints = Complaint::query()
                     ->where('assigned_to', $cro->id)
-                    ->when($eventId, fn ($query) => $query->whereRaw('1 = 0'));
+                    ->when($eventId, fn ($query) => $query->where('event_id', $eventId))
+                    ->when(! $eventId && $organizerId, function ($query) use ($organizerId) {
+                        $query->whereIn(
+                            'event_id',
+                            Event::query()->where('created_by', $organizerId)->select('id')
+                        );
+                    });
 
                 return [
                     'name' => $cro->full_name,

@@ -5,6 +5,8 @@
             'inactive' => 'Inactive',
         ];
 
+        $filterScope = $hasActiveFilters ? 'Within current filters' : 'All categories';
+
         $kpis = [
             [
                 'label' => 'Matched',
@@ -16,14 +18,14 @@
             [
                 'label' => 'Active',
                 'value' => $stats['active'],
-                'sub' => 'Available for events',
+                'sub' => $filterScope,
                 'icon' => 'bi-check-circle',
                 'accent' => 'emerald',
             ],
             [
                 'label' => 'Inactive',
                 'value' => $stats['inactive'],
-                'sub' => 'Hidden from selection',
+                'sub' => $filterScope,
                 'icon' => 'bi-pause-circle',
                 'accent' => 'rose',
             ],
@@ -87,12 +89,12 @@
                                 <i class="bi bi-plus-lg"></i>
                                 New Category
                             </a>
-                            <a href="{{ route('admin.event-categories.export.csv') }}"
+                            <a href="{{ route('admin.event-categories.export.csv', request()->query()) }}"
                                 class="btn-smooth inline-flex items-center gap-1.5 rounded-lg border border-white/70 bg-white/50 px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm backdrop-blur hover:border-indigo-200 hover:bg-white/80 sm:text-sm">
                                 <i class="bi bi-filetype-csv"></i>
                                 Export CSV
                             </a>
-                            <a href="{{ route('admin.event-categories.export.pdf') }}"
+                            <a href="{{ route('admin.event-categories.export.pdf', request()->query()) }}"
                                 class="btn-smooth inline-flex items-center gap-1.5 rounded-lg border border-white/70 bg-white/50 px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm backdrop-blur hover:border-indigo-200 hover:bg-white/80 sm:text-sm">
                                 <i class="bi bi-file-earmark-pdf"></i>
                                 Export PDF

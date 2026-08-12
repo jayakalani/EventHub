@@ -196,7 +196,15 @@ class BookingController extends Controller
 
     public function undoCheckIn(ticketBooking $ticketBooking): RedirectResponse
     {
-        abort(403, 'Check-in cannot be undone.');
+        $this->authorize('view', $ticketBooking);
+        $this->authorize('undoCheckIn', $ticketBooking);
+
+        $error = $this->clearCheckedIn($ticketBooking);
+        if ($error !== null) {
+            return back()->with('error', $error);
+        }
+
+        return back()->with('success', 'Check-in has been undone.');
     }
 
     public function exportCsv(Request $request): Response
@@ -298,6 +306,45 @@ class BookingController extends Controller
             $locked->forceFill([
                 'checked_in_at' => now(),
                 'checked_in_by' => Auth::id(),
+            ])->save();
+
+            $booking->refresh();
+
+            return null;
+        });
+    }
+
+    /**
+     * Atomically clear a ticket check-in.
+     *
+     * @return string|null Error message when undo did not apply; null on success
+     */
+    private function clearCheckedIn(ticketBooking $booking): ?string
+    {
+        return DB::transaction(function () use ($booking) {
+            $locked = ticketBooking::query()
+                ->lockForUpdate()
+                ->find($booking->id);
+
+            if (! $locked) {
+                return 'Ticket not found.';
+            }
+
+            if (! $locked->isCheckedIn()) {
+                $booking->refresh();
+
+                return 'This ticket is not checked in.';
+            }
+
+            if (! $locked->canUndoCheckIn()) {
+                $booking->refresh();
+
+                return 'Check-in can only be undone while the event is ongoing.';
+            }
+
+            $locked->forceFill([
+                'checked_in_at' => null,
+                'checked_in_by' => null,
             ])->save();
 
             $booking->refresh();

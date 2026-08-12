@@ -11,11 +11,15 @@ class ArtistController extends Controller
 {
     public function create()
     {
+        $this->authorize('create', Artist::class);
+
         return view('organizer.artists.create');
     }
 
     public function store(Request $request)
     {
+        $this->authorize('create', Artist::class);
+
         $validatedData = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:artists'],
@@ -25,10 +29,7 @@ class ArtistController extends Controller
 
         $fileName = null;
         if ($request->hasfile('cover')) {
-            $file = $request->file('cover');
-            $extension = $file->getClientOriginalExtension();
-            $fileName = time().'.'.$extension;
-            $file->move('uploads/covers/artists/', $fileName);
+            $fileName = $this->storeArtistCover($request->file('cover'));
         }
 
         Artist::create([
@@ -36,7 +37,7 @@ class ArtistController extends Controller
             'email' => $validatedData['email'],
             'contact_number' => $validatedData['contact_number'],
             'cover' => $fileName,
-            'created_by' => Auth::user()->id,
+            'created_by' => Auth::id(),
             'is_active' => true,
         ]);
 
@@ -45,34 +46,50 @@ class ArtistController extends Controller
 
     public function index(Request $request)
     {
-        $query = Artist::query();
+        $this->authorize('viewAny', Artist::class);
 
-        if ($request->filled('search')) {
-            $query->where('name', 'like', '%'.$request->search.'%');
+        $filters = $request->validate([
+            'search' => ['nullable', 'string', 'max:255'],
+            'status' => ['nullable', 'string', Rule::in(['active', 'inactive'])],
+            'from_date' => ['nullable', 'date'],
+            'to_date' => ['nullable', 'date', 'after_or_equal:from_date'],
+        ]);
+
+        $query = Artist::query()->createdByOrganizer((int) Auth::id());
+
+        if (! empty($filters['search'])) {
+            $query->where('name', 'like', '%'.$filters['search'].'%');
         }
 
-        if ($request->filled('status')) {
-            $query->where('is_active', $request->status === 'active');
+        if (! empty($filters['status'])) {
+            $query->where('is_active', $filters['status'] === 'active');
         }
 
-        if ($request->filled('from_date')) {
-            $query->whereDate('created_at', '>=', $request->from_date);
+        if (! empty($filters['from_date'])) {
+            $query->whereDate('created_at', '>=', $filters['from_date']);
         }
 
-        if ($request->filled('to_date')) {
-            $query->whereDate('created_at', '<=', $request->to_date);
+        if (! empty($filters['to_date'])) {
+            $query->whereDate('created_at', '<=', $filters['to_date']);
         }
 
-        $artists = $query->latest()->paginate(20)->withQueryString();
+        $artists = $query
+            ->withCount(['events', 'artistFollows'])
+            ->latest()
+            ->paginate(20)
+            ->withQueryString();
 
         return view('organizer.artists.index', compact('artists'));
     }
 
     public function organizerShow(Artist $artist)
     {
+        $this->authorize('view', $artist);
+
         $artist->loadCount(['artistLikes', 'artistFollows']);
 
         $events = $artist->events()
+            ->createdByOrganizer((int) Auth::id())
             ->with('eventCategory')
             ->latest()
             ->get();
@@ -134,25 +151,32 @@ class ArtistController extends Controller
         return view('attendee.artists.show', compact('artist', 'events'));
     }
 
-    public function toggleActive(int $id)
+    public function toggleActive(Artist $artist)
     {
-        $artist = Artist::findOrFail($id);
+        $this->authorize('toggleActive', $artist);
+
+        if ($artist->is_active) {
+            if ($error = $this->removalBlockedMessage($artist, 'deactivated')) {
+                return redirect()->back()->with('error', $error);
+            }
+        }
+
         $artist->is_active = $artist->is_active ? 0 : 1;
         $artist->save();
 
         return redirect()->back()->with('success', 'Artist status updated successfully.');
     }
 
-    public function edit(int $id)
+    public function edit(Artist $artist)
     {
-        $artist = Artist::findOrFail($id);
+        $this->authorize('update', $artist);
 
         return view('organizer.artists.edit', ['artist' => $artist]);
     }
 
-    public function update(int $id, Request $request)
+    public function update(Artist $artist, Request $request)
     {
-        $artist = Artist::findOrFail($id);
+        $this->authorize('update', $artist);
 
         $validatedData = $request->validate([
             'name' => ['required', 'string', 'max:255'],
@@ -162,13 +186,9 @@ class ArtistController extends Controller
         ]);
 
         if ($request->hasfile('cover')) {
-            $file = $request->file('cover');
-            $extension = $file->getClientOriginalExtension();
-            $fileName = time().'.'.$extension;
-            $file->move('uploads/covers/artists/', $fileName);
+            $fileName = $this->storeArtistCover($request->file('cover'));
+            $this->deleteArtistCoverFile($artist->cover);
             $artist->cover = $fileName;
-        } else {
-            $artist->cover = $artist->cover ?? 'images/default-cover.jpg';
         }
 
         $artist->name = $validatedData['name'];
@@ -180,17 +200,26 @@ class ArtistController extends Controller
             ->with('success', 'Artist updated successfully.');
     }
 
-    public function destroy(Request $request, $id)
+    public function destroy(Artist $artist)
     {
-        $artist = Artist::findOrFail($id);
+        $this->authorize('delete', $artist);
+
+        if ($error = $this->removalBlockedMessage($artist, 'deleted')) {
+            return redirect()->back()->with('error', $error);
+        }
+
+        $name = $artist->name;
+        $this->deleteArtistCoverFile($artist->cover);
         $artist->delete();
 
-        return redirect()->route('organizer.artists')->with('success', "Artist {$artist->name} has been deleted.");
+        return redirect()->route('organizer.artists')->with('success', "Artist {$name} has been deleted.");
     }
 
     public function exportCsv(Request $request)
     {
-        $artists = Artist::all();
+        $this->authorize('viewAny', Artist::class);
+
+        $artists = Artist::query()->createdByOrganizer((int) Auth::id())->get();
 
         $csvData = [];
         $csvData[] = ['ID', 'Name', 'Email', 'Contact Number', 'Status', 'Created At'];
@@ -223,10 +252,46 @@ class ArtistController extends Controller
 
     public function exportPdf(Request $request)
     {
-        $artists = Artist::all();
+        $this->authorize('viewAny', Artist::class);
+
+        $artists = Artist::query()->createdByOrganizer((int) Auth::id())->get();
 
         $pdf = \PDF::loadView('organizer.exports.artists_pdf', compact('artists'));
 
         return $pdf->download('artists_'.now()->format('Ymd_His').'.pdf');
+    }
+
+    private function removalBlockedMessage(Artist $artist, string $action): ?string
+    {
+        if ($artist->hasFollowers()) {
+            return "This artist cannot be {$action} because attendees are following them.";
+        }
+
+        if ($artist->hasLinkedEvents()) {
+            return "This artist cannot be {$action} because they are linked to one or more events.";
+        }
+
+        return null;
+    }
+
+    private function storeArtistCover(\Illuminate\Http\UploadedFile $file): string
+    {
+        $fileName = uniqid('artist_', true).'_'.time().'.'.$file->getClientOriginalExtension();
+        $file->move(public_path('uploads/covers/artists'), $fileName);
+
+        return $fileName;
+    }
+
+    private function deleteArtistCoverFile(?string $fileName): void
+    {
+        if (! $fileName || str_contains($fileName, '/') || str_contains($fileName, '\\')) {
+            return;
+        }
+
+        $path = public_path('uploads/covers/artists/'.$fileName);
+
+        if (is_file($path)) {
+            @unlink($path);
+        }
     }
 }

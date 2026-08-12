@@ -57,45 +57,16 @@ class EventCategoryController extends Controller
 
     public function index(Request $request)
     {
-        $query = EventCategory::query()->with('creator');
-
-        // Search
-        if ($request->filled('search')) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%");
-            });
-        }
-
-        // Status filter
-        if ($request->filled('status')) {
-            switch ($request->status) {
-                case 'active':
-                    $query->where('is_active', 1);
-                    break;
-                case 'inactive':
-                    $query->where('is_active', 0);
-                    break;
-            }
-        }
-
-        // Date range filter
-        if ($request->filled('from_date')) {
-            $query->whereDate('created_at', '>=', $request->from_date);
-        }
-
-        if ($request->filled('to_date')) {
-            $query->whereDate('created_at', '<=', $request->to_date);
-        }
-
-        $event_categories = $query->latest()->paginate(10)->appends($request->query());
+        $query = $this->filteredCategoriesQuery($request);
 
         $stats = [
-            'matched' => $event_categories->total(),
-            'active' => EventCategory::where('is_active', true)->count(),
-            'inactive' => EventCategory::where('is_active', false)->count(),
+            'matched' => (clone $query)->count(),
+            'active' => (clone $query)->where('is_active', true)->count(),
+            'inactive' => (clone $query)->where('is_active', false)->count(),
             'total' => EventCategory::count(),
         ];
+
+        $event_categories = $query->latest()->paginate(10)->appends($request->query());
 
         $hasActiveFilters = $request->filled('search')
             || $request->filled('status')
@@ -107,6 +78,42 @@ class EventCategoryController extends Controller
             'stats',
             'hasActiveFilters',
         ));
+    }
+
+    /**
+     * Apply list filters shared by the categories index and exports.
+     */
+    private function filteredCategoriesQuery(Request $request)
+    {
+        $query = EventCategory::query()->with('creator');
+
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%");
+            });
+        }
+
+        if ($request->filled('status')) {
+            switch ($request->status) {
+                case 'active':
+                    $query->where('is_active', 1);
+                    break;
+                case 'inactive':
+                    $query->where('is_active', 0);
+                    break;
+            }
+        }
+
+        if ($request->filled('from_date')) {
+            $query->whereDate('created_at', '>=', $request->from_date);
+        }
+
+        if ($request->filled('to_date')) {
+            $query->whereDate('created_at', '<=', $request->to_date);
+        }
+
+        return $query;
     }
 
     public function viewProfile(int $id)
@@ -185,7 +192,7 @@ class EventCategoryController extends Controller
 
     public function exportCsv(Request $request)
     {
-        $categories = EventCategory::all();
+        $categories = $this->filteredCategoriesQuery($request)->latest()->get();
 
         $csvData = [];
         $csvData[] = ['ID', 'Name', 'Cover', 'Is Active', 'Created At', 'Created By'];
@@ -197,7 +204,9 @@ class EventCategoryController extends Controller
                 $category->cover ?? 'N/A',
                 $category->is_active ? 'Active' : 'Inactive',
                 $category->created_at->format('Y-m-d H:i'),
-                $category->creator->first_name.' '.$category->creator->last_name ?? 'System',
+                $category->creator
+                    ? trim($category->creator->first_name.' '.$category->creator->last_name)
+                    : 'System',
             ];
         }
 
@@ -218,7 +227,7 @@ class EventCategoryController extends Controller
 
     public function exportPdf(Request $request)
     {
-        $categories = EventCategory::all();
+        $categories = $this->filteredCategoriesQuery($request)->latest()->get();
 
         $pdf = \PDF::loadView('admin.exports.event_categories_pdf', compact('categories'));
 

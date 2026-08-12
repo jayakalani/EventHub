@@ -24,7 +24,7 @@ class EventPolicy
 
     public function update(User $user, Event $event): bool
     {
-        return $this->owns($user, $event);
+        return $this->owns($user, $event) && ! $event->isLocked();
     }
 
     public function delete(User $user, Event $event): bool

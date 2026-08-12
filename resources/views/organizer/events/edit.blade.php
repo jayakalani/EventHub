@@ -123,7 +123,7 @@
                                         @foreach ($hosts as $host)
                                             <option value="{{ $host->id }}"
                                                 {{ old('host_id', $event->host_id) == $host->id ? 'selected' : '' }}>
-                                                {{ $host->name }}
+                                                {{ $host->name }}{{ $host->is_active ? '' : ' (Inactive)' }}
                                             </option>
                                         @endforeach
                                     </select>
@@ -163,7 +163,7 @@
                                                     value="{{ $artist->id }}"
                                                     class="artist-checkbox rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                                                     {{ $selectedArtistIds->contains($artist->id) ? 'checked' : '' }}>
-                                                <span class="min-w-0 flex-1 font-medium text-gray-800">{{ $artist->name }}</span>
+                                                <span class="min-w-0 flex-1 font-medium text-gray-800">{{ $artist->name }}{{ $artist->is_active ? '' : ' (Inactive)' }}</span>
                                                 <span class="shrink-0 rounded-lg bg-gray-100 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-gray-500 group-has-[:checked]:bg-indigo-600 group-has-[:checked]:text-white">
                                                     Select
                                                 </span>

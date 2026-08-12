@@ -169,6 +169,26 @@ class ticketBooking extends Model
         return true;
     }
 
+    public function canUndoCheckIn(): bool
+    {
+        $this->loadMissing('event');
+
+        if (! $this->isCheckedIn()) {
+            return false;
+        }
+
+        if (! in_array($this->status, BookingStatusEnum::retainedSaleStatuses(), true)) {
+            return false;
+        }
+
+        if ($this->event?->isCancelled()) {
+            return false;
+        }
+
+        // Undo is only allowed while the event is still ongoing.
+        return (bool) $this->event?->isOngoing();
+    }
+
     public function checkInIneligibilityReason(): ?string
     {
         $this->loadMissing(['event', 'refundRequest']);

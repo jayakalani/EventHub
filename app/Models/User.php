@@ -99,6 +99,35 @@ class User extends Authenticatable implements MustVerifyEmailContract
         ];
     }
 
+    protected static function booted(): void
+    {
+        static::deleting(function (User $user) {
+            // Soft delete only — free unique columns so the same email/NIC can be reused.
+            if ($user->isForceDeleting()) {
+                return;
+            }
+
+            $user->forceFill([
+                'email' => self::releaseUniqueValue($user->id, $user->email, 'email'),
+                'nic' => self::releaseUniqueValue($user->id, $user->nic, 'nic'),
+                'google_id' => null,
+                'email_verified_at' => null,
+                'is_active' => false,
+            ])->saveQuietly();
+        });
+    }
+
+    /**
+     * Prefix a unique value so soft-deleted rows no longer collide with new accounts.
+     */
+    private static function releaseUniqueValue(int $id, ?string $value, string $fallback): string
+    {
+        $prefix = "deleted.{$id}.";
+        $base = $value ?: $fallback;
+
+        return $prefix.substr($base, 0, max(0, 255 - strlen($prefix)));
+    }
+
     public function hasTwoFactorEnabled(): bool
     {
         return ! is_null($this->two_factor_confirmed_at);

@@ -3,6 +3,8 @@
     $cros = $supportReport['cros'] ?? [];
     $selectedCroId = $supportReport['selectedCroId'] ?? null;
     $selectedCroName = $supportReport['selectedCroName'] ?? null;
+    $selectedOrganizerId = $supportReport['selectedOrganizerId'] ?? ($scopeFilter['selectedOrganizerId'] ?? null);
+    $selectedEventId = $supportReport['selectedEventId'] ?? ($scopeFilter['selectedEventId'] ?? null);
     $totalInquiries = $supportReport['totalInquiries'] ?? 0;
     $totalComplaints = $supportReport['totalComplaints'] ?? 0;
     $resolvedCount = $supportReport['resolvedCount'] ?? 0;
@@ -14,9 +16,14 @@
     $recentInquiries = $supportReport['recentInquiries'] ?? collect();
     $recentComplaints = $supportReport['recentComplaints'] ?? collect();
 
-    $scopeCaption = $selectedCroName
-        ? 'Assigned to '.$selectedCroName
-        : 'All customer relations officers';
+    $scopeCaption = $supportReport['scopeCaption']
+        ?? ($selectedCroName ? 'Assigned to '.$selectedCroName : 'All customer relations officers');
+
+    $exportParams = array_filter([
+        'cro' => $selectedCroId,
+        'organizer' => $selectedOrganizerId,
+        'event' => $selectedEventId,
+    ], fn ($value) => filled($value));
 
     $kpis = [
         [
@@ -57,12 +64,12 @@
             <p class="text-sm text-slate-500">{{ $scopeCaption }} · inquiry and complaint workload</p>
         </div>
         <div class="flex flex-wrap items-center gap-2 sm:justify-end">
-            <a href="{{ route('admin.support-reports.export.csv', array_filter(['cro' => $selectedCroId])) }}"
+            <a href="{{ route('admin.support-reports.export.csv', $exportParams) }}"
                 class="btn-smooth inline-flex items-center gap-1.5 rounded-lg border border-white/70 bg-white/50 px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm backdrop-blur hover:border-indigo-200 hover:bg-white/80 sm:text-sm">
                 <i class="bi bi-filetype-csv"></i>
                 Export CSV
             </a>
-            <a href="{{ route('admin.support-reports.export.pdf', array_filter(['cro' => $selectedCroId])) }}"
+            <a href="{{ route('admin.support-reports.export.pdf', $exportParams) }}"
                 class="btn-smooth inline-flex items-center gap-1.5 rounded-lg border border-white/70 bg-white/50 px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm backdrop-blur hover:border-indigo-200 hover:bg-white/80 sm:text-sm">
                 <i class="bi bi-file-earmark-pdf"></i>
                 Export PDF
@@ -73,7 +80,7 @@
     <section class="space-y-3">
         <div>
             <h3 class="text-sm font-semibold text-slate-900">Workload snapshot</h3>
-            <p class="text-xs text-slate-500">Inquiry and complaint volume for the selected CRO filter.</p>
+            <p class="text-xs text-slate-500">Volume for the current CRO, organizer, and event filters.</p>
         </div>
 
         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -149,7 +156,7 @@
                             <x-report-empty-state
                                 class="!min-h-[8rem] border-0 bg-transparent shadow-none"
                                 title="No inquiries found."
-                                hint="Try another CRO or check back later."
+                                hint="Try another CRO, organizer, or event filter."
                             />
                         </div>
                     @endforelse
@@ -178,7 +185,12 @@
                             <div class="flex items-start justify-between gap-3">
                                 <div class="min-w-0">
                                     <p class="truncate font-semibold text-slate-900">{{ $complaint->subject }}</p>
-                                    <p class="mt-0.5 truncate text-sm text-slate-500">{{ $complaint->user->full_name }}</p>
+                                    <p class="mt-0.5 truncate text-sm text-slate-500">
+                                        {{ $complaint->user->full_name }}
+                                        @if ($complaint->event)
+                                            · {{ $complaint->event->name }}
+                                        @endif
+                                    </p>
                                     <p class="mt-1 text-[11px] text-slate-400">{{ $complaint->created_at?->diffForHumans() }}</p>
                                 </div>
                                 @include('partials.support-status-badge', ['status' => $complaint->status])
@@ -189,7 +201,7 @@
                             <x-report-empty-state
                                 class="!min-h-[8rem] border-0 bg-transparent shadow-none"
                                 title="No complaints found."
-                                hint="Try another CRO or check back later."
+                                hint="Try another CRO, organizer, or event filter."
                             />
                         </div>
                     @endforelse

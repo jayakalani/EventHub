@@ -7,10 +7,13 @@
             'attendee' => 'Attendee',
         ];
 
-        $statusLabels = [
+        $accountStatusLabels = [
             'active' => 'Active',
             'inactive' => 'Inactive',
-            'lock' => 'Locked',
+        ];
+
+        $lockStatusLabels = [
+            'locked' => 'Locked',
             'unlocked' => 'Unlocked',
         ];
 
@@ -18,6 +21,8 @@
             'yes' => 'Verified',
             'no' => 'Not verified',
         ];
+
+        $filterScope = $hasActiveFilters ? 'Within current filters' : 'All platform users';
 
         $kpis = [
             [
@@ -30,21 +35,21 @@
             [
                 'label' => 'Active',
                 'value' => $stats['active'],
-                'sub' => 'Accounts currently enabled',
+                'sub' => $filterScope,
                 'icon' => 'bi-person-check',
                 'accent' => 'emerald',
             ],
             [
                 'label' => 'Inactive',
                 'value' => $stats['inactive'],
-                'sub' => 'Disabled or suspended',
+                'sub' => $filterScope,
                 'icon' => 'bi-person-dash',
                 'accent' => 'rose',
             ],
             [
                 'label' => 'Locked',
                 'value' => $stats['locked'],
-                'sub' => 'Temporarily locked out',
+                'sub' => $filterScope,
                 'icon' => 'bi-lock',
                 'accent' => 'amber',
             ],
@@ -53,8 +58,13 @@
         $activeFilterChips = array_filter([
             'search' => request('search') ? 'Search: '.request('search') : null,
             'role' => request('role') ? 'Role: '.($roleLabels[request('role')] ?? request('role')) : null,
-            'status' => request('status') ? 'Status: '.($statusLabels[request('status')] ?? request('status')) : null,
+            'account_status' => request('account_status') ? 'Account: '.($accountStatusLabels[request('account_status')] ?? request('account_status')) : null,
+            'lock_status' => request('lock_status') ? 'Lock: '.($lockStatusLabels[request('lock_status')] ?? request('lock_status')) : null,
+            'status' => (! request('account_status') && ! request('lock_status') && request('status'))
+                ? 'Status: '.request('status')
+                : null,
             'email_state' => request('email_state') ? 'Email: '.($emailLabels[request('email_state')] ?? request('email_state')) : null,
+            'staff_only' => request()->boolean('staff_only') ? 'Staff roles only' : null,
             'from_date' => request('from_date') ? 'From: '.request('from_date') : null,
             'to_date' => request('to_date') ? 'To: '.request('to_date') : null,
         ]);
@@ -103,12 +113,12 @@
                                 <i class="bi bi-person-plus"></i>
                                 New Employee
                             </a>
-                            <a href="{{ route('admin.employees.export.csv') }}"
+                            <a href="{{ route('admin.employees.export.csv', request()->query()) }}"
                                 class="btn-smooth inline-flex items-center gap-1.5 rounded-lg border border-white/70 bg-white/50 px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm backdrop-blur hover:border-indigo-200 hover:bg-white/80 sm:text-sm">
                                 <i class="bi bi-filetype-csv"></i>
                                 Export CSV
                             </a>
-                            <a href="{{ route('admin.employees.export.pdf') }}"
+                            <a href="{{ route('admin.employees.export.pdf', request()->query()) }}"
                                 class="btn-smooth inline-flex items-center gap-1.5 rounded-lg border border-white/70 bg-white/50 px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm backdrop-blur hover:border-indigo-200 hover:bg-white/80 sm:text-sm">
                                 <i class="bi bi-file-earmark-pdf"></i>
                                 Export PDF
@@ -127,7 +137,7 @@
             <section class="space-y-3">
                 <div>
                     <h2 class="text-sm font-semibold text-slate-900">User snapshot</h2>
-                    <p class="text-xs text-slate-500">Account health across the platform.</p>
+                    <p class="text-xs text-slate-500">Account health for the current result set.</p>
                 </div>
 
                 <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -180,6 +190,9 @@
 
                 <form method="GET" action="{{ route('admin.users') }}"
                     class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-12">
+                    @if (request()->boolean('staff_only'))
+                        <input type="hidden" name="staff_only" value="1">
+                    @endif
                     <div class="xl:col-span-3">
                         <label for="users_search" class="mb-1.5 block text-xs font-semibold text-slate-600">Search</label>
                         <div class="relative">
@@ -201,13 +214,24 @@
                         </select>
                     </div>
 
-                    <div class="xl:col-span-2">
-                        <label for="users_status" class="mb-1.5 block text-xs font-semibold text-slate-600">Status</label>
-                        <select id="users_status" name="status"
+                    <div class="xl:col-span-1">
+                        <label for="users_account" class="mb-1.5 block text-xs font-semibold text-slate-600">Account</label>
+                        <select id="users_account" name="account_status"
                             class="w-full rounded-lg border border-white/70 bg-white/60 py-2 pl-3 pr-9 text-sm font-medium text-slate-700 shadow-sm backdrop-blur-md focus:border-indigo-500 focus:ring-indigo-500">
-                            <option value="">All status</option>
-                            @foreach ($statusLabels as $value => $label)
-                                <option value="{{ $value }}" @selected(request('status') === $value)>{{ $label }}</option>
+                            <option value="">All</option>
+                            @foreach ($accountStatusLabels as $value => $label)
+                                <option value="{{ $value }}" @selected(request('account_status') === $value)>{{ $label }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <div class="xl:col-span-1">
+                        <label for="users_lock" class="mb-1.5 block text-xs font-semibold text-slate-600">Lock</label>
+                        <select id="users_lock" name="lock_status"
+                            class="w-full rounded-lg border border-white/70 bg-white/60 py-2 pl-3 pr-9 text-sm font-medium text-slate-700 shadow-sm backdrop-blur-md focus:border-indigo-500 focus:ring-indigo-500">
+                            <option value="">All</option>
+                            @foreach ($lockStatusLabels as $value => $label)
+                                <option value="{{ $value }}" @selected(request('lock_status') === $value)>{{ $label }}</option>
                             @endforeach
                         </select>
                     </div>

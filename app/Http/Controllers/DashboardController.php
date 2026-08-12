@@ -80,13 +80,22 @@ class DashboardController extends Controller
             $filters['cro'],
             $filters['event'],
         );
-        $reports = $this->adminReportService->getAllReports(
+        $supportReport = app(SupportReportController::class)->buildReportData(
+            $filters['cro'],
             $filters['organizer'],
             $filters['event'],
         );
-        $supportReport = app(SupportReportController::class)->buildReportData($filters['cro']);
 
-        return view('admin.dashboard', compact('dashboard', 'reports', 'supportReport'));
+        // Heavy Insights payload is deferred until requested (query or analytics section).
+        $loadInsights = $this->wantsAdminInsights($request);
+        $reports = $loadInsights
+            ? $this->adminReportService->getAllReports(
+                $filters['organizer'],
+                $filters['event'],
+            )
+            : null;
+
+        return view('admin.dashboard', compact('dashboard', 'reports', 'supportReport', 'loadInsights'));
     }
 
     /**
@@ -405,6 +414,8 @@ class DashboardController extends Controller
             'organizer' => ['nullable', 'integer', 'exists:users,id'],
             'event' => ['nullable', 'integer', 'exists:events,id'],
             'cro' => ['nullable', 'integer', 'exists:users,id'],
+            'insights' => ['nullable', 'boolean'],
+            'section' => ['nullable', 'string', 'max:40'],
         ]);
 
         return [
@@ -412,6 +423,26 @@ class DashboardController extends Controller
             'event' => isset($validated['event']) ? (int) $validated['event'] : null,
             'cro' => isset($validated['cro']) ? (int) $validated['cro'] : null,
         ];
+    }
+
+    private function wantsAdminInsights(Request $request): bool
+    {
+        if ($request->boolean('insights')) {
+            return true;
+        }
+
+        $section = (string) $request->input('section', '');
+
+        return in_array($section, [
+            'overview',
+            'activity',
+            'events',
+            'users',
+            'payments',
+            'insights',
+            'reports',
+            'admin',
+        ], true);
     }
 
     /**

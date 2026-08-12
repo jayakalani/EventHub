@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Admin\Concerns\FiltersUsers;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\UserRole;
@@ -13,12 +14,14 @@ use Illuminate\Validation\Rule;
 
 class EmployeeController extends Controller
 {
+    use FiltersUsers;
+
     /**
-     * Users with staff roles (excludes attendees).
+     * Users with staff roles (excludes attendees), honoring list filters when present.
      */
-    private function employeesQuery()
+    private function employeesQuery(Request $request)
     {
-        return User::with('userRole')
+        return $this->filteredUsersQuery($request)
             ->whereHas('userRole', function ($query) {
                 $query->whereIn('name_en', UserRole::staffRoleNames());
             })
@@ -37,8 +40,17 @@ class EmployeeController extends Controller
         $validated = $request->validate([
             'first_name' => 'required|string|max:255',
             'last_name' => 'required|string|max:255',
-            'nic' => 'required|string|max:20|unique:users,nic',
-            'email' => 'required|email|unique:users,email',
+            'nic' => [
+                'required',
+                'string',
+                'max:20',
+                Rule::unique('users', 'nic')->whereNull('deleted_at'),
+            ],
+            'email' => [
+                'required',
+                'email',
+                Rule::unique('users', 'email')->whereNull('deleted_at'),
+            ],
             'contact_number' => 'required|string|max:20',
             'role_id' => [
                 'required',
@@ -70,7 +82,7 @@ class EmployeeController extends Controller
 
     public function exportCsv(Request $request)
     {
-        $employees = $this->employeesQuery()->get();
+        $employees = $this->employeesQuery($request)->get();
 
         $csvData = [];
         $csvData[] = ['ID', 'Name', 'Email', 'Contact Number', 'Role', 'Is Locked', 'Is Active'];
@@ -105,7 +117,7 @@ class EmployeeController extends Controller
 
     public function exportPdf(Request $request)
     {
-        $employees = $this->employeesQuery()->get();
+        $employees = $this->employeesQuery($request)->get();
 
         $pdf = Pdf::loadView('admin.exports.employees_pdf', compact('employees'));
 

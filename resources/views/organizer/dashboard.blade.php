@@ -253,15 +253,10 @@
                                 :params="$filterQuery"
                                 :charts="[]"
                             />
-                            <a href="{{ route('organizer.events.create') }}"
-                                class="btn-smooth inline-flex items-center gap-1.5 rounded-lg bg-indigo-600/95 px-3 py-2 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 hover:shadow-md sm:text-sm">
-                                <i class="bi bi-plus-lg"></i>
-                                New Event
-                            </a>
                             <a href="{{ route('organizer.reports') }}"
                                 class="btn-smooth inline-flex items-center gap-1.5 rounded-lg border border-white/70 bg-white/50 px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm hover:border-indigo-200 hover:bg-white/80 sm:text-sm">
                                 <i class="bi bi-sliders"></i>
-                                Export builder
+                                Reports
                             </a>
                         </div>
                     </div>

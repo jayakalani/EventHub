@@ -43,8 +43,8 @@
                 <tr>
                     <td>{{ $inquiry->id }}</td>
                     <td>{{ $inquiry->subject }}</td>
-                    <td>{{ $inquiry->user->full_name }}</td>
-                    <td>{{ $inquiry->event->name }}</td>
+                    <td>{{ $inquiry->user?->full_name ?? '—' }}</td>
+                    <td>{{ $inquiry->event?->name ?? 'General' }}</td>
                     <td>{{ $inquiry->status->label() }}</td>
                     <td>{{ $inquiry->created_at->format('d M Y') }}</td>
                 </tr>
@@ -56,7 +56,7 @@
     <table class="data">
         <thead>
             <tr>
-                <th>ID</th><th>Subject</th><th>User</th><th>Status</th><th>Submitted</th>
+                <th>ID</th><th>Subject</th><th>User</th><th>Event</th><th>Status</th><th>Submitted</th>
             </tr>
         </thead>
         <tbody>
@@ -64,7 +64,8 @@
                 <tr>
                     <td>{{ $complaint->id }}</td>
                     <td>{{ $complaint->subject }}</td>
-                    <td>{{ $complaint->user->full_name }}</td>
+                    <td>{{ $complaint->user?->full_name ?? '—' }}</td>
+                    <td>{{ $complaint->event?->name ?? 'General' }}</td>
                     <td>{{ $complaint->status->label() }}</td>
                     <td>{{ $complaint->created_at->format('d M Y') }}</td>
                 </tr>

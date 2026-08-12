@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Admin\Concerns\FiltersUsers;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\UserRole;
@@ -11,81 +12,25 @@ use Illuminate\Validation\Rule;
 
 class UserController extends Controller
 {
+    use FiltersUsers;
+
     /**
      * Display a listing of all users.
      */
     public function index(Request $request)
     {
-        $query = User::query()->with('userRole');
+        $query = $this->filteredUsersQuery($request);
 
-        // Search
-        if ($request->filled('search')) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->whereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$search}%"])
-                    ->orWhere('email', 'like', "%{$search}%")
-                    ->orWhere('contact_number', 'like', "%{$search}%");
-            });
-        }
-
-        // Role filter
-        if ($request->filled('role')) {
-            $query->whereHas('userRole', function ($q) use ($request) {
-                $q->where('name_en', $request->role);
-            });
-        }
-
-        // Status filter
-        if ($request->filled('status')) {
-            switch ($request->status) {
-                case 'active':
-                    $query->where('is_active', 1);
-                    break;
-                case 'inactive':
-                    $query->where('is_active', 0);
-                    break;
-                case 'lock':
-                    $query->where('is_locked', 1);
-                    break;
-                case 'unlocked':
-                    $query->where('is_locked', 0);
-                    break;
-            }
-        }
-
-        // Email state filter
-        if ($request->filled('email_state')) {
-            if ($request->email_state === 'yes') {
-                $query->whereNotNull('email_verified_at');
-            } else {
-                $query->whereNull('email_verified_at');
-            }
-        }
-
-        // Date range filter
-        if ($request->filled('from_date')) {
-            $query->whereDate('created_at', '>=', $request->from_date);
-        }
-
-        if ($request->filled('to_date')) {
-            $query->whereDate('created_at', '<=', $request->to_date);
-        }
+        $stats = [
+            'matched' => (clone $query)->count(),
+            'active' => (clone $query)->where('is_active', true)->count(),
+            'inactive' => (clone $query)->where('is_active', false)->count(),
+            'locked' => (clone $query)->where('is_locked', true)->count(),
+        ];
 
         $users = $query->latest()->paginate(10)->appends($request->query());
 
-        $stats = [
-            'matched' => $users->total(),
-            'active' => User::where('is_active', true)->count(),
-            'inactive' => User::where('is_active', false)->count(),
-            'locked' => User::where('is_locked', true)->count(),
-        ];
-
-        $hasActiveFilters = $request->filled('search')
-            || $request->filled('role')
-            || $request->filled('status')
-            || $request->filled('email_state')
-            || $request->filled('from_date')
-            || $request->filled('to_date');
+        $hasActiveFilters = $this->usersHaveActiveFilters($request);
 
         return view('admin.users.index', compact('users', 'stats', 'hasActiveFilters'));
     }
@@ -117,7 +62,12 @@ class UserController extends Controller
         $validated = $request->validate([
             'first_name' => ['required', 'string', 'max:255'],
             'last_name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255', 'unique:users,email,'.$id],
+            'email' => [
+                'required',
+                'email',
+                'max:255',
+                Rule::unique('users', 'email')->ignore($id)->whereNull('deleted_at'),
+            ],
             'contact_number' => ['required', 'string', 'max:20'],
             'role_id' => [
                 'required',
@@ -133,9 +83,62 @@ class UserController extends Controller
             ],
         ]);
 
-        $user->update($validated);
+        $user->fill($validated);
+
+        $emailChanged = $user->isDirty('email');
+
+        if ($emailChanged) {
+            $user->email_verified_at = null;
+        }
+
+        $user->save();
+
+        if ($emailChanged) {
+            $user->sendEmailVerificationNotification();
+
+            return Redirect::route('admin.user.edit', $user->id)->with(
+                'success',
+                "User {$user->first_name} {$user->last_name} has been updated. Email verification was reset and a verification link was sent."
+            );
+        }
 
         return Redirect::route('admin.users')->with('success', "User {$user->first_name} {$user->last_name} has been updated.");
+    }
+
+    /**
+     * Resend the email verification notification.
+     */
+    public function resendVerification(Request $request, $id)
+    {
+        $user = User::findOrFail($id);
+
+        if ($user->hasVerifiedEmail()) {
+            return Redirect::route('admin.user.edit', $user->id)
+                ->with('success', 'This email is already verified.');
+        }
+
+        $user->sendEmailVerificationNotification();
+
+        return Redirect::route('admin.user.edit', $user->id)
+            ->with('success', "Verification email sent to {$user->email}.");
+    }
+
+    /**
+     * Mark the user's email as verified (admin override).
+     */
+    public function markVerified(Request $request, $id)
+    {
+        $user = User::findOrFail($id);
+
+        if ($user->hasVerifiedEmail()) {
+            return Redirect::route('admin.user.edit', $user->id)
+                ->with('success', 'This email is already verified.');
+        }
+
+        $user->markEmailAsVerified();
+
+        return Redirect::route('admin.user.edit', $user->id)
+            ->with('success', "Email for {$user->first_name} {$user->last_name} has been marked as verified.");
     }
 
     /**

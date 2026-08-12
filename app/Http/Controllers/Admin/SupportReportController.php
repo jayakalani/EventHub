@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Enums\SupportTicketStatusEnum;
 use App\Http\Controllers\Controller;
 use App\Models\Complaint;
+use App\Models\Event;
 use App\Models\Inquiry;
 use App\Models\User;
 use App\Models\UserRole;
@@ -35,6 +36,11 @@ class SupportReportController extends Controller
      *     cros: list<array{id: int, name: string}>,
      *     selectedCroId: int|null,
      *     selectedCroName: string|null,
+     *     selectedOrganizerId: int|null,
+     *     selectedOrganizerName: string|null,
+     *     selectedEventId: int|null,
+     *     selectedEventName: string|null,
+     *     scopeCaption: string,
      *     totalInquiries: int,
      *     totalComplaints: int,
      *     resolvedCount: int,
@@ -47,12 +53,19 @@ class SupportReportController extends Controller
      *     recentComplaints: Collection
      * }
      */
-    public function buildReportData(?int $selectedCroId = null): array
-    {
+    public function buildReportData(
+        ?int $selectedCroId = null,
+        ?int $selectedOrganizerId = null,
+        ?int $selectedEventId = null,
+    ): array {
         [$cros, $resolvedCroId, $selectedCroName] = $this->resolveCroFilter($selectedCroId);
+        [$resolvedOrganizerId, $selectedOrganizerName, $resolvedEventId, $selectedEventName] = $this->resolveEventScope(
+            $selectedOrganizerId,
+            $selectedEventId,
+        );
 
-        $inquiryQuery = $this->scopedInquiryQuery($resolvedCroId);
-        $complaintQuery = $this->scopedComplaintQuery($resolvedCroId);
+        $inquiryQuery = $this->scopedInquiryQuery($resolvedCroId, $resolvedOrganizerId, $resolvedEventId);
+        $complaintQuery = $this->scopedComplaintQuery($resolvedCroId, $resolvedOrganizerId, $resolvedEventId);
 
         $totalInquiries = (clone $inquiryQuery)->count();
         $totalComplaints = (clone $complaintQuery)->count();
@@ -70,12 +83,21 @@ class SupportReportController extends Controller
         $pendingCount = $pendingInquiries + $pendingComplaints;
 
         $recentInquiries = (clone $inquiryQuery)->with(['user', 'event'])->latest()->limit(10)->get();
-        $recentComplaints = (clone $complaintQuery)->with('user')->latest()->limit(10)->get();
+        $recentComplaints = (clone $complaintQuery)->with(['user', 'event'])->latest()->limit(10)->get();
 
         return [
             'cros' => $cros,
             'selectedCroId' => $resolvedCroId,
             'selectedCroName' => $selectedCroName,
+            'selectedOrganizerId' => $resolvedOrganizerId,
+            'selectedOrganizerName' => $selectedOrganizerName,
+            'selectedEventId' => $resolvedEventId,
+            'selectedEventName' => $selectedEventName,
+            'scopeCaption' => $this->buildScopeCaption(
+                $selectedCroName,
+                $selectedOrganizerName,
+                $selectedEventName,
+            ),
             'totalInquiries' => $totalInquiries,
             'totalComplaints' => $totalComplaints,
             'resolvedCount' => $resolvedCount,
@@ -91,12 +113,19 @@ class SupportReportController extends Controller
 
     public function exportCsv(Request $request)
     {
-        [, $selectedCroId] = $this->resolveCroFilter(
-            $request->filled('cro') ? (int) $request->input('cro') : null
-        );
+        $filters = $this->validatedExportFilters($request);
 
-        $inquiries = $this->scopedInquiryQuery($selectedCroId)->with(['user', 'event'])->latest()->get();
-        $complaints = $this->scopedComplaintQuery($selectedCroId)->with('user')->latest()->get();
+        $inquiries = $this->scopedInquiryQuery(
+            $filters['cro'],
+            $filters['organizer'],
+            $filters['event'],
+        )->with(['user', 'event'])->latest()->get();
+
+        $complaints = $this->scopedComplaintQuery(
+            $filters['cro'],
+            $filters['organizer'],
+            $filters['event'],
+        )->with(['user', 'event'])->latest()->get();
 
         $filename = 'support-report-'.now()->format('Y-m-d-H-i-s').'.csv';
 
@@ -115,8 +144,8 @@ class SupportReportController extends Controller
                     'Inquiry',
                     $inquiry->id,
                     $inquiry->subject,
-                    $inquiry->user->full_name,
-                    $inquiry->event->name,
+                    $inquiry->user?->full_name ?? '—',
+                    $inquiry->event?->name ?? 'General',
                     $inquiry->status->label(),
                     $inquiry->created_at,
                 ]);
@@ -127,8 +156,8 @@ class SupportReportController extends Controller
                     'Complaint',
                     $complaint->id,
                     $complaint->subject,
-                    $complaint->user->full_name,
-                    'General',
+                    $complaint->user?->full_name ?? '—',
+                    $complaint->event?->name ?? 'General',
                     $complaint->status->label(),
                     $complaint->created_at,
                 ]);
@@ -142,12 +171,18 @@ class SupportReportController extends Controller
 
     public function exportPdf(Request $request)
     {
-        [, $selectedCroId] = $this->resolveCroFilter(
-            $request->filled('cro') ? (int) $request->input('cro') : null
-        );
+        $filters = $this->validatedExportFilters($request);
 
-        $inquiryQuery = $this->scopedInquiryQuery($selectedCroId);
-        $complaintQuery = $this->scopedComplaintQuery($selectedCroId);
+        $inquiryQuery = $this->scopedInquiryQuery(
+            $filters['cro'],
+            $filters['organizer'],
+            $filters['event'],
+        );
+        $complaintQuery = $this->scopedComplaintQuery(
+            $filters['cro'],
+            $filters['organizer'],
+            $filters['event'],
+        );
 
         $totalInquiries = (clone $inquiryQuery)->count();
         $totalComplaints = (clone $complaintQuery)->count();
@@ -157,7 +192,7 @@ class SupportReportController extends Controller
             + (clone $complaintQuery)->whereIn('status', [SupportTicketStatusEnum::Open, SupportTicketStatusEnum::InProgress])->count();
 
         $inquiries = (clone $inquiryQuery)->with(['user', 'event'])->latest()->get();
-        $complaints = (clone $complaintQuery)->with('user')->latest()->get();
+        $complaints = (clone $complaintQuery)->with(['user', 'event'])->latest()->get();
 
         $pdf = Pdf::loadView('admin.exports.support-report-pdf', compact(
             'totalInquiries',
@@ -169,6 +204,26 @@ class SupportReportController extends Controller
         ))->setPaper('a4', 'landscape');
 
         return $pdf->download('support-report.pdf');
+    }
+
+    /**
+     * @return array{cro: int|null, organizer: int|null, event: int|null}
+     */
+    private function validatedExportFilters(Request $request): array
+    {
+        [, $croId] = $this->resolveCroFilter(
+            $request->filled('cro') ? (int) $request->input('cro') : null
+        );
+        [$organizerId, , $eventId] = $this->resolveEventScope(
+            $request->filled('organizer') ? (int) $request->input('organizer') : null,
+            $request->filled('event') ? (int) $request->input('event') : null,
+        );
+
+        return [
+            'cro' => $croId,
+            'organizer' => $organizerId,
+            'event' => $eventId,
+        ];
     }
 
     /**
@@ -206,23 +261,99 @@ class SupportReportController extends Controller
         return [$cros, $selectedCroId, $selectedCroName];
     }
 
-    private function scopedInquiryQuery(?int $croId): Builder
+    /**
+     * @return array{0: int|null, 1: string|null, 2: int|null, 3: string|null}
+     */
+    private function resolveEventScope(?int $organizerId, ?int $eventId): array
     {
-        $query = Inquiry::query();
+        $resolvedOrganizerId = null;
+        $selectedOrganizerName = null;
+        $resolvedEventId = null;
+        $selectedEventName = null;
 
+        if ($organizerId) {
+            $organizer = User::query()
+                ->whereHas('userRole', fn ($q) => $q->where('name_en', UserRole::ORGANIZER))
+                ->find($organizerId);
+
+            if ($organizer) {
+                $resolvedOrganizerId = (int) $organizer->id;
+                $selectedOrganizerName = $organizer->full_name;
+            }
+        }
+
+        if ($eventId) {
+            $eventQuery = Event::query()->where('id', $eventId);
+            if ($resolvedOrganizerId) {
+                $eventQuery->where('created_by', $resolvedOrganizerId);
+            }
+            $event = $eventQuery->first(['id', 'name', 'created_by']);
+
+            if ($event) {
+                $resolvedEventId = (int) $event->id;
+                $selectedEventName = $event->name;
+
+                if (! $resolvedOrganizerId && $event->created_by) {
+                    $owner = User::query()->find($event->created_by);
+                    if ($owner) {
+                        $resolvedOrganizerId = (int) $owner->id;
+                        $selectedOrganizerName = $owner->full_name;
+                    }
+                }
+            }
+        }
+
+        return [$resolvedOrganizerId, $selectedOrganizerName, $resolvedEventId, $selectedEventName];
+    }
+
+    private function buildScopeCaption(
+        ?string $croName,
+        ?string $organizerName,
+        ?string $eventName,
+    ): string {
+        $parts = [];
+
+        if ($croName) {
+            $parts[] = 'Assigned to '.$croName;
+        }
+        if ($eventName) {
+            $parts[] = 'Event: '.$eventName;
+        } elseif ($organizerName) {
+            $parts[] = 'Organizer: '.$organizerName;
+        }
+
+        return $parts !== []
+            ? implode(' · ', $parts)
+            : 'All customer relations officers';
+    }
+
+    private function scopedInquiryQuery(?int $croId, ?int $organizerId = null, ?int $eventId = null): Builder
+    {
+        return $this->applySupportScope(Inquiry::query(), $croId, $organizerId, $eventId);
+    }
+
+    private function scopedComplaintQuery(?int $croId, ?int $organizerId = null, ?int $eventId = null): Builder
+    {
+        return $this->applySupportScope(Complaint::query(), $croId, $organizerId, $eventId);
+    }
+
+    private function applySupportScope(
+        Builder $query,
+        ?int $croId,
+        ?int $organizerId,
+        ?int $eventId,
+    ): Builder {
         if ($croId) {
             $query->where('assigned_to', $croId);
         }
 
-        return $query;
-    }
-
-    private function scopedComplaintQuery(?int $croId): Builder
-    {
-        $query = Complaint::query();
-
-        if ($croId) {
-            $query->where('assigned_to', $croId);
+        if ($eventId) {
+            $query->where('event_id', $eventId);
+        } elseif ($organizerId) {
+            $query->whereIn(
+                'event_id',
+                Event::query()->where('created_by', $organizerId)->select('id')
+            );
         }
 
         return $query;

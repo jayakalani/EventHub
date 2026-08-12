@@ -161,19 +161,7 @@
         @keydown.escape.window="if (open) closeChart()"
         @admin-dashboard-section-changed.window="syncFromDashboard($event.detail.section)">
 
-            {{-- Compact analytics actions --}}
-            <section class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <p class="text-sm text-slate-500">
-                    Charts and trends for the selected tab · {{ $scopeCaption }}
-                </p>
-                <div class="flex flex-wrap items-center gap-2 sm:justify-end">
-                    <a href="{{ route('admin.reports') }}"
-                        class="btn-smooth inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-700 shadow-sm hover:bg-indigo-100 sm:text-sm">
-                        <i class="bi bi-sliders"></i>
-                        Export builder
-                    </a>
-                </div>
-            </section>
+            
             {{-- Overview (no x-cloak so charts can measure on first paint) --}}
             <div x-show="activeTab === 'overview'" class="space-y-5">
                 <div class="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">

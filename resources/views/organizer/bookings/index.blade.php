@@ -252,6 +252,16 @@
                                                         Check In
                                                     </button>
                                                 </form>
+                                            @elseif ($booking->canUndoCheckIn())
+                                                <form action="{{ route('organizer.bookings.undo-check-in', $booking) }}"
+                                                    method="POST">
+                                                    @csrf
+                                                    <button type="submit"
+                                                        onclick="return confirm('Undo check-in for this guest?')"
+                                                        class="rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs font-medium text-amber-800 transition hover:bg-amber-100">
+                                                        Undo
+                                                    </button>
+                                                </form>
                                             @endif
                                         </div>
                                     </td>

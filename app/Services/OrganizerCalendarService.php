@@ -35,7 +35,7 @@ class OrganizerCalendarService
             ->with(['host', 'eventCategory'])
             ->withCount([
                 'ticketBookings as tickets_sold' => fn ($query) => $query
-                    ->where('status', BookingStatusEnum::Confirmed),
+                    ->whereIn('status', BookingStatusEnum::retainedSaleStatuses()),
             ]);
     }
 
@@ -83,7 +83,6 @@ class OrganizerCalendarService
     public function formatForCalendar(int $organizerId): SupportCollection
     {
         return $this->eventsQuery($organizerId)
-            ->whereNotNull('date')
             ->orderBy('date')
             ->orderBy('time')
             ->get()
@@ -97,21 +96,31 @@ class OrganizerCalendarService
     {
         $status = $event->status;
         $color = self::statusColors()[$status] ?? self::statusColors()['upcoming'];
+        $isTba = $event->hasDateYetToBeScheduled() || blank($event->date);
+
+        // TBA events still appear on the grid using created_at as an anchor date.
+        $start = $isTba
+            ? ($event->created_at?->toDateString() ?? now()->toDateString())
+            : $event->startsAt()->toIso8601String();
 
         return [
             'id' => $event->id,
-            'title' => $event->name,
-            'start' => $event->startsAt()->toIso8601String(),
+            'title' => ($isTba ? '[TBA] ' : '').$event->name,
+            'start' => $start,
+            'allDay' => $isTba,
             'url' => route('organizer.events.show', $event),
             'backgroundColor' => $color,
             'borderColor' => $color,
             'extendedProps' => [
                 'status' => $status,
-                'statusLabel' => $event->isPostponed() ? 'POSTPONED' : ucfirst($status),
-                'place' => $event->place,
+                'statusLabel' => $event->isPostponed()
+                    ? 'POSTPONED'
+                    : ($isTba ? 'Schedule TBA' : ucfirst($status)),
+                'place' => $isTba ? null : $event->place,
                 'host' => $event->host?->name,
                 'ticketCount' => (int) ($event->tickets_sold ?? 0),
                 'capacity' => (int) $event->total_tickets,
+                'scheduleTba' => $isTba,
             ],
         ];
     }

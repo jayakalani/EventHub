@@ -55,6 +55,7 @@ class ReportController extends Controller
 
         return view('organizer.reports.builder', [
             'catalog' => $catalog,
+            'groupedCatalog' => $this->registry->groupedCatalogFor($request->user()),
             'defaultReport' => $defaultKey,
             'oldReport' => old('report', $defaultKey),
             'oldFields' => old('fields', []),

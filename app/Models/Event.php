@@ -8,11 +8,12 @@ use App\Traits\Auditable;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Notifications\Notifiable;
 
 class Event extends Model
 {
-    use Auditable, HasFactory, HasTitleCaseAttributes, Notifiable;
+    use Auditable, HasFactory, HasTitleCaseAttributes, Notifiable, SoftDeletes;
 
     /**
      * @var list<string>
@@ -454,6 +455,25 @@ class Event extends Model
 
     public function hasSoldTickets(): bool
     {
+        return $this->ticketBookings()
+            ->whereIn('status', BookingStatusEnum::retainedSaleStatuses())
+            ->exists();
+    }
+
+    /**
+     * Any booking row ever recorded (including cancelled/refunded).
+     * Used to decide soft-delete vs hard-delete.
+     */
+    public function hasBookingHistory(): bool
+    {
+        if (isset($this->ticket_bookings_count)) {
+            return (int) $this->ticket_bookings_count > 0;
+        }
+
+        if ($this->relationLoaded('ticketBookings')) {
+            return $this->ticketBookings->isNotEmpty();
+        }
+
         return $this->ticketBookings()->exists();
     }
 

@@ -49,7 +49,7 @@
                     <td>{{ $category->cover ?? 'N/A' }}</td>
                     <td>{{ $category->is_active ? 'Active' : 'Inactive' }}</td>
                     <td>{{ $category->created_at->format('Y-m-d H:i') }}</td>
-                    <td>{{ $category->creator->first_name }} {{ $category->creator->last_name }}</td>
+                    <td>{{ $category->creator ? trim($category->creator->first_name.' '.$category->creator->last_name) : 'System' }}</td>
                 </tr>
             @endforeach
         </tbody>

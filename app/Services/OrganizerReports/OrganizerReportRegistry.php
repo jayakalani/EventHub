@@ -24,6 +24,55 @@ class OrganizerReportRegistry
     }
 
     /**
+     * Catalog grouped in dashboard tab order for the report builder UI.
+     *
+     * @return list<array{key: string, label: string, icon: string, description: string, reports: list<array<string, mixed>>}>
+     */
+    public function groupedCatalogFor(User $user): array
+    {
+        $catalog = $this->catalogFor($user);
+        $groupsConfig = config('organizer_reports.groups', []);
+        $grouped = [];
+
+        foreach ($groupsConfig as $groupKey => $meta) {
+            $reports = array_values(array_filter(
+                $catalog,
+                fn (array $report) => ($report['group'] ?? '') === $groupKey
+            ));
+
+            if ($reports === []) {
+                continue;
+            }
+
+            $grouped[] = [
+                'key' => $groupKey,
+                'label' => (string) ($meta['label'] ?? ucfirst($groupKey)),
+                'icon' => (string) ($meta['icon'] ?? 'bi-file-earmark-text'),
+                'description' => (string) ($meta['description'] ?? ''),
+                'reports' => $reports,
+            ];
+        }
+
+        $knownGroups = array_keys($groupsConfig);
+        $ungrouped = array_values(array_filter(
+            $catalog,
+            fn (array $report) => ! in_array($report['group'] ?? '', $knownGroups, true)
+        ));
+
+        if ($ungrouped !== []) {
+            $grouped[] = [
+                'key' => 'other',
+                'label' => 'Other',
+                'icon' => 'bi-file-earmark-text',
+                'description' => 'Additional exports',
+                'reports' => $ungrouped,
+            ];
+        }
+
+        return $grouped;
+    }
+
+    /**
      * @return array<string, mixed>|null
      */
     public function definitionFor(User $user, string $key): ?array
@@ -97,6 +146,7 @@ class OrganizerReportRegistry
             'key' => $key,
             'label' => (string) $definition['label'],
             'description' => (string) ($definition['description'] ?? ''),
+            'group' => (string) ($definition['group'] ?? 'other'),
             'formats' => $definition['formats'] ?? ['pdf'],
             'fields' => $fields,
             'filters' => $filters,

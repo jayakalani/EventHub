@@ -87,6 +87,10 @@ class ComplaintsReport implements ReportGenerator
             $query->assignmentFilter($assignment, $croId);
         }
 
+        if (! empty($filters['event_id'])) {
+            $query->where('event_id', (int) $filters['event_id']);
+        }
+
         if (! empty($filters['date_from'])) {
             $query->whereDate('created_at', '>=', $filters['date_from']);
         }

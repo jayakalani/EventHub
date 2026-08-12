@@ -1,8 +1,9 @@
 @php
-    $filters = $filters ?? ['status' => null, 'q' => null, 'from' => null, 'to' => null];
+    $filters = $filters ?? ['status' => null, 'q' => null, 'event' => null, 'from' => null, 'to' => null];
     $filterQuery = array_filter([
         'status' => $filters['status'] ?? null,
         'q' => $filters['q'] ?? null,
+        'event' => $filters['event'] ?? null,
         'from' => $filters['from'] ?? null,
         'to' => $filters['to'] ?? null,
     ], fn ($value) => $value !== null && $value !== '');
@@ -48,11 +49,11 @@
 
             <form method="GET" action="{{ route('cro.complaints.index') }}"
                 class="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-                <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
                     <div class="xl:col-span-2">
                         <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Search</label>
                         <input type="text" name="q" value="{{ $filters['q'] ?? '' }}"
-                            placeholder="Attendee, email, subject…"
+                            placeholder="Attendee, email, subject, event…"
                             class="w-full rounded-xl border-slate-300 text-sm focus:border-indigo-500 focus:ring-indigo-500">
                     </div>
                     <div>
@@ -61,6 +62,15 @@
                             <option value="">All statuses</option>
                             @foreach ($statuses as $s)
                                 <option value="{{ $s->value }}" @selected(($filters['status'] ?? null) === $s->value)>{{ $s->label() }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div>
+                        <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Event</label>
+                        <select name="event" class="w-full rounded-xl border-slate-300 text-sm">
+                            <option value="">All assigned events</option>
+                            @foreach ($events as $event)
+                                <option value="{{ $event->id }}" @selected(($filters['event'] ?? null) === $event->id)>{{ $event->name }}</option>
                             @endforeach
                         </select>
                     </div>

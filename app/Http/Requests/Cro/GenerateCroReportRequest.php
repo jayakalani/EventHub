@@ -31,7 +31,11 @@ class GenerateCroReportRequest extends FormRequest
             'filters.q' => ['nullable', 'string', 'max:255'],
             'filters.status' => ['nullable', 'string', 'max:50'],
             'filters.assignment' => ['nullable', 'string', Rule::in(['all', 'me', 'unassigned'])],
-            'filters.event_id' => ['nullable', 'integer', 'exists:events,id'],
+            'filters.event_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('events', 'id')->where('contact_person', $this->user()?->id),
+            ],
             'filters.period' => ['nullable', 'string', Rule::in(['week', 'month', 'custom'])],
             'filters.date_from' => ['nullable', 'date'],
             'filters.date_to' => ['nullable', 'date', 'after_or_equal:filters.date_from'],

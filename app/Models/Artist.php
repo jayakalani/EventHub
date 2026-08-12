@@ -75,4 +75,29 @@ class Artist extends Model
 
         return $this->artistFollows()->where('user_id', $user->id)->exists();
     }
+
+    public function organizer()
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function scopeCreatedByOrganizer($query, int $organizerId)
+    {
+        return $query->where('created_by', $organizerId);
+    }
+
+    public function isOwnedByOrganizer(?int $organizerId): bool
+    {
+        return $organizerId !== null && (int) $this->created_by === (int) $organizerId;
+    }
+
+    public function hasLinkedEvents(): bool
+    {
+        return $this->events()->exists();
+    }
+
+    public function hasFollowers(): bool
+    {
+        return $this->artistFollows()->exists();
+    }
 }

@@ -8,6 +8,7 @@ use App\Models\ticketCategory;
 use App\Services\AdminNotificationService;
 use App\Services\CartInventoryService;
 use App\Services\EventNotificationService;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -57,16 +58,8 @@ class ticketCategoryController extends Controller
             'booking_end' => ['nullable', 'date', 'after_or_equal:booking_start'],
         ]);
 
-        if (! empty($validatedData['booking_start']) && $validatedData['booking_start'] > $event->date) {
-            return redirect()->back()
-                ->withErrors(['booking_start' => "Booking start date cannot be after the event date ({$event->date})."])
-                ->withInput();
-        }
-
-        if (! empty($validatedData['booking_end']) && $validatedData['booking_end'] > $event->date) {
-            return redirect()->back()
-                ->withErrors(['booking_end' => "Booking end date cannot be after the event date ({$event->date})."])
-                ->withInput();
+        if ($windowErrors = $this->bookingWindowErrors($event, $validatedData)) {
+            return redirect()->back()->withErrors($windowErrors)->withInput();
         }
 
         $currentticketTotal = $event->ticketCategories()->sum('no_of_tickets');
@@ -144,30 +137,28 @@ class ticketCategoryController extends Controller
         $soldCount = $this->committedSoldCount($ticketCategory);
         $heldCount = (int) ($holdSummary['held'] ?? 0);
         $minTickets = max(1, $soldCount + $heldCount);
+        $priceLocked = $soldCount > 0;
 
-        $validatedData = $request->validate([
+        $rules = [
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
             'no_of_tickets' => ['required', 'integer', 'min:'.$minTickets],
-            'ticket_price' => ['required', 'numeric', 'min:0'],
             'ticket_color' => ['required', 'string', 'max:255'],
             'is_active' => ['boolean'],
             'booking_start' => ['nullable', 'date'],
             'booking_end' => ['nullable', 'date', 'after_or_equal:booking_start'],
-        ], [
+        ];
+
+        if (! $priceLocked) {
+            $rules['ticket_price'] = ['required', 'numeric', 'min:0'];
+        }
+
+        $validatedData = $request->validate($rules, [
             'no_of_tickets.min' => $this->minTicketsValidationMessage($minTickets, $soldCount, $heldCount),
         ]);
 
-        if (! empty($validatedData['booking_start']) && $validatedData['booking_start'] > $event->date) {
-            return redirect()->back()
-                ->withErrors(['booking_start' => "Booking start date cannot be after the event date ({$event->date})."])
-                ->withInput();
-        }
-
-        if (! empty($validatedData['booking_end']) && $validatedData['booking_end'] > $event->date) {
-            return redirect()->back()
-                ->withErrors(['booking_end' => "Booking end date cannot be after the event date ({$event->date})."])
-                ->withInput();
+        if ($windowErrors = $this->bookingWindowErrors($event, $validatedData)) {
+            return redirect()->back()->withErrors($windowErrors)->withInput();
         }
 
         $existingTotalWithoutCurrent = $event->ticketCategories()
@@ -188,7 +179,9 @@ class ticketCategoryController extends Controller
         $ticketCategory->name = $validatedData['name'];
         $ticketCategory->description = $validatedData['description'] ?? null;
         $ticketCategory->no_of_tickets = $validatedData['no_of_tickets'];
-        $ticketCategory->ticket_price = $validatedData['ticket_price'];
+        if (! $priceLocked) {
+            $ticketCategory->ticket_price = $validatedData['ticket_price'];
+        }
         $ticketCategory->ticket_color = $validatedData['ticket_color'];
         $ticketCategory->is_active = $validatedData['is_active'] ?? $ticketCategory->is_active;
         $ticketCategory->booking_start = $validatedData['booking_start'] ?? null;
@@ -232,13 +225,27 @@ class ticketCategoryController extends Controller
             abort(404);
         }
 
-        if ($ticketCategory->hasSoldTickets()) {
+        $categoryName = $ticketCategory->name;
+
+        if ($ticketCategory->hasBookingHistory()) {
+            $ticketCategory->delete();
+
+            app(AdminNotificationService::class)->notifyOrganizerCategoryDeleted(
+                $event,
+                $ticketCategory,
+                Auth::user(),
+            );
+
             return redirect()
                 ->route('organizer.events.show', $event->id)
-                ->with('error', 'This ticket category cannot be deleted because tickets have already been sold.');
+                ->with('success', "Ticket category {$categoryName} has been archived. Booking history was preserved.");
         }
 
-        $ticketCategory->delete();
+        $this->cartInventoryService->releaseAndDeleteMany(
+            $ticketCategory->cartItems()->get()
+        );
+
+        $ticketCategory->forceDelete();
 
         app(AdminNotificationService::class)->notifyOrganizerCategoryDeleted(
             $event,
@@ -249,6 +256,37 @@ class ticketCategoryController extends Controller
         return redirect()
             ->route('organizer.events.show', $event->id)
             ->with('success', 'ticket Category deleted successfully.');
+    }
+
+    /**
+     * Compare booking windows to the event date using date-only values.
+     * Skipped when the event schedule is TBA / date is blank.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, string>|null
+     */
+    private function bookingWindowErrors(Event $event, array $data): ?array
+    {
+        if ($event->hasDateYetToBeScheduled() || blank($event->date)) {
+            return null;
+        }
+
+        $eventDate = Carbon::parse($event->date)->toDateString();
+        $errors = [];
+
+        foreach (['booking_start', 'booking_end'] as $field) {
+            if (empty($data[$field])) {
+                continue;
+            }
+
+            $windowDate = Carbon::parse($data[$field])->toDateString();
+
+            if ($windowDate > $eventDate) {
+                $errors[$field] = "Booking window cannot be after the event date ({$eventDate}).";
+            }
+        }
+
+        return $errors === [] ? null : $errors;
     }
 
     /**

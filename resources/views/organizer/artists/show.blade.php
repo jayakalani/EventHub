@@ -149,7 +149,8 @@
                                     {{ $event->status === 'ongoing' ? 'bg-green-100 text-green-700' : '' }}
                                     {{ $event->status === 'completed' ? 'bg-gray-100 text-gray-700' : '' }}
                                     {{ $event->status === 'cancelled' ? 'bg-red-100 text-red-700' : '' }}
-                                    {{ $event->status === 'unpublished' ? 'bg-amber-100 text-amber-700' : '' }}">
+                                    {{ $event->status === 'unpublished' ? 'bg-amber-100 text-amber-700' : '' }}
+                                    {{ $event->status === 'postponed' ? 'bg-orange-100 text-orange-800' : '' }}">
                                     {{ ucfirst($event->status) }}
                                 </span>
 

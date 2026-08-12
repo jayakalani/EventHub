@@ -207,7 +207,7 @@ class EventPostponementService
     }
 
     /**
-     * Confirm place/date/time for an upcoming event that was published without a schedule.
+     * Confirm place/date/time for an upcoming or unpublished event that was saved without a schedule.
      */
     public function confirmUpcomingSchedule(
         Event $event,
@@ -216,8 +216,17 @@ class EventPostponementService
         string $newPlace,
         bool $notify = true,
     ): void {
-        if ($event->status !== Event::STATUS_UPCOMING) {
-            throw new RuntimeException('Only upcoming events can confirm an upcoming schedule.');
+        if (! in_array($event->status, [Event::STATUS_UPCOMING, Event::STATUS_UNPUBLISHED], true)) {
+            throw new RuntimeException('Only upcoming or unpublished events can confirm a TBA schedule.');
+        }
+
+        if (! $event->date_tba) {
+            throw new RuntimeException('This event already has a confirmed schedule.');
+        }
+
+        // Drafts are not visible to attendees — never send schedule announcements.
+        if ($event->status === Event::STATUS_UNPUBLISHED) {
+            $notify = false;
         }
 
         DB::transaction(function () use ($event, $newDate, $newTime, $newPlace, $notify) {
@@ -227,7 +236,6 @@ class EventPostponementService
                 'date' => $newDate,
                 'place' => $newPlace,
                 'date_tba' => false,
-                'status' => Event::STATUS_UPCOMING,
             ];
 
             if (filled($newTime)) {
@@ -280,6 +288,8 @@ class EventPostponementService
 
                     $user->notify(new EventScheduleAnnouncedNotification($event));
                 }
+
+                app(CroNotificationService::class)->notifyEventRescheduled($event);
             });
         });
     }

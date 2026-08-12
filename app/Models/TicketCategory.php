@@ -2,15 +2,17 @@
 
 namespace App\Models;
 
+use App\Enums\BookingStatusEnum;
 use App\Models\Concerns\HasTitleCaseAttributes;
 use App\Traits\Auditable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Notifications\Notifiable;
 
 class ticketCategory extends Model
 {
-    use Auditable, HasFactory, HasTitleCaseAttributes, Notifiable;
+    use Auditable, HasFactory, HasTitleCaseAttributes, Notifiable, SoftDeletes;
 
     /**
      * @var list<string>
@@ -74,6 +76,24 @@ class ticketCategory extends Model
 
     public function hasSoldTickets(): bool
     {
+        return $this->ticketBookings()
+            ->whereIn('status', BookingStatusEnum::retainedSaleStatuses())
+            ->exists();
+    }
+
+    /**
+     * Any booking row ever recorded for this category (including cancelled/refunded).
+     */
+    public function hasBookingHistory(): bool
+    {
+        if (isset($this->ticket_bookings_count)) {
+            return (int) $this->ticket_bookings_count > 0;
+        }
+
+        if ($this->relationLoaded('ticketBookings')) {
+            return $this->ticketBookings->isNotEmpty();
+        }
+
         return $this->ticketBookings()->exists();
     }
 

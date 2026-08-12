@@ -6,6 +6,7 @@ use App\Enums\SupportTicketStatusEnum;
 use App\Http\Controllers\Controller;
 use App\Models\Complaint;
 use App\Models\ComplaintAttachment;
+use App\Models\Event;
 use App\Models\User;
 use App\Models\UserRole;
 use App\Services\ComplaintService;
@@ -32,7 +33,6 @@ class ComplaintController extends Controller
         $croId = (int) Auth::id();
         $filters = $this->validatedFilters($request);
 
-        // Always limited to complainants who booked the CRO's assigned events.
         $baseQuery = Complaint::query()->forCroQueue($croId, 'mine');
 
         $counts = [
@@ -42,11 +42,16 @@ class ComplaintController extends Controller
             'closed' => (clone $baseQuery)->where('status', SupportTicketStatusEnum::Closed)->count(),
         ];
 
-        $complaints = $this->applyFilters(clone $baseQuery, $filters)
+        $complaints = $this->applyFilters(clone $baseQuery, $filters, $croId)
             ->with(['user', 'event', 'attachments', 'assignee'])
             ->oldest('created_at')
             ->paginate(20)
             ->withQueryString();
+
+        $events = Event::query()
+            ->where('contact_person', $croId)
+            ->orderBy('name')
+            ->get(['id', 'name']);
 
         $statuses = SupportTicketStatusEnum::cases();
 
@@ -54,6 +59,7 @@ class ComplaintController extends Controller
             'complaints',
             'counts',
             'filters',
+            'events',
             'statuses',
         ));
     }
@@ -97,11 +103,15 @@ class ComplaintController extends Controller
             'status' => ['required', 'in:open,in_progress,resolved,closed'],
         ]);
 
-        $this->complaintService->updateStatus(
-            $complaint,
-            Auth::user(),
-            SupportTicketStatusEnum::from($validated['status']),
-        );
+        try {
+            $this->complaintService->updateStatus(
+                $complaint,
+                Auth::user(),
+                SupportTicketStatusEnum::from($validated['status']),
+            );
+        } catch (RuntimeException $e) {
+            return back()->withErrors(['status' => $e->getMessage()]);
+        }
 
         return redirect()
             ->route('cro.complaints.show', $complaint)
@@ -126,7 +136,9 @@ class ComplaintController extends Controller
         $this->authorize('update', $complaint);
 
         $validated = $request->validate([
-            'assigned_to' => ['nullable', 'integer', 'exists:users,id'],
+            'assigned_to' => ['nullable', 'integer', $this->activeCroUserIdRule()],
+        ], [
+            'assigned_to.exists' => 'Please select an active CRO user.',
         ]);
 
         $assignee = isset($validated['assigned_to'])
@@ -150,11 +162,15 @@ class ComplaintController extends Controller
             'internal_notes' => ['nullable', 'string', 'max:5000'],
         ]);
 
-        $this->complaintService->updateInternalNotes(
-            $complaint,
-            Auth::user(),
-            $validated['internal_notes'] ?? null,
-        );
+        try {
+            $this->complaintService->updateInternalNotes(
+                $complaint,
+                Auth::user(),
+                $validated['internal_notes'] ?? null,
+            );
+        } catch (RuntimeException $e) {
+            return back()->withErrors(['internal_notes' => $e->getMessage()]);
+        }
 
         return back()->with('success', 'Internal notes saved.');
     }
@@ -172,38 +188,44 @@ class ComplaintController extends Controller
     }
 
     /**
-     * @return array{status: ?string, q: ?string, from: ?string, to: ?string}
+     * @return array{status: ?string, q: ?string, event: ?int, from: ?string, to: ?string}
      */
     private function validatedFilters(Request $request): array
     {
+        $croId = (int) Auth::id();
+
         $validated = $request->validate([
             'status' => ['nullable', 'string', Rule::in(array_column(SupportTicketStatusEnum::cases(), 'value'))],
             'q' => ['nullable', 'string', 'max:120'],
+            'event' => [
+                'nullable',
+                'integer',
+                Rule::exists('events', 'id')->where('contact_person', $croId),
+            ],
             'from' => ['nullable', 'date'],
-            'to' => ['nullable', 'date'],
+            'to' => ['nullable', 'date', 'after_or_equal:from'],
         ]);
-
-        $from = $validated['from'] ?? null;
-        $to = $validated['to'] ?? null;
-        if ($from && $to && $from > $to) {
-            [$from, $to] = [$to, $from];
-        }
 
         return [
             'status' => $validated['status'] ?? null,
             'q' => filled($validated['q'] ?? null) ? trim($validated['q']) : null,
-            'from' => $from,
-            'to' => $to,
+            'event' => isset($validated['event']) ? (int) $validated['event'] : null,
+            'from' => $validated['from'] ?? null,
+            'to' => $validated['to'] ?? null,
         ];
     }
 
     /**
-     * @param  array{status: ?string, q: ?string, from: ?string, to: ?string}  $filters
+     * @param  array{status: ?string, q: ?string, event: ?int, from: ?string, to: ?string}  $filters
      */
-    private function applyFilters(Builder $query, array $filters): Builder
+    private function applyFilters(Builder $query, array $filters, int $croId): Builder
     {
         return $query
             ->when($filters['status'], fn (Builder $q, string $status) => $q->where('status', $status))
+            ->when($filters['event'], function (Builder $q, int $eventId) use ($croId) {
+                $q->where('event_id', $eventId)
+                    ->whereHas('event', fn (Builder $event) => $event->where('contact_person', $croId));
+            })
             ->when($filters['from'], fn (Builder $q, string $from) => $q->whereDate('created_at', '>=', $from))
             ->when($filters['to'], fn (Builder $q, string $to) => $q->whereDate('created_at', '<=', $to))
             ->when($filters['q'], function (Builder $q, string $search) {
@@ -216,6 +238,9 @@ class ComplaintController extends Controller
                                 ->orWhere('last_name', 'like', $like)
                                 ->orWhere('email', 'like', $like)
                                 ->orWhereRaw("CONCAT(first_name, ' ', last_name) like ?", [$like]);
+                        })
+                        ->orWhereHas('event', function (Builder $event) use ($like) {
+                            $event->where('name', 'like', $like);
                         });
                 });
             });
@@ -229,5 +254,15 @@ class ComplaintController extends Controller
             ->orderBy('first_name')
             ->orderBy('last_name')
             ->get(['id', 'first_name', 'last_name']);
+    }
+
+    private function activeCroUserIdRule(): \Illuminate\Validation\Rules\Exists
+    {
+        return Rule::exists('users', 'id')
+            ->where('is_active', true)
+            ->whereIn(
+                'role_id',
+                UserRole::query()->where('name_en', UserRole::CRO)->select('id')
+            );
     }
 }

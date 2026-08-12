@@ -146,6 +146,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::put('/user/{id}', [UserController::class, 'update'])->name('user.update');
         Route::post('/user/{id}/toggle-lock', [UserController::class, 'toggleLock'])->name('user.toggleLock');
         Route::post('/user/{id}/toggle-active', [UserController::class, 'toggleActive'])->name('user.toggleActive');
+        Route::post('/user/{id}/resend-verification', [UserController::class, 'resendVerification'])->name('user.resendVerification');
+        Route::post('/user/{id}/mark-verified', [UserController::class, 'markVerified'])->name('user.markVerified');
         Route::delete('/user/{id}', [UserController::class, 'destroy'])->name('user.destroy');
 
         // Employee Management
@@ -162,7 +164,6 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/event-categories/export/pdf', [EventCategoryController::class, 'exportPdf'])->name('event-categories.export.pdf');
         Route::get('/event/category/{id}/edit', [EventCategoryController::class, 'edit'])->name('event.category.edit');
         Route::put('/event/category/{id}', [EventCategoryController::class, 'update'])->name('event.category.update');
-        Route::post('/event/category/{id}/toggle-lock', [EventCategoryController::class, 'toggleLock'])->name('event.category.toggleLock');
         Route::post('/event/category/{id}/toggle-active', [EventCategoryController::class, 'toggleActive'])->name('event.category.toggleActive');
         Route::delete('/event/category/{id}', [EventCategoryController::class, 'destroy'])->name('event.category.destroy');
 
@@ -244,10 +245,10 @@ Route::prefix('organizer')->name('organizer.')->middleware(['auth', 'verified', 
     Route::get('/hosts/{host}', [HostController::class, 'organizerShow'])->name('hosts.show');
     Route::get('/host/form', [HostController::class, 'create'])->name('host.create');
     Route::post('/host/store', [HostController::class, 'store'])->name('host.store');
-    Route::post('hosts/{id}/toggle-active', [HostController::class, 'toggleActive'])->name('hosts.toggleActive');
-    Route::get('hosts/{id}/edit', [HostController::class, 'edit'])->name('hosts.edit');
-    Route::put('hosts/{id}', [HostController::class, 'update'])->name('hosts.update');
-    Route::delete('hosts/{id}', [HostController::class, 'destroy'])->name('hosts.destroy');
+    Route::post('hosts/{host}/toggle-active', [HostController::class, 'toggleActive'])->name('hosts.toggleActive');
+    Route::get('hosts/{host}/edit', [HostController::class, 'edit'])->name('hosts.edit');
+    Route::put('hosts/{host}', [HostController::class, 'update'])->name('hosts.update');
+    Route::delete('hosts/{host}', [HostController::class, 'destroy'])->name('hosts.destroy');
 
     // Artist routes
     Route::get('/artists', [ArtistController::class, 'index'])->name('artists');
@@ -256,10 +257,10 @@ Route::prefix('organizer')->name('organizer.')->middleware(['auth', 'verified', 
     Route::get('/artists/{artist}', [ArtistController::class, 'organizerShow'])->name('artists.show');
     Route::get('/artist/form', [ArtistController::class, 'create'])->name('artist.create');
     Route::post('/artist/store', [ArtistController::class, 'store'])->name('artist.store');
-    Route::post('artists/{id}/toggle-active', [ArtistController::class, 'toggleActive'])->name('artists.toggleActive');
-    Route::get('artists/{id}/edit', [ArtistController::class, 'edit'])->name('artists.edit');
-    Route::put('artists/{id}', [ArtistController::class, 'update'])->name('artists.update');
-    Route::delete('artists/{id}', [ArtistController::class, 'destroy'])->name('artists.destroy');
+    Route::post('artists/{artist}/toggle-active', [ArtistController::class, 'toggleActive'])->name('artists.toggleActive');
+    Route::get('artists/{artist}/edit', [ArtistController::class, 'edit'])->name('artists.edit');
+    Route::put('artists/{artist}', [ArtistController::class, 'update'])->name('artists.update');
+    Route::delete('artists/{artist}', [ArtistController::class, 'destroy'])->name('artists.destroy');
 
     // Reports & Analytics
     Route::get('/reports', [OrganizerReportController::class, 'index'])->name('reports');

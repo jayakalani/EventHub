@@ -37,4 +37,24 @@ class Host extends Model
     {
         return $this->hasMany(Event::class, 'host_id');
     }
+
+    public function organizer()
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function scopeCreatedByOrganizer($query, int $organizerId)
+    {
+        return $query->where('created_by', $organizerId);
+    }
+
+    public function isOwnedByOrganizer(?int $organizerId): bool
+    {
+        return $organizerId !== null && (int) $this->created_by === (int) $organizerId;
+    }
+
+    public function hasLinkedEvents(): bool
+    {
+        return $this->events()->exists();
+    }
 }

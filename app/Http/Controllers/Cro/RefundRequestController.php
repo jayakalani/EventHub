@@ -132,29 +132,28 @@ class RefundRequestController extends Controller
      */
     private function validatedFilters(Request $request): array
     {
+        $croId = (int) Auth::id();
+
         $validated = $request->validate([
             'status' => ['nullable', 'string', Rule::in([
                 ...array_column(RefundRequestStatusEnum::cases(), 'value'),
                 'processed',
             ])],
-            'event' => ['nullable', 'integer', 'exists:events,id'],
+            'event' => [
+                'nullable',
+                'integer',
+                Rule::exists('events', 'id')->where('contact_person', $croId),
+            ],
             'from' => ['nullable', 'date'],
-            'to' => ['nullable', 'date'],
+            'to' => ['nullable', 'date', 'after_or_equal:from'],
             'q' => ['nullable', 'string', 'max:120'],
         ]);
-
-        $from = $validated['from'] ?? null;
-        $to = $validated['to'] ?? null;
-
-        if ($from && $to && $from > $to) {
-            [$from, $to] = [$to, $from];
-        }
 
         return [
             'status' => $validated['status'] ?? null,
             'event' => isset($validated['event']) ? (int) $validated['event'] : null,
-            'from' => $from,
-            'to' => $to,
+            'from' => $validated['from'] ?? null,
+            'to' => $validated['to'] ?? null,
             'q' => filled($validated['q'] ?? null) ? trim($validated['q']) : null,
         ];
     }

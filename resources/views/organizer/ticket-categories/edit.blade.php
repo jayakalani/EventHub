@@ -139,10 +139,20 @@
                                 <div
                                     class="rounded-2xl border border-gray-100 bg-gray-50/70 p-4 transition focus-within:border-indigo-200 focus-within:bg-white focus-within:shadow-sm">
                                     <x-input-label for="ticket_price" :value="__('ticket Price (LKR)')" />
-                                    <x-text-input id="ticket_price"
-                                        class="mt-2 block w-full rounded-xl border-gray-200 bg-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                        type="number" name="ticket_price" min="0" step="1"
-                                        :value="old('ticket_price', $ticketCategory->ticket_price)" required />
+                                    @if ($soldCount > 0)
+                                        <x-text-input id="ticket_price"
+                                            class="mt-2 block w-full rounded-xl border-gray-200 bg-gray-100 text-gray-600 shadow-sm"
+                                            type="number" min="0" step="1"
+                                            :value="$ticketCategory->ticket_price" disabled />
+                                        <p class="mt-2 text-xs text-amber-700">
+                                            {{ __('Price is locked because tickets have already been sold.') }}
+                                        </p>
+                                    @else
+                                        <x-text-input id="ticket_price"
+                                            class="mt-2 block w-full rounded-xl border-gray-200 bg-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                            type="number" name="ticket_price" min="0" step="1"
+                                            :value="old('ticket_price', $ticketCategory->ticket_price)" required />
+                                    @endif
                                     <x-input-error :messages="$errors->get('ticket_price')" class="mt-2" />
                                 </div>
 

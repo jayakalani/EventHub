@@ -9,6 +9,7 @@ use App\Enums\BookingStatusEnum;
 use App\Models\EventCategory;
 use App\Models\EventView;
 use App\Models\Host;
+use App\Models\ticketCategory;
 use App\Models\User;
 use App\Models\UserRole;
 use App\Services\AdminNotificationService;
@@ -20,7 +21,7 @@ use App\Services\EventPostponementService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use RuntimeException;
 
 class EventController extends Controller
@@ -40,6 +41,109 @@ class EventController extends Controller
     private function organizerEventsQuery()
     {
         return Event::createdByOrganizer(Auth::id());
+    }
+
+    /**
+     * @return list<\Illuminate\Contracts\Validation\ValidationRule|string>
+     */
+    private function contactPersonRules(): array
+    {
+        return [
+            'required',
+            Rule::exists('users', 'id')->where(function ($query) {
+                $query->whereIn(
+                    'role_id',
+                    UserRole::query()->where('name_en', UserRole::CRO)->select('id')
+                );
+            }),
+        ];
+    }
+
+    /**
+     * @return list<\Illuminate\Contracts\Validation\ValidationRule|string>
+     */
+    private function ownedActiveHostRules(int $organizerId, ?int $allowInactiveHostId = null): array
+    {
+        return [
+            'required',
+            Rule::exists('hosts', 'id')->where(function ($query) use ($organizerId, $allowInactiveHostId) {
+                $query->where('created_by', $organizerId)
+                    ->where(function ($scoped) use ($allowInactiveHostId) {
+                        $scoped->where('is_active', true);
+
+                        if ($allowInactiveHostId) {
+                            $scoped->orWhere('id', $allowInactiveHostId);
+                        }
+                    });
+            }),
+        ];
+    }
+
+    /**
+     * @param  iterable<int>|null  $allowInactiveArtistIds
+     * @return list<\Illuminate\Contracts\Validation\ValidationRule|string>
+     */
+    private function ownedActiveArtistRules(int $organizerId, ?iterable $allowInactiveArtistIds = null): array
+    {
+        $allowedIds = collect($allowInactiveArtistIds)->filter()->map(fn ($id) => (int) $id)->unique()->values();
+
+        return [
+            'integer',
+            Rule::exists('artists', 'id')->where(function ($query) use ($organizerId, $allowedIds) {
+                $query->where('created_by', $organizerId)
+                    ->where(function ($scoped) use ($allowedIds) {
+                        $scoped->where('is_active', true);
+
+                        if ($allowedIds->isNotEmpty()) {
+                            $scoped->orWhereIn('id', $allowedIds->all());
+                        }
+                    });
+            }),
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function eventTimeRules(bool $required): array
+    {
+        return [
+            $required ? 'required' : 'nullable',
+            'regex:/^\d{2}:\d{2}(:\d{2})?$/',
+        ];
+    }
+
+    /**
+     * @return array{rules: list<string>, messages: array<string, string>}
+     */
+    private function refundPartialPercentageValidation(): array
+    {
+        return [
+            'rules' => [
+                'required_if:refunds_allowed,1',
+                'nullable',
+                'integer',
+                'min:0',
+                'max:100',
+                'lte:refund_full_percentage',
+            ],
+            'messages' => [
+                'refund_partial_percentage.lte' => 'The partial refund percentage cannot exceed the full refund percentage.',
+            ],
+        ];
+    }
+
+    private function deleteEventCoverFile(?string $fileName): void
+    {
+        if (! $fileName) {
+            return;
+        }
+
+        $path = public_path('uploads/covers/events/'.$fileName);
+
+        if (is_file($path)) {
+            @unlink($path);
+        }
     }
 
     /**
@@ -100,8 +204,17 @@ class EventController extends Controller
     {
         $this->authorize('create', Event::class);
 
-        $hosts = Host::query()->where('is_active', true)->orderBy('name')->get();
-        $artists = Artist::query()->where('is_active', true)->orderBy('name')->get();
+        $organizerId = (int) Auth::id();
+        $hosts = Host::query()
+            ->createdByOrganizer($organizerId)
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get();
+        $artists = Artist::query()
+            ->createdByOrganizer($organizerId)
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get();
         $event_categories = EventCategory::all();
 
         $croUsers = User::whereHas('userRole', function ($q) {
@@ -122,33 +235,38 @@ class EventController extends Controller
         $category = EventCategory::find($request->input('category_id'));
         $allowsArtists = $category?->allowsArtists() ?? false;
 
+        $organizerId = (int) Auth::id();
+        $refundPartial = $this->refundPartialPercentageValidation();
+
         $validatedData = $request->validate([
             'name' => 'required|string|max:255',
-            'host_id' => 'required|exists:hosts,id',
+            'host_id' => $this->ownedActiveHostRules($organizerId),
             'category_id' => 'required|exists:event_categories,id',
             'artist_ids' => [$allowsArtists ? 'nullable' : 'prohibited', 'array'],
-            'artist_ids.*' => 'integer|exists:artists,id',
+            'artist_ids.*' => $this->ownedActiveArtistRules($organizerId),
             'schedule_tba' => 'sometimes|boolean',
             'date' => ($scheduleTba ? 'nullable' : 'required').'|date|after:today',
-            'time' => ($scheduleTba ? 'nullable' : 'required'),
+            'time' => $this->eventTimeRules(! $scheduleTba),
             'place' => ($scheduleTba ? 'nullable' : 'required').'|string|max:255',
             'no_of_tickets' => 'required|integer|min:1',
             'description' => 'required|string',
-            'contact_person' => 'required|exists:users,id',
+            'contact_person' => $this->contactPersonRules(),
             'cover' => 'required|image|mimes:jpg,jpeg,png|max:2048',
             'refunds_allowed' => 'sometimes|boolean',
             'refund_full_days_before_close' => 'required_if:refunds_allowed,1|nullable|integer|min:0|max:365',
             'refund_full_percentage' => 'required_if:refunds_allowed,1|nullable|integer|min:0|max:100',
-            'refund_partial_percentage' => 'required_if:refunds_allowed,1|nullable|integer|min:0|max:100',
+            'refund_partial_percentage' => $refundPartial['rules'],
         ], [
             'date.after' => 'The event date must be a future date. Today and past dates are not allowed.',
+            'time.regex' => 'The event time must be a valid time (HH:MM).',
+            'contact_person.exists' => 'The selected contact person must be a Customer Relations Officer.',
+            ...$refundPartial['messages'],
         ]);
 
         if ($request->hasfile('cover')) {
             $file = $request->file('cover');
-            $extension = $file->getClientOriginalExtension();
-            $fileName = time().'.'.$extension;
-            $file->move('uploads/covers/events/', $fileName);
+            $fileName = uniqid('event_', true).'_'.time().'.'.$file->getClientOriginalExtension();
+            $file->move(public_path('uploads/covers/events'), $fileName);
         }
 
         $refundsAllowed = $request->boolean('refunds_allowed');
@@ -264,6 +382,16 @@ class EventController extends Controller
             ]);
         }
 
+        if (
+            $event->status === Event::STATUS_UNPUBLISHED
+            && $request->status === Event::STATUS_UPCOMING
+            && $event->ticketCategories()->count() < 1
+        ) {
+            return back()->withErrors([
+                'status' => 'Add at least one ticket category before publishing this event.',
+            ]);
+        }
+
         $wasUnpublished = $event->status === Event::STATUS_UNPUBLISHED;
         $newStatus = $request->status;
 
@@ -344,14 +472,18 @@ class EventController extends Controller
                     $request->boolean('notify_attendees', true),
                 );
 
-                return back()->with('success', 'Upcoming event schedule confirmed. Place, date and time are now set.');
+                $message = $event->status === Event::STATUS_UNPUBLISHED
+                    ? 'Draft schedule saved. Publish the event when you are ready for attendees to see it.'
+                    : 'Upcoming event schedule confirmed. Place, date and time are now set.';
+
+                return back()->with('success', $message);
             }
         } catch (RuntimeException $e) {
             return back()->withErrors(['schedule_date' => $e->getMessage()])->withInput();
         }
 
         return back()->withErrors([
-            'schedule_date' => 'Only postponed events or upcoming events without a confirmed schedule can use this action.',
+            'schedule_date' => 'Only postponed events, or upcoming/unpublished events without a confirmed schedule, can use this action.',
         ]);
     }
 
@@ -387,8 +519,31 @@ class EventController extends Controller
     {
         $this->authorize('update', $event);
 
-        $hosts = Host::query()->where('is_active', true)->orderBy('name')->get();
-        $artists = Artist::query()->where('is_active', true)->orderBy('name')->get();
+        $organizerId = (int) Auth::id();
+        $hosts = Host::query()
+            ->createdByOrganizer($organizerId)
+            ->where(function ($query) use ($event) {
+                $query->where('is_active', true);
+
+                if ($event->host_id) {
+                    $query->orWhere('id', $event->host_id);
+                }
+            })
+            ->orderBy('name')
+            ->get();
+
+        $currentArtistIds = $event->artists()->pluck('artists.id');
+        $artists = Artist::query()
+            ->createdByOrganizer($organizerId)
+            ->where(function ($query) use ($currentArtistIds) {
+                $query->where('is_active', true);
+
+                if ($currentArtistIds->isNotEmpty()) {
+                    $query->orWhereIn('id', $currentArtistIds);
+                }
+            })
+            ->orderBy('name')
+            ->get();
         $event_categories = EventCategory::all();
         $croUsers = User::whereHas('userRole', function ($q) {
             $q->where('name_en', UserRole::CRO);
@@ -411,36 +566,61 @@ class EventController extends Controller
         $category = EventCategory::find($request->input('category_id'));
         $allowsArtists = $category?->allowsArtists() ?? false;
 
+        $organizerId = (int) Auth::id();
+        $categoryTicketTotal = (int) $event->ticketCategories()->sum('no_of_tickets');
+        $minEventTickets = max(1, $categoryTicketTotal);
+        $currentArtistIds = $event->artists()->pluck('artists.id');
+        $refundPartial = $this->refundPartialPercentageValidation();
+
+        $dateRules = ($scheduleTba ? 'nullable' : 'required').'|date';
+        if (! $scheduleTba && ! $event->isOngoing() && ! $event->isLocked()) {
+            $dateRules .= $event->isPostponed() ? '|after_or_equal:today' : '|after:today';
+        }
+
         $rules = [
             'name' => 'required|string|max:255',
-            'host_id' => 'required|exists:hosts,id',
+            'host_id' => $this->ownedActiveHostRules($organizerId, $event->host_id ? (int) $event->host_id : null),
             'category_id' => 'required|exists:event_categories,id',
             'artist_ids' => [$allowsArtists ? 'nullable' : 'prohibited', 'array'],
-            'artist_ids.*' => 'integer|exists:artists,id',
+            'artist_ids.*' => $this->ownedActiveArtistRules($organizerId, $currentArtistIds),
             'schedule_tba' => 'sometimes|boolean',
-            'date' => ($scheduleTba ? 'nullable' : 'required').'|date',
-            'time' => ($scheduleTba ? 'nullable' : 'required'),
+            'date' => $dateRules,
+            'time' => $this->eventTimeRules(! $scheduleTba),
             'place' => ($scheduleTba ? 'nullable' : 'required').'|string|max:255',
-            'no_of_tickets' => 'required|integer|min:1',
+            'no_of_tickets' => ['required', 'integer', 'min:'.$minEventTickets],
             'description' => 'required|string',
-            'contact_person' => 'required|exists:users,id',
+            'contact_person' => $this->contactPersonRules(),
             'cover' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
+        ];
+
+        $messages = [
+            'contact_person.exists' => 'The selected contact person must be a Customer Relations Officer.',
+            'time.regex' => 'The event time must be a valid time (HH:MM).',
+            'date.after' => 'The event date must be a future date. Today and past dates are not allowed.',
+            'date.after_or_equal' => 'The event date must be today or a future date.',
+            'no_of_tickets.min' => $categoryTicketTotal > 0
+                ? "Total tickets cannot be less than the sum of ticket categories ({$categoryTicketTotal})."
+                : 'Total tickets must be at least 1.',
         ];
 
         if (! $policyLocked) {
             $rules['refunds_allowed'] = 'sometimes|boolean';
             $rules['refund_full_days_before_close'] = 'required_if:refunds_allowed,1|nullable|integer|min:0|max:365';
             $rules['refund_full_percentage'] = 'required_if:refunds_allowed,1|nullable|integer|min:0|max:100';
-            $rules['refund_partial_percentage'] = 'required_if:refunds_allowed,1|nullable|integer|min:0|max:100';
+            $rules['refund_partial_percentage'] = $refundPartial['rules'];
+            $messages = array_merge($messages, $refundPartial['messages']);
         }
 
-        $validatedData = $request->validate($rules);
+        $validatedData = $request->validate($rules, $messages);
 
         if ($request->hasfile('cover')) {
             $file = $request->file('cover');
-            $extension = $file->getClientOriginalExtension();
-            $fileName = time().'.'.$extension;
-            $file->move('uploads/covers/events/', $fileName);
+            $fileName = uniqid('event_', true).'_'.time().'.'.$file->getClientOriginalExtension();
+            $file->move(public_path('uploads/covers/events'), $fileName);
+
+            if ($event->cover) {
+                $this->deleteEventCoverFile($event->cover);
+            }
         }
 
         $original = $event->only(EventNotificationService::UPDATABLE_FIELDS);
@@ -543,17 +723,30 @@ class EventController extends Controller
     {
         $this->authorize('delete', $event);
 
-        if ($event->hasSoldTickets()) {
-            return back()->with('error', 'This event cannot be deleted because at least one ticket has been sold.');
+        $name = $event->name;
+
+        if ($event->hasBookingHistory()) {
+            $event->ticketCategories()->each(function (ticketCategory $category) {
+                if (! $category->trashed()) {
+                    $category->delete();
+                }
+            });
+
+            $event->delete();
+
+            return redirect()->route('organizer.events.index')->with(
+                'success',
+                "Event {$name} has been archived. Booking history was preserved."
+            );
         }
 
-        if ($event->cover && Storage::disk('public')->exists($event->cover)) {
-            Storage::disk('public')->delete($event->cover);
+        if ($event->cover) {
+            $this->deleteEventCoverFile($event->cover);
         }
 
-        $event->delete();
+        $event->forceDelete();
 
-        return redirect()->route('organizer.events.index')->with('success', "Event {$event->name} has been deleted.");
+        return redirect()->route('organizer.events.index')->with('success', "Event {$name} has been deleted.");
     }
 
     /**
@@ -620,7 +813,7 @@ class EventController extends Controller
             ->withCount([
                 'ticketBookings',
                 'ticketBookings as confirmed_bookings_count' => function ($query) {
-                    $query->where('status', BookingStatusEnum::Confirmed);
+                    $query->whereIn('status', BookingStatusEnum::retainedSaleStatuses());
                 },
             ])
             ->get();
@@ -638,20 +831,22 @@ class EventController extends Controller
         $postEventAnalytics = null;
 
         if ($event->isCompleted()) {
+            $retainedStatuses = BookingStatusEnum::retainedSaleStatuses();
+
             $postEventAnalytics = [
                 'revenue' => (float) $event->ticketBookings()
-                    ->where('status', BookingStatusEnum::Confirmed)
+                    ->whereIn('status', $retainedStatuses)
                     ->sum('ticket_price'),
                 'likes' => $event->likes_count ?? 0,
                 'comments' => $event->comments_count ?? 0,
                 'average_rating' => $event->ratings_avg_score,
                 'ratings_count' => $event->ratings_count ?? 0,
-                'ticket_sales' => $ticketCategories->map(function ($category) {
+                'ticket_sales' => $ticketCategories->map(function ($category) use ($retainedStatuses) {
                     return [
                         'name' => $category->name,
                         'sold' => $category->confirmed_bookings_count,
                         'revenue' => (float) $category->ticketBookings()
-                            ->where('status', BookingStatusEnum::Confirmed)
+                            ->whereIn('status', $retainedStatuses)
                             ->sum('ticket_price'),
                     ];
                 }),

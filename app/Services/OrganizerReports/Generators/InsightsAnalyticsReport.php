@@ -10,6 +10,18 @@ use Symfony\Component\HttpFoundation\Response;
 
 class InsightsAnalyticsReport implements ReportGenerator
 {
+    private const SECTIONS = [
+        'full',
+        'overview',
+        'revenue',
+        'tickets',
+        'events',
+        'attendance',
+        'engagement',
+        'audience',
+        'activity',
+    ];
+
     public function __construct(
         protected OrganizerReportExportBuilder $exportBuilder,
         protected ReportExportService $exportService,
@@ -33,6 +45,11 @@ class InsightsAnalyticsReport implements ReportGenerator
             $to = now()->toDateString();
         }
 
+        $section = (string) ($filters['section'] ?? 'full');
+        if (! in_array($section, self::SECTIONS, true)) {
+            $section = 'full';
+        }
+
         $serviceFilters = [
             'from' => $from,
             'to' => $to,
@@ -40,7 +57,7 @@ class InsightsAnalyticsReport implements ReportGenerator
             'status' => $filters['status'] ?? null,
         ];
 
-        $payload = $this->exportBuilder->build((int) $user->id, 'full', $serviceFilters);
+        $payload = $this->exportBuilder->build((int) $user->id, $section, $serviceFilters);
 
         return $this->exportService->downloadPdf(
             $payload,

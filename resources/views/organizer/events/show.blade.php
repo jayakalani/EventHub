@@ -55,13 +55,15 @@
                     {{ __('Check-in') }}
                 </a>
 
-                <a href="{{ route('organizer.ticket-categories.create', $event->id) }}"
-                    class="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2">
-                    <svg class="mr-1.5 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                    </svg>
-                    {{ __('Add ticket Category') }}
-                </a>
+                @can('update', $event)
+                    <a href="{{ route('organizer.ticket-categories.create', $event->id) }}"
+                        class="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2">
+                        <svg class="mr-1.5 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                        </svg>
+                        {{ __('Add ticket Category') }}
+                    </a>
+                @endcan
 
                 <a href="{{ route('organizer.events.exportPdf', $event->id) }}"
                     class="inline-flex items-center justify-center rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-sm font-semibold text-gray-700 shadow-sm transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-500 focus:ring-offset-2">
@@ -641,14 +643,16 @@
                                     {{ __('Manage ticket categories, pricing, availability, and cart holds.') }}
                                 </p>
                             </div>
-                            <a href="{{ route('organizer.ticket-categories.create', $event->id) }}"
-                                class="inline-flex items-center justify-center rounded-xl bg-indigo-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700">
-                                <svg class="mr-1.5 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M12 4v16m8-8H4" />
-                                </svg>
-                                {{ __('Add Category') }}
-                            </a>
+                            @can('update', $event)
+                                <a href="{{ route('organizer.ticket-categories.create', $event->id) }}"
+                                    class="inline-flex items-center justify-center rounded-xl bg-indigo-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700">
+                                    <svg class="mr-1.5 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M12 4v16m8-8H4" />
+                                    </svg>
+                                    {{ __('Add Category') }}
+                                </a>
+                            @endcan
                         </div>
 
                         <div class="overflow-x-auto">
@@ -775,29 +779,37 @@
                                             </td>
                                             <td class="px-4 py-3">
                                                 <div class="flex items-center justify-end gap-2">
-                                                    <a href="{{ route('organizer.ticket-categories.edit', [$event, $category]) }}"
-                                                        class="inline-flex items-center rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 shadow-sm transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700">
-                                                        {{ __('Edit') }}
-                                                    </a>
-                                                    @if ($category->ticket_bookings_count > 0)
-                                                        <span
-                                                            title="{{ __('Tickets have been sold from this category and it cannot be deleted.') }}"
-                                                            class="inline-flex items-center rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-semibold text-gray-400 cursor-not-allowed">
-                                                            {{ __('Delete') }}
-                                                        </span>
-                                                    @else
-                                                        <form
-                                                            action="{{ route('organizer.ticket-categories.destroy', [$event->id, $category->id]) }}"
-                                                            method="POST"
-                                                            onsubmit="return confirm('{{ __('Are you sure you want to delete this ticket category?') }}')">
-                                                            @csrf
-                                                            @method('DELETE')
-                                                            <button type="submit"
-                                                                class="inline-flex items-center rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-600 shadow-sm transition hover:bg-red-50">
-                                                                {{ __('Delete') }}
-                                                            </button>
-                                                        </form>
-                                                    @endif
+                                                    @can('update', $event)
+                                                        <a href="{{ route('organizer.ticket-categories.edit', [$event, $category]) }}"
+                                                            class="inline-flex items-center rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 shadow-sm transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700">
+                                                            {{ __('Edit') }}
+                                                        </a>
+                                                        @if ($category->hasBookingHistory())
+                                                            <form
+                                                                action="{{ route('organizer.ticket-categories.destroy', [$event->id, $category->id]) }}"
+                                                                method="POST"
+                                                                onsubmit="return confirm('{{ __('Archive this ticket category? Booking history will be preserved.') }}')">
+                                                                @csrf
+                                                                @method('DELETE')
+                                                                <button type="submit"
+                                                                    class="inline-flex items-center rounded-lg border border-amber-200 bg-white px-3 py-1.5 text-xs font-semibold text-amber-700 shadow-sm transition hover:bg-amber-50">
+                                                                    {{ __('Archive') }}
+                                                                </button>
+                                                            </form>
+                                                        @else
+                                                            <form
+                                                                action="{{ route('organizer.ticket-categories.destroy', [$event->id, $category->id]) }}"
+                                                                method="POST"
+                                                                onsubmit="return confirm('{{ __('Are you sure you want to delete this ticket category?') }}')">
+                                                                @csrf
+                                                                @method('DELETE')
+                                                                <button type="submit"
+                                                                    class="inline-flex items-center rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-600 shadow-sm transition hover:bg-red-50">
+                                                                    {{ __('Delete') }}
+                                                                </button>
+                                                            </form>
+                                                        @endif
+                                                    @endcan
                                                 </div>
                                             </td>
                                         </tr>
@@ -819,10 +831,12 @@
                                                 <p class="mt-1 text-sm text-gray-500">
                                                     {{ __('Create your first ticket tier to start selling tickets.') }}
                                                 </p>
-                                                <a href="{{ route('organizer.ticket-categories.create', $event->id) }}"
-                                                    class="mt-4 inline-flex items-center rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700">
-                                                    {{ __('Add First Category') }}
-                                                </a>
+                                                @can('update', $event)
+                                                    <a href="{{ route('organizer.ticket-categories.create', $event->id) }}"
+                                                        class="mt-4 inline-flex items-center rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700">
+                                                        {{ __('Add First Category') }}
+                                                    </a>
+                                                @endcan
                                             </td>
                                         </tr>
                                     @endforelse
@@ -839,14 +853,20 @@
                             {{ __('Quick Actions') }}
                         </h4>
                         <div class="mt-3 space-y-2">
-                            <a href="{{ route('organizer.events.edit', $event->id) }}"
-                                class="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700">
-                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
-                                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L12 15l-4 1 1-4 8.586-8.586z" />
-                                </svg>
-                                {{ __('Edit Event') }}
-                            </a>
+                            @can('update', $event)
+                                <a href="{{ route('organizer.events.edit', $event->id) }}"
+                                    class="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700">
+                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
+                                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L12 15l-4 1 1-4 8.586-8.586z" />
+                                    </svg>
+                                    {{ __('Edit Event') }}
+                                </a>
+                            @else
+                                <p class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-center text-xs text-slate-500">
+                                    {{ __('Completed and cancelled events cannot be edited.') }}
+                                </p>
+                            @endcan
                             <a href="{{ route('organizer.events.exportPdf', $event->id) }}"
                                 class="flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50">
                                 <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -855,31 +875,37 @@
                                 </svg>
                                 {{ __('Download PDF') }}
                             </a>
-                            @if ($event->hasSoldTickets())
-                                <span
-                                    title="{{ __('This event cannot be deleted because at least one ticket has been sold.') }}"
-                                    class="flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm font-semibold text-gray-400">
-                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
-                                            d="M19 7H5m5 4v6m4-6v6m-7-10l1 12a2 2 0 002 2h4a2 2 0 002-2l1-12M10 7V4a1 1 0 011-1h2a1 1 0 011 1v3" />
-                                    </svg>
-                                    {{ __('Delete Event') }}
-                                </span>
-                            @else
-                                <form action="{{ route('organizer.events.destroy', $event->id) }}" method="POST"
-                                    onsubmit="return confirm('{{ __('Delete this event? This action cannot be undone.') }}')">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button type="submit"
-                                        class="flex w-full items-center justify-center gap-2 rounded-xl border border-red-200 bg-white px-4 py-2.5 text-sm font-semibold text-red-600 shadow-sm transition hover:bg-red-50">
-                                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
-                                                d="M19 7H5m5 4v6m4-6v6m-7-10l1 12a2 2 0 002 2h4a2 2 0 002-2l1-12M10 7V4a1 1 0 011-1h2a1 1 0 011 1v3" />
-                                        </svg>
-                                        {{ __('Delete Event') }}
-                                    </button>
-                                </form>
-                            @endif
+                            @can('delete', $event)
+                                @if ($event->hasBookingHistory())
+                                    <form action="{{ route('organizer.events.destroy', $event->id) }}" method="POST"
+                                        onsubmit="return confirm('{{ __('Archive this event? Booking history will be preserved.') }}')">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit"
+                                            class="flex w-full items-center justify-center gap-2 rounded-xl border border-amber-200 bg-white px-4 py-2.5 text-sm font-semibold text-amber-700 shadow-sm transition hover:bg-amber-50">
+                                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
+                                                    d="M19 7H5m5 4v6m4-6v6m-7-10l1 12a2 2 0 002 2h4a2 2 0 002-2l1-12M10 7V4a1 1 0 011-1h2a1 1 0 011 1v3" />
+                                            </svg>
+                                            {{ __('Archive Event') }}
+                                        </button>
+                                    </form>
+                                @else
+                                    <form action="{{ route('organizer.events.destroy', $event->id) }}" method="POST"
+                                        onsubmit="return confirm('{{ __('Delete this event? This action cannot be undone.') }}')">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit"
+                                            class="flex w-full items-center justify-center gap-2 rounded-xl border border-red-200 bg-white px-4 py-2.5 text-sm font-semibold text-red-600 shadow-sm transition hover:bg-red-50">
+                                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
+                                                    d="M19 7H5m5 4v6m4-6v6m-7-10l1 12a2 2 0 002 2h4a2 2 0 002-2l1-12M10 7V4a1 1 0 011-1h2a1 1 0 011 1v3" />
+                                            </svg>
+                                            {{ __('Delete Event') }}
+                                        </button>
+                                    </form>
+                                @endif
+                            @endcan
                         </div>
                     </div>
 

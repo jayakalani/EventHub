@@ -33,6 +33,18 @@ class GenerateOrganizerReportRequest extends FormRequest
             'filters.status' => ['nullable', 'string', 'max:50'],
             'filters.check_in' => ['nullable', 'string', Rule::in(['checked_in', 'not_checked_in'])],
             'filters.score' => ['nullable', 'integer', 'min:1', 'max:5'],
+            'filters.active' => ['nullable', 'string', Rule::in(['0', '1'])],
+            'filters.section' => ['nullable', 'string', Rule::in([
+                'full',
+                'overview',
+                'revenue',
+                'tickets',
+                'events',
+                'attendance',
+                'audience',
+                'engagement',
+                'activity',
+            ])],
             'filters.event_id' => [
                 'nullable',
                 'integer',

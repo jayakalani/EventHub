@@ -102,11 +102,15 @@ class InquiryController extends Controller
             'status' => ['required', 'in:open,in_progress,resolved,closed'],
         ]);
 
-        $this->inquiryService->updateStatus(
-            $inquiry,
-            Auth::user(),
-            SupportTicketStatusEnum::from($validated['status']),
-        );
+        try {
+            $this->inquiryService->updateStatus(
+                $inquiry,
+                Auth::user(),
+                SupportTicketStatusEnum::from($validated['status']),
+            );
+        } catch (RuntimeException $e) {
+            return back()->withErrors(['status' => $e->getMessage()]);
+        }
 
         return redirect()
             ->route('cro.inquiries.show', $inquiry)
@@ -131,7 +135,9 @@ class InquiryController extends Controller
         $this->authorize('update', $inquiry);
 
         $validated = $request->validate([
-            'assigned_to' => ['nullable', 'integer', 'exists:users,id'],
+            'assigned_to' => ['nullable', 'integer', $this->activeCroUserIdRule()],
+        ], [
+            'assigned_to.exists' => 'Please select an active CRO user.',
         ]);
 
         $assignee = isset($validated['assigned_to'])
@@ -155,11 +161,15 @@ class InquiryController extends Controller
             'internal_notes' => ['nullable', 'string', 'max:5000'],
         ]);
 
-        $this->inquiryService->updateInternalNotes(
-            $inquiry,
-            Auth::user(),
-            $validated['internal_notes'] ?? null,
-        );
+        try {
+            $this->inquiryService->updateInternalNotes(
+                $inquiry,
+                Auth::user(),
+                $validated['internal_notes'] ?? null,
+            );
+        } catch (RuntimeException $e) {
+            return back()->withErrors(['internal_notes' => $e->getMessage()]);
+        }
 
         return back()->with('success', 'Internal notes saved.');
     }
@@ -169,26 +179,26 @@ class InquiryController extends Controller
      */
     private function validatedFilters(Request $request): array
     {
+        $croId = (int) Auth::id();
+
         $validated = $request->validate([
             'status' => ['nullable', 'string', Rule::in(array_column(SupportTicketStatusEnum::cases(), 'value'))],
             'q' => ['nullable', 'string', 'max:120'],
-            'event' => ['nullable', 'integer', 'exists:events,id'],
+            'event' => [
+                'nullable',
+                'integer',
+                Rule::exists('events', 'id')->where('contact_person', $croId),
+            ],
             'from' => ['nullable', 'date'],
-            'to' => ['nullable', 'date'],
+            'to' => ['nullable', 'date', 'after_or_equal:from'],
         ]);
-
-        $from = $validated['from'] ?? null;
-        $to = $validated['to'] ?? null;
-        if ($from && $to && $from > $to) {
-            [$from, $to] = [$to, $from];
-        }
 
         return [
             'status' => $validated['status'] ?? null,
             'q' => filled($validated['q'] ?? null) ? trim($validated['q']) : null,
             'event' => isset($validated['event']) ? (int) $validated['event'] : null,
-            'from' => $from,
-            'to' => $to,
+            'from' => $validated['from'] ?? null,
+            'to' => $validated['to'] ?? null,
         ];
     }
 
@@ -232,5 +242,15 @@ class InquiryController extends Controller
             ->orderBy('first_name')
             ->orderBy('last_name')
             ->get(['id', 'first_name', 'last_name']);
+    }
+
+    private function activeCroUserIdRule(): \Illuminate\Validation\Rules\Exists
+    {
+        return Rule::exists('users', 'id')
+            ->where('is_active', true)
+            ->whereIn(
+                'role_id',
+                UserRole::query()->where('name_en', UserRole::CRO)->select('id')
+            );
     }
 }

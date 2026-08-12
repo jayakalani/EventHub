@@ -27,7 +27,7 @@
         <a href="{{ route('cro.reports') }}"
             class="inline-flex items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-3.5 py-2 text-sm font-semibold text-indigo-700 transition hover:bg-indigo-100">
             <i class="bi bi-sliders"></i>
-            Export builder
+            Reports
         </a>
     </div>
 

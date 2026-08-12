@@ -24,12 +24,12 @@ class TicketCategoryPolicy
 
     public function update(User $user, ticketCategory $ticketCategory): bool
     {
-        return $this->owns($user, $ticketCategory);
+        return $this->owns($user, $ticketCategory) && ! $ticketCategory->event?->isLocked();
     }
 
     public function delete(User $user, ticketCategory $ticketCategory): bool
     {
-        return $this->owns($user, $ticketCategory);
+        return $this->owns($user, $ticketCategory) && ! $ticketCategory->event?->isLocked();
     }
 
     private function owns(User $user, ticketCategory $ticketCategory): bool

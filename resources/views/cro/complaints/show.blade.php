@@ -77,36 +77,47 @@
                             </div>
                         @endif
 
-                        <form action="{{ route('cro.complaints.reply', $complaint) }}" method="POST" class="space-y-3">
-                            @csrf
-                            <label class="block text-sm font-semibold text-slate-700">Reply to attendee</label>
-                            @include('partials.cro-reply-templates', [
-                                'templates' => $replyTemplates,
-                                'textareaId' => 'complaint-reply-message',
-                            ])
-                            <textarea id="complaint-reply-message" name="message" rows="4" required minlength="5" maxlength="2000"
-                                placeholder="Type your response..."
-                                class="w-full rounded-xl border-slate-300 text-sm">{{ old('message') }}</textarea>
-                            <button type="submit" class="rounded-2xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700">
-                                Send Reply
-                            </button>
-                        </form>
+                        @php
+                            $canHandle = $complaint->isUnassigned() || $complaint->isAssignedTo(auth()->id());
+                        @endphp
 
-                        <form action="{{ route('cro.complaints.update-status', $complaint) }}" method="POST" class="flex flex-wrap items-end gap-3 border-t border-slate-100 pt-4">
-                            @csrf
-                            @method('PATCH')
-                            <div>
-                                <label class="mb-1 block text-sm font-semibold text-slate-700">Update Status</label>
-                                <select name="status" class="rounded-xl border-slate-300 text-sm">
-                                    @foreach ($statuses as $s)
-                                        <option value="{{ $s->value }}" @selected($complaint->status === $s)>{{ $s->label() }}</option>
-                                    @endforeach
-                                </select>
+                        @if ($canHandle)
+                            <form action="{{ route('cro.complaints.reply', $complaint) }}" method="POST" class="space-y-3">
+                                @csrf
+                                <label class="block text-sm font-semibold text-slate-700">Reply to attendee</label>
+                                @include('partials.cro-reply-templates', [
+                                    'templates' => $replyTemplates,
+                                    'textareaId' => 'complaint-reply-message',
+                                ])
+                                <textarea id="complaint-reply-message" name="message" rows="4" required minlength="5" maxlength="2000"
+                                    placeholder="Type your response..."
+                                    class="w-full rounded-xl border-slate-300 text-sm">{{ old('message') }}</textarea>
+                                <button type="submit" class="rounded-2xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700">
+                                    Send Reply
+                                </button>
+                            </form>
+
+                            <form action="{{ route('cro.complaints.update-status', $complaint) }}" method="POST" class="flex flex-wrap items-end gap-3 border-t border-slate-100 pt-4">
+                                @csrf
+                                @method('PATCH')
+                                <div>
+                                    <label class="mb-1 block text-sm font-semibold text-slate-700">Update Status</label>
+                                    <select name="status" class="rounded-xl border-slate-300 text-sm">
+                                        @foreach ($statuses as $s)
+                                            <option value="{{ $s->value }}" @selected($complaint->status === $s)>{{ $s->label() }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <button type="submit" class="rounded-2xl bg-slate-800 px-5 py-2.5 text-sm font-semibold text-white hover:bg-slate-900">
+                                    Update Status
+                                </button>
+                            </form>
+                        @else
+                            <div class="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                                This complaint is claimed by <span class="font-semibold">{{ $complaint->assignee?->full_name ?? 'another CRO' }}</span>.
+                                Ask them to reassign it before you reply or change status.
                             </div>
-                            <button type="submit" class="rounded-2xl bg-slate-800 px-5 py-2.5 text-sm font-semibold text-white hover:bg-slate-900">
-                                Update Status
-                            </button>
-                        </form>
+                        @endif
                     </div>
                 </div>
 
@@ -120,6 +131,7 @@
                     @include('partials.cro-internal-notes', [
                         'notes' => $complaint->internal_notes,
                         'notesRoute' => route('cro.complaints.notes', $complaint),
+                        'canEdit' => $complaint->isUnassigned() || $complaint->isAssignedTo(auth()->id()),
                     ])
                     @include('partials.cro-case-context', ['caseContext' => $caseContext])
                 </div>

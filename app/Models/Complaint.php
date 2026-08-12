@@ -15,6 +15,7 @@ class Complaint extends Model
 
     protected $fillable = [
         'user_id',
+        'event_id',
         'subject',
         'message',
         'status',
@@ -34,6 +35,11 @@ class Complaint extends Model
         return $this->belongsTo(User::class);
     }
 
+    public function event(): BelongsTo
+    {
+        return $this->belongsTo(Event::class);
+    }
+
     public function assignee(): BelongsTo
     {
         return $this->belongsTo(User::class, 'assigned_to');
@@ -50,7 +56,10 @@ class Complaint extends Model
     }
 
     /**
-     * Scope to complainants who booked events where this CRO is contact_person.
+     * Scope to complaints relevant to this CRO:
+     * - event-scoped: only when they are the event's contact_person
+     * - general (null event_id): visible to all CROs
+     *
      * Pass $scope = 'all' to disable filtering.
      */
     public function scopeForCroQueue(Builder $query, int $croId, string $scope = 'mine'): Builder
@@ -59,9 +68,13 @@ class Complaint extends Model
             return $query;
         }
 
-        return $query->whereIn('user_id', ticketBooking::query()
-            ->whereIn('event_id', Event::query()->where('contact_person', $croId)->select('id'))
-            ->select('user_id'));
+        return $query->where(function (Builder $inner) use ($croId) {
+            $inner->whereNull('event_id')
+                ->orWhereIn(
+                    'event_id',
+                    Event::query()->where('contact_person', $croId)->select('id')
+                );
+        });
     }
 
     public function scopeAssignmentFilter(Builder $query, string $assignment, int $croId): Builder
@@ -84,13 +97,16 @@ class Complaint extends Model
     }
 
     /**
-     * Whether this complaint belongs to an attendee of the CRO's assigned events.
+     * Whether this complaint is in the CRO's actionable queue.
      */
     public function isInCroQueue(int $croId): bool
     {
-        return ticketBooking::query()
-            ->where('user_id', $this->user_id)
-            ->whereHas('event', fn (Builder $event) => $event->where('contact_person', $croId))
-            ->exists();
+        if ($this->event_id === null) {
+            return true;
+        }
+
+        $this->loadMissing('event');
+
+        return (int) ($this->event?->contact_person) === $croId;
     }
 }

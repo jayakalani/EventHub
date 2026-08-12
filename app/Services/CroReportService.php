@@ -8,7 +8,6 @@ use App\Models\Event;
 use App\Models\Inquiry;
 use App\Models\InquiryResponse;
 use App\Models\Rating;
-use App\Models\ticketBooking;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -233,7 +232,7 @@ class CroReportService
             ),
             'statusByType' => $this->complaintsByStatusAndType($complaints),
             'recentComplaints' => $this->complaintQuery($eventId, $croId)
-                ->with(['user', 'assignee'])
+                ->with(['user', 'event', 'assignee'])
                 ->whereBetween('created_at', [$from, $to])
                 ->latest()
                 ->limit(10)
@@ -241,11 +240,13 @@ class CroReportService
                 ->map(fn (Complaint $complaint) => [
                     'subject' => $complaint->subject,
                     'user' => $complaint->user?->full_name ?? 'Unknown',
+                    'event' => $complaint->event?->name ?? 'General',
                     'type' => $this->classifyComplaintType($complaint->subject),
                     'status' => $complaint->status->label(),
                     'statusClass' => $complaint->status->badgeClass(),
                     'assignee' => $complaint->assignee?->full_name ?? 'Unassigned',
                     'submitted' => $complaint->created_at?->diffForHumans(),
+                    'href' => route('cro.complaints.show', $complaint),
                 ])
                 ->all(),
         ];
@@ -311,11 +312,7 @@ class CroReportService
     {
         return Complaint::query()
             ->when($scopeCroId, fn (Builder $q) => $q->forCroQueue($scopeCroId, 'mine'))
-            ->when($eventId, function (Builder $q) use ($eventId) {
-                $q->whereIn('user_id', ticketBooking::query()
-                    ->where('event_id', $eventId)
-                    ->select('user_id'));
-            });
+            ->when($eventId, fn (Builder $q) => $q->where('event_id', $eventId));
     }
 
     /**

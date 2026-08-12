@@ -51,7 +51,7 @@ class Inquiry extends Model
     }
 
 /**
-     * Scope to the CRO's assigned events (contact_person only).
+     * Scope to the CRO's assigned events (contact_person), plus general inquiries (null event_id).
      * Pass $scope = 'all' to disable filtering (admin-style views).
      */
     public function scopeForCroQueue(Builder $query, int $croId, string $scope = 'mine'): Builder
@@ -60,7 +60,13 @@ class Inquiry extends Model
             return $query;
         }
 
-        return $query->whereHas('event', fn (Builder $event) => $event->where('contact_person', $croId));
+        return $query->where(function (Builder $inner) use ($croId) {
+            $inner->whereNull('event_id')
+                ->orWhereIn(
+                    'event_id',
+                    Event::query()->where('contact_person', $croId)->select('id')
+                );
+        });
     }
 
     public function scopeAssignmentFilter(Builder $query, string $assignment, int $croId): Builder
@@ -83,10 +89,14 @@ class Inquiry extends Model
     }
 
     /**
-     * Whether this inquiry belongs to an event assigned to the CRO.
+     * Whether this inquiry is in the CRO's actionable queue.
      */
     public function isInCroQueue(int $croId): bool
     {
+        if ($this->event_id === null) {
+            return true;
+        }
+
         $this->loadMissing('event');
 
         return (int) ($this->event?->contact_person) === $croId;

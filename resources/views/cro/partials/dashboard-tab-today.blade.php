@@ -1,13 +1,18 @@
 {{-- Today: queue, priority, handoffs, events, activity --}}
 <div class="space-y-5">
     <section class="glass-card overflow-hidden !p-0 hover:!translate-y-0">
-        <div class="flex flex-col gap-3 border-b border-white/50 bg-gradient-to-r from-indigo-50/80 via-white/40 to-cyan-50/50 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-            <div>
-                <h2 class="text-base font-bold text-slate-900">Today’s work</h2>
-                <p class="mt-0.5 text-sm text-slate-500">Claim or open inquiries, refunds, and urgent complaints</p>
+        <div class="flex flex-col gap-3 border-b border-white/50 bg-gradient-to-r from-indigo-50/70 via-white/30 to-transparent px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+            <div class="flex items-center gap-3">
+                <span class="flex h-9 w-9 items-center justify-center rounded-xl border border-indigo-200/60 bg-indigo-50/80 text-indigo-600 shadow-sm">
+                    <i class="bi bi-inbox"></i>
+                </span>
+                <div>
+                    <h2 class="text-base font-bold tracking-tight text-slate-900">Today’s work</h2>
+                    <p class="mt-0.5 text-xs text-slate-500 sm:text-sm">Claim or open items in your queue</p>
+                </div>
             </div>
             <span class="inline-flex h-8 min-w-8 items-center justify-center self-start rounded-xl bg-indigo-600/10 px-2.5 text-sm font-bold text-indigo-700 ring-1 ring-indigo-200/60">
-                {{ count($todayWork) }}
+                {{ number_format($todayTasks['queueTotal'] ?? count($todayWork)) }}
             </span>
         </div>
         <div class="divide-y divide-white/50">
@@ -65,10 +70,15 @@
 
     @if (count($handoffs))
         <section class="glass-card overflow-hidden !p-0 hover:!translate-y-0">
-            <div class="flex items-center justify-between gap-3 border-b border-amber-200/50 bg-amber-50/40 px-4 py-3.5 sm:px-5">
-                <div>
-                    <h2 class="text-base font-bold text-amber-950">Organizer handoffs</h2>
-                    <p class="mt-0.5 text-sm text-amber-800/80">Postponed or cancelled events needing follow-up</p>
+            <div class="flex items-center justify-between gap-3 border-b border-amber-200/50 bg-gradient-to-r from-amber-50/50 via-white/20 to-transparent px-4 py-3.5 sm:px-5">
+                <div class="flex items-center gap-3">
+                    <span class="flex h-9 w-9 items-center justify-center rounded-xl border border-amber-200/70 bg-amber-50 text-amber-700 shadow-sm">
+                        <i class="bi bi-clipboard-check"></i>
+                    </span>
+                    <div>
+                        <h2 class="text-base font-bold tracking-tight text-amber-950">Organizer handoffs</h2>
+                        <p class="mt-0.5 text-xs text-amber-800/80 sm:text-sm">Postponed or cancelled follow-ups</p>
+                    </div>
                 </div>
                 <span class="inline-flex h-8 min-w-8 items-center justify-center rounded-xl bg-amber-100 px-2.5 text-sm font-bold text-amber-800">
                     {{ count($handoffs) }}
@@ -102,10 +112,15 @@
 
     <div class="grid gap-4 lg:grid-cols-3">
         <section class="glass-card overflow-hidden !p-0 hover:!translate-y-0 lg:col-span-2">
-            <div class="flex items-center justify-between gap-3 border-b border-rose-200/40 bg-rose-50/30 px-4 py-3.5 sm:px-5">
-                <div>
-                    <h2 class="text-base font-bold text-rose-900">High priority</h2>
-                    <p class="mt-0.5 text-sm text-rose-600/80">Urgent cases needing attention</p>
+            <div class="flex items-center justify-between gap-3 border-b border-rose-200/40 bg-gradient-to-r from-rose-50/40 via-white/20 to-transparent px-4 py-3.5 sm:px-5">
+                <div class="flex items-center gap-3">
+                    <span class="flex h-9 w-9 items-center justify-center rounded-xl border border-rose-200/70 bg-rose-50 text-rose-600 shadow-sm">
+                        <i class="bi bi-exclamation-triangle"></i>
+                    </span>
+                    <div>
+                        <h2 class="text-base font-bold tracking-tight text-rose-900">High priority</h2>
+                        <p class="mt-0.5 text-xs text-rose-600/80 sm:text-sm">Urgent cases</p>
+                    </div>
                 </div>
                 <span class="inline-flex h-8 min-w-8 items-center justify-center rounded-xl bg-rose-100 px-2.5 text-sm font-bold text-rose-700">
                     {{ count($dashboard['highPriority']) }}
@@ -137,9 +152,16 @@
         </section>
 
         <section class="glass-card overflow-hidden !p-0 hover:!translate-y-0">
-            <div class="border-b border-white/50 bg-white/30 px-4 py-3.5 sm:px-5">
-                <h2 class="text-base font-bold text-slate-900">Recent activity</h2>
-                <p class="mt-0.5 text-sm text-slate-500">Latest support actions</p>
+            <div class="border-b border-white/50 bg-gradient-to-r from-slate-50/80 via-white/20 to-transparent px-4 py-3.5 sm:px-5">
+                <div class="flex items-center gap-3">
+                    <span class="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200/70 bg-white/80 text-slate-600 shadow-sm">
+                        <i class="bi bi-activity"></i>
+                    </span>
+                    <div>
+                        <h2 class="text-base font-bold tracking-tight text-slate-900">Recent activity</h2>
+                        <p class="mt-0.5 text-xs text-slate-500 sm:text-sm">Latest support actions</p>
+                    </div>
+                </div>
             </div>
             <div class="max-h-[22rem] divide-y divide-white/40 overflow-y-auto">
                 @forelse ($dashboard['recentActivity'] as $activity)
@@ -170,40 +192,53 @@
         </section>
     </div>
 
-    <section class="glass-card overflow-hidden !p-0 hover:!translate-y-0">
-        <div class="border-b border-white/50 bg-white/30 px-4 py-3.5 sm:px-5">
-            <h2 class="text-base font-bold text-slate-900">Events today</h2>
-            <p class="mt-0.5 text-sm text-slate-500">Support load on live events</p>
-        </div>
-        <div class="divide-y divide-white/40">
-            @forelse ($dashboard['eventsToday'] as $event)
-                <div class="btn-smooth px-4 py-3.5 hover:bg-white/50 sm:px-5">
-                    <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                        <p class="font-semibold text-slate-900">{{ $event['name'] }}</p>
-                        <div class="flex flex-wrap gap-2">
-                            <span class="inline-flex items-center gap-1 rounded-lg border border-cyan-200/50 bg-cyan-50/70 px-2 py-0.5 text-[11px] font-semibold text-cyan-700">
-                                <i class="bi bi-people"></i>
-                                {{ number_format($event['attendees']) }} attendees
-                            </span>
-                            <span class="inline-flex items-center gap-1 rounded-lg border border-amber-200/50 bg-amber-50/70 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
-                                <i class="bi bi-envelope"></i>
-                                {{ number_format($event['openInquiries']) }} inquiries
-                            </span>
-                            <span class="inline-flex items-center gap-1 rounded-lg border border-rose-200/50 bg-rose-50/70 px-2 py-0.5 text-[11px] font-semibold text-rose-700">
-                                <i class="bi bi-arrow-counterclockwise"></i>
-                                {{ number_format($event['pendingRefunds']) }} refunds
-                            </span>
-                        </div>
+    <div class="grid gap-4 xl:grid-cols-12">
+        <section id="cro-events-today" class="glass-card overflow-hidden !p-0 hover:!translate-y-0 xl:col-span-7">
+            <div class="border-b border-white/50 bg-gradient-to-r from-cyan-50/50 via-white/20 to-transparent px-4 py-3.5 sm:px-5">
+                <div class="flex items-center gap-3">
+                    <span class="flex h-9 w-9 items-center justify-center rounded-xl border border-cyan-200/70 bg-cyan-50/80 text-cyan-700 shadow-sm">
+                        <i class="bi bi-calendar-event"></i>
+                    </span>
+                    <div>
+                        <h2 class="text-base font-bold tracking-tight text-slate-900">Events today</h2>
+                        <p class="mt-0.5 text-xs text-slate-500 sm:text-sm">Live event support load</p>
                     </div>
                 </div>
-            @empty
-                <div class="flex flex-col items-center justify-center px-4 py-12 text-center sm:px-5">
-                    <span class="mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-400">
-                        <i class="bi bi-calendar-x"></i>
-                    </span>
-                    <p class="text-sm text-slate-500">No events happening today.</p>
-                </div>
-            @endforelse
+            </div>
+            <div class="divide-y divide-white/40">
+                @forelse ($dashboard['eventsToday'] as $event)
+                    <div class="btn-smooth px-4 py-3.5 hover:bg-white/50 sm:px-5">
+                        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                            <p class="font-semibold text-slate-900">{{ $event['name'] }}</p>
+                            <div class="flex flex-wrap gap-2">
+                                <span class="inline-flex items-center gap-1 rounded-lg border border-cyan-200/50 bg-cyan-50/70 px-2 py-0.5 text-[11px] font-semibold text-cyan-700">
+                                    <i class="bi bi-people"></i>
+                                    {{ number_format($event['attendees']) }} attendees
+                                </span>
+                                <span class="inline-flex items-center gap-1 rounded-lg border border-amber-200/50 bg-amber-50/70 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+                                    <i class="bi bi-envelope"></i>
+                                    {{ number_format($event['openInquiries']) }} inquiries
+                                </span>
+                                <span class="inline-flex items-center gap-1 rounded-lg border border-rose-200/50 bg-rose-50/70 px-2 py-0.5 text-[11px] font-semibold text-rose-700">
+                                    <i class="bi bi-arrow-counterclockwise"></i>
+                                    {{ number_format($event['pendingRefunds']) }} refunds
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                @empty
+                    <div class="flex flex-col items-center justify-center px-4 py-12 text-center sm:px-5">
+                        <span class="mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+                            <i class="bi bi-calendar-x"></i>
+                        </span>
+                        <p class="text-sm text-slate-500">No events happening today.</p>
+                    </div>
+                @endforelse
+            </div>
+        </section>
+
+        <div class="xl:col-span-5">
+            <x-dashboard-mini-calendar :calendar="$dashboard['miniCalendar']" class="h-full hover:!translate-y-0" />
         </div>
-    </section>
+    </div>
 </div>

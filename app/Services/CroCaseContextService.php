@@ -44,13 +44,15 @@ class CroCaseContextService
      */
     public function forComplaint(Complaint $complaint): array
     {
-        $complaint->loadMissing('user');
+        $complaint->loadMissing(['user', 'event']);
 
-        $focusBooking = $this->latestBookingForUser($complaint->user);
+        $focusBooking = $complaint->event
+            ? $this->findBookingForEvent($complaint->user, $complaint->event)
+            : $this->latestBookingForUser($complaint->user);
 
         return $this->build(
             $complaint->user,
-            $focusBooking?->event,
+            $complaint->event ?? $focusBooking?->event,
             $focusBooking,
         );
     }

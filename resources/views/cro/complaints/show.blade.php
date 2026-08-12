@@ -11,6 +11,11 @@
                 <p class="text-slate-500">
                     {{ $complaint->created_at->format('d M Y, H:i') }}
                     by {{ $complaint->user->full_name }}
+                    @if ($complaint->event)
+                        · {{ $complaint->event->name }}
+                    @else
+                        · General complaint
+                    @endif
                 </p>
                 @include('partials.cro-sla-badges', ['ticket' => $complaint])
             </div>

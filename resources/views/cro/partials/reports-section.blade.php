@@ -1,1 +1,1 @@
-{{-- Deprecated: content lives in cro.partials.dashboard-tab-insights --}}
+{{-- Deprecated: content lives in cro.partials.dashboard-tab-support / inquiry / complaints --}}

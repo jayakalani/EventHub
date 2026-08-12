@@ -18,7 +18,7 @@
 
             @php
                 $initialTab = $tab;
-                if ($errors->any() && (old('subject') !== null || old('message') !== null)) {
+                if ($errors->any() && (old('subject') !== null || old('message') !== null || old('event_id') !== null)) {
                     $initialTab = 'complaints';
                 }
             @endphp
@@ -112,6 +112,35 @@
                                 @csrf
                                 <div class="grid gap-4 lg:grid-cols-2">
                                     <div class="lg:col-span-2">
+                                        <label for="complaint-event" class="mb-1.5 block text-sm font-semibold text-slate-700">
+                                            {{ t(['en' => 'Related event', 'si' => 'අදාළ ප්‍රසංගය']) }}
+                                            <span class="font-normal text-slate-500">{{ t(['en' => '(optional)', 'si' => '(විකල්ප)']) }}</span>
+                                        </label>
+                                        <select id="complaint-event" name="event_id"
+                                            class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm transition focus:border-primary focus:bg-white focus:ring-primary">
+                                            <option value="">{{ t(['en' => 'General complaint (not tied to an event)', 'si' => 'සාමාන්‍ය පැමිණිල්ලක් (ප්‍රසංගයකට නොබැඳි)']) }}</option>
+                                            @foreach ($complaintEvents as $eventOption)
+                                                <option value="{{ $eventOption->id }}" @selected((string) old('event_id') === (string) $eventOption->id)>
+                                                    {{ $eventOption->name }}
+                                                    @if ($eventOption->date)
+                                                        · {{ \Illuminate\Support\Carbon::parse($eventOption->date)->format('d M Y') }}
+                                                    @endif
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                        <p class="mt-1.5 text-xs text-slate-500">
+                                            {{ t([
+                                                'en' => 'Choose an event you booked so it goes to that event’s CRO. Leave blank to send a general complaint to all CROs.',
+                                                'si' => 'ඔබ වෙන්කරගත් ප්‍රසංගයක් තෝරන්න — එය එම CRO වෙත යයි. හිස්ව තැබුවහොත් සාමාන්‍ය පැමිණිල්ලක් ලෙස සියලු CRO වෙත යයි.',
+                                            ]) }}
+                                        </p>
+                                        @if ($complaintEvents->isEmpty())
+                                            <p class="mt-1 text-xs text-amber-700">
+                                                {{ t(['en' => 'You have no booked events yet, so only a general complaint can be submitted.', 'si' => 'තවම වෙන්කරගත් ප්‍රසංග නැත, එබැවින් සාමාන්‍ය පැමිණිල්ලක් පමණක් ඉදිරිපත් කළ හැක.']) }}
+                                            </p>
+                                        @endif
+                                    </div>
+                                    <div class="lg:col-span-2">
                                         <label for="complaint-subject" class="mb-1.5 block text-sm font-semibold text-slate-700">
                                             {{ t(['en' => 'Subject', 'si' => 'මාතෘකාව']) }}
                                         </label>
@@ -152,7 +181,14 @@
                             <div class="border-b border-slate-100 bg-slate-50/80 px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                                 <div class="min-w-0">
                                     <h3 class="text-base font-bold text-slate-900">{{ $complaint->subject }}</h3>
-                                    <p class="text-xs text-slate-500">{{ $complaint->created_at->format('d M Y, H:i') }}</p>
+                                    <p class="text-xs text-slate-500">
+                                        @if ($complaint->event)
+                                            {{ t(['en' => 'Event:', 'si' => 'ප්‍රසංග:']) }} {{ $complaint->event->name }} ·
+                                        @else
+                                            {{ t(['en' => 'General', 'si' => 'සාමාන්‍ය']) }} ·
+                                        @endif
+                                        {{ $complaint->created_at->format('d M Y, H:i') }}
+                                    </p>
                                 </div>
                                 @include('partials.support-status-badge', ['status' => $complaint->status])
                             </div>

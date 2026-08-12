@@ -43,7 +43,7 @@ class ComplaintController extends Controller
         ];
 
         $complaints = $this->applyFilters(clone $baseQuery, $filters)
-            ->with(['user', 'attachments', 'assignee'])
+            ->with(['user', 'event', 'attachments', 'assignee'])
             ->oldest('created_at')
             ->paginate(20)
             ->withQueryString();
@@ -62,7 +62,7 @@ class ComplaintController extends Controller
     {
         $this->authorize('view', $complaint);
 
-        $complaint->load(['user', 'attachments', 'responses.user', 'assignee']);
+        $complaint->load(['user', 'event', 'attachments', 'responses.user', 'assignee']);
         $caseContext = $this->caseContextService->forComplaint($complaint);
         $replyTemplates = CroReplyTemplates::forComplaints();
         $croUsers = $this->croUsers();

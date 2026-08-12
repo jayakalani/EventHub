@@ -98,6 +98,15 @@ class CroDashboardService
         $todayWork = $croId ? $this->todayWorkQueue($croId, $selectedEventId, 12) : [];
         $handoffs = $croId ? app(CroHandoffService::class)->activeForCro($croId, 4) : [];
 
+        $openQueueStatuses = [SupportTicketStatusEnum::Open, SupportTicketStatusEnum::InProgress];
+        $queueTotal = $this->inquiryQuery($selectedEventId)
+            ->whereIn('status', $openQueueStatuses)
+            ->count()
+            + $this->complaintQuery($selectedEventId)
+                ->whereIn('status', $openQueueStatuses)
+                ->count()
+            + $pendingRefundCount;
+
         $data = [
             'filters' => [
                 'event' => $selectedEventId,
@@ -120,7 +129,7 @@ class CroDashboardService
                 'refundRequests' => $pendingRefundCount,
                 'urgentComplaints' => $urgentComplaintCount,
                 'eventsToday' => $eventsToday,
-                'queueTotal' => count($todayWork),
+                'queueTotal' => $queueTotal,
             ],
             'charts' => [
                 'defaultPeriod' => $defaultPeriod,
@@ -139,7 +148,7 @@ class CroDashboardService
             'feedbackThemes' => $this->topFeedbackThemes($selectedEventId, $from, $to, 5),
             'recentActivity' => $this->recentActivity(8, $selectedEventId),
             'eventsToday' => $this->eventsSupportOverview($selectedEventId),
-            'miniCalendar' => app(DashboardCalendarWidgetService::class)->forCro(),
+            'miniCalendar' => app(DashboardCalendarWidgetService::class)->forCro($this->activeCroId),
             'counts' => [
                 'pendingRefunds' => $pendingRefundCount,
                 'openInquiries' => $openInquiryCount,
@@ -167,6 +176,7 @@ class CroDashboardService
             ->when($this->activeCroId, fn (Builder $q) => $q->where('contact_person', $this->activeCroId))
             ->where(function (Builder $query) {
                 $query->whereIn('id', Inquiry::query()->whereNotNull('event_id')->select('event_id'))
+                    ->orWhereIn('id', Complaint::query()->whereNotNull('event_id')->select('event_id'))
                     ->orWhereIn('id', ticketBooking::query()
                         ->whereIn('id', RefundRequest::query()->select('ticket_booking_id'))
                         ->select('event_id'))
@@ -221,11 +231,7 @@ class CroDashboardService
     {
         return Complaint::query()
             ->when($this->activeCroId, fn (Builder $q) => $q->forCroQueue($this->activeCroId, 'mine'))
-            ->when($eventId, function (Builder $q) use ($eventId) {
-                $q->whereIn('user_id', ticketBooking::query()
-                    ->where('event_id', $eventId)
-                    ->select('user_id'));
-            });
+            ->when($eventId, fn (Builder $q) => $q->where('event_id', $eventId));
     }
 
     private function refundQuery(?int $eventId): Builder
@@ -385,7 +391,7 @@ class CroDashboardService
         $openStatuses = [SupportTicketStatusEnum::Open, SupportTicketStatusEnum::InProgress];
 
         $this->complaintQuery($eventId)
-            ->with('user')
+            ->with(['user', 'event'])
             ->whereIn('status', $openStatuses)
             ->latest()
             ->limit($limit * 2)
@@ -394,7 +400,7 @@ class CroDashboardService
             ->each(function (Complaint $complaint) use ($cases) {
                 $cases->push([
                     'title' => $this->priorityTitle($complaint->subject),
-                    'meta' => ($complaint->user?->full_name ?? 'Customer').' · Complaint',
+                    'meta' => trim(($complaint->user?->full_name ?? 'Customer').' · '.($complaint->event?->name ?? 'General complaint')),
                     'href' => route('cro.complaints.show', $complaint),
                     'type' => 'complaint',
                     'sort' => $complaint->created_at?->timestamp ?? 0,
@@ -518,25 +524,12 @@ class CroDashboardService
             ];
         }
 
-        $resolvedStatuses = [SupportTicketStatusEnum::Resolved, SupportTicketStatusEnum::Closed];
-        $inquiryTotal = $this->inquiryQuery($eventId)->count();
-        $complaintTotal = $this->complaintQuery($eventId)->count();
-        $total = $inquiryTotal + $complaintTotal;
-
-        $resolved = $this->inquiryQuery($eventId)->whereIn('status', $resolvedStatuses)->count()
-            + $this->complaintQuery($eventId)->whereIn('status', $resolvedStatuses)->count();
-
-        $happyPercent = $total > 0 ? round(($resolved / $total) * 100, 1) : 0.0;
-        $average = $total > 0 ? round(($happyPercent / 100) * 5, 1) : null;
-
         return [
-            'average' => $average,
-            'reviewCount' => $resolved,
-            'happyPercent' => $happyPercent,
-            'label' => $resolved > 0
-                ? 'Estimated from '.$resolved.' resolved support cases'
-                : 'No ratings or resolved cases yet',
-            'source' => 'support',
+            'average' => null,
+            'reviewCount' => 0,
+            'happyPercent' => 0.0,
+            'label' => 'No event ratings yet',
+            'source' => 'none',
         ];
     }
 
@@ -546,6 +539,10 @@ class CroDashboardService
     private function satisfactionDistribution(?int $eventId): array
     {
         $ratings = Rating::query()
+            ->when($this->activeCroId, fn (Builder $q) => $q->whereIn(
+                'event_id',
+                Event::query()->where('contact_person', $this->activeCroId)->select('id')
+            ))
             ->when($eventId, fn (Builder $q) => $q->where('event_id', $eventId))
             ->selectRaw('score, COUNT(*) as count')
             ->groupBy('score')
@@ -598,6 +595,7 @@ class CroDashboardService
         AuditLog::query()
             ->with('user')
             ->where('action', 'like', 'CRO%')
+            ->when($this->activeCroId, fn (Builder $q) => $q->where('user_id', $this->activeCroId))
             ->latest()
             ->limit($limit)
             ->get()
@@ -718,6 +716,7 @@ class CroDashboardService
             ->visibleToAttendees()
             ->whereDate('date', today())
             ->where('status', '!=', Event::STATUS_CANCELLED)
+            ->when($this->activeCroId, fn (Builder $q) => $q->where('contact_person', $this->activeCroId))
             ->when($eventId, fn (Builder $q) => $q->where('id', $eventId))
             ->orderBy('time')
             ->get(['id', 'name']);
@@ -873,7 +872,7 @@ class CroDashboardService
             });
 
         $this->complaintQuery($eventId)
-            ->with('user')
+            ->with(['user', 'event'])
             ->whereIn('status', $openStatuses)
             ->oldest()
             ->limit($limit)
@@ -883,7 +882,7 @@ class CroDashboardService
                 $items->push([
                     'type' => 'complaint',
                     'title' => $complaint->subject,
-                    'meta' => ($complaint->user?->full_name ?? 'Attendee').' · Complaint',
+                    'meta' => trim(($complaint->user?->full_name ?? 'Attendee').' · '.($complaint->event?->name ?? 'General complaint')),
                     'href' => route('cro.complaints.show', $complaint),
                     'claimUrl' => $complaint->isUnassigned() ? route('cro.complaints.claim', $complaint) : null,
                     'actionLabel' => $complaint->isUnassigned() ? 'Claim' : 'Open',

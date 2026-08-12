@@ -79,7 +79,7 @@ class DashboardCalendarWidgetService
      *     events: list<array<string, mixed>>
      * }
      */
-    public function forCro(): array
+    public function forCro(?int $croId = null): array
     {
         $payload = $this->build(
             title: 'Support Calendar',
@@ -87,6 +87,7 @@ class DashboardCalendarWidgetService
             eventsQuery: Event::query()
                 ->visibleToAttendees()
                 ->where('status', '!=', Event::STATUS_CANCELLED)
+                ->when($croId, fn ($q) => $q->where('contact_person', $croId))
                 ->with('organizer'),
             eventUrlResolver: fn (Event $event) => route('cro.dashboard', ['event' => $event->id]),
             calendarUrl: null,

@@ -21,11 +21,12 @@ class ComplaintService
         protected SupportAuditService $auditService,
     ) {}
 
-    public function submit(User $user, string $subject, string $message, array $files = []): Complaint
+    public function submit(User $user, string $subject, string $message, array $files = [], ?int $eventId = null): Complaint
     {
-        return DB::transaction(function () use ($user, $subject, $message, $files) {
+        return DB::transaction(function () use ($user, $subject, $message, $files, $eventId) {
             $complaint = Complaint::create([
                 'user_id' => $user->id,
+                'event_id' => $eventId,
                 'subject' => $subject,
                 'message' => $message,
                 'status' => SupportTicketStatusEnum::Open,
@@ -35,14 +36,11 @@ class ComplaintService
                 $this->storeAttachment($complaint, $file);
             }
 
-            $complaint->load(['user', 'attachments']);
+            $complaint->load(['user', 'event', 'attachments']);
 
             Mail::to($user)->queue(new ComplaintReceivedMail($complaint));
 
-            app(CroNotificationService::class)->notifyComplaintSubmitted(
-                $complaint->id,
-                $complaint->subject,
-            );
+            app(CroNotificationService::class)->notifyComplaintSubmitted($complaint);
 
             return $complaint;
         });

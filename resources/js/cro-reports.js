@@ -179,6 +179,8 @@ function initCroReports() {
 
     const { chartLabels } = data;
     const charts = [];
+    let initialized = false;
+
     const register = (chart) => {
         if (chart) charts.push(chart);
         return chart;
@@ -193,209 +195,239 @@ function initCroReports() {
     const csatDistribution = satisfaction.distribution ?? { labels: [], counts: [] };
     const csatTrend = satisfaction.trend ?? [];
 
-    register(createDoughnutChart(
-        'inquiryStatusChart',
-        (inquiries.statusBreakdown ?? []).map((i) => i.label),
-        (inquiries.statusBreakdown ?? []).map((i) => i.count),
-        statusColors,
-    ));
+    function buildCharts() {
+        register(createDoughnutChart(
+            'inquiryStatusChart',
+            (inquiries.statusBreakdown ?? []).map((i) => i.label),
+            (inquiries.statusBreakdown ?? []).map((i) => i.count),
+            statusColors,
+        ));
 
-    register(createLineChart('inquiryResolutionTrendChart', chartLabels, [
-        {
-            label: 'Submitted',
-            data: resolutionTrend.submitted,
-            borderColor: palette.indigo,
-            backgroundColor: 'rgba(79, 70, 229, 0.1)',
-            fill: true,
-            tension: 0.35,
-            pointRadius: 4,
-            pointHoverRadius: 6,
-        },
-        {
-            label: 'Resolved',
-            data: resolutionTrend.resolved,
-            borderColor: palette.emerald,
-            backgroundColor: 'rgba(16, 185, 129, 0.1)',
-            fill: true,
-            tension: 0.35,
-            pointRadius: 4,
-            pointHoverRadius: 6,
-        },
-    ]));
-
-    register(createBarChart(
-        'inquiryResponseTimeChart',
-        chartLabels,
-        [{
-            label: 'Avg minutes',
-            data: responseTimeTrend.map((value) => value ?? 0),
-            backgroundColor: 'rgba(6, 182, 212, 0.75)',
-            borderRadius: 8,
-        }],
-    ));
-
-    const topEvents = inquiries.byEvent ?? [];
-    register(createBarChart(
-        'inquiryByEventChart',
-        topEvents.map((i) => i.label),
-        [{
-            label: 'Inquiries',
-            data: topEvents.map((i) => i.count),
-            backgroundColor: 'rgba(79, 70, 229, 0.75)',
-            borderRadius: 8,
-        }],
-        { horizontal: true },
-    ));
-
-    register(createDoughnutChart(
-        'complaintStatusChart',
-        (complaints.statusBreakdown ?? []).map((i) => i.label),
-        (complaints.statusBreakdown ?? []).map((i) => i.count),
-        statusColors,
-    ));
-
-    register(createDoughnutChart(
-        'complaintTypeChart',
-        (complaints.typeBreakdown ?? []).map((i) => i.label),
-        (complaints.typeBreakdown ?? []).map((i) => i.count),
-    ));
-
-    register(createDoughnutChart(
-        'complaintCategoryPieChart',
-        categoryBreakdown.map((i) => i.label),
-        categoryBreakdown.map((i) => i.count),
-        null,
-        { type: 'pie' },
-    ));
-
-    register(createLineChart('complaintSubmissionsChart', chartLabels, [{
-        label: 'Complaints Submitted',
-        data: complaints.submissionsTrend ?? [],
-        borderColor: palette.rose,
-        backgroundColor: 'rgba(244, 63, 94, 0.1)',
-        fill: true,
-        tension: 0.35,
-        pointRadius: 4,
-        pointHoverRadius: 6,
-    }]));
-
-    const statusByType = complaints.statusByType ?? [];
-    register(createBarChart(
-        'complaintStatusByTypeChart',
-        statusByType.map((i) => i.label),
-        [
+        register(createLineChart('inquiryResolutionTrendChart', chartLabels, [
             {
-                label: 'Open',
-                data: statusByType.map((i) => i.open),
-                backgroundColor: statusColors[0],
-                borderRadius: 4,
-            },
-            {
-                label: 'In Progress',
-                data: statusByType.map((i) => i.in_progress),
-                backgroundColor: statusColors[1],
-                borderRadius: 4,
+                label: 'Submitted',
+                data: resolutionTrend.submitted,
+                borderColor: palette.indigo,
+                backgroundColor: 'rgba(79, 70, 229, 0.1)',
+                fill: true,
+                tension: 0.35,
+                pointRadius: 4,
+                pointHoverRadius: 6,
             },
             {
                 label: 'Resolved',
-                data: statusByType.map((i) => i.resolved),
-                backgroundColor: statusColors[2],
-                borderRadius: 4,
+                data: resolutionTrend.resolved,
+                borderColor: palette.emerald,
+                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                fill: true,
+                tension: 0.35,
+                pointRadius: 4,
+                pointHoverRadius: 6,
+            },
+        ]));
+
+        register(createBarChart(
+            'inquiryResponseTimeChart',
+            chartLabels,
+            [{
+                label: 'Avg minutes',
+                data: responseTimeTrend.map((value) => value ?? 0),
+                backgroundColor: 'rgba(6, 182, 212, 0.75)',
+                borderRadius: 8,
+            }],
+        ));
+
+        const topEvents = inquiries.byEvent ?? [];
+        register(createBarChart(
+            'inquiryByEventChart',
+            topEvents.map((i) => i.label),
+            [{
+                label: 'Inquiries',
+                data: topEvents.map((i) => i.count),
+                backgroundColor: 'rgba(79, 70, 229, 0.75)',
+                borderRadius: 8,
+            }],
+            { horizontal: true },
+        ));
+
+        register(createDoughnutChart(
+            'complaintStatusChart',
+            (complaints.statusBreakdown ?? []).map((i) => i.label),
+            (complaints.statusBreakdown ?? []).map((i) => i.count),
+            statusColors,
+        ));
+
+        register(createDoughnutChart(
+            'complaintTypeChart',
+            (complaints.typeBreakdown ?? []).map((i) => i.label),
+            (complaints.typeBreakdown ?? []).map((i) => i.count),
+        ));
+
+        register(createDoughnutChart(
+            'complaintCategoryPieChart',
+            categoryBreakdown.map((i) => i.label),
+            categoryBreakdown.map((i) => i.count),
+            null,
+            { type: 'pie' },
+        ));
+
+        register(createLineChart('complaintSubmissionsChart', chartLabels, [{
+            label: 'Complaints Submitted',
+            data: complaints.submissionsTrend ?? [],
+            borderColor: palette.rose,
+            backgroundColor: 'rgba(244, 63, 94, 0.1)',
+            fill: true,
+            tension: 0.35,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+        }]));
+
+        const statusByType = complaints.statusByType ?? [];
+        register(createBarChart(
+            'complaintStatusByTypeChart',
+            statusByType.map((i) => i.label),
+            [
+                {
+                    label: 'Open',
+                    data: statusByType.map((i) => i.open),
+                    backgroundColor: statusColors[0],
+                    borderRadius: 4,
+                },
+                {
+                    label: 'In Progress',
+                    data: statusByType.map((i) => i.in_progress),
+                    backgroundColor: statusColors[1],
+                    borderRadius: 4,
+                },
+                {
+                    label: 'Resolved',
+                    data: statusByType.map((i) => i.resolved),
+                    backgroundColor: statusColors[2],
+                    borderRadius: 4,
+                },
+                {
+                    label: 'Closed',
+                    data: statusByType.map((i) => i.closed),
+                    backgroundColor: statusColors[3],
+                    borderRadius: 4,
+                },
+            ],
+            { stacked: true },
+        ));
+
+        // Overview charts (reports page)
+        register(createLineChart('overviewInquiryResolutionChart', chartLabels, [
+            {
+                label: 'Submitted',
+                data: resolutionTrend.submitted,
+                borderColor: palette.indigo,
+                backgroundColor: 'rgba(79, 70, 229, 0.12)',
+                fill: true,
+                tension: 0.4,
+                pointRadius: 4,
+                pointHoverRadius: 7,
             },
             {
-                label: 'Closed',
-                data: statusByType.map((i) => i.closed),
-                backgroundColor: statusColors[3],
-                borderRadius: 4,
+                label: 'Resolved',
+                data: resolutionTrend.resolved,
+                borderColor: palette.emerald,
+                backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                fill: true,
+                tension: 0.4,
+                pointRadius: 4,
+                pointHoverRadius: 7,
             },
-        ],
-        { stacked: true },
-    ));
+        ]));
 
-    // Overview charts
-    register(createLineChart('overviewInquiryResolutionChart', chartLabels, [
-        {
-            label: 'Submitted',
-            data: resolutionTrend.submitted,
-            borderColor: palette.indigo,
-            backgroundColor: 'rgba(79, 70, 229, 0.12)',
+        register(createBarChart(
+            'overviewResponseTimeChart',
+            chartLabels,
+            [{
+                label: 'Avg minutes',
+                data: responseTimeTrend.map((value) => value ?? 0),
+                backgroundColor: 'rgba(79, 70, 229, 0.75)',
+                borderRadius: 8,
+            }],
+        ));
+
+        register(createDoughnutChart(
+            'overviewComplaintCategoriesChart',
+            categoryBreakdown.map((i) => i.label),
+            categoryBreakdown.map((i) => i.count),
+            null,
+            { type: 'pie' },
+        ));
+
+        register(createLineChart('overviewResolutionRateChart', chartLabels, [{
+            label: 'Resolution Rate (%)',
+            data: resolutionTrend.resolutionRate,
+            borderColor: palette.cyan,
+            backgroundColor: 'rgba(6, 182, 212, 0.15)',
             fill: true,
             tension: 0.4,
-            pointRadius: 4,
-            pointHoverRadius: 7,
-        },
-        {
-            label: 'Resolved',
-            data: resolutionTrend.resolved,
-            borderColor: palette.emerald,
-            backgroundColor: 'rgba(16, 185, 129, 0.12)',
+            pointRadius: 5,
+            pointHoverRadius: 8,
+        }], 100));
+
+        register(createLineChart('overviewCsatTrendChart', chartLabels, [{
+            label: 'Avg rating',
+            data: csatTrend.map((value) => value ?? null),
+            borderColor: palette.amber,
+            backgroundColor: 'rgba(245, 158, 11, 0.15)',
             fill: true,
             tension: 0.4,
-            pointRadius: 4,
-            pointHoverRadius: 7,
-        },
-    ]));
+            pointRadius: 5,
+            pointHoverRadius: 8,
+            spanGaps: true,
+        }], 5));
 
-    register(createBarChart(
-        'overviewResponseTimeChart',
-        chartLabels,
-        [{
-            label: 'Avg minutes',
-            data: responseTimeTrend.map((value) => value ?? 0),
-            backgroundColor: 'rgba(79, 70, 229, 0.75)',
-            borderRadius: 8,
-        }],
-    ));
+        register(createDoughnutChart(
+            'overviewCsatDistributionChart',
+            csatDistribution.labels ?? [],
+            csatDistribution.counts ?? [],
+            [
+                'rgba(16, 185, 129, 0.85)',
+                'rgba(6, 182, 212, 0.85)',
+                'rgba(245, 158, 11, 0.85)',
+                'rgba(244, 63, 94, 0.85)',
+                'rgba(79, 70, 229, 0.85)',
+            ],
+            { type: 'pie' },
+        ));
+    }
 
-    register(createDoughnutChart(
-        'overviewComplaintCategoriesChart',
-        categoryBreakdown.map((i) => i.label),
-        categoryBreakdown.map((i) => i.count),
-        null,
-        { type: 'pie' },
-    ));
+    function ensureCharts() {
+        if (!initialized) {
+            buildCharts();
+            initialized = true;
+        }
 
-    register(createLineChart('overviewResolutionRateChart', chartLabels, [{
-        label: 'Resolution Rate (%)',
-        data: resolutionTrend.resolutionRate,
-        borderColor: palette.cyan,
-        backgroundColor: 'rgba(6, 182, 212, 0.15)',
-        fill: true,
-        tension: 0.4,
-        pointRadius: 5,
-        pointHoverRadius: 8,
-    }], 100));
-
-    register(createLineChart('overviewCsatTrendChart', chartLabels, [{
-        label: 'Avg rating',
-        data: csatTrend.map((value) => value ?? null),
-        borderColor: palette.amber,
-        backgroundColor: 'rgba(245, 158, 11, 0.15)',
-        fill: true,
-        tension: 0.4,
-        pointRadius: 5,
-        pointHoverRadius: 8,
-        spanGaps: true,
-    }], 5));
-
-    register(createDoughnutChart(
-        'overviewCsatDistributionChart',
-        csatDistribution.labels ?? [],
-        csatDistribution.counts ?? [],
-        [
-            'rgba(16, 185, 129, 0.85)',
-            'rgba(6, 182, 212, 0.85)',
-            'rgba(245, 158, 11, 0.85)',
-            'rgba(244, 63, 94, 0.85)',
-            'rgba(79, 70, 229, 0.85)',
-        ],
-        { type: 'pie' },
-    ));
+        requestAnimationFrame(() => {
+            charts.forEach((chart) => chart.resize());
+            requestAnimationFrame(() => charts.forEach((chart) => chart.resize()));
+        });
+    }
 
     const resizeCharts = () => charts.forEach((chart) => chart.resize());
-    window.addEventListener('cro-reports-tab-changed', resizeCharts);
-    window.addEventListener('cro-dashboard-section-changed', resizeCharts);
+    window.addEventListener('cro-reports-tab-changed', () => ensureCharts());
+    window.addEventListener('cro-dashboard-section-changed', (event) => {
+        if (['inquiry', 'complaints'].includes(event.detail?.section)) {
+            ensureCharts();
+        } else {
+            resizeCharts();
+        }
+    });
     window.addEventListener('resize', resizeCharts);
+
+    const isDashboard = Boolean(window.croDashboardData);
+    if (isDashboard) {
+        const hash = (window.location.hash || '').replace('#', '');
+        if (['inquiry', 'complaints'].includes(hash)) {
+            ensureCharts();
+        }
+    } else {
+        ensureCharts();
+    }
 
     bindDashboardPdfExportButtons();
 }

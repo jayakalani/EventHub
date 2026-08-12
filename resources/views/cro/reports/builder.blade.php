@@ -36,7 +36,7 @@
                 <p class="mt-1 text-sm text-slate-500">
                     Choose a report, pick columns and filters, then download as PDF or CSV.
                     Visual analytics stay on the
-                    <a href="{{ route('cro.dashboard') }}#analytics" class="font-medium text-indigo-600 hover:underline">dashboard</a>.
+                    <a href="{{ route('cro.dashboard') }}#support" class="font-medium text-indigo-600 hover:underline">dashboard</a>.
                 </p>
             </section>
 

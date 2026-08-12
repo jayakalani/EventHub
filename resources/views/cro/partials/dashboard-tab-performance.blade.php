@@ -2,9 +2,14 @@
 <div class="space-y-5">
     @if ($personalKpis)
         <section>
-            <div class="mb-3">
-                <h2 class="text-base font-bold text-slate-900">Your KPIs</h2>
-                <p class="text-sm text-slate-500">First response, resolution, refund decisions, and satisfaction</p>
+            <div class="mb-3 flex items-center gap-2.5">
+                <span class="flex h-8 w-8 items-center justify-center rounded-xl border border-indigo-200/60 bg-indigo-50/80 text-indigo-600 shadow-sm">
+                    <i class="bi bi-speedometer2 text-sm"></i>
+                </span>
+                <div>
+                    <h2 class="text-base font-bold tracking-tight text-slate-900">Your KPIs</h2>
+                    <p class="text-xs text-slate-500 sm:text-sm">Response, resolution, refunds, satisfaction</p>
+                </div>
             </div>
             <div class="grid grid-cols-2 gap-3 xl:grid-cols-4">
                 @foreach ([
@@ -112,11 +117,17 @@
             <div class="mt-4 rounded-xl border border-emerald-200/50 bg-emerald-50/50 px-3.5 py-3 backdrop-blur-sm">
                 <div class="flex items-center justify-between gap-2">
                     <p class="text-xs font-semibold uppercase tracking-wide text-emerald-700">Positive share</p>
-                    <p class="text-xl font-bold text-emerald-700">{{ number_format($satisfaction['happyPercent'], 0) }}%</p>
+                    <p class="text-xl font-bold text-emerald-700">
+                        @if (($satisfaction['source'] ?? null) === 'ratings')
+                            {{ number_format($satisfaction['happyPercent'], 0) }}%
+                        @else
+                            —
+                        @endif
+                    </p>
                 </div>
                 <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-emerald-100">
                     <div class="h-full rounded-full bg-emerald-500 transition-all"
-                        style="width: {{ min(100, max(0, $satisfaction['happyPercent'])) }}%"></div>
+                        style="width: {{ ($satisfaction['source'] ?? null) === 'ratings' ? min(100, max(0, $satisfaction['happyPercent'])) : 0 }}%"></div>
                 </div>
             </div>
             @if (count($feedbackThemes))

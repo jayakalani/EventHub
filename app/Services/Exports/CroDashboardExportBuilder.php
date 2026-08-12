@@ -11,7 +11,7 @@ class CroDashboardExportBuilder
     ) {}
 
     /**
-     * @param  array{event?: int|null, from?: string|null, to?: string|null}  $filters
+     * @param  array{event?: int|null, from?: string|null, to?: string|null, range?: string|null}  $filters
      * @return array{title: string, summary: list<array{label: string, value: string|int|float}>, tables: list<array{heading: string, headers: list<string>, rows: list<list<string|int|float|null>>}>}
      */
     public function build(array $filters = [], ?int $croId = null): array
@@ -65,7 +65,7 @@ class CroDashboardExportBuilder
                             .number_format((float) ($satisfaction['happyPercent'] ?? 0), 1).'% positive'
                         : '—',
                 ],
-                ['label' => 'Reviews / cases used', 'value' => $satisfaction['reviewCount'] ?? 0],
+                ['label' => 'Event ratings', 'value' => $satisfaction['reviewCount'] ?? 0],
             ],
             'tables' => [
                 [

@@ -17,7 +17,7 @@ class ComplaintsReport implements ReportGenerator
     public function generate(User $user, array $fields, array $filters, string $format): Response
     {
         $query = Complaint::query()
-            ->with(['user:id,first_name,last_name,email', 'assignee:id,first_name,last_name,email'])
+            ->with(['user:id,first_name,last_name,email', 'event:id,name', 'assignee:id,first_name,last_name,email'])
             ->forCroQueue((int) $user->id)
             ->latest();
 

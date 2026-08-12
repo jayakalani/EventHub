@@ -626,7 +626,7 @@ class DashboardController extends Controller
     }
 
     /**
-     * @return array{event: int|null, from: string|null, to: string|null}
+     * @return array{event: int|null, from: string|null, to: string|null, range: string|null}
      */
     private function validatedCroDashboardFilters(Request $request): array
     {
@@ -636,6 +636,7 @@ class DashboardController extends Controller
             'event' => $filters['event'],
             'from' => $filters['from'],
             'to' => $filters['to'],
+            'range' => $filters['range'],
         ];
     }
 

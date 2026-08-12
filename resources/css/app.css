@@ -87,8 +87,12 @@
         animation-delay: var(--progress-delay, 0ms);
     }
 
-    .notification-badge-pulse {
-        animation: notification-badge-pulse 2s ease-out infinite;
+    .filter-control {
+        @apply transition-all duration-200 ease-out;
+    }
+
+    .filter-chip {
+        @apply transition-all duration-200 ease-out;
     }
 }
 

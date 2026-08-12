@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\CroNotificationCategory;
+use App\Models\Complaint;
 use App\Models\Event;
 use App\Models\User;
 use App\Models\UserRole;
@@ -100,14 +101,33 @@ class CroNotificationService
         );
     }
 
-    public function notifyComplaintSubmitted(int $complaintId, string $subject): void
+    public function notifyComplaintSubmitted(Complaint $complaint): void
     {
+        $complaint->loadMissing('event');
+
+        $message = 'A new complaint was submitted: "'.$complaint->subject.'".';
+        $url = route('cro.complaints.show', $complaint);
+        $metadata = ['complaint_id' => $complaint->id];
+
+        if ($complaint->event) {
+            $this->notifyEventCro(
+                $complaint->event,
+                CroNotificationCategory::Interaction,
+                'complaint_submitted',
+                $message,
+                $url,
+                $metadata,
+            );
+
+            return;
+        }
+
         $this->notifyAllCros(
             CroNotificationCategory::Interaction,
             'complaint_submitted',
-            'A new complaint was submitted: "'.$subject.'".',
-            route('cro.complaints.show', $complaintId),
-            ['complaint_id' => $complaintId],
+            $message.' (general)',
+            $url,
+            $metadata,
         );
     }
 

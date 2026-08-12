@@ -4,10 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Models\Complaint;
 use App\Models\ComplaintAttachment;
+use App\Models\ticketBooking;
 use App\Services\ComplaintService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class ComplaintController extends Controller
@@ -18,18 +20,34 @@ class ComplaintController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        $userId = (int) Auth::id();
+
+        $request->merge([
+            'event_id' => $request->filled('event_id') ? $request->input('event_id') : null,
+        ]);
+
+        $bookedEventIds = ticketBooking::query()
+            ->where('user_id', $userId)
+            ->distinct()
+            ->pluck('event_id')
+            ->all();
+
         $validated = $request->validate([
             'subject' => ['required', 'string', 'max:255'],
             'message' => ['required', 'string', 'min:10', 'max:2000'],
+            'event_id' => ['nullable', 'integer', Rule::in($bookedEventIds)],
             'attachments' => ['nullable', 'array', 'max:5'],
             'attachments.*' => ['file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
         ]);
+
+        $eventId = isset($validated['event_id']) ? (int) $validated['event_id'] : null;
 
         $this->complaintService->submit(
             Auth::user(),
             $validated['subject'],
             $validated['message'],
             $request->file('attachments', []),
+            $eventId,
         );
 
         return redirect()

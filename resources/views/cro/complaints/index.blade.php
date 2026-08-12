@@ -14,7 +14,7 @@
         <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
                 <h2 class="text-3xl font-bold text-slate-900">Complaints</h2>
-                <p class="mt-1 text-slate-500">Your assigned events only · claim before you reply to avoid collisions.</p>
+                <p class="mt-1 text-slate-500">Event-linked complaints for your assigned events, plus general complaints.</p>
             </div>
             <a href="{{ route('cro.dashboard') }}"
                 class="inline-flex items-center gap-2 rounded-2xl bg-slate-800 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-900">
@@ -33,7 +33,7 @@
             @endif
 
             <div class="rounded-2xl border border-indigo-200/70 bg-indigo-50/70 px-4 py-3 text-sm text-indigo-800">
-                Showing complaints from attendees of events where you are the assigned CRO.
+                Showing complaints for events where you are the assigned CRO, plus general (non-event) complaints.
             </div>
 
             <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -102,6 +102,7 @@
                                     <p class="text-sm text-slate-500">
                                         {{ $complaint->created_at->format('d M Y, H:i') }}
                                         by {{ $complaint->user->full_name }}
+                                        · {{ $complaint->event?->name ?? 'General' }}
                                         · {{ $complaint->assignee?->full_name ?? 'Unassigned' }}
                                         @if ($complaint->attachments->isNotEmpty())
                                             · {{ $complaint->attachments->count() }} attachment{{ $complaint->attachments->count() === 1 ? '' : 's' }}

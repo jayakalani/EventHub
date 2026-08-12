@@ -315,17 +315,47 @@ function initCroDashboard() {
         ),
     };
 
-    let supportTrendChart = chartBuilders.supportTrend('croSupportTrendChart');
-    const complaintChart = chartBuilders.complaintStatus('croComplaintStatusChart');
-    const categoriesChart = chartBuilders.supportCategories('croSupportCategoriesChart');
-    const satisfactionChart = chartBuilders.satisfactionDistribution('croSatisfactionDistributionChart');
-    const chartInstances = [supportTrendChart, complaintChart, categoriesChart, satisfactionChart].filter(Boolean);
+    const sectionCharts = {
+        support: null,
+        performance: null,
+    };
+
+    let supportTrendChart = null;
+    let fullscreenChart = null;
+
+    function resizeSectionCharts(section) {
+        const charts = sectionCharts[section] ?? [];
+        charts.forEach((chart) => chart?.resize?.());
+        if (section === 'support') {
+            supportTrendChart?.resize?.();
+        }
+    }
+
+    function ensureSectionCharts(section) {
+        if (section === 'support' && !sectionCharts.support) {
+            supportTrendChart = chartBuilders.supportTrend('croSupportTrendChart');
+            sectionCharts.support = [
+                supportTrendChart,
+                chartBuilders.complaintStatus('croComplaintStatusChart'),
+                chartBuilders.supportCategories('croSupportCategoriesChart'),
+            ].filter(Boolean);
+        }
+
+        if (section === 'performance' && !sectionCharts.performance) {
+            sectionCharts.performance = [
+                chartBuilders.satisfactionDistribution('croSatisfactionDistributionChart'),
+            ].filter(Boolean);
+        }
+
+        requestAnimationFrame(() => {
+            resizeSectionCharts(section);
+            requestAnimationFrame(() => resizeSectionCharts(section));
+        });
+    }
 
     document.querySelectorAll('[data-cro-period-label]').forEach((el) => {
         el.textContent = periods[currentPeriod]?.label ?? currentPeriod;
     });
-
-    let fullscreenChart = null;
 
     function destroyFullscreenChart() {
         if (fullscreenChart) {
@@ -354,17 +384,21 @@ function initCroDashboard() {
     window.addEventListener('cro-chart-collapse', destroyFullscreenChart);
 
     window.addEventListener('resize', () => {
-        chartInstances.forEach((chart) => chart?.resize?.());
-        supportTrendChart?.resize?.();
+        Object.keys(sectionCharts).forEach((section) => resizeSectionCharts(section));
         if (fullscreenChart) fullscreenChart.resize();
     });
 
-    window.addEventListener('cro-dashboard-section-changed', () => {
-        requestAnimationFrame(() => {
-            chartInstances.forEach((chart) => chart?.resize?.());
-            supportTrendChart?.resize?.();
-        });
+    window.addEventListener('cro-dashboard-section-changed', (event) => {
+        const section = event.detail?.section;
+        if (!section) return;
+        ensureSectionCharts(section);
     });
+
+    const initialHash = (window.location.hash || '').replace('#', '');
+    const initialSection = ['today', 'performance', 'support', 'inquiry', 'complaints'].includes(initialHash)
+        ? initialHash
+        : 'today';
+    ensureSectionCharts(initialSection);
 
     bindDashboardPdfExportButtons();
 }

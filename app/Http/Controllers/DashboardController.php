@@ -8,6 +8,7 @@ use App\Models\EventCategory;
 use App\Models\OrganizerRevenueGoal;
 use App\Models\User;
 use App\Models\UserRole;
+use App\Http\Controllers\Admin\SupportReportController;
 use App\Services\AdminReportService;
 use App\Services\AttendeeCalendarService;
 use App\Services\CroDashboardService;
@@ -74,17 +75,18 @@ class DashboardController extends Controller
         $dashboard = $this->adminReportService->getDashboardData(
             $filters['organizer'],
             $filters['event'],
-            $filters['payment_organizer'],
-            $filters['payment_event'],
-            $filters['support_cro'],
-            $filters['support_event'],
+            $filters['organizer'],
+            $filters['event'],
+            $filters['cro'],
+            $filters['event'],
         );
         $reports = $this->adminReportService->getAllReports(
             $filters['organizer'],
             $filters['event'],
         );
+        $supportReport = app(SupportReportController::class)->buildReportData($filters['cro']);
 
-        return view('admin.dashboard', compact('dashboard', 'reports'));
+        return view('admin.dashboard', compact('dashboard', 'reports', 'supportReport'));
     }
 
     /**
@@ -126,6 +128,12 @@ class DashboardController extends Controller
         );
 
         $reportFilters = $this->validatedOrganizerReportFilters($request);
+
+        // Shared focus event drives Insights event scope when no explicit event_id is set.
+        if (empty($reportFilters['event_id']) && ! empty($filters['focus_event'])) {
+            $reportFilters['event_id'] = $filters['focus_event'];
+        }
+
         $tab = $this->organizerReportService->normalizeReportTab(
             (string) $request->input('tab', 'revenue')
         );
@@ -382,10 +390,7 @@ class DashboardController extends Controller
      * @return array{
      *     organizer: int|null,
      *     event: int|null,
-     *     payment_organizer: int|null,
-     *     payment_event: int|null,
-     *     support_cro: int|null,
-     *     support_event: int|null
+     *     cro: int|null
      * }
      */
     private function validatedAdminDashboardFilters(Request $request): array
@@ -393,28 +398,19 @@ class DashboardController extends Controller
         $request->merge([
             'organizer' => $request->filled('organizer') ? $request->input('organizer') : null,
             'event' => $request->filled('event') ? $request->input('event') : null,
-            'payment_organizer' => $request->filled('payment_organizer') ? $request->input('payment_organizer') : null,
-            'payment_event' => $request->filled('payment_event') ? $request->input('payment_event') : null,
-            'support_cro' => $request->filled('support_cro') ? $request->input('support_cro') : null,
-            'support_event' => $request->filled('support_event') ? $request->input('support_event') : null,
+            'cro' => $request->filled('cro') ? $request->input('cro') : null,
         ]);
 
         $validated = $request->validate([
             'organizer' => ['nullable', 'integer', 'exists:users,id'],
             'event' => ['nullable', 'integer', 'exists:events,id'],
-            'payment_organizer' => ['nullable', 'integer', 'exists:users,id'],
-            'payment_event' => ['nullable', 'integer', 'exists:events,id'],
-            'support_cro' => ['nullable', 'integer', 'exists:users,id'],
-            'support_event' => ['nullable', 'integer', 'exists:events,id'],
+            'cro' => ['nullable', 'integer', 'exists:users,id'],
         ]);
 
         return [
             'organizer' => isset($validated['organizer']) ? (int) $validated['organizer'] : null,
             'event' => isset($validated['event']) ? (int) $validated['event'] : null,
-            'payment_organizer' => isset($validated['payment_organizer']) ? (int) $validated['payment_organizer'] : null,
-            'payment_event' => isset($validated['payment_event']) ? (int) $validated['payment_event'] : null,
-            'support_cro' => isset($validated['support_cro']) ? (int) $validated['support_cro'] : null,
-            'support_event' => isset($validated['support_event']) ? (int) $validated['support_event'] : null,
+            'cro' => isset($validated['cro']) ? (int) $validated['cro'] : null,
         ];
     }
 

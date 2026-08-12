@@ -17,32 +17,27 @@
     $adminNavLinks = [
         [
             'label' => 'Dashboard',
-            'route' => 'dashboard',
+            'href' => route('dashboard'),
             'active' => request()->routeIs('dashboard'),
         ],
         [
             'label' => 'Users',
-            'route' => 'admin.users',
+            'href' => route('admin.users'),
             'active' => request()->routeIs('admin.users', 'admin.user.*', 'admin.employees.*', 'admin.employee.*'),
         ],
         [
             'label' => 'Categories',
-            'route' => 'admin.event-categories.index',
+            'href' => route('admin.event-categories.index'),
             'active' => request()->routeIs('admin.event-categories.*', 'admin.event.category.*'),
         ],
         [
-            'label' => 'Support',
-            'route' => 'admin.support-reports',
-            'active' => request()->routeIs('admin.support-reports', 'admin.support-reports.*'),
-        ],
-        [
             'label' => 'Reports',
-            'route' => 'admin.reports',
+            'href' => route('admin.reports'),
             'active' => request()->routeIs('admin.reports', 'admin.reports.*'),
         ],
         [
             'label' => 'Audit Logs',
-            'route' => 'admin.audit-logs',
+            'href' => route('admin.audit-logs'),
             'active' => request()->routeIs('admin.audit-logs', 'admin.audit-logs.*'),
         ],
     ];
@@ -128,7 +123,7 @@
                     </a>
                 @elseif ($isAdmin)
                     @foreach ($adminNavLinks as $link)
-                        <a href="{{ route($link['route']) }}"
+                        <a href="{{ $link['href'] }}"
                             class="rounded-xl px-3.5 py-2 text-sm font-medium transition {{ $link['active'] ? $navActive : $navIdle }}">
                             {{ $link['label'] }}
                         </a>
@@ -149,6 +144,10 @@
                     <a href="{{ route('cro.refund-requests.index') }}"
                         class="rounded-xl px-3.5 py-2 text-sm font-medium transition {{ request()->routeIs('cro.refund-requests.*') ? $navActive : $navIdle }}">
                         Refunds
+                    </a>
+                    <a href="{{ route('cro.reports') }}"
+                        class="rounded-xl px-3.5 py-2 text-sm font-medium transition {{ request()->routeIs('cro.reports', 'cro.reports.*') ? $navActive : $navIdle }}">
+                        Reports
                     </a>
                 @else
                     <a href="{{ route('dashboard') }}"
@@ -432,7 +431,7 @@
                 </a>
             @elseif ($isAdmin)
                 @foreach ($adminNavLinks as $link)
-                    <a href="{{ route($link['route']) }}"
+                    <a href="{{ $link['href'] }}"
                         class="block rounded-xl px-3 py-2.5 transition hover:bg-[#0F0363]/5 hover:text-[#0F0363] {{ $link['active'] ? $navActive : 'text-slate-700' }}">
                         {{ $link['label'] }}
                     </a>
@@ -453,6 +452,10 @@
                 <a href="{{ route('cro.refund-requests.index') }}"
                     class="block rounded-xl px-3 py-2.5 transition hover:bg-[#0F0363]/5 hover:text-[#0F0363] {{ request()->routeIs('cro.refund-requests.*') ? $navActive : 'text-slate-700' }}">
                     Refunds
+                </a>
+                <a href="{{ route('cro.reports') }}"
+                    class="block rounded-xl px-3 py-2.5 transition hover:bg-[#0F0363]/5 hover:text-[#0F0363] {{ request()->routeIs('cro.reports', 'cro.reports.*') ? $navActive : 'text-slate-700' }}">
+                    Reports
                 </a>
             @else
                 <a href="{{ route('dashboard') }}"

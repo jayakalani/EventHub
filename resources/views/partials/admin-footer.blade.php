@@ -16,7 +16,7 @@
             </x-footer-link>
         </li>
         <li>
-            <x-footer-link :href="route('admin.support-reports')" :active="request()->routeIs('admin.support-reports', 'admin.support-reports.*')">
+            <x-footer-link :href="route('dashboard').'#support'" :active="false">
                 {{ t(['en' => 'Support', 'si' => 'සහාය']) }}
             </x-footer-link>
         </li>

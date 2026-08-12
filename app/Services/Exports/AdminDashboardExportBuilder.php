@@ -14,22 +14,23 @@ class AdminDashboardExportBuilder
      * @param  array{
      *     organizer?: int|null,
      *     event?: int|null,
-     *     payment_organizer?: int|null,
-     *     payment_event?: int|null,
-     *     support_cro?: int|null,
-     *     support_event?: int|null
+     *     cro?: int|null
      * }  $filters
      * @return array{title: string, summary: list<array{label: string, value: string|int|float}>, tables: list<array{heading: string, headers: list<string>, rows: list<list<string|int|float|null>>}>}
      */
     public function build(array $filters = []): array
     {
+        $organizerId = $filters['organizer'] ?? null;
+        $eventId = $filters['event'] ?? null;
+        $croId = $filters['cro'] ?? null;
+
         $dashboard = $this->adminReportService->getDashboardData(
-            $filters['organizer'] ?? null,
-            $filters['event'] ?? null,
-            $filters['payment_organizer'] ?? null,
-            $filters['payment_event'] ?? null,
-            $filters['support_cro'] ?? null,
-            $filters['support_event'] ?? null,
+            $organizerId,
+            $eventId,
+            $organizerId,
+            $eventId,
+            $croId,
+            $eventId,
         );
 
         $scopeFilter = $dashboard['scopeFilter'] ?? [];

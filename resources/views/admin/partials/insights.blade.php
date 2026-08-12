@@ -42,12 +42,8 @@
             'monthly' => [],
             'yearly' => [],
         ];
-        $recentUsers = $overview['recentUsers'] ?? [];
-        $organizerPerformance = $overview['organizerPerformance'] ?? [];
         $recentPayments = $overview['recentPayments'] ?? [];
         $platformStatus = $overview['platformStatus'] ?? [];
-        $eventsByCategory = $overview['eventsByCategory'] ?? [];
-        $eventsByCategoryMax = max(1, (int) collect($eventsByCategory)->max('count'));
 
         $scopeFilter = $reports['scopeFilter'] ?? [
             'scope' => 'global',
@@ -64,18 +60,6 @@
             'organizer' => 'Filtered to organizer: '.($scopeFilter['selectedOrganizerName'] ?? '—'),
             default => 'Platform-wide insights across users, events, and revenue.',
         };
-        $exportFilters = array_filter([
-            'organizer' => $scopeFilter['selectedOrganizerId'] ?? null,
-            'event' => $scopeFilter['selectedEventId'] ?? null,
-        ], fn ($value) => filled($value));
-
-        $opsPreserveQuery = array_filter([
-            'payment_organizer' => request('payment_organizer'),
-            'payment_event' => request('payment_event'),
-            'support_cro' => request('support_cro'),
-            'support_event' => request('support_event'),
-        ], fn ($value) => filled($value));
-
         $userGrowthCounts = collect($overview['userGrowth'] ?? $users['registrationTrend'] ?? []);
         $userGrowthLabels = collect($reports['chartLabelsShort'] ?? []);
         $peakRegistrationCount = (int) ($userGrowthCounts->max() ?? 0);
@@ -86,14 +70,6 @@
         $peakRegistrationMonth = $peakRegistrationIndex !== null
             ? ($userGrowthLabels[$peakRegistrationIndex] ?? '—')
             : '—';
-
-        $tabs = [
-            'overview' => ['label' => 'Overview', 'icon' => 'bi-graph-up', 'desc' => 'Growth & marketplace'],
-            'activity' => ['label' => 'Activity', 'icon' => 'bi-lightning', 'desc' => 'Recent platform events'],
-            'admin' => ['label' => 'Admin', 'icon' => 'bi-speedometer2', 'desc' => 'Events & summary'],
-            'users' => ['label' => 'Users', 'icon' => 'bi-people', 'desc' => 'Accounts & roles'],
-            'payments' => ['label' => 'Payments', 'icon' => 'bi-credit-card', 'desc' => 'Sales & revenue'],
-        ];
     @endphp
 
     <script>
@@ -151,23 +127,28 @@
                     window.dispatchEvent(new CustomEvent('admin-reports-chart-collapse'));
                 },
                 setTab(tab) {
+                    const map = { events: 'admin' };
+                    this.activeTab = map[tab] || tab;
+                    this.$nextTick(() => {
+                        window.dispatchEvent(new CustomEvent('admin-reports-tab-changed'));
+                    });
+                },
+                syncFromDashboard(section) {
+                    const allowed = ['overview', 'activity', 'events', 'users', 'payments', 'admin'];
+                    if (!allowed.includes(section)) return;
+                    const map = { events: 'admin' };
+                    const tab = map[section] || section;
+                    if (this.activeTab === tab) return;
                     this.activeTab = tab;
                     this.$nextTick(() => {
                         window.dispatchEvent(new CustomEvent('admin-reports-tab-changed'));
-                        document.getElementById('report-panels')?.scrollIntoView({
-                            behavior: 'smooth',
-                            block: 'start',
-                        });
                     });
                 },
                 init() {
-                    if (window.location.hash.replace(/^#/, '') === 'insights') {
-                        this.$nextTick(() => {
-                            document.getElementById('insights')?.scrollIntoView({
-                                behavior: 'smooth',
-                                block: 'start',
-                            });
-                        });
+                    const hash = window.location.hash.replace(/^#/, '');
+                    const map = { events: 'admin', insights: 'overview', reports: 'overview', admin: 'admin' };
+                    if (map[hash] || ['overview', 'activity', 'users', 'payments'].includes(hash)) {
+                        this.activeTab = map[hash] || hash;
                     }
                 },
             };
@@ -177,257 +158,28 @@
     <div id="insights"
         class="admin-reports space-y-5 scroll-mt-24"
         x-data="adminReportsPage()"
-        @keydown.escape.window="if (open) closeChart()">
+        @keydown.escape.window="if (open) closeChart()"
+        @admin-dashboard-section-changed.window="syncFromDashboard($event.detail.section)">
 
-            {{-- Insights header --}}
-            <section class="glass-panel !rounded-2xl px-4 py-4 sm:px-6 sm:py-5">
-                <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                    <div class="min-w-0">
-                        <p class="text-[11px] font-semibold uppercase tracking-wide text-indigo-600">Insights</p>
-                        <h2 class="mt-0.5 text-lg font-bold tracking-tight text-slate-900 sm:text-xl">
-                            Analytics &amp; reports
-                        </h2>
-                        <p class="mt-1 max-w-2xl text-sm text-slate-500">
-                            {{ $scopeCaption }}
-                        </p>
-                    </div>
-
-                    <div class="flex flex-col items-stretch gap-2 sm:items-end">
-                        <p class="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 sm:justify-end">
-                            <span class="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden="true"></span>
-                            Updated {{ now()->diffForHumans() }}
-                        </p>
-                        <div class="flex flex-wrap gap-2 sm:justify-end">
-                            <a href="{{ route('admin.reports') }}"
-                                class="btn-smooth inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-700 shadow-sm hover:bg-indigo-100 sm:text-sm">
-                                <i class="bi bi-sliders"></i>
-                                Export builder
-                            </a>
-                            <x-report-export-buttons
-                                excel-route="admin.reports.export.excel"
-                                pdf-route="admin.reports.export.pdf"
-                                scope="admin"
-                                section="admin"
-                                :filters="$exportFilters"
-                                filter-form-id="admin-reports-scope-filter" />
-                        </div>
-                    </div>
-                </div>
-
-                {{-- Organizer / event scope filter --}}
-                <form id="admin-reports-scope-filter"
-                    method="GET"
-                    action="{{ route('dashboard') }}"
-                    class="mt-4 flex flex-col gap-2 border-t border-white/60 pt-4 sm:flex-row sm:flex-wrap sm:items-end">
-                    @foreach ($opsPreserveQuery as $opsKey => $opsValue)
-                        <input type="hidden" name="{{ $opsKey }}" value="{{ $opsValue }}">
-                    @endforeach
-                    <div class="min-w-0 flex-1 sm:max-w-xs">
-                        <label for="reports_organizer" class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                            Organizer
-                        </label>
-                        <select
-                            id="reports_organizer"
-                            name="organizer"
-                            class="block w-full rounded-xl border-white/70 bg-white/70 text-sm font-medium text-slate-700 shadow-sm backdrop-blur-md focus:border-indigo-500 focus:ring-indigo-500">
-                            <option value="">All organizers</option>
-                            @foreach ($scopeFilter['organizers'] as $organizerOption)
-                                <option value="{{ $organizerOption['id'] }}"
-                                    @selected((int) ($scopeFilter['selectedOrganizerId'] ?? 0) === (int) $organizerOption['id'])>
-                                    {{ $organizerOption['name'] }}
-                                </option>
-                            @endforeach
-                        </select>
-                    </div>
-
-                    @if ($scopeFilter['selectedOrganizerId'])
-                        <div class="min-w-0 flex-1 sm:max-w-xs">
-                            <label for="reports_event" class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                                Event
-                            </label>
-                            <select
-                                id="reports_event"
-                                name="event"
-                                class="block w-full rounded-xl border-white/70 bg-white/70 text-sm font-medium text-slate-700 shadow-sm backdrop-blur-md focus:border-indigo-500 focus:ring-indigo-500">
-                                <option value="">All events</option>
-                                @foreach ($scopeFilter['events'] as $eventOption)
-                                    <option value="{{ $eventOption['id'] }}"
-                                        @selected((int) ($scopeFilter['selectedEventId'] ?? 0) === (int) $eventOption['id'])>
-                                        {{ $eventOption['name'] }}
-                                    </option>
-                                @endforeach
-                            </select>
-                        </div>
-                    @endif
-
-                    @if ($isScoped)
-                        <a href="{{ route('dashboard', $opsPreserveQuery) }}#insights"
-                            class="btn-smooth inline-flex items-center justify-center gap-1.5 rounded-xl border border-white/70 bg-white/50 px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-white/80 sm:mb-0.5">
-                            <i class="bi bi-x-circle"></i>
-                            Clear filters
-                        </a>
-                    @endif
-                </form>
-                {{-- Today's highlights --}}
-                <div class="mt-4 grid grid-cols-2 gap-2 border-t border-white/60 pt-4 sm:grid-cols-4 sm:gap-3">
-                    @foreach (array_values(array_filter([
-                        [
-                            'label' => $isScoped ? 'Buyers Today' : 'New Users',
-                            'value' => $highlights['newUsers'],
-                            'icon' => 'bi-person-plus',
-                            'tone' => 'indigo',
-                        ],
-                        [
-                            'label' => 'New Events',
-                            'value' => $highlights['newEvents'],
-                            'icon' => 'bi-calendar-plus',
-                            'tone' => 'blue',
-                        ],
-                        [
-                            'label' => 'Tickets Sold',
-                            'value' => $highlights['ticketsSold'],
-                            'icon' => 'bi-ticket-perforated',
-                            'tone' => 'cyan',
-                        ],
-                        $isScoped ? null : [
-                            'label' => 'Pending Approvals',
-                            'value' => $highlights['pendingOrganizerApprovals'],
-                            'icon' => 'bi-person-check',
-                            'tone' => 'amber',
-                        ],
-                        $isScoped ? [
-                            'label' => 'Net Revenue',
-                            'value' => $payments['netRevenue'],
-                            'icon' => 'bi-cash-stack',
-                            'tone' => 'amber',
-                            'money' => true,
-                        ] : null,
-                    ])) as $item)
-                        <div class="flex items-center gap-2.5 rounded-xl border border-white/60 bg-white/40 px-3 py-2.5 backdrop-blur-sm">
-                            <span @class([
-                                'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sm',
-                                'bg-indigo-100/80 text-indigo-600' => $item['tone'] === 'indigo',
-                                'bg-blue-100/80 text-blue-600' => $item['tone'] === 'blue',
-                                'bg-cyan-100/80 text-cyan-600' => $item['tone'] === 'cyan',
-                                'bg-amber-100/80 text-amber-600' => $item['tone'] === 'amber',
-                            ])>
-                                <i class="bi {{ $item['icon'] }}"></i>
-                            </span>
-                            <div class="min-w-0">
-                                <p class="text-sm font-bold tabular-nums text-slate-900">
-                                    @if (! empty($item['money']))
-                                        LKR {{ number_format((float) $item['value'], 0) }}
-                                    @else
-                                        {{ number_format($item['value']) }}
-                                    @endif
-                                </p>
-                                <p class="truncate text-[11px] font-medium text-slate-500">{{ $item['label'] }}</p>
-                            </div>
-                        </div>
-                    @endforeach
+            {{-- Compact analytics actions --}}
+            <section class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <p class="text-sm text-slate-500">
+                    Charts and trends for the selected tab · {{ $scopeCaption }}
+                </p>
+                <div class="flex flex-wrap items-center gap-2 sm:justify-end">
+                    <a href="{{ route('admin.reports') }}"
+                        class="btn-smooth inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-700 shadow-sm hover:bg-indigo-100 sm:text-sm">
+                        <i class="bi bi-sliders"></i>
+                        Export builder
+                    </a>
                 </div>
             </section>
-
-            {{-- KPI cards --}}
-            <section class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                <button type="button" @click="setTab('users')" class="glass-card kpi-lift border-t-4 border-t-indigo-500 p-4 text-left sm:p-5">
-                    <div class="flex items-start justify-between gap-3">
-                        <div class="min-w-0">
-                            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ $kpis['usersLabel'] ?? 'Total Users' }}</p>
-                            <p class="mt-1 text-2xl font-bold tracking-tight text-slate-900">{{ number_format($kpis['totalUsers']) }}</p>
-                            <p class="mt-1 text-xs font-semibold text-emerald-600">
-                                +{{ number_format($kpis['usersToday']) }}
-                                {{ strtolower($kpis['usersSubLabel'] ?? 'today') }}
-                            </p>
-                        </div>
-                        <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-100/70 text-indigo-600 backdrop-blur-sm">
-                            <i class="bi bi-people text-lg"></i>
-                        </span>
-                    </div>
-                    @if (count($roleBreakdown) > 0)
-                        <div class="mt-3 grid grid-cols-2 gap-1.5 border-t border-white/50 pt-3">
-                            @foreach ($roleBreakdown as $role)
-                                <div class="rounded-lg border border-white/60 bg-white/40 px-2 py-1.5 backdrop-blur-sm">
-                                    <p class="truncate text-[10px] font-medium text-slate-500">{{ $role['label'] }}</p>
-                                    <p class="text-sm font-bold text-slate-800">{{ number_format($role['count']) }}</p>
-                                </div>
-                            @endforeach
-                        </div>
-                    @endif
-                </button>
-
-                <button type="button" @click="setTab('admin')" class="glass-card kpi-lift border-t-4 border-t-blue-500 p-4 text-left sm:p-5">
-                    <div class="flex items-start justify-between gap-3">
-                        <div class="min-w-0">
-                            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Total Events</p>
-                            <p class="mt-1 text-2xl font-bold tracking-tight text-slate-900">{{ number_format($kpis['totalEvents']) }}</p>
-                            <p class="mt-1 text-xs font-semibold text-blue-600">+{{ number_format($kpis['eventsThisWeek']) }} this week</p>
-                        </div>
-                        <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-100/70 text-blue-600 backdrop-blur-sm">
-                            <i class="bi bi-calendar-event text-lg"></i>
-                        </span>
-                    </div>
-                </button>
-
-                <button type="button" @click="setTab('payments')" class="glass-card kpi-lift border-t-4 border-t-emerald-500 p-4 text-left sm:p-5">
-                    <div class="flex items-start justify-between gap-3">
-                        <div class="min-w-0">
-                            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Platform Revenue</p>
-                            <p class="mt-1 truncate text-2xl font-bold tracking-tight text-slate-900">LKR {{ number_format($kpis['platformRevenue'], 0) }}</p>
-                            <p @class([
-                                'mt-1 text-xs font-semibold',
-                                'text-emerald-600' => $revenueUp,
-                                'text-rose-600' => ! $revenueUp,
-                            ])>
-                                {{ $revenueUp ? '+' : '' }}{{ $revenueMoM }}%
-                                <span class="font-medium text-slate-500">vs last month</span>
-                            </p>
-                        </div>
-                        <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100/70 text-emerald-600 backdrop-blur-sm">
-                            <i class="bi bi-cash-stack text-lg"></i>
-                        </span>
-                    </div>
-                </button>
-
-                <button type="button" @click="setTab('overview')" class="glass-card kpi-lift border-t-4 border-t-cyan-500 p-4 text-left sm:p-5">
-                    <div class="flex items-start justify-between gap-3">
-                        <div class="min-w-0">
-                            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Tickets Sold</p>
-                            <p class="mt-1 text-2xl font-bold tracking-tight text-slate-900">{{ number_format($kpis['ticketsSold']) }}</p>
-                            <p class="mt-1 text-xs font-semibold text-cyan-600">+{{ number_format($kpis['ticketsToday']) }} today</p>
-                        </div>
-                        <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-cyan-100/70 text-cyan-600 backdrop-blur-sm">
-                            <i class="bi bi-ticket-perforated text-lg"></i>
-                        </span>
-                    </div>
-                </button>
-            </section>
-
-            {{-- Primary tab navigation (sticky under main nav) --}}
-            <nav id="report-panels" class="sticky top-16 z-40 -mx-4 scroll-mt-28 px-4 py-2 sm:top-[4.5rem] sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8" aria-label="Report sections">
-                <div class="overflow-x-auto rounded-2xl border border-white/70 bg-white/90 p-1.5 shadow-md shadow-slate-900/5 ring-1 ring-slate-900/5 backdrop-blur-xl [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                    <div class="flex min-w-max gap-1 sm:grid sm:min-w-0 sm:grid-cols-5 sm:gap-1.5">
-                        @foreach ($tabs as $key => $tab)
-                            <button type="button"
-                                @click="setTab('{{ $key }}')"
-                                :class="activeTab === '{{ $key }}'
-                                    ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-500/20'
-                                    : 'text-slate-600 hover:bg-white hover:text-slate-900'"
-                                class="btn-smooth inline-flex items-center justify-center gap-2 rounded-xl px-3.5 py-2.5 text-xs font-semibold transition sm:flex-col sm:gap-1 sm:px-2 sm:py-3 lg:flex-row lg:gap-2 lg:px-3">
-                                <i class="bi {{ $tab['icon'] }} text-sm opacity-90"></i>
-                                <span>{{ $tab['label'] }}</span>
-                            </button>
-                        @endforeach
-                    </div>
-                </div>
-            </nav>
-
             {{-- Overview (no x-cloak so charts can measure on first paint) --}}
             <div x-show="activeTab === 'overview'" class="space-y-5">
                 <div class="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
                     <div>
                         <h2 class="text-lg font-bold text-slate-900">Growth & marketplace</h2>
-                        <p class="text-sm text-slate-500">Users, revenue, tickets, categories, and organizers · click charts to expand</p>
+                        <p class="text-sm text-slate-500">Users, revenue, and ticket trends · click charts to expand</p>
                     </div>
                 </div>
 
@@ -583,92 +335,9 @@
                     </div>
                 </section>
 
-                <section class="grid gap-4 lg:grid-cols-5">
-                    <div class="glass-card chart-expand-hit group p-4 sm:p-5 lg:col-span-3"
-                        @click="openChart('eventsByCategory', 'Event Category Analytics', 'Number of events by category')">
-                        <div class="mb-4 flex items-start justify-between gap-3">
-                            <div>
-                                <p class="text-[11px] font-semibold uppercase tracking-wide text-indigo-600">Categories</p>
-                                <h3 class="mt-0.5 text-base font-bold text-slate-900">Event Category Analytics</h3>
-                                <p class="mt-0.5 text-sm text-slate-500">Number of events by category</p>
-                            </div>
-                            <button type="button"
-                                class="btn-smooth flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/60 bg-indigo-50/70 text-indigo-600 backdrop-blur hover:bg-indigo-100/90"
-                                title="View fullscreen"
-                                @click.stop="openChart('eventsByCategory', 'Event Category Analytics', 'Number of events by category')">
-                                <i class="bi bi-arrows-fullscreen text-xs"></i>
-                            </button>
-                        </div>
-                        <div class="h-64">
-                            <canvas id="adminOverviewEventsByCategoryChart" class="pointer-events-none"></canvas>
-                        </div>
-                        @if (count($eventsByCategory) > 0)
-                            <div class="mt-4 space-y-2 border-t border-white/50 pt-3" @click.stop>
-                                @foreach ($eventsByCategory as $category)
-                                    @php
-                                        $barWidth = min(100, round(((int) $category['count'] / $eventsByCategoryMax) * 100, 1));
-                                    @endphp
-                                    <div class="flex items-center gap-3">
-                                        <span class="w-24 shrink-0 truncate text-xs font-medium text-slate-600 sm:w-28">{{ $category['label'] }}</span>
-                                        <div class="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-white/60">
-                                            <div class="h-full rounded-full bg-gradient-to-r from-indigo-500 to-cyan-500"
-                                                style="width: {{ $barWidth }}%"></div>
-                                        </div>
-                                        <span class="w-10 shrink-0 text-right text-xs font-bold tabular-nums text-slate-800">{{ number_format($category['count']) }}</span>
-                                    </div>
-                                @endforeach
-                            </div>
-                        @endif
-                    </div>
-
-                    <div class="glass-card overflow-hidden !p-0 lg:col-span-2">
-                        <div class="border-b border-white/50 bg-white/30 px-4 py-3.5 backdrop-blur-sm sm:px-5">
-                            <h3 class="text-base font-bold text-slate-900">Organizer Performance</h3>
-                            <p class="mt-0.5 text-sm text-slate-500">Top organizers by revenue</p>
-                        </div>
-                        <div class="overflow-x-auto">
-                            <table class="min-w-full text-sm">
-                                <thead class="bg-white/35 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                                    <tr>
-                                        <th class="px-4 py-2.5 sm:px-5">Organizer</th>
-                                        <th class="px-4 py-2.5 text-right sm:px-5">Events</th>
-                                        <th class="px-4 py-2.5 text-right sm:px-5">Tickets</th>
-                                        <th class="px-4 py-2.5 text-right sm:px-5">Revenue</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y divide-white/40">
-                                    @forelse ($organizerPerformance as $index => $organizer)
-                                        <tr class="btn-smooth hover:bg-white/45">
-                                            <td class="px-4 py-3 sm:px-5">
-                                                <div class="flex items-center gap-2.5">
-                                                    <span @class([
-                                                        'flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-bold',
-                                                        'bg-amber-100 text-amber-700' => $index === 0,
-                                                        'bg-slate-200 text-slate-700' => $index === 1,
-                                                        'bg-orange-100 text-orange-700' => $index === 2,
-                                                        'bg-slate-100 text-slate-600' => $index > 2,
-                                                    ])>
-                                                        {{ $index + 1 }}
-                                                    </span>
-                                                    <span class="font-semibold text-slate-900">{{ $organizer['name'] }}</span>
-                                                </div>
-                                            </td>
-                                            <td class="px-4 py-3 text-right text-slate-700 sm:px-5">{{ number_format($organizer['events']) }}</td>
-                                            <td class="px-4 py-3 text-right text-slate-700 sm:px-5">{{ number_format($organizer['ticketsSold']) }}</td>
-                                            <td class="px-4 py-3 text-right font-semibold text-emerald-700 sm:px-5">{{ $organizer['revenueLabel'] }}</td>
-                                        </tr>
-                                    @empty
-                                        <tr>
-                                            <td colspan="4" class="px-4 py-8">
-                                                <x-report-empty-state class="!min-h-[8rem] border-0 bg-transparent shadow-none" />
-                                            </td>
-                                        </tr>
-                                    @endforelse
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </section>
+                <div class="hidden" aria-hidden="true">
+                    <canvas id="adminOverviewEventsByCategoryChart"></canvas>
+                </div>
 
                 <section>
                     <div class="mb-3">
@@ -712,53 +381,10 @@
             <div x-show="activeTab === 'activity'" x-cloak class="space-y-5">
                 <div>
                     <h2 class="text-lg font-bold text-slate-900">Recent activity</h2>
-                    <p class="text-sm text-slate-500">Latest registrations and payments</p>
+                    <p class="text-sm text-slate-500">Latest platform payments</p>
                 </div>
 
-                <section class="grid gap-4 lg:grid-cols-2">
-                    <div class="glass-card overflow-hidden !p-0">
-                        <div class="flex items-center justify-between gap-3 border-b border-white/50 bg-white/30 px-4 py-3.5 backdrop-blur-sm sm:px-5">
-                            <div>
-                                <h3 class="text-base font-bold text-slate-900">Recent User Registrations</h3>
-                                <p class="mt-0.5 text-sm text-slate-500">Latest users on the platform</p>
-                            </div>
-                            <a href="{{ route('admin.users') }}"
-                                class="btn-smooth whitespace-nowrap text-xs font-semibold text-indigo-600 hover:text-indigo-800">
-                                View all →
-                            </a>
-                        </div>
-                        <div class="overflow-x-auto">
-                            <table class="min-w-full text-sm">
-                                <thead class="bg-white/35 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                                    <tr>
-                                        <th class="px-4 py-2.5 sm:px-5">User</th>
-                                        <th class="px-4 py-2.5 sm:px-5">Role</th>
-                                        <th class="px-4 py-2.5 sm:px-5">Registered</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y divide-white/40">
-                                    @forelse ($recentUsers as $recentUser)
-                                        <tr class="btn-smooth hover:bg-white/45">
-                                            <td class="px-4 py-3 font-medium text-slate-900 sm:px-5">{{ $recentUser['name'] }}</td>
-                                            <td class="px-4 py-3 sm:px-5">
-                                                <span class="inline-flex rounded-md bg-indigo-50 px-2 py-0.5 text-xs font-semibold text-indigo-700">
-                                                    {{ $recentUser['role'] }}
-                                                </span>
-                                            </td>
-                                            <td class="px-4 py-3 text-slate-500 sm:px-5">{{ $recentUser['joined'] }}</td>
-                                        </tr>
-                                    @empty
-                                        <tr>
-                                            <td colspan="3" class="px-4 py-8">
-                                                <x-report-empty-state class="!min-h-[8rem] border-0 bg-transparent shadow-none" />
-                                            </td>
-                                        </tr>
-                                    @endforelse
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
+                <section>
                     <div class="glass-card overflow-hidden !p-0">
                         <div class="flex items-center justify-between gap-3 border-b border-white/50 bg-white/30 px-4 py-3.5 backdrop-blur-sm sm:px-5">
                             <div>
@@ -766,7 +392,7 @@
                                 <p class="mt-0.5 text-sm text-slate-500">Latest platform transactions</p>
                             </div>
                             <button type="button"
-                                @click="setTab('payments')"
+                                @click="window.dispatchEvent(new CustomEvent('admin-open-section', { detail: { section: 'payments' }}))"
                                 class="btn-smooth whitespace-nowrap text-xs font-semibold text-indigo-600 hover:text-indigo-800">
                                 View all →
                             </button>
@@ -813,14 +439,11 @@
                 </section>
             </div>
 
-            {{-- Admin Reports --}}
+            {{-- Events --}}
             <div x-show="activeTab === 'admin'" x-cloak class="space-y-5">
-                <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                        <h2 class="text-lg font-bold text-slate-900">Admin reports</h2>
-                        <p class="text-sm text-slate-500">Event status mix and platform summary metrics</p>
-                    </div>
-                    <x-report-export-buttons excel-route="admin.reports.export.excel" pdf-route="admin.reports.export.pdf" scope="admin" section="admin" :filters="$exportFilters" filter-form-id="admin-reports-scope-filter" />
+                <div>
+                    <h2 class="text-lg font-bold text-slate-900">Events</h2>
+                    <p class="text-sm text-slate-500">Event status mix and platform summary metrics</p>
                 </div>
 
                 <div class="grid gap-4 lg:grid-cols-2">
@@ -864,20 +487,17 @@
                 </div>
             </div>
 
-            {{-- User Reports --}}
+            {{-- Users --}}
             <div x-show="activeTab === 'users'" x-cloak class="space-y-5">
-                <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                        <h2 class="text-lg font-bold text-slate-900">User reports</h2>
-                        <p class="text-sm text-slate-500">
-                            @if ($isScoped)
-                                Platform account metrics (not limited by organizer/event filter)
-                            @else
-                                Account health and latest registrations
-                            @endif
-                        </p>
-                    </div>
-                    <x-report-export-buttons excel-route="admin.reports.export.excel" pdf-route="admin.reports.export.pdf" scope="admin" section="users" :filters="$exportFilters" filter-form-id="admin-reports-scope-filter" />
+                <div>
+                    <h2 class="text-lg font-bold text-slate-900">Users</h2>
+                    <p class="text-sm text-slate-500">
+                        @if ($isScoped)
+                            Platform account metrics (not limited by organizer/event filter)
+                        @else
+                            Account health and status breakdown
+                        @endif
+                    </p>
                 </div>
 
                 <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -901,51 +521,19 @@
                     @endforeach
                 </div>
 
-                <div class="grid gap-4 lg:grid-cols-2">
-                    <div class="glass-card chart-expand-hit group p-5 sm:p-6"
-                        @click="openChart('userStatus', 'Account Status Breakdown', 'Active, verified, and locked accounts')">
-                        <div class="flex items-start justify-between gap-3">
-                            <div>
-                                <h3 class="text-lg font-bold text-slate-900">Account Status Breakdown</h3>
-                                <p class="mt-1 text-sm text-slate-500">Active, verified, and locked accounts</p>
-                            </div>
-                            <button type="button" class="btn-smooth flex h-8 w-8 items-center justify-center rounded-lg border border-white/60 bg-cyan-50/70 text-cyan-600" @click.stop="openChart('userStatus', 'Account Status Breakdown', 'Active, verified, and locked accounts')">
-                                <i class="bi bi-arrows-fullscreen text-xs"></i>
-                            </button>
+                <div class="glass-card chart-expand-hit group p-5 sm:p-6"
+                    @click="openChart('userStatus', 'Account Status Breakdown', 'Active, verified, and locked accounts')">
+                    <div class="flex items-start justify-between gap-3">
+                        <div>
+                            <h3 class="text-lg font-bold text-slate-900">Account Status Breakdown</h3>
+                            <p class="mt-1 text-sm text-slate-500">Active, verified, and locked accounts</p>
                         </div>
-                        <div class="mt-6 h-64">
-                            <canvas id="userStatusChart" class="pointer-events-none"></canvas>
-                        </div>
+                        <button type="button" class="btn-smooth flex h-8 w-8 items-center justify-center rounded-lg border border-white/60 bg-cyan-50/70 text-cyan-600" @click.stop="openChart('userStatus', 'Account Status Breakdown', 'Active, verified, and locked accounts')">
+                            <i class="bi bi-arrows-fullscreen text-xs"></i>
+                        </button>
                     </div>
-
-                    <div class="glass-card overflow-hidden !p-0">
-                        <div class="flex flex-col gap-3 border-b border-white/50 bg-white/30 px-5 py-4 backdrop-blur-sm sm:flex-row sm:items-center sm:justify-between sm:px-6">
-                            <div>
-                                <h3 class="text-lg font-bold text-slate-900">Recent Users</h3>
-                                <p class="mt-1 text-sm text-slate-500">Latest registrations</p>
-                            </div>
-                            <a href="{{ route('admin.users') }}" class="btn-smooth text-xs font-semibold text-indigo-600 hover:text-indigo-800">Manage users →</a>
-                        </div>
-                        <div class="max-h-80 divide-y divide-white/40 overflow-y-auto">
-                            @forelse($users['recentUsers'] as $recentUser)
-                                <div class="btn-smooth flex items-center justify-between gap-4 px-5 py-4 hover:bg-white/45 sm:px-6">
-                                    <div class="min-w-0">
-                                        <p class="truncate font-semibold text-slate-900">{{ $recentUser['name'] }}</p>
-                                        <p class="truncate text-sm text-slate-500">{{ $recentUser['email'] }}</p>
-                                    </div>
-                                    <div class="shrink-0 text-right">
-                                        <span class="inline-flex rounded-full bg-indigo-100 px-2.5 py-0.5 text-xs font-medium text-indigo-700">
-                                            {{ ucfirst($recentUser['role']) }}
-                                        </span>
-                                        <p class="mt-1 text-xs text-slate-400">{{ $recentUser['joined'] }}</p>
-                                    </div>
-                                </div>
-                            @empty
-                                <div class="p-4">
-                                    <x-report-empty-state class="!min-h-[8rem] border-0 bg-transparent shadow-none" />
-                                </div>
-                            @endforelse
-                        </div>
+                    <div class="mt-6 h-64">
+                        <canvas id="userStatusChart" class="pointer-events-none"></canvas>
                     </div>
                 </div>
                 <div class="hidden" aria-hidden="true">
@@ -954,14 +542,11 @@
                 </div>
             </div>
 
-            {{-- Payment Reports --}}
+            {{-- Payments --}}
             <div x-show="activeTab === 'payments'" x-cloak class="space-y-5">
-                <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                        <h2 class="text-lg font-bold text-slate-900">Payment reports</h2>
-                        <p class="text-sm text-slate-500">Payment status, methods, and recent transactions</p>
-                    </div>
-                    <x-report-export-buttons excel-route="admin.reports.export.excel" pdf-route="admin.reports.export.pdf" scope="admin" section="payments" :filters="$exportFilters" filter-form-id="admin-reports-scope-filter" />
+                <div>
+                    <h2 class="text-lg font-bold text-slate-900">Payments</h2>
+                    <p class="text-sm text-slate-500">Payment status, methods, and recent transactions</p>
                 </div>
 
                 <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">

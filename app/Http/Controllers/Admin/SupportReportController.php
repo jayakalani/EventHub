@@ -10,17 +10,49 @@ use App\Models\User;
 use App\Models\UserRole;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\View\View;
+use Illuminate\Support\Collection;
 
 class SupportReportController extends Controller
 {
-    public function index(Request $request): View
+    /**
+     * Support lives on the admin dashboard — keep old URLs working.
+     */
+    public function index(Request $request): RedirectResponse
     {
-        [$cros, $selectedCroId, $selectedCroName] = $this->resolveCroFilter($request);
+        $query = array_filter([
+            'cro' => $request->input('cro'),
+            'organizer' => $request->input('organizer'),
+            'event' => $request->input('event'),
+        ], fn ($value) => filled($value));
 
-        $inquiryQuery = $this->scopedInquiryQuery($selectedCroId);
-        $complaintQuery = $this->scopedComplaintQuery($selectedCroId);
+        return redirect()->to(route('dashboard', $query).'#support');
+    }
+
+    /**
+     * @return array{
+     *     cros: list<array{id: int, name: string}>,
+     *     selectedCroId: int|null,
+     *     selectedCroName: string|null,
+     *     totalInquiries: int,
+     *     totalComplaints: int,
+     *     resolvedCount: int,
+     *     pendingCount: int,
+     *     pendingInquiries: int,
+     *     pendingComplaints: int,
+     *     resolvedInquiries: int,
+     *     resolvedComplaints: int,
+     *     recentInquiries: Collection,
+     *     recentComplaints: Collection
+     * }
+     */
+    public function buildReportData(?int $selectedCroId = null): array
+    {
+        [$cros, $resolvedCroId, $selectedCroName] = $this->resolveCroFilter($selectedCroId);
+
+        $inquiryQuery = $this->scopedInquiryQuery($resolvedCroId);
+        $complaintQuery = $this->scopedComplaintQuery($resolvedCroId);
 
         $totalInquiries = (clone $inquiryQuery)->count();
         $totalComplaints = (clone $complaintQuery)->count();
@@ -40,26 +72,28 @@ class SupportReportController extends Controller
         $recentInquiries = (clone $inquiryQuery)->with(['user', 'event'])->latest()->limit(10)->get();
         $recentComplaints = (clone $complaintQuery)->with('user')->latest()->limit(10)->get();
 
-        return view('admin.support-reports', compact(
-            'cros',
-            'selectedCroId',
-            'selectedCroName',
-            'totalInquiries',
-            'totalComplaints',
-            'resolvedCount',
-            'pendingCount',
-            'pendingInquiries',
-            'pendingComplaints',
-            'resolvedInquiries',
-            'resolvedComplaints',
-            'recentInquiries',
-            'recentComplaints',
-        ));
+        return [
+            'cros' => $cros,
+            'selectedCroId' => $resolvedCroId,
+            'selectedCroName' => $selectedCroName,
+            'totalInquiries' => $totalInquiries,
+            'totalComplaints' => $totalComplaints,
+            'resolvedCount' => $resolvedCount,
+            'pendingCount' => $pendingCount,
+            'pendingInquiries' => $pendingInquiries,
+            'pendingComplaints' => $pendingComplaints,
+            'resolvedInquiries' => $resolvedInquiries,
+            'resolvedComplaints' => $resolvedComplaints,
+            'recentInquiries' => $recentInquiries,
+            'recentComplaints' => $recentComplaints,
+        ];
     }
 
     public function exportCsv(Request $request)
     {
-        [, $selectedCroId] = $this->resolveCroFilter($request);
+        [, $selectedCroId] = $this->resolveCroFilter(
+            $request->filled('cro') ? (int) $request->input('cro') : null
+        );
 
         $inquiries = $this->scopedInquiryQuery($selectedCroId)->with(['user', 'event'])->latest()->get();
         $complaints = $this->scopedComplaintQuery($selectedCroId)->with('user')->latest()->get();
@@ -108,7 +142,9 @@ class SupportReportController extends Controller
 
     public function exportPdf(Request $request)
     {
-        [, $selectedCroId] = $this->resolveCroFilter($request);
+        [, $selectedCroId] = $this->resolveCroFilter(
+            $request->filled('cro') ? (int) $request->input('cro') : null
+        );
 
         $inquiryQuery = $this->scopedInquiryQuery($selectedCroId);
         $complaintQuery = $this->scopedComplaintQuery($selectedCroId);
@@ -138,7 +174,7 @@ class SupportReportController extends Controller
     /**
      * @return array{0: list<array{id: int, name: string}>, 1: int|null, 2: string|null}
      */
-    private function resolveCroFilter(Request $request): array
+    private function resolveCroFilter(?int $requestedCroId): array
     {
         $croRoleId = UserRole::query()->where('name_en', UserRole::CRO)->value('id');
 
@@ -159,9 +195,8 @@ class SupportReportController extends Controller
         $selectedCroId = null;
         $selectedCroName = null;
 
-        if ($request->filled('cro')) {
-            $croId = (int) $request->input('cro');
-            $selectedCro = collect($cros)->firstWhere('id', $croId);
+        if ($requestedCroId) {
+            $selectedCro = collect($cros)->firstWhere('id', $requestedCroId);
             if ($selectedCro) {
                 $selectedCroId = (int) $selectedCro['id'];
                 $selectedCroName = $selectedCro['name'];

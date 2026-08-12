@@ -17,6 +17,7 @@ use App\Services\Exports\AdminDashboardExportBuilder;
 use App\Services\Exports\CroDashboardExportBuilder;
 use App\Services\Exports\OrganizerDashboardExportBuilder;
 use App\Services\OrganizerDashboardService;
+use App\Services\OrganizerReportService;
 use App\Services\ReportExportService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -29,6 +30,7 @@ class DashboardController extends Controller
     public function __construct(
         protected AdminReportService $adminReportService,
         protected OrganizerDashboardService $organizerDashboardService,
+        protected OrganizerReportService $organizerReportService,
         protected CroDashboardService $croDashboardService,
         protected CroReportService $croReportService,
         protected ReportExportService $exportService,
@@ -99,11 +101,11 @@ class DashboardController extends Controller
     }
 
     /**
-     * Organizer Dashboard
+     * Organizer Dashboard (ops + insights / former reports)
      */
     public function organizer(Request $request): View
     {
-        $organizerId = Auth::id();
+        $organizerId = (int) Auth::id();
 
         $this->organizerDashboardService->syncLowInventoryNotifications($organizerId);
 
@@ -119,7 +121,22 @@ class DashboardController extends Controller
             $filters['query'],
         );
 
-        return view('organizer.dashboard', compact('dashboard'));
+        $reportFilters = $this->validatedOrganizerReportFilters($request);
+        $tab = $this->organizerReportService->normalizeReportTab(
+            (string) $request->input('tab', 'revenue')
+        );
+
+        if (! in_array($tab, $this->organizerReportService->reportTabs(), true)) {
+            $tab = 'revenue';
+        }
+
+        $reports = array_merge(
+            $this->organizerReportService->getReportShell($organizerId, $reportFilters),
+            $this->organizerReportService->getTabReports($organizerId, $reportFilters, $tab),
+        );
+        $loadedTabs = [$tab];
+
+        return view('organizer.dashboard', compact('dashboard', 'reports', 'loadedTabs', 'tab'));
     }
 
     /**
@@ -569,6 +586,42 @@ class DashboardController extends Controller
     private function organizerDashboardRedirectParams(Request $request): array
     {
         return $this->validatedOrganizerDashboardFilters($request)['query'];
+    }
+
+    /**
+     * Insights filters (former organizer reports).
+     *
+     * @return array{from?: string|null, to?: string|null, event_id?: int|null, status?: string|null}
+     */
+    private function validatedOrganizerReportFilters(Request $request): array
+    {
+        $request->merge([
+            'from' => $request->filled('from') ? $request->input('from') : null,
+            'to' => $request->filled('to') ? $request->input('to') : null,
+            'event_id' => $request->filled('event_id') ? $request->input('event_id') : null,
+            'status' => $request->filled('status') ? $request->input('status') : null,
+        ]);
+
+        return $request->validate([
+            'from' => ['nullable', 'date'],
+            'to' => ['nullable', 'date', 'after_or_equal:from'],
+            'event_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('events', 'id')->where(fn ($query) => $query->where('created_by', Auth::id())),
+            ],
+            'status' => [
+                'nullable',
+                'string',
+                Rule::in([
+                    Event::STATUS_UPCOMING,
+                    Event::STATUS_ONGOING,
+                    Event::STATUS_POSTPONED,
+                    Event::STATUS_COMPLETED,
+                    Event::STATUS_CANCELLED,
+                ]),
+            ],
+        ]);
     }
 
     /**

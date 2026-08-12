@@ -29,12 +29,19 @@
                 @endif
             </p>
         </div>
-        <x-report-export-buttons
-            excel-route="cro.reports.export.excel"
-            pdf-route="cro.reports.export.pdf"
-            scope="cro"
-            section="inquiries"
-        />
+        <div class="flex flex-wrap items-center gap-2">
+            <a href="{{ route('cro.reports') }}"
+                class="inline-flex items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-3.5 py-2 text-sm font-semibold text-indigo-700 transition hover:bg-indigo-100">
+                <i class="bi bi-sliders"></i>
+                Export builder
+            </a>
+            <x-report-export-buttons
+                excel-route="cro.reports.export.excel"
+                pdf-route="cro.reports.export.pdf"
+                scope="cro"
+                section="inquiries"
+            />
+        </div>
     </div>
 
     {{-- Summary KPIs --}}

@@ -200,8 +200,10 @@
                                     class="rounded-xl border border-gray-100 bg-gray-50/70 p-3 transition focus-within:border-indigo-200 focus-within:bg-white focus-within:shadow-sm">
                                     <label for="date" class="block text-xs font-semibold uppercase tracking-wide text-gray-500">Date</label>
                                     <input id="date" type="date" name="date" value="{{ old('date') }}"
+                                        min="{{ now()->addDay()->toDateString() }}"
                                         class="mt-1.5 block w-full rounded-xl border-gray-200 bg-white text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                                         :required="!scheduleTba">
+                                    <p class="mt-1 text-xs text-slate-500">Choose a future date (today and past dates are not allowed).</p>
                                     @error('date')
                                         <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                                     @enderror

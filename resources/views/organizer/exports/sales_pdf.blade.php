@@ -106,6 +106,12 @@
     @php
         $filterBits = array_filter([
             $eventName ? 'Event: '.$eventName : null,
+            ! empty($filters['ticket_category']) ? 'Category: '.$filters['ticket_category'] : null,
+            ! empty($filters['status'])
+                ? 'Status: '.($filters['status'] === 'refunded'
+                    ? 'Refunded (Partial)'
+                    : ucfirst(str_replace('_', ' ', $filters['status'])))
+                : null,
             ! empty($filters['search']) ? 'Search: '.$filters['search'] : null,
             ! empty($filters['from_date']) ? 'From: '.$filters['from_date'] : null,
             ! empty($filters['to_date']) ? 'To: '.$filters['to_date'] : null,
@@ -166,7 +172,12 @@
                     <td class="right">LKR {{ number_format((float) ($ticket['amount'] ?? 0), 2) }}</td>
                     <td>{{ $ticket['booked_at_formatted'] ?? '—' }}</td>
                     <td>{{ $ticket['check_in_status'] ?? '—' }}</td>
-                    <td>{{ $ticket['status'] ?? '—' }}</td>
+                    <td>
+                        {{ $ticket['status'] ?? '—' }}
+                        @if (! empty($ticket['status_balance_label']))
+                            <br><span style="color:#b45309;font-size:8px;">{{ $ticket['status_balance_label'] }}</span>
+                        @endif
+                    </td>
                 </tr>
             @empty
                 <tr>

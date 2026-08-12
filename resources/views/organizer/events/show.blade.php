@@ -1013,9 +1013,11 @@
                                     <option value="upcoming" {{ ($event->status ?? '') == 'upcoming' ? 'selected' : '' }}>
                                         {{ __('Upcoming') }}
                                     </option>
-                                    <option value="ongoing" {{ ($event->status ?? '') == 'ongoing' ? 'selected' : '' }}>
-                                        {{ __('Ongoing') }}
-                                    </option>
+                                    @if (($event->status ?? '') !== 'unpublished')
+                                        <option value="ongoing" {{ ($event->status ?? '') == 'ongoing' ? 'selected' : '' }}>
+                                            {{ __('Ongoing') }}
+                                        </option>
+                                    @endif
                                     @if (($event->status ?? '') === 'upcoming')
                                         <option value="postponed">{{ __('Postpone Event') }}</option>
                                     @endif

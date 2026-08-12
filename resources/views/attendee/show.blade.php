@@ -18,6 +18,13 @@
         $formattedDate = $event->hasDateYetToBeScheduled()
             ? null
             : \Carbon\Carbon::parse($event->date)->format('D, M j, Y');
+        $showArtists = $event->eventCategory?->allowsArtists() ?? false;
+        $statsColumnCount = 4 + ($showArtists ? 1 : 0) + ($isCompleted ? 1 : 0);
+        $statsGridClass = match ($statsColumnCount) {
+            6 => 'lg:grid-cols-6',
+            5 => 'lg:grid-cols-5',
+            default => 'lg:grid-cols-4',
+        };
     @endphp
 
     <x-slot name="header">
@@ -241,7 +248,7 @@
                             </div>
 
                             {{-- Bottom: compact stats with icons --}}
-                            <div class="grid grid-cols-2 gap-3 rounded-xl border border-slate-100 bg-slate-50/70 px-3.5 py-3 sm:grid-cols-3 {{ $isCompleted ? 'lg:grid-cols-6' : 'lg:grid-cols-5' }}">
+                            <div class="grid grid-cols-2 gap-3 rounded-xl border border-slate-100 bg-slate-50/70 px-3.5 py-3 sm:grid-cols-3 {{ $statsGridClass }}">
                                 <div class="flex items-center gap-2.5">
                                     <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
                                         <i class="bi bi-building text-sm" aria-hidden="true"></i>
@@ -253,6 +260,7 @@
                                         </p>
                                     </div>
                                 </div>
+                                @if ($showArtists)
                                 <div class="flex items-center gap-2.5">
                                     <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-fuchsia-50 text-fuchsia-600">
                                         <i class="bi bi-people text-sm" aria-hidden="true"></i>
@@ -272,6 +280,7 @@
                                         @endif
                                     </div>
                                 </div>
+                                @endif
                                 <div class="flex items-center gap-2.5">
                                     <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-violet-50 text-violet-600">
                                         <i class="bi bi-ticket-perforated text-sm" aria-hidden="true"></i>

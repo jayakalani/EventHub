@@ -66,6 +66,71 @@ class ticketBooking extends Model
         return $this->hasOne(RefundRequest::class, 'ticket_booking_id');
     }
 
+    public function approvedRefundRequest(): ?RefundRequest
+    {
+        $this->loadMissing('refundRequest');
+
+        $refund = $this->refundRequest;
+
+        if (! $refund || $refund->status !== RefundRequestStatusEnum::Approved) {
+            return null;
+        }
+
+        return $refund;
+    }
+
+    public function isPartiallyRefunded(): bool
+    {
+        if ($this->status !== BookingStatusEnum::Refunded) {
+            return false;
+        }
+
+        $refund = $this->approvedRefundRequest();
+
+        if (! $refund) {
+            return false;
+        }
+
+        if ((int) $refund->refund_percentage < 100) {
+            return true;
+        }
+
+        return (float) $refund->refund_amount < (float) $this->ticket_price;
+    }
+
+    public function isFullyRefunded(): bool
+    {
+        return $this->status === BookingStatusEnum::Refunded && ! $this->isPartiallyRefunded();
+    }
+
+    /**
+     * Amount that still counts toward organizer sales revenue.
+     * Partial refunds contribute ticket price minus the approved refund amount.
+     */
+    public function retainedSaleAmount(): float
+    {
+        $price = round((float) $this->ticket_price, 2);
+
+        if ($this->isPartiallyRefunded()) {
+            $refunded = round((float) $this->approvedRefundRequest()->refund_amount, 2);
+
+            return round(max(0, $price - $refunded), 2);
+        }
+
+        if ($this->status === BookingStatusEnum::Refunded) {
+            return 0.0;
+        }
+
+        return $price;
+    }
+
+    public function approvedRefundAmount(): float
+    {
+        $refund = $this->approvedRefundRequest();
+
+        return $refund ? round((float) $refund->refund_amount, 2) : 0.0;
+    }
+
     public function checkedInBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'checked_in_by');
@@ -222,7 +287,11 @@ class ticketBooking extends Model
 
     public function displayStatusLabel(): string
     {
-        $this->loadMissing('event');
+        $this->loadMissing(['event', 'refundRequest']);
+
+        if ($this->isPartiallyRefunded()) {
+            return 'Refunded (Partial)';
+        }
 
         if ($this->status === BookingStatusEnum::Confirmed && $this->event->isCompleted()) {
             return 'Completed';
@@ -237,7 +306,11 @@ class ticketBooking extends Model
 
     public function displayStatusBadgeClasses(): string
     {
-        $this->loadMissing('event');
+        $this->loadMissing(['event', 'refundRequest']);
+
+        if ($this->isPartiallyRefunded()) {
+            return 'bg-amber-100 text-amber-800';
+        }
 
         if ($this->status === BookingStatusEnum::Confirmed && $this->event->isCompleted()) {
             return 'bg-slate-200 text-slate-700';
@@ -252,6 +325,10 @@ class ticketBooking extends Model
         }
 
         if ($this->status === BookingStatusEnum::EventCancelled) {
+            return 'bg-rose-100 text-rose-700';
+        }
+
+        if ($this->status === BookingStatusEnum::Refunded) {
             return 'bg-rose-100 text-rose-700';
         }
 

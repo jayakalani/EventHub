@@ -1271,7 +1271,7 @@ class OrganizerDashboardService
             'comments' => $comments,
             'average_rating' => $averageRating,
             'reviews_count' => $reviewsCount,
-            'url' => route('organizer.reports', ['tab' => 'engagement']),
+            'url' => route('organizer.dashboard', ['tab' => 'engagement']).'#engagement',
         ];
     }
 

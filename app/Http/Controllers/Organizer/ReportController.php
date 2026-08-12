@@ -4,15 +4,18 @@ namespace App\Http\Controllers\Organizer;
 
 use App\Http\Controllers\Concerns\ExportsReportSections;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Organizer\GenerateOrganizerReportRequest;
 use App\Models\Event;
 use App\Services\Exports\OrganizerReportExportBuilder;
 use App\Services\OrganizerReportService;
+use App\Services\OrganizerReports\OrganizerReportRegistry;
 use App\Services\ReportExportService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\Response;
 
 class ReportController extends Controller
 {
@@ -38,29 +41,42 @@ class ReportController extends Controller
         protected OrganizerReportService $reportService,
         protected OrganizerReportExportBuilder $exportBuilder,
         protected ReportExportService $exportService,
+        protected OrganizerReportRegistry $registry,
     ) {}
 
     public function index(Request $request): View
     {
         $this->authorize('viewAny', Event::class);
 
-        $filters = $this->validatedFilters($request);
-        $tab = $this->reportService->normalizeReportTab(
-            (string) $request->input('tab', 'revenue')
+        $catalog = $this->registry->catalogFor($request->user());
+        abort_if($catalog === [], 403);
+
+        $defaultKey = array_key_first($catalog);
+
+        return view('organizer.reports.builder', [
+            'catalog' => $catalog,
+            'defaultReport' => $defaultKey,
+            'oldReport' => old('report', $defaultKey),
+            'oldFields' => old('fields', []),
+            'oldFilters' => old('filters', []),
+            'oldFormat' => old('format', 'pdf'),
+        ]);
+    }
+
+    public function generate(GenerateOrganizerReportRequest $request): Response
+    {
+        $this->authorize('viewAny', Event::class);
+
+        $reportKey = (string) $request->input('report');
+        $format = (string) $request->input('format');
+        $generator = $this->registry->generator($reportKey);
+
+        return $generator->generate(
+            $request->user(),
+            $request->selectedFields(),
+            $request->selectedFilters(),
+            $format,
         );
-
-        if (! in_array($tab, $this->reportService->reportTabs(), true)) {
-            $tab = 'revenue';
-        }
-
-        $organizerId = (int) Auth::id();
-        $reports = array_merge(
-            $this->reportService->getReportShell($organizerId, $filters),
-            $this->reportService->getTabReports($organizerId, $filters, $tab),
-        );
-        $loadedTabs = [$tab];
-
-        return view('organizer.reports.index', compact('reports', 'loadedTabs', 'tab'));
     }
 
     /**

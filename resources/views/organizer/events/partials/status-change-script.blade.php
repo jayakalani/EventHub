@@ -48,6 +48,12 @@
             return;
         }
 
+        if (currentStatus === 'unpublished' && select.value === 'ongoing') {
+            select.value = currentStatus;
+            window.alert('Unpublished events cannot be changed to Ongoing. Set to Upcoming first to publish the event.');
+            return;
+        }
+
         if (currentStatus === 'postponed' && select.value === 'upcoming') {
             select.value = currentStatus;
             window.alert('Postponed events cannot be changed to Upcoming. Mark as Ongoing when the event is running, or cancel if it will not happen.');

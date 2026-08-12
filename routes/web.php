@@ -262,6 +262,7 @@ Route::prefix('organizer')->name('organizer.')->middleware(['auth', 'verified', 
 
     // Reports & Analytics
     Route::get('/reports', [OrganizerReportController::class, 'index'])->name('reports');
+    Route::post('/reports/generate', [OrganizerReportController::class, 'generate'])->name('reports.generate');
     Route::get('/reports/tab-data', [OrganizerReportController::class, 'tabData'])->name('reports.tab-data');
     Route::get('/reports/export/excel', [OrganizerReportController::class, 'exportExcel'])->name('reports.export.excel');
     Route::post('/reports/export/pdf', [OrganizerReportController::class, 'exportPdf'])->name('reports.export.pdf');
@@ -303,6 +304,7 @@ Route::prefix('cro')->name('cro.')->middleware(['auth', 'verified', 'prevent-bac
 
     // Reports & Analytics
     Route::get('/reports', [CroReportController::class, 'index'])->name('reports');
+    Route::post('/reports/generate', [CroReportController::class, 'generate'])->name('reports.generate');
     Route::get('/reports/export/excel', [CroReportController::class, 'exportExcel'])->name('reports.export.excel');
     Route::post('/reports/export/pdf', [CroReportController::class, 'exportPdf'])->name('reports.export.pdf');
 });

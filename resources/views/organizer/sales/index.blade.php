@@ -7,21 +7,21 @@
                 </h2>
                 <p class="mt-0.5 text-sm text-slate-500">
                     Ticket-by-ticket sales list · for charts &amp; trends open
-                    <a href="{{ route('organizer.reports', array_filter([
+                    <a href="{{ route('organizer.dashboard', array_filter([
                         'event_id' => $filters['event_id'] ?? null,
                         'from' => $filters['from_date'] ?? null,
                         'to' => $filters['to_date'] ?? null,
-                    ], fn ($value) => filled($value))) }}"
-                        class="font-semibold text-indigo-600 hover:text-indigo-700">Reports</a>.
+                    ], fn ($value) => filled($value))).'#insights' }}"
+                        class="font-semibold text-indigo-600 hover:text-indigo-700">Insights</a>.
                 </p>
             </div>
 
             <div class="flex flex-wrap gap-2">
-                <a href="{{ route('organizer.reports', array_filter([
+                <a href="{{ route('organizer.dashboard', array_filter([
                         'event_id' => $filters['event_id'] ?? null,
                         'from' => $filters['from_date'] ?? null,
                         'to' => $filters['to_date'] ?? null,
-                    ], fn ($value) => filled($value))) }}"
+                    ], fn ($value) => filled($value))).'#insights' }}"
                     class="inline-flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 px-3.5 py-2 text-sm font-semibold text-indigo-800 shadow-sm transition hover:bg-indigo-100">
                     <i class="bi bi-bar-chart-line"></i>
                     Open analytics
@@ -72,10 +72,10 @@
             {{-- Filters --}}
             <div class="mb-4 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
                 <form method="GET" action="{{ route('organizer.sales.index') }}"
-                    class="grid grid-cols-1 gap-2.5 md:grid-cols-3 lg:grid-cols-6">
+                    class="grid grid-cols-1 gap-2.5 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8">
                     <input type="text" name="search" value="{{ $filters['search'] ?? '' }}"
                         placeholder="Search ticket #, event, category..."
-                        class="rounded-xl border-slate-300 text-sm focus:border-indigo-500 focus:ring-indigo-500 lg:col-span-2">
+                        class="rounded-xl border-slate-300 text-sm focus:border-indigo-500 focus:ring-indigo-500 xl:col-span-2">
 
                     <select name="event_id"
                         class="rounded-xl border-slate-300 text-sm focus:border-indigo-500 focus:ring-indigo-500">
@@ -83,6 +83,30 @@
                         @foreach ($events as $event)
                             <option value="{{ $event->id }}" @selected(($filters['event_id'] ?? null) == $event->id)>
                                 {{ $event->name }}
+                            </option>
+                        @endforeach
+                    </select>
+
+                    <select name="ticket_category"
+                        class="rounded-xl border-slate-300 text-sm focus:border-indigo-500 focus:ring-indigo-500">
+                        <option value="">All Categories</option>
+                        @foreach ($ticketCategories as $categoryName)
+                            <option value="{{ $categoryName }}" @selected(($filters['ticket_category'] ?? null) === $categoryName)>
+                                {{ $categoryName }}
+                            </option>
+                        @endforeach
+                    </select>
+
+                    <select name="status"
+                        class="rounded-xl border-slate-300 text-sm focus:border-indigo-500 focus:ring-indigo-500">
+                        <option value="">All Status</option>
+                        @foreach ($statuses as $status)
+                            <option value="{{ $status->value }}" @selected(($filters['status'] ?? null) === $status->value)>
+                                @if ($status === \App\Enums\BookingStatusEnum::Refunded)
+                                    Refunded (Partial)
+                                @else
+                                    {{ ucfirst(str_replace('_', ' ', $status->value)) }}
+                                @endif
                             </option>
                         @endforeach
                     </select>
@@ -171,8 +195,16 @@
                                         </span>
                                     </td>
 
-                                    <td class="px-4 py-3 text-sm font-semibold text-slate-900">
-                                        LKR {{ number_format($ticket['amount'], 2) }}
+                                    <td class="px-4 py-3">
+                                        <div class="text-sm font-semibold text-slate-900">
+                                            LKR {{ number_format($ticket['amount'], 2) }}
+                                        </div>
+                                        @if (! empty($ticket['is_partial_refund']))
+                                            <div class="mt-0.5 text-[11px] text-slate-500">
+                                                Original LKR {{ number_format($ticket['original_amount'], 2) }}
+                                                · Refunded LKR {{ number_format($ticket['refund_amount'], 2) }}
+                                            </div>
+                                        @endif
                                     </td>
 
                                     <td class="px-4 py-3">
@@ -199,6 +231,11 @@
                                         <span class="inline-flex rounded-lg px-2.5 py-1 text-xs font-semibold {{ $ticket['status_badge_classes'] }}">
                                             {{ $ticket['status'] }}
                                         </span>
+                                        @if (! empty($ticket['status_balance_label']))
+                                            <div class="mt-1 text-[11px] font-medium text-amber-700">
+                                                {{ $ticket['status_balance_label'] }}
+                                            </div>
+                                        @endif
                                     </td>
                                 </tr>
                             @empty

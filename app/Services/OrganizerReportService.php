@@ -2411,10 +2411,10 @@ class OrganizerReportService
             'checkedIn' => (int) ($attendance['checkedIn'] ?? 0),
             'topEvent' => $mapEvent($top),
             'bottomEvent' => $performance->count() > 1 ? $mapEvent($bottom) : null,
-            'reportsUrl' => route('organizer.reports', [
+            'reportsUrl' => route('organizer.dashboard', [
                 'from' => $from->toDateString(),
                 'to' => $to->toDateString(),
-            ]),
+            ]).'#insights',
         ];
     }
 }

@@ -4,12 +4,15 @@ namespace App\Http\Controllers\Cro;
 
 use App\Http\Controllers\Concerns\ExportsReportSections;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Cro\GenerateCroReportRequest;
 use App\Services\CroReportService;
+use App\Services\CroReports\CroReportRegistry;
 use App\Services\Exports\CroReportExportBuilder;
 use App\Services\ReportExportService;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\Response;
 
 class ReportController extends Controller
 {
@@ -21,18 +24,43 @@ class ReportController extends Controller
         protected CroReportService $reportService,
         protected CroReportExportBuilder $exportBuilder,
         protected ReportExportService $exportService,
+        protected CroReportRegistry $registry,
     ) {}
 
-    /**
-     * Reports live on the CRO dashboard — keep this route as a stable bookmark.
-     */
-    public function index(Request $request): RedirectResponse
+    public function index(Request $request): View
     {
-        return redirect()
-            ->route('cro.dashboard', $request->query())
-            ->withFragment('cro-reports');
+        $catalog = $this->registry->catalogFor($request->user());
+        abort_if($catalog === [], 403);
+
+        $defaultKey = array_key_first($catalog);
+
+        return view('cro.reports.builder', [
+            'catalog' => $catalog,
+            'defaultReport' => $defaultKey,
+            'oldReport' => old('report', $defaultKey),
+            'oldFields' => old('fields', []),
+            'oldFilters' => old('filters', []),
+            'oldFormat' => old('format', 'pdf'),
+        ]);
     }
 
+    public function generate(GenerateCroReportRequest $request): Response
+    {
+        $reportKey = (string) $request->input('report');
+        $format = (string) $request->input('format');
+        $generator = $this->registry->generator($reportKey);
+
+        return $generator->generate(
+            $request->user(),
+            $request->selectedFields(),
+            $request->selectedFilters(),
+            $format,
+        );
+    }
+
+    /**
+     * Legacy dashboard chart-section exports (Excel / PDF with charts).
+     */
     public function exportExcel(Request $request)
     {
         $section = $this->validatedSection($request, self::SECTIONS);

@@ -17,9 +17,6 @@
         $filterQuery = $dashboard['filterQuery'] ?? [];
         $kpis = $dashboard['kpis'];
         $kpiFilter = $dashboard['kpiFilter'] ?? ['selectedEventId' => null, 'selectedEventName' => null, 'events' => [], 'isOverride' => false];
-        $chartFilter = $dashboard['chartFilter'] ?? ['selectedEventId' => null, 'selectedEventName' => null, 'events' => [], 'isOverride' => false];
-        $engagement = $dashboard['engagement'];
-        $engagementFilter = $engagement['filter'] ?? ['selectedEventId' => null, 'selectedEventName' => null, 'events' => $chartFilter['events'] ?? [], 'isOverride' => false];
         $revenueGoal = $dashboard['revenueGoal'];
         $statusSummary = $dashboard['statusSummary'];
         $performance = $dashboard['performance'];
@@ -38,44 +35,13 @@
         $initials = strtoupper(substr($user?->first_name ?? 'O', 0, 1) . substr($user?->last_name ?? '', 0, 1));
         $focusEvents = $focusFilter['events'] ?? $kpiFilter['events'] ?? [];
         $hasSectionOverride = ($kpiFilter['isOverride'] ?? false)
-            || ($revenueGoal['isOverride'] ?? false)
-            || ($chartFilter['isOverride'] ?? false)
-            || ($engagementFilter['isOverride'] ?? false);
+            || ($revenueGoal['isOverride'] ?? false);
+        $tab = $tab ?? 'revenue';
+        $loadedTabs = $loadedTabs ?? [$tab];
+        $reports = $reports ?? [];
     @endphp
 
-    <div class="organizer-dashboard relative isolate overflow-hidden py-5 sm:py-6"
-        x-data="{
-            open: false,
-            chartKey: null,
-            title: '',
-            description: '',
-            chartPeriod: @js($dashboard['charts']['defaultPeriod'] ?? 'month'),
-            openChart(key, title, description) {
-                this.chartKey = key;
-                this.title = title;
-                this.description = description;
-                this.open = true;
-                document.body.classList.add('overflow-hidden');
-                this.$nextTick(() => {
-                    window.dispatchEvent(new CustomEvent('organizer-chart-expand', {
-                        detail: { key, period: this.chartPeriod },
-                    }));
-                });
-            },
-            closeChart() {
-                this.open = false;
-                this.chartKey = null;
-                document.body.classList.remove('overflow-hidden');
-                window.dispatchEvent(new CustomEvent('organizer-chart-collapse'));
-            },
-            setChartPeriod(period) {
-                this.chartPeriod = period;
-                window.dispatchEvent(new CustomEvent('organizer-chart-period', {
-                    detail: { period },
-                }));
-            },
-        }"
-        @keydown.escape.window="if (open) closeChart()">
+    <div class="organizer-dashboard relative isolate overflow-hidden py-5 sm:py-6">
 
         <div class="pointer-events-none absolute inset-0 -z-10">
             <div class="absolute inset-0 bg-gradient-to-br from-slate-100 via-indigo-50/45 to-cyan-50/55"></div>
@@ -134,6 +100,11 @@
 
                         <div class="flex w-full flex-col gap-2 sm:w-auto sm:shrink-0 sm:items-end">
                             <form method="GET" action="{{ route('organizer.dashboard') }}" class="w-full sm:w-72">
+                                @foreach (['from', 'to', 'event_id', 'status', 'tab'] as $insightsKey)
+                                    @if (request()->filled($insightsKey))
+                                        <input type="hidden" name="{{ $insightsKey }}" value="{{ request($insightsKey) }}">
+                                    @endif
+                                @endforeach
                                 <label for="focus_event" class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-indigo-600">
                                     Focus event
                                 </label>
@@ -151,7 +122,7 @@
                                     @endforeach
                                 </select>
                                 <p class="mt-1 text-[10px] text-slate-400">
-                                    Applies to KPIs, goal, analytics, and engagement
+                                    Applies to KPIs and revenue goal
                                     @if ($hasSectionOverride)
                                         · clears section-only overrides
                                     @endif
@@ -162,20 +133,17 @@
                             <x-dashboard-export-pdf
                                 route="organizer.dashboard.export.pdf"
                                 :params="$filterQuery"
-                                :charts="[
-                                    ['canvasId' => 'organizerRevenueChart', 'title' => 'Analytics — Revenue'],
-                                    ['canvasId' => 'organizerTicketSalesChart', 'title' => 'Analytics — Ticket Sales'],
-                                ]"
+                                :charts="[]"
                             />
                             <a href="{{ route('organizer.events.create') }}"
                                 class="btn-smooth inline-flex items-center gap-1.5 rounded-lg bg-indigo-600/95 px-3 py-2 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 hover:shadow-md sm:text-sm">
                                 <i class="bi bi-plus-lg"></i>
                                 New Event
                             </a>
-                            <a href="{{ route('organizer.reports') }}"
+                            <a href="#insights"
                                 class="btn-smooth inline-flex items-center gap-1.5 rounded-lg border border-white/70 bg-white/50 px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm hover:border-indigo-200 hover:bg-white/80 sm:text-sm">
                                 <i class="bi bi-graph-up-arrow"></i>
-                                Reports
+                                Insights
                             </a>
                             </div>
                         </div>
@@ -1026,207 +994,7 @@
                 @endif
             </section>
 
-            {{-- 4. Analytics --}}
-            <section class="glass-panel p-5 sm:p-6">
-                <div class="mb-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                    <div>
-                        <h2 class="text-lg font-bold text-slate-900">Analytics & engagement</h2>
-                        <p class="text-sm text-slate-500">
-                            @if ($chartFilter['selectedEventId'])
-                                Event analytics for
-                                <span class="font-semibold text-slate-700">{{ $chartFilter['selectedEventName'] }}</span>
-                                @if ($chartFilter['isOverride'] ?? false)
-                                    <span class="text-slate-400">(section only)</span>
-                                @endif
-                            @else
-                                Charts and interaction signals
-                                @if ($chartFilter['isOverride'] ?? false)
-                                    <span class="text-slate-400">· all events (section only)</span>
-                                @endif
-                            @endif
-                        </p>
-                    </div>
-
-                    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-3">
-                        <x-organizer-section-event-filter
-                            name="chart_event"
-                            :events="$focusEvents"
-                            :focus-event-id="$focusFilter['selectedEventId'] ?? null"
-                            :focus-event-name="$focusFilter['selectedEventName'] ?? null"
-                            :effective-event-id="$chartFilter['selectedEventId'] ?? null"
-                            :is-override="$chartFilter['isOverride'] ?? false"
-                            :query="$filterQuery"
-                        />
-
-                        <div class="inline-flex rounded-xl border border-white/70 bg-white/55 p-1 shadow-sm backdrop-blur-md">
-                            @foreach ([
-                                'week' => 'This Week',
-                                'month' => 'This Month',
-                                'year' => 'This Year',
-                            ] as $key => $label)
-                                <button type="button"
-                                    @click="setChartPeriod('{{ $key }}')"
-                                    :class="chartPeriod === '{{ $key }}'
-                                        ? 'bg-indigo-600 text-white shadow-sm'
-                                        : 'text-slate-600 hover:bg-white/80'"
-                                    class="btn-smooth rounded-lg px-3 py-1.5 text-xs font-semibold sm:px-3.5 sm:text-sm">
-                                    {{ $label }}
-                                </button>
-                            @endforeach
-                        </div>
-
-                        <a href="{{ route('organizer.reports') }}"
-                            class="btn-smooth text-sm font-semibold text-indigo-600 hover:text-indigo-700">
-                            Full reports →
-                        </a>
-                    </div>
-                </div>
-
-                <div class="grid gap-4 lg:grid-cols-2">
-                    @foreach ([
-                        [
-                            'key' => 'revenue',
-                            'title' => 'Revenue',
-                            'modalTitle' => 'Revenue Chart',
-                            'modalDesc' => 'Earnings for the selected period',
-                            'canvas' => 'organizerRevenueChart',
-                            'expandBg' => 'bg-emerald-50/80 text-emerald-600 group-hover:bg-emerald-100',
-                        ],
-                        [
-                            'key' => 'tickets',
-                            'title' => 'Ticket Sales',
-                            'modalTitle' => 'Ticket Sales Chart',
-                            'modalDesc' => 'Confirmed tickets for the selected period',
-                            'canvas' => 'organizerTicketSalesChart',
-                            'expandBg' => 'bg-blue-50/80 text-blue-600 group-hover:bg-blue-100',
-                        ],
-                    ] as $chart)
-                        <div class="glass-card group p-5 sm:p-6">
-                            <div class="flex items-start justify-between gap-3">
-                                <div class="min-w-0">
-                                    <h3 class="text-base font-bold text-slate-900">{{ $chart['title'] }}</h3>
-                                    <p class="mt-2 text-2xl font-bold tracking-tight text-slate-900"
-                                        data-chart-total="{{ $chart['key'] }}">
-                                        —
-                                    </p>
-                                    <div class="mt-2 flex flex-wrap items-center gap-2">
-                                        <span class="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-bold"
-                                            data-chart-change="{{ $chart['key'] }}">
-                                            —
-                                        </span>
-                                        <span class="text-xs font-medium text-slate-500" data-chart-period-label>
-                                            This Month
-                                        </span>
-                                    </div>
-                                </div>
-                                <button type="button"
-                                    @click="openChart('{{ $chart['key'] }}', '{{ $chart['modalTitle'] }}', '{{ $chart['modalDesc'] }}')"
-                                    class="btn-smooth group flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/60 {{ $chart['expandBg'] }}"
-                                    title="View fullscreen"
-                                    aria-label="View {{ $chart['title'] }} fullscreen">
-                                    <i class="bi bi-arrows-fullscreen text-sm"></i>
-                                </button>
-                            </div>
-
-                            <div class="mt-4 h-56 w-full rounded-xl sm:h-64">
-                                <canvas id="{{ $chart['canvas'] }}"></canvas>
-                            </div>
-                        </div>
-                    @endforeach
-                </div>
-
-                {{-- Engagement (collapsed into analytics) --}}
-                <div class="mt-5 border-t border-white/60 pt-5">
-                    <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
-                        <div class="min-w-0">
-                            <h3 class="text-sm font-bold text-slate-900">Engagement</h3>
-                            <p class="text-xs text-slate-500">
-                                @if ($engagementFilter['selectedEventId'])
-                                    {{ $engagementFilter['selectedEventName'] }}
-                                    @if ($engagementFilter['isOverride'] ?? false)
-                                        <span class="text-slate-400">(section only)</span>
-                                    @endif
-                                @else
-                                    Across all events
-                                    @if ($engagementFilter['isOverride'] ?? false)
-                                        <span class="text-slate-400">(section only)</span>
-                                    @endif
-                                @endif
-                            </p>
-                        </div>
-                        <div class="flex flex-wrap items-center gap-3">
-                            <x-organizer-section-event-filter
-                                name="engagement_event"
-                                :events="$focusEvents"
-                                :focus-event-id="$focusFilter['selectedEventId'] ?? null"
-                                :focus-event-name="$focusFilter['selectedEventName'] ?? null"
-                                :effective-event-id="$engagementFilter['selectedEventId'] ?? null"
-                                :is-override="$engagementFilter['isOverride'] ?? false"
-                                :query="$filterQuery"
-                            />
-                            <a href="{{ $engagement['url'] }}"
-                                class="btn-smooth inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:text-indigo-700">
-                                Report
-                                <i class="bi bi-arrow-right"></i>
-                            </a>
-                        </div>
-                    </div>
-
-                    <div class="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
-                        <div class="rounded-xl border border-amber-100/80 bg-amber-50/40 px-3.5 py-3">
-                            <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Satisfaction</p>
-                            @if($engagement['reviews_count'] > 0)
-                                @php
-                                    $avg = (float) $engagement['average_rating'];
-                                    $fullStars = (int) floor($avg);
-                                    $hasHalf = ($avg - $fullStars) >= 0.25 && ($avg - $fullStars) < 0.75;
-                                @endphp
-                                <div class="mt-1 flex items-center gap-2">
-                                    <p class="text-lg font-bold tracking-tight text-slate-900">
-                                        {{ number_format($avg, 1) }}<span class="text-xs font-semibold text-slate-400">/5</span>
-                                    </p>
-                                    <div class="flex items-center gap-0.5 text-amber-400" aria-hidden="true">
-                                        @for($i = 1; $i <= 5; $i++)
-                                            @if($i <= $fullStars)
-                                                <i class="bi bi-star-fill text-xs"></i>
-                                            @elseif($hasHalf && $i === $fullStars + 1)
-                                                <i class="bi bi-star-half text-xs"></i>
-                                            @else
-                                                <i class="bi bi-star text-xs text-amber-200"></i>
-                                            @endif
-                                        @endfor
-                                    </div>
-                                </div>
-                                <p class="mt-0.5 text-[11px] text-slate-500">
-                                    {{ number_format($engagement['reviews_count']) }}
-                                    {{ $engagement['reviews_count'] === 1 ? 'review' : 'reviews' }}
-                                </p>
-                            @else
-                                <p class="mt-1 text-lg font-bold text-slate-300">—</p>
-                                <p class="mt-0.5 text-[11px] text-slate-500">No reviews yet</p>
-                            @endif
-                        </div>
-
-                        @foreach([
-                            ['label' => 'Likes', 'value' => $engagement['likes'], 'icon' => 'bi-heart-fill', 'iconBg' => 'bg-rose-100/80 text-rose-600'],
-                            ['label' => 'Saved', 'value' => $engagement['saves'], 'icon' => 'bi-bookmark-fill', 'iconBg' => 'bg-indigo-100/80 text-indigo-600'],
-                            ['label' => 'Comments', 'value' => $engagement['comments'], 'icon' => 'bi-chat-dots-fill', 'iconBg' => 'bg-blue-100/80 text-blue-600'],
-                        ] as $metric)
-                            <div class="flex items-center gap-2.5 rounded-xl border border-white/60 bg-white/45 px-3.5 py-3">
-                                <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sm {{ $metric['iconBg'] }}">
-                                    <i class="bi {{ $metric['icon'] }}"></i>
-                                </div>
-                                <div class="min-w-0">
-                                    <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{{ $metric['label'] }}</p>
-                                    <p class="text-lg font-bold text-slate-900">{{ number_format($metric['value']) }}</p>
-                                </div>
-                            </div>
-                        @endforeach
-                    </div>
-                </div>
-            </section>
-
-            {{-- 5. Performance + status --}}
+            {{-- 4. Performance + status --}}
             <section class="grid gap-5 xl:grid-cols-12">
                 <div class="glass-panel overflow-hidden xl:col-span-8"
                     x-data="{ showCompleted: false }">
@@ -1365,7 +1133,7 @@
                 </aside>
             </section>
 
-            {{-- 6. Operations --}}
+            {{-- 5. Operations --}}
             <section class="grid gap-5 lg:grid-cols-3">
                 <div class="glass-panel overflow-hidden">
                     <div class="flex items-center justify-between border-b border-white/50 px-5 py-4">
@@ -1600,48 +1368,9 @@
                     </div>
                 </div>
             </section>
-        </div>
 
-        {{-- Fullscreen chart modal --}}
-        <div x-show="open"
-            x-cloak
-            class="fixed inset-0 z-[80] flex items-center justify-center p-4 sm:p-6"
-            style="display: none;">
-            <div class="absolute inset-0 bg-slate-900/55 backdrop-blur-md" @click="closeChart()"></div>
-
-            <div class="relative flex h-[min(92vh,56rem)] w-full max-w-6xl flex-col overflow-hidden rounded-3xl border border-white/60 bg-white/90 shadow-2xl backdrop-blur-xl"
-                x-show="open"
-                @click.stop
-                x-transition:enter="transition ease-out duration-200"
-                x-transition:enter-start="opacity-0 scale-95"
-                x-transition:enter-end="opacity-100 scale-100"
-                x-transition:leave="transition ease-in duration-150"
-                x-transition:leave-start="opacity-100 scale-100"
-                x-transition:leave-end="opacity-0 scale-95"
-                role="dialog"
-                aria-modal="true"
-                :aria-label="title">
-                <div class="flex items-start justify-between gap-4 border-b border-white/60 px-5 py-4 sm:px-6">
-                    <div class="min-w-0">
-                        <h2 class="text-lg font-bold text-slate-900" x-text="title"></h2>
-                        <p class="mt-0.5 text-sm text-slate-500" x-text="description"></p>
-                    </div>
-                    <button type="button"
-                        @click="closeChart()"
-                        class="btn-smooth flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/70 bg-white/60 text-slate-500 hover:bg-white hover:text-slate-800"
-                        aria-label="Close fullscreen chart">
-                        <i class="bi bi-x-lg"></i>
-                    </button>
-                </div>
-                <div class="min-h-0 flex-1 p-4 sm:p-6">
-                    <div class="h-full w-full">
-                        <canvas id="organizerChartFullscreen"></canvas>
-                    </div>
-                </div>
-                <div class="border-t border-white/60 px-5 py-3 text-xs text-slate-400 sm:px-6">
-                    Press <kbd class="rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 font-semibold text-slate-600">Esc</kbd> to close
-                </div>
-            </div>
+            {{-- 6. Insights (former reports) --}}
+            @include('organizer.partials.insights')
         </div>
     </div>
 
@@ -1655,6 +1384,7 @@
         <script>
             window.organizerDashboardData = @json($dashboard);
             window.organizerDashboardLiveUrl = @json($livePulseUrl);
+            window.organizerReportData = @json($reports);
             (function () {
                 var key = 'organizer-dashboard-scroll';
 
@@ -1687,21 +1417,17 @@
                     document.querySelectorAll(
                         '.organizer-dashboard select[name="focus_event"],' +
                         '.organizer-dashboard select[name="kpi_event"],' +
-                        '.organizer-dashboard select[name="goal_event"],' +
-                        '.organizer-dashboard select[name="chart_event"],' +
-                        '.organizer-dashboard select[name="engagement_event"]'
+                        '.organizer-dashboard select[name="goal_event"]'
                     ).forEach(function (select) {
                         select.addEventListener('change', function () {
                             try {
                                 sessionStorage.setItem(key, String(currentScrollY()));
                             } catch (e) {}
 
-                            // "Match focus" should drop the section param from the URL.
                             if (this.name !== 'focus_event' && this.value === 'focus') {
                                 this.removeAttribute('name');
                             }
 
-                            // Empty global focus → clean URL (no focus_event=).
                             if (this.name === 'focus_event' && !this.value) {
                                 this.removeAttribute('name');
                             }
@@ -1712,6 +1438,6 @@
                 });
             })();
         </script>
-        @vite('resources/js/organizer-dashboard.js')
+        @vite(['resources/js/organizer-dashboard.js', 'resources/js/organizer-reports.js'])
     @endpush
 </x-app-layout>

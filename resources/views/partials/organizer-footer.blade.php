@@ -21,8 +21,8 @@
             </x-footer-link>
         </li>
         <li>
-            <x-footer-link :href="route('organizer.reports')" :active="request()->routeIs('organizer.reports', 'organizer.reports.*')">
-                {{ t(['en' => 'Reports', 'si' => 'වාර්තා']) }}
+            <x-footer-link :href="route('organizer.dashboard').'#insights'" :active="request()->routeIs('organizer.dashboard')">
+                {{ t(['en' => 'Insights', 'si' => 'විශ්ලේෂණ']) }}
             </x-footer-link>
         </li>
     </x-slot:explore>

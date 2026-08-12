@@ -28,6 +28,12 @@
         ->except([$name, 'focus_event'])
         ->filter(fn ($value) => $value !== null && $value !== '')
         ->all();
+
+    foreach (['from', 'to', 'event_id', 'status', 'tab'] as $insightsKey) {
+        if (request()->filled($insightsKey) && ! array_key_exists($insightsKey, $preserve)) {
+            $preserve[$insightsKey] = request($insightsKey);
+        }
+    }
 @endphp
 
 <div

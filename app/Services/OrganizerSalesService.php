@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\BookingStatusEnum;
+use App\Enums\RefundRequestStatusEnum;
 use App\Models\ticketBooking;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
@@ -21,13 +22,20 @@ class OrganizerSalesService
     }
 
     /**
-     * @param  array{search?: string|null, event_id?: int|null, from_date?: string|null, to_date?: string|null}  $filters
+     * @param  array{
+     *     search?: string|null,
+     *     event_id?: int|null,
+     *     ticket_category?: string|null,
+     *     status?: string|null,
+     *     from_date?: string|null,
+     *     to_date?: string|null
+     * }  $filters
      * @return LengthAwarePaginator<int, array<string, mixed>>
      */
     public function paginate(int $organizerId, array $filters = [], int $perPage = 20, ?int $page = null): LengthAwarePaginator
     {
         $paginator = $this->bookingsQuery($organizerId, $filters)
-            ->with(['user', 'event', 'ticketCategory'])
+            ->with(['user', 'event', 'ticketCategory', 'refundRequest'])
             ->latest('ticket_bookings.created_at')
             ->latest('ticket_bookings.id')
             ->paginate($perPage, ['*'], 'page', $page);
@@ -40,9 +48,17 @@ class OrganizerSalesService
     }
 
     /**
-     * Aggregate stats for the current filters (confirmed + refund-declined tickets).
+     * Aggregate stats for the current filters.
+     * Revenue uses retained sale amounts (full price, or remaining balance after partial refunds).
      *
-     * @param  array{search?: string|null, event_id?: int|null, from_date?: string|null, to_date?: string|null}  $filters
+     * @param  array{
+     *     search?: string|null,
+     *     event_id?: int|null,
+     *     ticket_category?: string|null,
+     *     status?: string|null,
+     *     from_date?: string|null,
+     *     to_date?: string|null
+     * }  $filters
      * @return array{purchases: int, tickets: int, revenue: float, unique_buyers: int}
      */
     public function stats(int $organizerId, array $filters = []): array
@@ -58,7 +74,7 @@ class OrganizerSalesService
         return [
             'purchases' => $purchases,
             'tickets' => (clone $query)->count(),
-            'revenue' => (float) (clone $query)->sum('ticket_price'),
+            'revenue' => $this->sumRetainedRevenue(clone $query),
             'unique_buyers' => (int) (clone $query)->distinct()->count('user_id'),
         ];
     }
@@ -66,13 +82,20 @@ class OrganizerSalesService
     /**
      * All matching tickets for CSV/PDF export (no pagination).
      *
-     * @param  array{search?: string|null, event_id?: int|null, from_date?: string|null, to_date?: string|null}  $filters
+     * @param  array{
+     *     search?: string|null,
+     *     event_id?: int|null,
+     *     ticket_category?: string|null,
+     *     status?: string|null,
+     *     from_date?: string|null,
+     *     to_date?: string|null
+     * }  $filters
      * @return list<array<string, mixed>>
      */
     public function all(int $organizerId, array $filters = []): array
     {
         return $this->bookingsQuery($organizerId, $filters)
-            ->with(['user', 'event', 'ticketCategory'])
+            ->with(['user', 'event', 'ticketCategory', 'refundRequest'])
             ->latest('ticket_bookings.created_at')
             ->latest('ticket_bookings.id')
             ->get()
@@ -82,16 +105,54 @@ class OrganizerSalesService
     }
 
     /**
-     * @param  array{search?: string|null, event_id?: int|null, from_date?: string|null, to_date?: string|null}  $filters
+     * @param  array{
+     *     search?: string|null,
+     *     event_id?: int|null,
+     *     ticket_category?: string|null,
+     *     status?: string|null,
+     *     from_date?: string|null,
+     *     to_date?: string|null
+     * }  $filters
      */
     private function bookingsQuery(int $organizerId, array $filters): Builder
     {
         $query = ticketBooking::query()
             ->whereHas('event', fn (Builder $q) => $q->createdByOrganizer($organizerId))
-            ->whereIn('status', BookingStatusEnum::retainedSaleStatuses());
+            ->where(function (Builder $statusQuery) {
+                $statusQuery
+                    ->whereIn('status', BookingStatusEnum::retainedSaleStatuses())
+                    ->orWhere(function (Builder $partialRefundQuery) {
+                        $partialRefundQuery
+                            ->where('status', BookingStatusEnum::Refunded)
+                            ->whereHas('refundRequest', function (Builder $refundQuery) {
+                                $refundQuery
+                                    ->where('status', RefundRequestStatusEnum::Approved)
+                                    ->where(function (Builder $partial) {
+                                        $partial
+                                            ->where('refund_percentage', '<', 100)
+                                            ->orWhereColumn(
+                                                'refund_requests.refund_amount',
+                                                '<',
+                                                'ticket_bookings.ticket_price'
+                                            );
+                                    });
+                            });
+                    });
+            });
 
         if (! empty($filters['event_id'])) {
             $query->where('event_id', $filters['event_id']);
+        }
+
+        if (! empty($filters['ticket_category'])) {
+            $categoryName = $filters['ticket_category'];
+            $query->whereHas('ticketCategory', function (Builder $categoryQuery) use ($categoryName) {
+                $categoryQuery->where('name', $categoryName);
+            });
+        }
+
+        if (! empty($filters['status'])) {
+            $query->where('status', $filters['status']);
         }
 
         if (! empty($filters['from_date'])) {
@@ -123,6 +184,35 @@ class OrganizerSalesService
         return $query;
     }
 
+    private function sumRetainedRevenue(Builder $query): float
+    {
+        $refunded = BookingStatusEnum::Refunded->value;
+        $approved = RefundRequestStatusEnum::Approved->value;
+
+        $aggregate = (clone $query)
+            ->toBase()
+            ->selectRaw("
+                SUM(
+                    CASE
+                        WHEN ticket_bookings.status = ? THEN GREATEST(
+                            0,
+                            ticket_bookings.ticket_price - COALESCE((
+                                SELECT rr.refund_amount
+                                FROM refund_requests rr
+                                WHERE rr.ticket_booking_id = ticket_bookings.id
+                                    AND rr.status = ?
+                                LIMIT 1
+                            ), 0)
+                        )
+                        ELSE ticket_bookings.ticket_price
+                    END
+                ) as aggregate
+            ", [$refunded, $approved])
+            ->value('aggregate');
+
+        return round((float) $aggregate, 2);
+    }
+
     private function groupKeyExpression(): string
     {
         $driver = DB::connection()->getDriverName();
@@ -145,6 +235,10 @@ class OrganizerSalesService
         $eventId = $booking->event_id;
         $buyer = $booking->user?->full_name ?? 'Unknown';
         $checkedIn = $booking->isCheckedIn();
+        $originalAmount = round((float) $booking->ticket_price, 2);
+        $amount = $booking->retainedSaleAmount();
+        $refundAmount = $booking->approvedRefundAmount();
+        $isPartialRefund = $booking->isPartiallyRefunded();
 
         return [
             'id' => $booking->id,
@@ -162,7 +256,10 @@ class OrganizerSalesService
                 'color' => $categoryColor,
             ]],
             'quantity' => 1,
-            'amount' => round((float) $booking->ticket_price, 2),
+            'amount' => $amount,
+            'original_amount' => $originalAmount,
+            'refund_amount' => $refundAmount,
+            'is_partial_refund' => $isPartialRefund,
             'booked_at' => $booking->created_at?->diffForHumans() ?? '—',
             'booked_at_formatted' => $booking->created_at?->format('M d, Y H:i') ?? '—',
             'booked_raw' => $booking->created_at?->toIso8601String(),
@@ -174,6 +271,9 @@ class OrganizerSalesService
                 : 'bg-slate-100 text-slate-600',
             'status' => $booking->displayStatusLabel(),
             'status_badge_classes' => $booking->displayStatusBadgeClasses(),
+            'status_balance_label' => $isPartialRefund
+                ? 'Balance LKR '.number_format($amount, 2)
+                : null,
             'url' => route('organizer.bookings.show', $booking),
             'event_url' => $eventId
                 ? route('organizer.events.show', $eventId)

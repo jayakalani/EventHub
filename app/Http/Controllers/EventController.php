@@ -129,7 +129,7 @@ class EventController extends Controller
             'artist_ids' => [$allowsArtists ? 'nullable' : 'prohibited', 'array'],
             'artist_ids.*' => 'integer|exists:artists,id',
             'schedule_tba' => 'sometimes|boolean',
-            'date' => ($scheduleTba ? 'nullable' : 'required').'|date',
+            'date' => ($scheduleTba ? 'nullable' : 'required').'|date|after:today',
             'time' => ($scheduleTba ? 'nullable' : 'required'),
             'place' => ($scheduleTba ? 'nullable' : 'required').'|string|max:255',
             'no_of_tickets' => 'required|integer|min:1',
@@ -140,6 +140,8 @@ class EventController extends Controller
             'refund_full_days_before_close' => 'required_if:refunds_allowed,1|nullable|integer|min:0|max:365',
             'refund_full_percentage' => 'required_if:refunds_allowed,1|nullable|integer|min:0|max:100',
             'refund_partial_percentage' => 'required_if:refunds_allowed,1|nullable|integer|min:0|max:100',
+        ], [
+            'date.after' => 'The event date must be a future date. Today and past dates are not allowed.',
         ]);
 
         if ($request->hasfile('cover')) {
@@ -210,6 +212,12 @@ class EventController extends Controller
             ]);
         }
 
+        if ($event->status === Event::STATUS_UNPUBLISHED && $request->status === Event::STATUS_ONGOING) {
+            return back()->withErrors([
+                'status' => 'Unpublished events cannot be changed to Ongoing. Set to Upcoming first to publish the event.',
+            ]);
+        }
+
         if ($event->isCancelled()) {
             return back()->withErrors([
                 'status' => 'Cancelled events cannot be changed to another status.',
@@ -262,7 +270,7 @@ class EventController extends Controller
         $event->status = $newStatus;
         $event->save();
 
-        if ($wasUnpublished && in_array($newStatus, [Event::STATUS_UPCOMING, Event::STATUS_ONGOING], true)) {
+        if ($wasUnpublished && $newStatus === Event::STATUS_UPCOMING) {
             $this->eventNotificationService->notifyNewEventPublished($event);
         }
 

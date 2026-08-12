@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers\Organizer;
 
+use App\Enums\BookingStatusEnum;
 use App\Http\Controllers\Controller;
 use App\Models\Event;
 use App\Models\Payment;
+use App\Models\ticketCategory;
 use App\Services\OrganizerSalesService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
@@ -34,7 +36,17 @@ class SalesController extends Controller
             ->orderBy('name')
             ->get(['id', 'name']);
 
-        return view('organizer.sales.index', compact('sales', 'stats', 'events', 'filters'));
+        $ticketCategories = $this->ticketCategoryOptions($organizerId, $filters['event_id'] ?? null);
+        $statuses = BookingStatusEnum::salesListStatuses();
+
+        return view('organizer.sales.index', compact(
+            'sales',
+            'stats',
+            'events',
+            'ticketCategories',
+            'statuses',
+            'filters',
+        ));
     }
 
     public function exportCsv(Request $request): Response
@@ -53,6 +65,8 @@ class SalesController extends Controller
             'Event',
             'Ticket Category',
             'Amount (LKR)',
+            'Original Amount (LKR)',
+            'Refund Amount (LKR)',
             'Purchased At',
             'Check-in Status',
             'Ticket Status',
@@ -64,6 +78,8 @@ class SalesController extends Controller
                 $ticket['event'] ?? '',
                 $ticket['category'] ?? '',
                 number_format((float) ($ticket['amount'] ?? 0), 2, '.', ''),
+                number_format((float) ($ticket['original_amount'] ?? $ticket['amount'] ?? 0), 2, '.', ''),
+                number_format((float) ($ticket['refund_amount'] ?? 0), 2, '.', ''),
                 $ticket['booked_at_formatted'] ?? '',
                 $ticket['check_in_status'] ?? '',
                 $ticket['status'] ?? '',
@@ -76,6 +92,8 @@ class SalesController extends Controller
             'Tickets: '.$stats['tickets'],
             'Purchases: '.$stats['purchases'],
             number_format((float) $stats['revenue'], 2, '.', ''),
+            '',
+            '',
             'Buyers: '.$stats['unique_buyers'],
             '',
             '',
@@ -125,13 +143,22 @@ class SalesController extends Controller
     }
 
     /**
-     * @return array{search?: string|null, event_id?: int|null, from_date?: string|null, to_date?: string|null}
+     * @return array{
+     *     search?: string|null,
+     *     event_id?: int|null,
+     *     ticket_category?: string|null,
+     *     status?: string|null,
+     *     from_date?: string|null,
+     *     to_date?: string|null
+     * }
      */
     private function validatedFilters(Request $request): array
     {
         $request->merge([
             'search' => $request->filled('search') ? $request->input('search') : null,
             'event_id' => $request->filled('event_id') ? $request->input('event_id') : null,
+            'ticket_category' => $request->filled('ticket_category') ? $request->input('ticket_category') : null,
+            'status' => $request->filled('status') ? $request->input('status') : null,
             'from_date' => $request->filled('from_date') ? $request->input('from_date') : null,
             'to_date' => $request->filled('to_date') ? $request->input('to_date') : null,
         ]);
@@ -143,8 +170,44 @@ class SalesController extends Controller
                 'integer',
                 Rule::exists('events', 'id')->where(fn ($query) => $query->where('created_by', Auth::id())),
             ],
+            'ticket_category' => [
+                'nullable',
+                'string',
+                'max:255',
+                Rule::exists('ticket_categories', 'name')->where(function ($query) use ($request) {
+                    $query->whereIn(
+                        'event_id',
+                        Event::query()->createdByOrganizer((int) Auth::id())->select('id')
+                    );
+
+                    if ($request->filled('event_id')) {
+                        $query->where('event_id', $request->input('event_id'));
+                    }
+                }),
+            ],
+            'status' => [
+                'nullable',
+                'string',
+                Rule::in(array_column(BookingStatusEnum::salesListStatuses(), 'value')),
+            ],
             'from_date' => ['nullable', 'date'],
             'to_date' => ['nullable', 'date', 'after_or_equal:from_date'],
         ]);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function ticketCategoryOptions(int $organizerId, ?int $eventId = null): array
+    {
+        return ticketCategory::query()
+            ->whereHas('event', fn ($query) => $query->createdByOrganizer($organizerId))
+            ->when($eventId, fn ($query) => $query->where('event_id', $eventId))
+            ->orderBy('name')
+            ->distinct()
+            ->pluck('name')
+            ->filter()
+            ->values()
+            ->all();
     }
 }

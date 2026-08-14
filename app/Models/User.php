@@ -150,6 +150,13 @@ class User extends Authenticatable implements MustVerifyEmailContract
         return $this->userRole?->name_en === UserRole::ORGANIZER;
     }
 
+    public function isCro(): bool
+    {
+        $this->loadMissing('userRole');
+
+        return $this->userRole?->name_en === UserRole::CRO;
+    }
+
     public function isAdmin(): bool
     {
         $this->loadMissing('userRole');

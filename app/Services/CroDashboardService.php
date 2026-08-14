@@ -148,6 +148,7 @@ class CroDashboardService
             'feedbackThemes' => $this->topFeedbackThemes($selectedEventId, $from, $to, 5),
             'recentActivity' => $this->recentActivity(8, $selectedEventId),
             'eventsToday' => $this->eventsSupportOverview($selectedEventId),
+            'attendance' => $this->attendanceReport($selectedEventId, $from, $to),
             'miniCalendar' => app(DashboardCalendarWidgetService::class)->forCro($this->activeCroId),
             'counts' => [
                 'pendingRefunds' => $pendingRefundCount,
@@ -173,7 +174,8 @@ class CroDashboardService
     private function eventFilterOptions(?int $eventId): array
     {
         $events = Event::query()
-            ->when($this->activeCroId, fn (Builder $q) => $q->where('contact_person', $this->activeCroId))
+            ->when($this->activeCroId, fn (Builder $q) => $q->assignedToCro($this->activeCroId))
+            ->when(! $this->activeCroId, fn (Builder $q) => $q->withTrashed())
             ->where(function (Builder $query) {
                 $query->whereIn('id', Inquiry::query()->whereNotNull('event_id')->select('event_id'))
                     ->orWhereIn('id', Complaint::query()->whereNotNull('event_id')->select('event_id'))
@@ -188,10 +190,10 @@ class CroDashboardService
             })
             ->orderByDesc('date')
             ->limit(100)
-            ->get(['id', 'name', 'date'])
+            ->get(['id', 'name', 'date', 'deleted_at'])
             ->map(fn (Event $event) => [
                 'id' => $event->id,
-                'name' => $event->name,
+                'name' => $event->filterLabel(),
                 'date' => $event->date ? Carbon::parse($event->date)->format('M j, Y') : null,
             ])
             ->values()
@@ -201,12 +203,13 @@ class CroDashboardService
 
         if ($eventId && ! $selected) {
             $fallback = Event::query()
-                ->when($this->activeCroId, fn (Builder $q) => $q->where('contact_person', $this->activeCroId))
+                ->when($this->activeCroId, fn (Builder $q) => $q->assignedToCro($this->activeCroId))
+                ->when(! $this->activeCroId, fn (Builder $q) => $q->withTrashed())
                 ->find($eventId);
             if ($fallback) {
                 $selected = [
                     'id' => $fallback->id,
-                    'name' => $fallback->name,
+                    'name' => $fallback->filterLabel(),
                     'date' => $fallback->date ? Carbon::parse($fallback->date)->format('M j, Y') : null,
                 ];
                 array_unshift($events, $selected);
@@ -505,7 +508,7 @@ class CroDashboardService
         $ratingsQuery = Rating::query()
             ->when($this->activeCroId, fn (Builder $q) => $q->whereIn(
                 'event_id',
-                Event::query()->where('contact_person', $this->activeCroId)->select('id')
+                Event::query()->assignedToCro($this->activeCroId)->select('id')
             ))
             ->when($eventId, fn (Builder $q) => $q->where('event_id', $eventId));
 
@@ -541,7 +544,7 @@ class CroDashboardService
         $ratings = Rating::query()
             ->when($this->activeCroId, fn (Builder $q) => $q->whereIn(
                 'event_id',
-                Event::query()->where('contact_person', $this->activeCroId)->select('id')
+                Event::query()->assignedToCro($this->activeCroId)->select('id')
             ))
             ->when($eventId, fn (Builder $q) => $q->where('event_id', $eventId))
             ->selectRaw('score, COUNT(*) as count')
@@ -749,7 +752,9 @@ class CroDashboardService
             ->countBy(fn (RefundRequest $refund) => $refund->ticketBooking?->event_id);
 
         return $events->map(fn (Event $event) => [
+            'id' => $event->id,
             'name' => $event->name,
+            'guestListHref' => route('cro.bookings.index', ['event_id' => $event->id]),
             'attendees' => (int) ($attendees[$event->id] ?? 0),
             'openInquiries' => (int) ($openInquiries[$event->id] ?? 0),
             'pendingRefunds' => (int) ($pendingRefunds[$event->id] ?? 0),
@@ -833,7 +838,7 @@ class CroDashboardService
             ->when($this->activeCroId, function ($q) {
                 $q->whereIn(
                     'i.event_id',
-                    Event::query()->where('contact_person', $this->activeCroId)->select('id')
+                    Event::query()->assignedToCro($this->activeCroId)->select('id')
                 );
             });
 
@@ -863,8 +868,8 @@ class CroDashboardService
                     'title' => $inquiry->subject,
                     'meta' => trim(($inquiry->user?->full_name ?? 'Attendee').' · '.($inquiry->event?->name ?? 'Inquiry')),
                     'href' => route('cro.inquiries.show', $inquiry),
-                    'claimUrl' => $inquiry->isUnassigned() ? route('cro.inquiries.claim', $inquiry) : null,
-                    'actionLabel' => $inquiry->isUnassigned() ? 'Claim' : 'Open',
+                    'claimUrl' => null,
+                    'actionLabel' => 'Open',
                     'urgent' => $urgent,
                     'age' => \App\Support\CroSupportSla::ageLabel($inquiry->created_at),
                     'sort' => ($urgent ? 0 : 1) * 1_000_000_000 + ($inquiry->created_at?->timestamp ?? 0),
@@ -884,8 +889,8 @@ class CroDashboardService
                     'title' => $complaint->subject,
                     'meta' => trim(($complaint->user?->full_name ?? 'Attendee').' · '.($complaint->event?->name ?? 'General complaint')),
                     'href' => route('cro.complaints.show', $complaint),
-                    'claimUrl' => $complaint->isUnassigned() ? route('cro.complaints.claim', $complaint) : null,
-                    'actionLabel' => $complaint->isUnassigned() ? 'Claim' : 'Open',
+                    'claimUrl' => $complaint->canBeClaimed() ? route('cro.complaints.claim', $complaint) : null,
+                    'actionLabel' => $complaint->canBeClaimed() ? 'Claim' : 'Open',
                     'urgent' => $urgent,
                     'age' => \App\Support\CroSupportSla::ageLabel($complaint->created_at),
                     'sort' => ($urgent ? 0 : 1) * 1_000_000_000 + ($complaint->created_at?->timestamp ?? 0),
@@ -948,11 +953,7 @@ class CroDashboardService
         $complaintResolution = Complaint::query()
             ->where('assigned_to', $croId)
             ->whereIn('status', [SupportTicketStatusEnum::Resolved, SupportTicketStatusEnum::Closed])
-            ->when($eventId, function (Builder $q) use ($eventId) {
-                $q->whereIn('user_id', ticketBooking::query()
-                    ->where('event_id', $eventId)
-                    ->select('user_id'));
-            })
+            ->when($eventId, fn (Builder $q) => $q->where('event_id', $eventId))
             ->whereBetween('updated_at', [$from, $to])
             ->avg(DB::raw('TIMESTAMPDIFF(MINUTE, created_at, updated_at)'));
 
@@ -972,7 +973,7 @@ class CroDashboardService
         $declined = $refunds->where('status', RefundRequestStatusEnum::Declined)->count();
 
         $ratings = Rating::query()
-            ->whereIn('event_id', Event::query()->where('contact_person', $croId)->select('id'))
+            ->whereIn('event_id', Event::query()->assignedToCro($croId)->select('id'))
             ->when($eventId, fn (Builder $q) => $q->where('event_id', $eventId))
             ->whereBetween('created_at', [$from, $to]);
 
@@ -988,6 +989,245 @@ class CroDashboardService
             'satisfactionAverage' => $ratingAvg,
             'satisfactionCount' => $ratingCount,
         ];
+    }
+
+    /**
+     * Check-in / attendance for assigned events, plus a guest-list preview.
+     *
+     * @return array<string, mixed>
+     */
+    private function attendanceReport(?int $eventId, Carbon $from, Carbon $to): array
+    {
+        $emptyTiming = $this->emptyCheckInTimingBuckets();
+        $empty = [
+            'ticketsEligible' => 0,
+            'checkedIn' => 0,
+            'noShows' => 0,
+            'awaitingCheckIn' => 0,
+            'attendanceRate' => null,
+            'eventsWithTickets' => 0,
+            'eventsFinalized' => 0,
+            'peakTiming' => null,
+            'byEvent' => [],
+            'checkInTiming' => $emptyTiming,
+            'breakdown' => [
+                ['key' => 'checked_in', 'label' => 'Checked in', 'count' => 0],
+                ['key' => 'no_shows', 'label' => 'No-shows', 'count' => 0],
+                ['key' => 'awaiting', 'label' => 'Awaiting check-in', 'count' => 0],
+            ],
+            'guestListUrl' => route('cro.bookings.index', array_filter(['event_id' => $eventId])),
+            'scanUrl' => route('cro.bookings.scan', array_filter(['event_id' => $eventId])),
+            'hasOngoingEvents' => false,
+        ];
+
+        $croId = $this->activeCroId;
+        if (! $croId) {
+            return $empty;
+        }
+
+        $retainedStatuses = array_map(
+            fn (BookingStatusEnum $status) => $status->value,
+            BookingStatusEnum::retainedSaleStatuses()
+        );
+
+        $events = Event::query()
+            ->assignedToCro($croId)
+            ->when($eventId, fn (Builder $q) => $q->whereKey($eventId))
+            ->orderByDesc('date')
+            ->orderBy('name')
+            ->get(['id', 'name', 'date', 'time', 'status', 'date_tba']);
+
+        $hasOngoingEvents = $events->contains(fn (Event $event) => $event->isOngoing());
+
+        $empty['hasOngoingEvents'] = $hasOngoingEvents;
+
+        if ($events->isEmpty()) {
+            return $empty;
+        }
+
+        $eventIds = $events->pluck('id')->all();
+
+        $statsQuery = ticketBooking::query()
+            ->whereIn('event_id', $eventIds)
+            ->whereIn('status', $retainedStatuses)
+            ->whereDate('ticket_bookings.created_at', '>=', $from->toDateString())
+            ->whereDate('ticket_bookings.created_at', '<=', $to->toDateString());
+
+        $perEventStats = (clone $statsQuery)
+            ->selectRaw('event_id')
+            ->selectRaw('COUNT(*) as tickets')
+            ->selectRaw('SUM(CASE WHEN checked_in_at IS NOT NULL THEN 1 ELSE 0 END) as checked_in')
+            ->groupBy('event_id')
+            ->get()
+            ->keyBy('event_id');
+
+        $byEvent = [];
+        $ticketsEligible = 0;
+        $checkedIn = 0;
+        $noShows = 0;
+        $awaitingCheckIn = 0;
+        $finalEligible = 0;
+        $finalCheckedIn = 0;
+        $eventsWithTickets = 0;
+        $eventsFinalized = 0;
+
+        foreach ($events as $event) {
+            $row = $perEventStats->get($event->id);
+            $tickets = (int) ($row->tickets ?? 0);
+            $eventCheckedIn = (int) ($row->checked_in ?? 0);
+
+            if ($tickets === 0) {
+                continue;
+            }
+
+            $eventsWithTickets++;
+            $isFinal = $event->isCompleted();
+            $isCancelled = $event->isCancelled();
+            $remaining = max(0, $tickets - $eventCheckedIn);
+            $eventNoShows = $isFinal ? $remaining : 0;
+            $eventAwaiting = (! $isFinal && ! $isCancelled) ? $remaining : 0;
+            $rate = $tickets > 0 ? round(($eventCheckedIn / $tickets) * 100, 1) : 0.0;
+
+            $ticketsEligible += $tickets;
+            $checkedIn += $eventCheckedIn;
+            $noShows += $eventNoShows;
+            $awaitingCheckIn += $eventAwaiting;
+
+            if ($isFinal) {
+                $eventsFinalized++;
+                $finalEligible += $tickets;
+                $finalCheckedIn += $eventCheckedIn;
+            }
+
+            $byEvent[] = [
+                'id' => $event->id,
+                'name' => $event->filterLabel(),
+                'date' => $event->formattedScheduleDate('M d, Y') ?? 'TBA',
+                'status' => ucfirst((string) $event->status),
+                'status_key' => strtolower((string) $event->status),
+                'tickets' => $tickets,
+                'checked_in' => $eventCheckedIn,
+                'no_shows' => $eventNoShows,
+                'awaiting_check_in' => $eventAwaiting,
+                'attendance_rate' => $rate,
+                'attendance_final' => $isFinal,
+                'is_ongoing' => $event->isOngoing(),
+                'guest_list_url' => route('cro.bookings.index', ['event_id' => $event->id]),
+                'scan_url' => route('cro.bookings.scan', ['event_id' => $event->id]),
+            ];
+        }
+
+        usort($byEvent, function (array $a, array $b) {
+            $rateCmp = $b['attendance_rate'] <=> $a['attendance_rate'];
+
+            return $rateCmp !== 0 ? $rateCmp : ($b['tickets'] <=> $a['tickets']);
+        });
+
+        $checkInTiming = $this->buildCheckInTiming($events, $retainedStatuses, $from, $to);
+        $peakTiming = collect($checkInTiming)
+            ->filter(fn (array $bucket) => $bucket['count'] > 0)
+            ->sortByDesc('count')
+            ->map(fn (array $bucket) => [
+                'label' => $bucket['label'],
+                'count' => $bucket['count'],
+            ])
+            ->first();
+
+        $attendanceRate = $finalEligible > 0
+            ? round(($finalCheckedIn / $finalEligible) * 100, 1)
+            : ($ticketsEligible > 0 ? round(($checkedIn / $ticketsEligible) * 100, 1) : null);
+
+        return [
+            'ticketsEligible' => $ticketsEligible,
+            'checkedIn' => $checkedIn,
+            'noShows' => $noShows,
+            'awaitingCheckIn' => $awaitingCheckIn,
+            'attendanceRate' => $attendanceRate,
+            'eventsWithTickets' => $eventsWithTickets,
+            'eventsFinalized' => $eventsFinalized,
+            'peakTiming' => $peakTiming,
+            'byEvent' => $byEvent,
+            'checkInTiming' => $checkInTiming,
+            'breakdown' => [
+                ['key' => 'checked_in', 'label' => 'Checked in', 'count' => $checkedIn],
+                ['key' => 'no_shows', 'label' => 'No-shows', 'count' => $noShows],
+                ['key' => 'awaiting', 'label' => 'Awaiting check-in', 'count' => $awaitingCheckIn],
+            ],
+            'guestListUrl' => $empty['guestListUrl'],
+            'scanUrl' => $empty['scanUrl'],
+            'hasOngoingEvents' => $hasOngoingEvents,
+        ];
+    }
+
+    /**
+     * @return list<array{key: string, label: string, count: int, min: ?int, max: ?int}>
+     */
+    private function emptyCheckInTimingBuckets(): array
+    {
+        return [
+            ['key' => 'lt_minus_2h', 'label' => '2h+ before', 'count' => 0, 'min' => null, 'max' => -120],
+            ['key' => 'minus_2h_1h', 'label' => '2h–1h before', 'count' => 0, 'min' => -120, 'max' => -60],
+            ['key' => 'minus_1h_30m', 'label' => '1h–30m before', 'count' => 0, 'min' => -60, 'max' => -30],
+            ['key' => 'minus_30m_0', 'label' => '30m before → start', 'count' => 0, 'min' => -30, 'max' => 0],
+            ['key' => 'plus_0_30m', 'label' => 'Start → 30m', 'count' => 0, 'min' => 0, 'max' => 30],
+            ['key' => 'plus_30m_1h', 'label' => '30m–1h after', 'count' => 0, 'min' => 30, 'max' => 60],
+            ['key' => 'plus_1h_2h', 'label' => '1h–2h after', 'count' => 0, 'min' => 60, 'max' => 120],
+            ['key' => 'gt_plus_2h', 'label' => '2h+ after', 'count' => 0, 'min' => 120, 'max' => null],
+        ];
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, Event>  $events
+     * @param  list<string>  $retainedStatuses
+     * @return list<array{key: string, label: string, count: int}>
+     */
+    private function buildCheckInTiming($events, array $retainedStatuses, Carbon $from, Carbon $to): array
+    {
+        $buckets = $this->emptyCheckInTimingBuckets();
+        $eventsById = $events->keyBy('id');
+
+        $query = ticketBooking::query()
+            ->whereIn('event_id', $events->pluck('id')->all())
+            ->whereIn('status', $retainedStatuses)
+            ->whereNotNull('checked_in_at')
+            ->whereDate('ticket_bookings.created_at', '>=', $from->toDateString())
+            ->whereDate('ticket_bookings.created_at', '<=', $to->toDateString())
+            ->select(['event_id', 'checked_in_at']);
+
+        foreach ($query->cursor() as $booking) {
+            $event = $eventsById->get($booking->event_id);
+
+            if (! $event || $event->hasDateYetToBeScheduled() || blank($event->date)) {
+                continue;
+            }
+
+            try {
+                $startsAt = $event->startsAt();
+                $checkedInAt = Carbon::parse($booking->checked_in_at);
+            } catch (\Throwable) {
+                continue;
+            }
+
+            $offsetMinutes = (int) round(($checkedInAt->getTimestamp() - $startsAt->getTimestamp()) / 60);
+
+            foreach ($buckets as $index => $bucket) {
+                $min = $bucket['min'];
+                $max = $bucket['max'];
+                $inRange = ($min === null || $offsetMinutes >= $min)
+                    && ($max === null || $offsetMinutes < $max);
+
+                if ($inRange) {
+                    $buckets[$index]['count']++;
+                    break;
+                }
+            }
+        }
+
+        return array_map(fn (array $bucket) => [
+            'key' => $bucket['key'],
+            'label' => $bucket['label'],
+            'count' => $bucket['count'],
+        ], $buckets);
     }
 
     private function formatResponseTime(?float $minutes): string

@@ -22,27 +22,34 @@ class InquiryService
 
     public function submit(User $user, Event $event, string $subject, string $message): Inquiry
     {
-        $inquiry = Inquiry::create([
-            'user_id' => $user->id,
-            'event_id' => $event->id,
-            'subject' => $subject,
-            'message' => $message,
-            'status' => SupportTicketStatusEnum::Open,
-        ]);
+        return DB::transaction(function () use ($user, $event, $subject, $message) {
+            $event->loadMissing('contactPerson.userRole');
 
-        $inquiry->load(['user', 'event']);
+            $inquiry = Inquiry::create([
+                'user_id' => $user->id,
+                'event_id' => $event->id,
+                'subject' => $subject,
+                'message' => $message,
+                'status' => SupportTicketStatusEnum::Open,
+                'assigned_to' => $event->contact_person,
+            ]);
 
-        Mail::to($user)->queue(new InquiryReceivedMail($inquiry));
+            $inquiry->load(['user', 'event.contactPerson.userRole']);
 
-        if ($inquiry->event) {
-            app(CroNotificationService::class)->notifyInquirySubmitted(
-                $inquiry->event,
-                $inquiry->id,
-                $inquiry->subject,
-            );
-        }
+            Mail::to($user)->queue(new InquiryReceivedMail($inquiry));
 
-        return $inquiry;
+            DB::afterCommit(function () use ($inquiry) {
+                if ($inquiry->event) {
+                    app(CroNotificationService::class)->notifyInquirySubmitted(
+                        $inquiry->event,
+                        $inquiry->id,
+                        $inquiry->subject,
+                    );
+                }
+            });
+
+            return $inquiry;
+        });
     }
 
     public function reply(Inquiry $inquiry, User $cro, string $message): InquiryResponse
@@ -54,7 +61,7 @@ class InquiryService
         $this->ensureCanHandle($inquiry, $cro);
 
         return DB::transaction(function () use ($inquiry, $cro, $message) {
-            $wasUnassigned = $inquiry->isUnassigned();
+            $fromAssignee = $inquiry->assigned_to;
 
             $response = InquiryResponse::create([
                 'inquiry_id' => $inquiry->id,
@@ -63,20 +70,22 @@ class InquiryService
             ]);
 
             $payload = [];
-            if ($wasUnassigned) {
+            if ((int) $fromAssignee !== (int) $cro->id) {
                 $payload['assigned_to'] = $cro->id;
             }
             if ($inquiry->status === SupportTicketStatusEnum::Open) {
-                $oldStatus = $inquiry->status->value;
                 $payload['status'] = SupportTicketStatusEnum::InProgress;
-                $payload['assigned_to'] = $cro->id;
-                $this->auditService->logStatusChange('inquiry', $inquiry->id, $oldStatus, SupportTicketStatusEnum::InProgress->value);
+                $this->auditService->logStatusChange(
+                    'inquiry',
+                    $inquiry->id,
+                    SupportTicketStatusEnum::Open->value,
+                    SupportTicketStatusEnum::InProgress->value,
+                );
             }
 
             if ($payload !== []) {
-                $fromAssignee = $inquiry->assigned_to;
                 $inquiry->update($payload);
-                if ($wasUnassigned || $fromAssignee === null) {
+                if (array_key_exists('assigned_to', $payload)) {
                     $this->auditService->logAssignmentChange('inquiry', $inquiry->id, $fromAssignee, $cro->id);
                 }
             }
@@ -107,71 +116,50 @@ class InquiryService
     {
         $this->ensureCanHandle($inquiry, $cro);
 
-        $oldStatus = $inquiry->status->value;
+        $oldStatus = $inquiry->status;
 
-        if ($oldStatus === $status->value) {
+        if ($oldStatus === $status) {
             return;
         }
+
+        $becameResolved = $this->isResolvedStatus($status) && ! $this->isResolvedStatus($oldStatus);
 
         $inquiry->update([
             'status' => $status,
             'assigned_to' => $cro->id,
         ]);
 
-        $this->auditService->logStatusChange('inquiry', $inquiry->id, $oldStatus, $status->value);
+        $this->auditService->logStatusChange('inquiry', $inquiry->id, $oldStatus->value, $status->value);
+
+        if ($becameResolved) {
+            $inquiry->loadMissing(['user', 'event']);
+            app(AttendeeNotificationService::class)->send(
+                $inquiry->user,
+                AttendeeNotificationCategory::Interaction,
+                'inquiry_resolved',
+                'Your inquiry "'.$inquiry->subject.'" has been '.$status->label().'.',
+                route('notifications.index', ['category' => AttendeeNotificationCategory::Interaction->value]),
+                [
+                    'inquiry_id' => $inquiry->id,
+                    'event_id' => $inquiry->event_id,
+                ],
+            );
+        }
+    }
+
+    private function isResolvedStatus(SupportTicketStatusEnum $status): bool
+    {
+        return in_array($status, [SupportTicketStatusEnum::Resolved, SupportTicketStatusEnum::Closed], true);
     }
 
     public function claim(Inquiry $inquiry, User $cro): void
     {
-        DB::transaction(function () use ($inquiry, $cro) {
-            $locked = Inquiry::query()->whereKey($inquiry->id)->lockForUpdate()->firstOrFail();
-
-            if (! $locked->isUnassigned() && ! $locked->isAssignedTo($cro->id)) {
-                throw new RuntimeException('This inquiry is already claimed by another CRO. Ask them to reassign it.');
-            }
-
-            if ($locked->isAssignedTo($cro->id)) {
-                $inquiry->refresh();
-
-                return;
-            }
-
-            $from = $locked->assigned_to;
-            $payload = ['assigned_to' => $cro->id];
-
-            if ($locked->status === SupportTicketStatusEnum::Open) {
-                $payload['status'] = SupportTicketStatusEnum::InProgress;
-                $this->auditService->logStatusChange(
-                    'inquiry',
-                    $locked->id,
-                    SupportTicketStatusEnum::Open->value,
-                    SupportTicketStatusEnum::InProgress->value,
-                );
-            }
-
-            $locked->update($payload);
-            $this->auditService->logAssignmentChange('inquiry', $locked->id, $from, $cro->id);
-            $inquiry->refresh();
-        });
+        throw new RuntimeException('Inquiries belong to the assigned event CRO and do not need to be claimed.');
     }
 
     public function reassign(Inquiry $inquiry, User $actor, ?User $assignee): void
     {
-        $this->ensureCanReassign($inquiry, $actor);
-
-        $toId = $assignee?->id;
-        $fromId = $inquiry->assigned_to;
-
-        if ((int) $fromId === (int) $toId) {
-            return;
-        }
-
-        if ($assignee && ! app(CroNotificationService::class)->isCro($assignee)) {
-            throw new RuntimeException('You can only reassign to an active CRO.');
-        }
-
-        $inquiry->update(['assigned_to' => $toId]);
-        $this->auditService->logAssignmentChange('inquiry', $inquiry->id, $fromId, $toId);
+        throw new RuntimeException('Inquiries stay with the assigned event CRO and cannot be reassigned.');
     }
 
     public function updateInternalNotes(Inquiry $inquiry, User $cro, ?string $notes): void
@@ -180,31 +168,42 @@ class InquiryService
 
         $inquiry->update([
             'internal_notes' => filled($notes) ? trim($notes) : null,
-            'assigned_to' => $inquiry->assigned_to ?? $cro->id,
+            'assigned_to' => $cro->id,
         ]);
     }
 
     /**
-     * Only the assignee (or anyone, if still unassigned) may handle the case.
+     * Move open / in-progress inquiries to the new event CRO.
+     * Resolved and closed cases keep their historical owner.
      */
-    private function ensureCanHandle(Inquiry $inquiry, User $cro): void
+    public function transferOpenCasesToEventCro(Event $event, int $toCroId): void
     {
-        if ($inquiry->isUnassigned() || $inquiry->isAssignedTo($cro->id)) {
-            return;
-        }
+        $openStatuses = [SupportTicketStatusEnum::Open, SupportTicketStatusEnum::InProgress];
 
-        throw new RuntimeException('This inquiry is claimed by another CRO. Ask them to reassign it, or wait until it is unassigned.');
+        Inquiry::query()
+            ->where('event_id', $event->id)
+            ->whereIn('status', $openStatuses)
+            ->where(function ($query) use ($toCroId) {
+                $query->whereNull('assigned_to')
+                    ->orWhere('assigned_to', '!=', $toCroId);
+            })
+            ->get()
+            ->each(function (Inquiry $inquiry) use ($toCroId) {
+                $from = $inquiry->assigned_to;
+                $inquiry->update(['assigned_to' => $toCroId]);
+                $this->auditService->logAssignmentChange('inquiry', $inquiry->id, $from, $toCroId);
+            });
     }
 
     /**
-     * Only the current assignee may reassign. Unassigned cases may be assigned by any CRO in queue.
+     * Only the CRO assigned to the inquiry's event may handle it.
      */
-    private function ensureCanReassign(Inquiry $inquiry, User $actor): void
+    private function ensureCanHandle(Inquiry $inquiry, User $cro): void
     {
-        if ($inquiry->isUnassigned() || $inquiry->isAssignedTo($actor->id)) {
+        if ($inquiry->isInCroQueue((int) $cro->id)) {
             return;
         }
 
-        throw new RuntimeException('Only the assigned CRO can reassign this inquiry.');
+        throw new RuntimeException('This inquiry belongs to the assigned event CRO.');
     }
 }

@@ -13,11 +13,13 @@ use App\Models\ticketCategory;
 use App\Models\User;
 use App\Models\UserRole;
 use App\Services\AdminNotificationService;
+use App\Services\ComplaintService;
 use App\Services\CroNotificationService;
 use App\Services\CartInventoryService;
 use App\Services\EventCancellationService;
 use App\Services\EventNotificationService;
 use App\Services\EventPostponementService;
+use App\Services\InquiryService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -762,7 +764,11 @@ class EventController extends Controller
         }
 
         if ((int) $validatedData['contact_person'] !== $previousContactPersonId) {
-            $this->croNotificationService->notifyEventAssigned($event->fresh());
+            $event = $event->fresh();
+            $newCroId = (int) $event->contact_person;
+            $this->croNotificationService->notifyEventAssigned($event);
+            app(InquiryService::class)->transferOpenCasesToEventCro($event, $newCroId);
+            app(ComplaintService::class)->transferOpenEventCasesToEventCro($event, $newCroId);
         }
 
         $dateChanged = ! $scheduleTba && (

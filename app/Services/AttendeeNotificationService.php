@@ -24,7 +24,7 @@ class AttendeeNotificationService
             return;
         }
 
-        $user->notify(new AttendeeActivityNotification(
+        $user->notifyNow(new AttendeeActivityNotification(
             $category,
             $type,
             $message,

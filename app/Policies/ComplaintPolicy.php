@@ -15,7 +15,15 @@ class ComplaintPolicy
 
     public function update(User $user, Complaint $complaint): bool
     {
-        return $this->view($user, $complaint);
+        if (! $this->view($user, $complaint)) {
+            return false;
+        }
+
+        if ($complaint->isGeneral() && ! $complaint->isUnassigned() && ! $complaint->isAssignedTo((int) $user->id)) {
+            return false;
+        }
+
+        return true;
     }
 
     private function isCro(User $user): bool

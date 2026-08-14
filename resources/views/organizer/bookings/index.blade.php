@@ -1,3 +1,7 @@
+@php
+    $guestList = $guestList ?? \App\Support\GuestListUi::organizer();
+@endphp
+
 <x-app-layout>
     <x-slot name="header">
         <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -6,24 +10,24 @@
                     Guest List
                 </h2>
                 <p class="mt-0.5 text-sm text-slate-500">
-                    Guests, bookings, and event-day check-in across your events.
+                    {{ $guestList['subtitle'] }}
                 </p>
             </div>
 
             <div class="flex flex-wrap gap-2">
                 @if ($hasOngoingEvents)
-                    <a href="{{ route('organizer.bookings.scan', request()->only('event_id')) }}"
+                    <a href="{{ route($guestList['scan'], request()->only('event_id')) }}"
                         class="inline-flex items-center rounded-xl bg-indigo-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700">
                         Scan / Check-in
                     </a>
                 @else
                     <span
-                        title="Set an event to Ongoing on the Events page to enable check-in."
+                        title="{{ $guestList['scan_disabled_title'] }}"
                         class="inline-flex cursor-not-allowed items-center rounded-xl bg-slate-200 px-3.5 py-2 text-sm font-semibold text-slate-500">
                         Scan / Check-in
                     </span>
                 @endif
-                <a href="{{ route('organizer.bookings.export.csv', request()->query()) }}"
+                <a href="{{ route($guestList['export_csv'], request()->query()) }}"
                     class="inline-flex items-center rounded-xl bg-emerald-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700">
                     Export CSV
                 </a>
@@ -79,7 +83,7 @@
 
             {{-- Filters --}}
             <div class="mb-4 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-                <form method="GET" action="{{ route('organizer.bookings.index') }}"
+                <form method="GET" action="{{ route($guestList['index']) }}"
                     class="grid grid-cols-1 gap-2.5 md:grid-cols-3 lg:grid-cols-8">
                     <input type="text" name="search" value="{{ $filters['search'] ?? '' }}"
                         placeholder="Search guest, email, ticket..."
@@ -87,10 +91,10 @@
 
                     <select name="event_id"
                         class="rounded-xl border-slate-300 text-sm focus:border-indigo-500 focus:ring-indigo-500">
-                        <option value="">All Events</option>
+                        <option value="">{{ $guestList['filter_all_events'] }}</option>
                         @foreach ($events as $event)
                             <option value="{{ $event->id }}" @selected(($filters['event_id'] ?? null) == $event->id)>
-                                {{ $event->name }}
+                                {{ $event->filterLabel() }}
                             </option>
                         @endforeach
                     </select>
@@ -127,7 +131,7 @@
                             class="flex-1 rounded-xl bg-indigo-600 py-2 text-sm font-medium text-white transition hover:bg-indigo-700">
                             Apply
                         </button>
-                        <a href="{{ route('organizer.bookings.index') }}"
+                        <a href="{{ route($guestList['index']) }}"
                             class="flex flex-1 items-center justify-center rounded-xl bg-slate-100 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-200">
                             Reset
                         </a>
@@ -185,10 +189,14 @@
 
                                     <td class="px-4 py-3">
                                         @if ($booking->event)
-                                            <a href="{{ route('organizer.events.show', $booking->event) }}"
-                                                class="text-sm font-medium text-indigo-600 hover:text-indigo-800">
-                                                {{ $booking->event->name }}
-                                            </a>
+                                            @if ($guestList['event_show'])
+                                                <a href="{{ route($guestList['event_show'], $booking->event) }}"
+                                                    class="text-sm font-medium text-indigo-600 hover:text-indigo-800">
+                                                    {{ $booking->event->name }}
+                                                </a>
+                                            @else
+                                                <span class="text-sm font-medium text-slate-900">{{ $booking->event->name }}</span>
+                                            @endif
                                         @else
                                             <span class="text-sm text-slate-500">—</span>
                                         @endif
@@ -238,28 +246,18 @@
 
                                     <td class="px-4 py-3">
                                         <div class="flex items-center justify-end gap-2">
-                                            <a href="{{ route('organizer.bookings.show', $booking) }}"
+                                            <a href="{{ route($guestList['show'], $booking) }}"
                                                 class="rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-200">
                                                 View
                                             </a>
 
                                             @if ($booking->canCheckIn())
-                                                <form action="{{ route('organizer.bookings.check-in', $booking) }}"
+                                                <form action="{{ route($guestList['check_in'], $booking) }}"
                                                     method="POST">
                                                     @csrf
                                                     <button type="submit"
                                                         class="rounded-lg bg-emerald-50 px-2.5 py-1.5 text-xs font-medium text-emerald-700 transition hover:bg-emerald-100">
                                                         Check In
-                                                    </button>
-                                                </form>
-                                            @elseif ($booking->canUndoCheckIn())
-                                                <form action="{{ route('organizer.bookings.undo-check-in', $booking) }}"
-                                                    method="POST">
-                                                    @csrf
-                                                    <button type="submit"
-                                                        onclick="return confirm('Undo check-in for this guest?')"
-                                                        class="rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs font-medium text-amber-800 transition hover:bg-amber-100">
-                                                        Undo
                                                     </button>
                                                 </form>
                                             @endif
@@ -276,7 +274,7 @@
                                             <p class="mt-1 text-sm text-slate-500">
                                                 No tickets match your filters. Try adjusting search or status.
                                             </p>
-                                            <a href="{{ route('organizer.bookings.index') }}"
+                                            <a href="{{ route($guestList['index']) }}"
                                                 class="mt-4 inline-flex rounded-xl bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-700">
                                                 Clear filters
                                             </a>

@@ -49,7 +49,7 @@ class RefundRequestService
             return $refundRequest;
         });
 
-        $refundRequest->load(['user', 'ticketBooking.event', 'ticketBooking.ticketCategory']);
+        $refundRequest->load(['user', 'ticketBooking.event.contactPerson.userRole', 'ticketBooking.ticketCategory']);
 
         if ($policy->requiresCroReview) {
             Mail::to($refundRequest->user)->queue(new RefundRequestSubmittedMail($refundRequest));
@@ -139,10 +139,10 @@ class RefundRequestService
             DB::afterCommit(function () use ($refundRequest) {
                 $refundRequest->load(['user.wallet', 'ticketBooking.event', 'ticketBooking.ticketCategory']);
                 Mail::to($refundRequest->user)->queue(new RefundRequestApprovedMail($refundRequest));
-                $refundRequest->user->notify(new \App\Notifications\RefundApprovedNotification($refundRequest));
-                $refundRequest->user->notify(new \App\Notifications\RefundCompletedNotification($refundRequest));
+                $refundRequest->user->notifyNow(new \App\Notifications\RefundApprovedNotification($refundRequest));
+                $refundRequest->user->notifyNow(new \App\Notifications\RefundCompletedNotification($refundRequest));
                 if ($refundRequest->ticketBooking) {
-                    $refundRequest->user->notify(new \App\Notifications\TicketRefundedNotification($refundRequest->ticketBooking));
+                    $refundRequest->user->notifyNow(new \App\Notifications\TicketRefundedNotification($refundRequest->ticketBooking));
                 }
             });
 
@@ -186,10 +186,10 @@ class RefundRequestService
             DB::afterCommit(function () use ($refundRequest, $booking) {
                 $refundRequest->load(['user.wallet', 'ticketBooking.event', 'ticketBooking.ticketCategory', 'reviewer']);
                 Mail::to($refundRequest->user)->queue(new RefundRequestApprovedMail($refundRequest));
-                $refundRequest->user->notify(new \App\Notifications\RefundApprovedNotification($refundRequest));
-                $refundRequest->user->notify(new \App\Notifications\RefundCompletedNotification($refundRequest));
-                $refundRequest->user->notify(new \App\Notifications\TicketRefundedNotification($booking));
-                $refundRequest->user->notify(new \App\Notifications\TicketCancelledNotification($booking));
+                $refundRequest->user->notifyNow(new \App\Notifications\RefundApprovedNotification($refundRequest));
+                $refundRequest->user->notifyNow(new \App\Notifications\RefundCompletedNotification($refundRequest));
+                $refundRequest->user->notifyNow(new \App\Notifications\TicketRefundedNotification($booking));
+                $refundRequest->user->notifyNow(new \App\Notifications\TicketCancelledNotification($booking));
             });
         });
     }

@@ -1,5 +1,9 @@
 @php
     $statuses = \App\Enums\SupportTicketStatusEnum::cases();
+    $isGeneral = $complaint->isGeneral();
+    $canHandle = $isGeneral
+        ? ($complaint->isUnassigned() || $complaint->isAssignedTo(auth()->id()))
+        : $complaint->isInCroQueue((int) auth()->id());
 @endphp
 
 <x-app-layout>
@@ -77,10 +81,6 @@
                             </div>
                         @endif
 
-                        @php
-                            $canHandle = $complaint->isUnassigned() || $complaint->isAssignedTo(auth()->id());
-                        @endphp
-
                         @if ($canHandle)
                             <form action="{{ route('cro.complaints.reply', $complaint) }}" method="POST" class="space-y-3">
                                 @csrf
@@ -125,13 +125,20 @@
                     @include('partials.cro-assignment-panel', [
                         'ticket' => $complaint,
                         'croUsers' => $croUsers,
-                        'claimRoute' => route('cro.complaints.claim', $complaint),
-                        'reassignRoute' => route('cro.complaints.reassign', $complaint),
+                        'claimRoute' => $isGeneral ? route('cro.complaints.claim', $complaint) : null,
+                        'reassignRoute' => $isGeneral ? route('cro.complaints.reassign', $complaint) : null,
+                        'allowClaim' => $isGeneral,
+                        'allowReassign' => $isGeneral,
+                        'assignedViaEvent' => ! $isGeneral,
+                        'ownerLabel' => $complaint->queueOwnerName(),
+                        'ownerHint' => $isGeneral
+                            ? null
+                            : 'This complaint belongs to your assigned event. Reply and resolve it directly — no claim needed.',
                     ])
                     @include('partials.cro-internal-notes', [
                         'notes' => $complaint->internal_notes,
                         'notesRoute' => route('cro.complaints.notes', $complaint),
-                        'canEdit' => $complaint->isUnassigned() || $complaint->isAssignedTo(auth()->id()),
+                        'canEdit' => $canHandle,
                     ])
                     @include('partials.cro-case-context', ['caseContext' => $caseContext])
                 </div>

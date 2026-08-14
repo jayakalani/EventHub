@@ -373,9 +373,24 @@ class Event extends Model
         return $query->where('created_by', $organizerId);
     }
 
+    public function scopeAssignedToCro($query, int $croId)
+    {
+        return $query->withTrashed()->where('contact_person', $croId);
+    }
+
     public function isOwnedByOrganizer(?int $organizerId): bool
     {
         return $organizerId !== null && (int) $this->created_by === (int) $organizerId;
+    }
+
+    public function isAssignedToCro(?int $croId): bool
+    {
+        return $croId !== null && (int) $this->contact_person === (int) $croId;
+    }
+
+    public function filterLabel(): string
+    {
+        return $this->trashed() ? $this->name.' (Archived)' : $this->name;
     }
 
     public function ticketCategories()

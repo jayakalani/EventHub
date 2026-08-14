@@ -5,10 +5,13 @@ namespace App\Http\Controllers\Cro;
 use App\Http\Controllers\Concerns\ExportsReportSections;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Cro\GenerateCroReportRequest;
+use App\Models\Event;
+use App\Services\CroDashboardService;
 use App\Services\CroReportService;
 use App\Services\CroReports\CroReportRegistry;
 use App\Services\Exports\CroReportExportBuilder;
 use App\Services\ReportExportService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
@@ -22,6 +25,7 @@ class ReportController extends Controller
 
     public function __construct(
         protected CroReportService $reportService,
+        protected CroDashboardService $dashboardService,
         protected CroReportExportBuilder $exportBuilder,
         protected ReportExportService $exportService,
         protected CroReportRegistry $registry,
@@ -49,13 +53,56 @@ class ReportController extends Controller
         $reportKey = (string) $request->input('report');
         $format = (string) $request->input('format');
         $generator = $this->registry->generator($reportKey);
+        $filters = $request->selectedFilters();
+
+        if ($reportKey === 'dashboard_analytics') {
+            $filters['_charts'] = $request->selectedCharts();
+        }
 
         return $generator->generate(
             $request->user(),
             $request->selectedFields(),
-            $request->selectedFilters(),
+            $filters,
             $format,
         );
+    }
+
+    /**
+     * Dashboard + inquiry/complaint chart payloads for the reports builder PDF capture.
+     */
+    public function chartData(Request $request): JsonResponse
+    {
+        $croId = (int) $request->user()->id;
+
+        $validated = $request->validate([
+            'event_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('events', 'id')->where('contact_person', $croId),
+            ],
+            'date_from' => ['nullable', 'date'],
+            'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
+        ]);
+
+        $eventId = isset($validated['event_id']) ? (int) $validated['event_id'] : null;
+        $from = $validated['date_from'] ?? null;
+        $to = $validated['date_to'] ?? null;
+
+        if ($eventId && ! Event::query()->assignedToCro($croId)->whereKey($eventId)->exists()) {
+            $eventId = null;
+        }
+
+        $filters = [
+            'event' => $eventId,
+            'range' => ($from || $to) ? 'custom' : 'month',
+            'from' => $from,
+            'to' => $to,
+        ];
+
+        return response()->json([
+            'dashboard' => $this->dashboardService->getDashboardData($filters, $croId),
+            'reports' => $this->reportService->getAllReports($filters, $croId),
+        ]);
     }
 
     /**

@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Organizer\GenerateOrganizerReportRequest;
 use App\Models\Event;
 use App\Services\Exports\OrganizerReportExportBuilder;
+use App\Services\OrganizerDashboardService;
 use App\Services\OrganizerReportService;
 use App\Services\OrganizerReports\OrganizerReportRegistry;
 use App\Services\ReportExportService;
@@ -39,6 +40,7 @@ class ReportController extends Controller
 
     public function __construct(
         protected OrganizerReportService $reportService,
+        protected OrganizerDashboardService $dashboardService,
         protected OrganizerReportExportBuilder $exportBuilder,
         protected ReportExportService $exportService,
         protected OrganizerReportRegistry $registry,
@@ -71,13 +73,86 @@ class ReportController extends Controller
         $reportKey = (string) $request->input('report');
         $format = (string) $request->input('format');
         $generator = $this->registry->generator($reportKey);
+        $filters = $request->selectedFilters();
+
+        if ($reportKey === 'insights_analytics') {
+            $filters['_charts'] = $request->selectedCharts();
+        }
 
         return $generator->generate(
             $request->user(),
             $request->selectedFields(),
-            $request->selectedFilters(),
+            $filters,
             $format,
         );
+    }
+
+    /**
+     * Dashboard + Insights chart payloads for the reports builder PDF capture.
+     */
+    public function chartData(Request $request): JsonResponse
+    {
+        $this->authorize('viewAny', Event::class);
+
+        $organizerId = (int) Auth::id();
+
+        $validated = $request->validate([
+            'event_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('events', 'id')->where(fn ($query) => $query->where('created_by', $organizerId)),
+            ],
+            'status' => [
+                'nullable',
+                'string',
+                Rule::in([
+                    Event::STATUS_UPCOMING,
+                    Event::STATUS_ONGOING,
+                    Event::STATUS_POSTPONED,
+                    Event::STATUS_COMPLETED,
+                    Event::STATUS_CANCELLED,
+                ]),
+            ],
+            'period' => ['nullable', 'string', Rule::in(['week', 'month', 'custom'])],
+            'date_from' => ['nullable', 'date'],
+            'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
+        ]);
+
+        $eventId = isset($validated['event_id']) ? (int) $validated['event_id'] : null;
+        $period = (string) ($validated['period'] ?? 'month');
+        if (! in_array($period, ['week', 'month', 'custom'], true)) {
+            $period = 'month';
+        }
+
+        if ($period === 'custom') {
+            $from = $validated['date_from'] ?? null;
+            $to = $validated['date_to'] ?? null;
+        } elseif ($period === 'week') {
+            $from = now()->subDays(6)->toDateString();
+            $to = now()->toDateString();
+        } else {
+            $from = now()->subDays(29)->toDateString();
+            $to = now()->toDateString();
+        }
+
+        $reportFilters = [
+            'from' => $from,
+            'to' => $to,
+            'event_id' => $eventId,
+            'status' => $validated['status'] ?? null,
+        ];
+
+        return response()->json([
+            'dashboard' => $this->dashboardService->getDashboardData(
+                $organizerId,
+                $eventId,
+                $eventId,
+                $eventId,
+                $eventId,
+                $eventId,
+            ),
+            'reports' => $this->reportService->getAllReports($organizerId, $reportFilters),
+        ]);
     }
 
     /**

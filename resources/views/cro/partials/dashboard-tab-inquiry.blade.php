@@ -23,7 +23,7 @@
             </div>
         </div>
         <a href="{{ route('cro.inquiries.index') }}"
-            class="inline-flex items-center gap-2 rounded-xl border border-sky-200 bg-sky-50 px-3.5 py-2 text-sm font-semibold text-sky-700 transition hover:bg-sky-100">
+            class="btn-smooth inline-flex items-center gap-2 rounded-xl border border-white/70 bg-white/55 px-3.5 py-2 text-sm font-semibold text-sky-700 shadow-sm backdrop-blur-md transition hover:-translate-y-0.5 hover:border-sky-200 hover:bg-white/85 hover:shadow-md">
             <i class="bi bi-envelope-open"></i>
             Open inquiries
         </a>

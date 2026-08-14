@@ -63,7 +63,7 @@ class RefundRequest extends Model
 
         return $query->whereHas(
             'ticketBooking.event',
-            fn (Builder $event) => $event->where('contact_person', $croId)
+            fn (Builder $event) => $event->assignedToCro($croId)
         );
     }
 

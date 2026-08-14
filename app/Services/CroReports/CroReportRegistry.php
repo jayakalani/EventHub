@@ -72,6 +72,7 @@ class CroReportRegistry
                 'options' => [],
                 'show_when' => $filter['show_when'] ?? null,
                 'required' => (bool) ($filter['required'] ?? false),
+                'include_empty' => (bool) ($filter['include_empty'] ?? true),
             ];
 
             if ($type === 'enum' && isset($filter['enum']) && enum_exists($filter['enum'])) {
@@ -112,11 +113,11 @@ class CroReportRegistry
     private function eventOptions(int $croId): array
     {
         return Event::query()
-            ->where('contact_person', $croId)
+            ->assignedToCro($croId)
             ->orderByDesc('date')
             ->limit(100)
-            ->get(['id', 'name'])
-            ->mapWithKeys(fn (Event $event) => [$event->id => $event->name])
+            ->get(['id', 'name', 'deleted_at'])
+            ->mapWithKeys(fn (Event $event) => [$event->id => $event->filterLabel()])
             ->all();
     }
 }

@@ -37,7 +37,7 @@ class Inquiry extends Model
 
     public function event(): BelongsTo
     {
-        return $this->belongsTo(Event::class);
+        return $this->belongsTo(Event::class)->withTrashed();
     }
 
     public function assignee(): BelongsTo
@@ -50,8 +50,8 @@ class Inquiry extends Model
         return $this->hasMany(InquiryResponse::class)->latest();
     }
 
-/**
-     * Scope to the CRO's assigned events (contact_person), plus general inquiries (null event_id).
+    /**
+     * Scope to events where this CRO is the assigned contact person.
      * Pass $scope = 'all' to disable filtering (admin-style views).
      */
     public function scopeForCroQueue(Builder $query, int $croId, string $scope = 'mine'): Builder
@@ -60,13 +60,10 @@ class Inquiry extends Model
             return $query;
         }
 
-        return $query->where(function (Builder $inner) use ($croId) {
-            $inner->whereNull('event_id')
-                ->orWhereIn(
-                    'event_id',
-                    Event::query()->where('contact_person', $croId)->select('id')
-                );
-        });
+        return $query->whereIn(
+            'event_id',
+            Event::query()->assignedToCro($croId)->select('id')
+        );
     }
 
     public function scopeAssignmentFilter(Builder $query, string $assignment, int $croId): Builder
@@ -88,13 +85,29 @@ class Inquiry extends Model
         return $this->assigned_to === null;
     }
 
+    public function canBeClaimed(): bool
+    {
+        return false;
+    }
+
+    public function queueOwnerName(): string
+    {
+        if ($this->assignee) {
+            return $this->assignee->full_name;
+        }
+
+        $this->loadMissing('event.contactPerson');
+
+        return $this->event?->contactPerson?->full_name ?? 'Event CRO';
+    }
+
     /**
      * Whether this inquiry is in the CRO's actionable queue.
      */
     public function isInCroQueue(int $croId): bool
     {
         if ($this->event_id === null) {
-            return true;
+            return false;
         }
 
         $this->loadMissing('event');

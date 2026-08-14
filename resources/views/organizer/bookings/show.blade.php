@@ -1,3 +1,7 @@
+@php
+    $guestList = $guestList ?? \App\Support\GuestListUi::organizer();
+@endphp
+
 <x-app-layout>
     <x-slot name="header">
         <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -11,12 +15,12 @@
             </div>
 
             <div class="flex flex-wrap gap-2">
-                <a href="{{ route('organizer.bookings.index', array_filter(['event_id' => $ticketBooking->event_id])) }}"
+                <a href="{{ route($guestList['index'], array_filter(['event_id' => $ticketBooking->event_id])) }}"
                     class="inline-flex items-center rounded-xl bg-slate-100 px-3.5 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-200">
                     Back to Guest List
                 </a>
                 @if ($ticketBooking->event?->isOngoing())
-                    <a href="{{ route('organizer.bookings.scan', ['event_id' => $ticketBooking->event_id]) }}"
+                    <a href="{{ route($guestList['scan'], ['event_id' => $ticketBooking->event_id]) }}"
                         class="inline-flex items-center rounded-xl bg-indigo-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700">
                         Scan Tickets
                     </a>
@@ -149,10 +153,14 @@
                                 <dt class="text-xs font-medium text-slate-500">Event</dt>
                                 <dd class="mt-1 text-sm font-semibold text-slate-900">
                                     @if ($ticketBooking->event)
-                                        <a href="{{ route('organizer.events.show', $ticketBooking->event) }}"
-                                            class="text-indigo-600 hover:text-indigo-800">
+                                        @if ($guestList['event_show'])
+                                            <a href="{{ route($guestList['event_show'], $ticketBooking->event) }}"
+                                                class="text-indigo-600 hover:text-indigo-800">
+                                                {{ $ticketBooking->event->name }}
+                                            </a>
+                                        @else
                                             {{ $ticketBooking->event->name }}
-                                        </a>
+                                        @endif
                                     @else
                                         —
                                     @endif
@@ -282,7 +290,7 @@
                                         @foreach ($relatedTickets as $related)
                                             <li class="flex flex-wrap items-center justify-between gap-2 px-3 py-2.5">
                                                 <div>
-                                                    <a href="{{ route('organizer.bookings.show', $related) }}"
+                                                    <a href="{{ route($guestList['show'], $related) }}"
                                                         class="font-mono text-sm font-semibold text-indigo-600 hover:text-indigo-800">
                                                         {{ $related->ticket_number }}
                                                     </a>
@@ -359,6 +367,12 @@
                             @if ($refund->isPending())
                                 <p class="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
                                     Pending CRO review. Check-in is blocked until this request is approved or declined.
+                                    @if ($guestList['refund_show'])
+                                        <a href="{{ route($guestList['refund_show'], $refund) }}"
+                                            class="mt-1 inline-flex font-semibold text-amber-900 underline decoration-amber-300 underline-offset-2 hover:text-amber-950">
+                                            Review refund request
+                                        </a>
+                                    @endif
                                 </p>
                             @endif
                         @else
@@ -382,26 +396,14 @@
                                     by {{ $ticketBooking->checkedInBy->full_name }}
                                 @endif
                             </p>
-                            @if ($ticketBooking->canUndoCheckIn())
-                                <form action="{{ route('organizer.bookings.undo-check-in', $ticketBooking) }}" method="POST"
-                                    class="mt-4">
-                                    @csrf
-                                    <button type="submit"
-                                        onclick="return confirm('Undo check-in for this guest?')"
-                                        class="w-full rounded-xl bg-amber-100 px-4 py-2.5 text-sm font-semibold text-amber-800 shadow-sm transition hover:bg-amber-200">
-                                        Undo Check-in
-                                    </button>
-                                </form>
-                            @else
-                                <p class="mt-3 text-xs text-slate-500">
-                                    Check-in can only be undone while the event is ongoing.
-                                </p>
-                            @endif
+                            <p class="mt-3 text-xs text-slate-500">
+                                Check-in cannot be undone.
+                            </p>
                         @elseif ($ticketBooking->canCheckIn())
                             <p class="mt-2 text-sm text-slate-600">
                                 This ticket is valid for entry.
                             </p>
-                            <form action="{{ route('organizer.bookings.check-in', $ticketBooking) }}" method="POST"
+                            <form action="{{ route($guestList['check_in'], $ticketBooking) }}" method="POST"
                                 class="mt-4">
                                 @csrf
                                 <button type="submit"
@@ -420,17 +422,19 @@
                         <h3 class="text-sm font-semibold text-slate-900">Quick Links</h3>
                         <div class="mt-3 space-y-2">
                             @if ($ticketBooking->event)
-                                <a href="{{ route('organizer.events.show', $ticketBooking->event) }}"
-                                    class="block rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-indigo-200 hover:text-indigo-700">
-                                    View Event
-                                </a>
-                                <a href="{{ route('organizer.bookings.index', ['event_id' => $ticketBooking->event_id]) }}"
+                                @if ($guestList['event_show'])
+                                    <a href="{{ route($guestList['event_show'], $ticketBooking->event) }}"
+                                        class="block rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-indigo-200 hover:text-indigo-700">
+                                        View Event
+                                    </a>
+                                @endif
+                                <a href="{{ route($guestList['index'], ['event_id' => $ticketBooking->event_id]) }}"
                                     class="block rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-indigo-200 hover:text-indigo-700">
                                     Event Guest List
                                 </a>
                             @endif
                             @if ($ticketBooking->user?->email)
-                                <a href="{{ route('organizer.bookings.index', ['search' => $ticketBooking->user->email]) }}"
+                                <a href="{{ route($guestList['index'], ['search' => $ticketBooking->user->email]) }}"
                                     class="block rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-indigo-200 hover:text-indigo-700">
                                     All Tickets For Guest
                                 </a>

@@ -164,7 +164,7 @@ function createDoughnutChart(canvasId, labels, data, options = {}) {
     if (!canvas || !labels.length) return null;
 
     const hasData = data.some((value) => Number(value) > 0);
-    if (!hasData) return null;
+    if (!hasData && !options.force) return null;
 
     destroyChartOn(canvasId);
 
@@ -223,14 +223,16 @@ function createBarChart(canvasId, labels, data, options = {}) {
     destroyChartOn(canvasId);
 
     const fullscreen = Boolean(options.fullscreen);
-    const colors = chartColors.map((c) => c.replace('rgb', 'rgba').replace(')', ', 0.85)'));
+    const colors = (options.colors ?? chartColors).map((c) => (
+        c.includes('rgba') ? c : c.replace('rgb', 'rgba').replace(')', ', 0.85)')
+    ));
 
     return new Chart(canvas, {
         type: 'bar',
         data: {
             labels,
             datasets: [{
-                label: 'Cases',
+                label: options.label ?? 'Cases',
                 data,
                 backgroundColor: colors.slice(0, labels.length),
                 borderRadius: 8,
@@ -242,7 +244,7 @@ function createBarChart(canvasId, labels, data, options = {}) {
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
-                legend: { display: false },
+                legend: { display: Boolean(options.showLegend) },
                 tooltip: {
                     backgroundColor: 'rgba(15, 23, 42, 0.9)',
                     padding: fullscreen ? 14 : 12,
@@ -271,15 +273,72 @@ function createBarChart(canvasId, labels, data, options = {}) {
     });
 }
 
-function initCroDashboard() {
-    const data = window.croDashboardData;
-    if (!data) return;
+function createStackedBarChart(canvasId, labels, datasets, options = {}) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas || !labels.length) return null;
 
+    const hasData = datasets.some((dataset) => (dataset.data ?? []).some((value) => Number(value) > 0));
+    if (!hasData && !options.force) return null;
+
+    destroyChartOn(canvasId);
+
+    const fullscreen = Boolean(options.fullscreen);
+
+    return new Chart(canvas, {
+        type: 'bar',
+        data: {
+            labels,
+            datasets: datasets.map((dataset) => ({
+                ...dataset,
+                stack: options.stack ?? 'attendance',
+                borderRadius: 6,
+                borderSkipped: false,
+            })),
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            indexAxis: options.horizontal ? 'y' : 'x',
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: { font: fontFor(fullscreen), padding: fullscreen ? 18 : 14, usePointStyle: true },
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                    padding: fullscreen ? 14 : 12,
+                    cornerRadius: 8,
+                },
+            },
+            scales: {
+                x: {
+                    stacked: true,
+                    beginAtZero: true,
+                    grid: options.horizontal
+                        ? { color: 'rgba(148, 163, 184, 0.2)' }
+                        : { display: false },
+                    ticks: { font: fontFor(fullscreen), precision: 0 },
+                },
+                y: {
+                    stacked: true,
+                    beginAtZero: true,
+                    grid: options.horizontal
+                        ? { display: false }
+                        : { color: 'rgba(148, 163, 184, 0.2)' },
+                    ticks: { font: fontFor(fullscreen), precision: 0 },
+                },
+            },
+        },
+    });
+}
+
+function buildCroDashboardChartRuntime(data) {
     const periods = data.charts?.periods ?? {};
     let currentPeriod = data.charts?.defaultPeriod ?? 'week';
     const complaintStatus = data.charts?.complaintStatus ?? { labels: [], counts: [] };
     const supportCategories = data.charts?.supportCategories ?? { labels: [], counts: [] };
     const satisfactionDistribution = data.charts?.satisfactionDistribution ?? { labels: [], counts: [] };
+    const attendance = data.attendance ?? {};
 
     const chartBuilders = {
         supportTrend: (canvasId, options = {}) => createSupportTrendChart(
@@ -313,11 +372,81 @@ function initCroDashboard() {
                 colors: [palette.emerald, palette.cyan, palette.amber, palette.rose, palette.indigo],
             },
         ),
+        attendanceBreakdown: (canvasId, options = {}) => {
+            const breakdown = attendance.breakdown ?? [];
+            const colors = {
+                checked_in: 'rgba(16, 185, 129, 0.85)',
+                no_shows: 'rgba(244, 63, 94, 0.85)',
+                awaiting: 'rgba(245, 158, 11, 0.85)',
+            };
+            return createDoughnutChart(
+                canvasId,
+                breakdown.map((item) => item.label),
+                breakdown.map((item) => item.count),
+                {
+                    ...options,
+                    type: 'doughnut',
+                    colors: breakdown.map((item) => colors[item.key] ?? 'rgba(148, 163, 184, 0.85)'),
+                },
+            );
+        },
+        checkInTiming: (canvasId, options = {}) => {
+            const timing = attendance.checkInTiming ?? [];
+            return createBarChart(
+                canvasId,
+                timing.map((item) => item.label),
+                timing.map((item) => item.count),
+                {
+                    ...options,
+                    label: 'Check-ins',
+                    colors: [
+                        'rgba(100, 116, 139, 0.7)',
+                        'rgba(79, 70, 229, 0.7)',
+                        'rgba(37, 99, 235, 0.75)',
+                        'rgba(6, 182, 212, 0.8)',
+                        'rgba(16, 185, 129, 0.85)',
+                        'rgba(245, 158, 11, 0.8)',
+                        'rgba(244, 63, 94, 0.75)',
+                        'rgba(147, 51, 234, 0.7)',
+                    ],
+                },
+            );
+        },
+        attendanceByEvent: (canvasId, options = {}) => {
+            const rows = (attendance.byEvent ?? []).slice(0, 12);
+            return createStackedBarChart(
+                canvasId,
+                rows.map((item) => item.name),
+                [
+                    {
+                        label: 'Checked in',
+                        data: rows.map((item) => Number(item.checked_in || 0)),
+                        backgroundColor: 'rgba(16, 185, 129, 0.85)',
+                    },
+                    {
+                        label: 'No-shows',
+                        data: rows.map((item) => Number(item.no_shows || 0)),
+                        backgroundColor: 'rgba(244, 63, 94, 0.85)',
+                    },
+                    {
+                        label: 'Awaiting check-in',
+                        data: rows.map((item) => Number(item.awaiting_check_in || 0)),
+                        backgroundColor: 'rgba(245, 158, 11, 0.85)',
+                    },
+                ],
+                {
+                    ...options,
+                    stack: 'attendance',
+                    horizontal: true,
+                },
+            );
+        },
     };
 
     const sectionCharts = {
         support: null,
         performance: null,
+        attendance: null,
     };
 
     let supportTrendChart = null;
@@ -331,19 +460,27 @@ function initCroDashboard() {
         }
     }
 
-    function ensureSectionCharts(section) {
-        if (section === 'support' && !sectionCharts.support) {
-            supportTrendChart = chartBuilders.supportTrend('croSupportTrendChart');
+    function ensureSectionCharts(section, options = {}) {
+        if (section === 'support' && (!sectionCharts.support?.length || options.force)) {
+            supportTrendChart = chartBuilders.supportTrend('croSupportTrendChart', options);
             sectionCharts.support = [
                 supportTrendChart,
-                chartBuilders.complaintStatus('croComplaintStatusChart'),
-                chartBuilders.supportCategories('croSupportCategoriesChart'),
+                chartBuilders.complaintStatus('croComplaintStatusChart', options),
+                chartBuilders.supportCategories('croSupportCategoriesChart', options),
             ].filter(Boolean);
         }
 
-        if (section === 'performance' && !sectionCharts.performance) {
+        if (section === 'performance' && (!sectionCharts.performance?.length || options.force)) {
             sectionCharts.performance = [
-                chartBuilders.satisfactionDistribution('croSatisfactionDistributionChart'),
+                chartBuilders.satisfactionDistribution('croSatisfactionDistributionChart', options),
+            ].filter(Boolean);
+        }
+
+        if (section === 'attendance' && (!sectionCharts.attendance?.length || options.force)) {
+            sectionCharts.attendance = [
+                chartBuilders.attendanceBreakdown('croAttendanceBreakdownChart', options),
+                chartBuilders.checkInTiming('croCheckInTimingChart', options),
+                chartBuilders.attendanceByEvent('croAttendanceByEventChart', options),
             ].filter(Boolean);
         }
 
@@ -352,6 +489,31 @@ function initCroDashboard() {
             requestAnimationFrame(() => resizeSectionCharts(section));
         });
     }
+
+    return {
+        currentPeriod,
+        periods,
+        chartBuilders,
+        ensureSectionCharts,
+        resizeAll() {
+            Object.keys(sectionCharts).forEach((section) => resizeSectionCharts(section));
+        },
+        setPeriod(period) {
+            if (periods[period]) {
+                currentPeriod = period;
+            }
+        },
+    };
+}
+
+function initCroDashboard() {
+    const data = window.croDashboardData;
+    if (!data) return;
+
+    const runtime = buildCroDashboardChartRuntime(data);
+    const { periods, chartBuilders, ensureSectionCharts, resizeAll } = runtime;
+    let currentPeriod = runtime.currentPeriod;
+    let fullscreenChart = null;
 
     document.querySelectorAll('[data-cro-period-label]').forEach((el) => {
         el.textContent = periods[currentPeriod]?.label ?? currentPeriod;
@@ -384,7 +546,7 @@ function initCroDashboard() {
     window.addEventListener('cro-chart-collapse', destroyFullscreenChart);
 
     window.addEventListener('resize', () => {
-        Object.keys(sectionCharts).forEach((section) => resizeSectionCharts(section));
+        resizeAll();
         if (fullscreenChart) fullscreenChart.resize();
     });
 
@@ -394,13 +556,26 @@ function initCroDashboard() {
         ensureSectionCharts(section);
     });
 
+    window.addEventListener('dashboard-pdf-export-prepare', () => {
+        ['support', 'performance', 'attendance'].forEach((section) => ensureSectionCharts(section, { force: true }));
+    });
+
     const initialHash = (window.location.hash || '').replace('#', '');
-    const initialSection = ['today', 'performance', 'support', 'inquiry', 'complaints'].includes(initialHash)
+    const initialSection = ['today', 'attendance', 'performance', 'support', 'inquiry', 'complaints'].includes(initialHash)
         ? initialHash
         : 'today';
     ensureSectionCharts(initialSection);
 
     bindDashboardPdfExportButtons();
+}
+
+export function renderCroDashboardExportCharts(data) {
+    if (!data) return;
+
+    const runtime = buildCroDashboardChartRuntime(data);
+    ['support', 'performance', 'attendance'].forEach((section) => {
+        runtime.ensureSectionCharts(section, { force: true });
+    });
 }
 
 document.addEventListener('DOMContentLoaded', initCroDashboard);

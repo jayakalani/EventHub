@@ -1,6 +1,7 @@
 import {
     Chart,
     ArcElement,
+    BarController,
     BarElement,
     CategoryScale,
     DoughnutController,
@@ -17,6 +18,7 @@ import { bindDashboardPdfExportButtons } from './dashboard-pdf-export';
 
 Chart.register(
     ArcElement,
+    BarController,
     BarElement,
     CategoryScale,
     DoughnutController,
@@ -64,9 +66,17 @@ const defaultFont = {
     size: 12,
 };
 
+function destroyChartOn(canvas) {
+    const node = typeof canvas === 'string' ? document.getElementById(canvas) : canvas;
+    if (!node) return;
+    const existing = Chart.getChart(node);
+    if (existing) existing.destroy();
+}
+
 function createLineChart(canvasId, labels, datasets, yMax = null) {
     const canvas = document.getElementById(canvasId);
     if (!canvas || !labels.length) return null;
+    destroyChartOn(canvas);
 
     return new Chart(canvas, {
         type: 'line',
@@ -97,6 +107,7 @@ function createLineChart(canvasId, labels, datasets, yMax = null) {
 function createBarChart(canvasId, labels, datasets, options = {}) {
     const canvas = document.getElementById(canvasId);
     if (!canvas || !labels.length) return null;
+    destroyChartOn(canvas);
 
     return new Chart(canvas, {
         type: 'bar',
@@ -133,6 +144,7 @@ function createBarChart(canvasId, labels, datasets, options = {}) {
 function createDoughnutChart(canvasId, labels, data, colors = null, options = {}) {
     const canvas = document.getElementById(canvasId);
     if (!canvas || !labels.length) return null;
+    destroyChartOn(canvas);
 
     const hasData = data.some((value) => Number(value) > 0);
     if (!hasData) return null;
@@ -410,6 +422,7 @@ function initCroReports() {
 
     const resizeCharts = () => charts.forEach((chart) => chart.resize());
     window.addEventListener('cro-reports-tab-changed', () => ensureCharts());
+    window.addEventListener('dashboard-pdf-export-prepare', () => ensureCharts());
     window.addEventListener('cro-dashboard-section-changed', (event) => {
         if (['inquiry', 'complaints'].includes(event.detail?.section)) {
             ensureCharts();
@@ -430,6 +443,129 @@ function initCroReports() {
     }
 
     bindDashboardPdfExportButtons();
+}
+
+export function renderCroReportExportCharts(data) {
+    if (!data) return;
+
+    const chartLabels = data.chartLabels ?? [];
+    const inquiries = data.inquiries ?? {};
+    const complaints = data.complaints ?? {};
+    const resolutionTrend = inquiries.resolutionTrend ?? { submitted: [], resolved: [], resolutionRate: [] };
+    const responseTimeTrend = inquiries.responseTimeTrend ?? [];
+    const categoryBreakdown = complaints.categoryBreakdown ?? complaints.typeBreakdown ?? [];
+
+    createDoughnutChart(
+        'inquiryStatusChart',
+        (inquiries.statusBreakdown ?? []).map((item) => item.label),
+        (inquiries.statusBreakdown ?? []).map((item) => item.count),
+        statusColors,
+    );
+
+    createLineChart('inquiryResolutionTrendChart', chartLabels, [
+        {
+            label: 'Submitted',
+            data: resolutionTrend.submitted,
+            borderColor: palette.indigo,
+            backgroundColor: 'rgba(79, 70, 229, 0.1)',
+            fill: true,
+            tension: 0.35,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+        },
+        {
+            label: 'Resolved',
+            data: resolutionTrend.resolved,
+            borderColor: palette.emerald,
+            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+            fill: true,
+            tension: 0.35,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+        },
+    ]);
+
+    createBarChart(
+        'inquiryResponseTimeChart',
+        chartLabels,
+        [{
+            label: 'Avg minutes',
+            data: responseTimeTrend.map((value) => value ?? 0),
+            backgroundColor: 'rgba(6, 182, 212, 0.75)',
+            borderRadius: 8,
+        }],
+    );
+
+    const topEvents = inquiries.byEvent ?? [];
+    createBarChart(
+        'inquiryByEventChart',
+        topEvents.map((item) => item.label),
+        [{
+            label: 'Inquiries',
+            data: topEvents.map((item) => item.count),
+            backgroundColor: 'rgba(79, 70, 229, 0.75)',
+            borderRadius: 8,
+        }],
+        { horizontal: true },
+    );
+
+    createDoughnutChart(
+        'complaintTypeChart',
+        (complaints.typeBreakdown ?? []).map((item) => item.label),
+        (complaints.typeBreakdown ?? []).map((item) => item.count),
+    );
+
+    createDoughnutChart(
+        'complaintCategoryPieChart',
+        categoryBreakdown.map((item) => item.label),
+        categoryBreakdown.map((item) => item.count),
+        null,
+        { type: 'pie' },
+    );
+
+    createLineChart('complaintSubmissionsChart', chartLabels, [{
+        label: 'Complaints Submitted',
+        data: complaints.submissionsTrend ?? [],
+        borderColor: palette.rose,
+        backgroundColor: 'rgba(244, 63, 94, 0.1)',
+        fill: true,
+        tension: 0.35,
+        pointRadius: 4,
+        pointHoverRadius: 6,
+    }]);
+
+    const statusByType = complaints.statusByType ?? [];
+    createBarChart(
+        'complaintStatusByTypeChart',
+        statusByType.map((item) => item.label),
+        [
+            {
+                label: 'Open',
+                data: statusByType.map((item) => item.open),
+                backgroundColor: statusColors[0],
+                borderRadius: 4,
+            },
+            {
+                label: 'In Progress',
+                data: statusByType.map((item) => item.in_progress),
+                backgroundColor: statusColors[1],
+                borderRadius: 4,
+            },
+            {
+                label: 'Resolved',
+                data: statusByType.map((item) => item.resolved),
+                backgroundColor: statusColors[2],
+                borderRadius: 4,
+            },
+            {
+                label: 'Closed',
+                data: statusByType.map((item) => item.closed),
+                backgroundColor: statusColors[3],
+                borderRadius: 4,
+            },
+        ],
+        { stacked: true },
+    );
 }
 
 document.addEventListener('DOMContentLoaded', initCroReports);

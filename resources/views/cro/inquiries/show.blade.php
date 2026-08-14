@@ -58,7 +58,7 @@
                         @endif
 
                         @php
-                            $canHandle = $inquiry->isUnassigned() || $inquiry->isAssignedTo(auth()->id());
+                            $canHandle = $inquiry->isInCroQueue((int) auth()->id());
                         @endphp
 
                         @if ($canHandle)
@@ -94,8 +94,8 @@
                             </form>
                         @else
                             <div class="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                                This inquiry is claimed by <span class="font-semibold">{{ $inquiry->assignee?->full_name ?? 'another CRO' }}</span>.
-                                Ask them to reassign it before you reply or change status.
+                                This inquiry belongs to the assigned event CRO
+                                <span class="font-semibold">{{ $inquiry->queueOwnerName() }}</span>.
                             </div>
                         @endif
                     </div>
@@ -105,13 +105,18 @@
                     @include('partials.cro-assignment-panel', [
                         'ticket' => $inquiry,
                         'croUsers' => $croUsers,
-                        'claimRoute' => route('cro.inquiries.claim', $inquiry),
-                        'reassignRoute' => route('cro.inquiries.reassign', $inquiry),
+                        'claimRoute' => null,
+                        'reassignRoute' => null,
+                        'allowClaim' => false,
+                        'allowReassign' => false,
+                        'assignedViaEvent' => true,
+                        'ownerLabel' => $inquiry->queueOwnerName(),
+                        'ownerHint' => 'This inquiry belongs to your assigned event. Reply and resolve it directly — no claim needed.',
                     ])
                     @include('partials.cro-internal-notes', [
                         'notes' => $inquiry->internal_notes,
                         'notesRoute' => route('cro.inquiries.notes', $inquiry),
-                        'canEdit' => $inquiry->isUnassigned() || $inquiry->isAssignedTo(auth()->id()),
+                        'canEdit' => $canHandle,
                     ])
                     @include('partials.cro-case-context', ['caseContext' => $caseContext])
                 </div>

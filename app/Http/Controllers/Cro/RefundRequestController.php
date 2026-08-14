@@ -8,6 +8,7 @@ use App\Models\Event;
 use App\Models\RefundRequest;
 use App\Services\CroCaseContextService;
 use App\Services\RefundRequestService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -15,6 +16,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use RuntimeException;
+use Symfony\Component\HttpFoundation\Response;
 
 class RefundRequestController extends Controller
 {
@@ -55,9 +57,9 @@ class RefundRequestController extends Controller
             ->withQueryString();
 
         $events = Event::query()
-            ->where('contact_person', $croId)
+            ->assignedToCro($croId)
             ->orderBy('name')
-            ->get(['id', 'name']);
+            ->get(['id', 'name', 'deleted_at']);
 
         $statuses = RefundRequestStatusEnum::cases();
 
@@ -68,6 +70,82 @@ class RefundRequestController extends Controller
             'events',
             'statuses',
         ));
+    }
+
+    public function exportCsv(Request $request): Response
+    {
+        $refundRequests = $this->exportRows($request);
+
+        $filename = 'refund-requests_'.now()->format('Ymd_His').'.csv';
+
+        return response()->streamDownload(function () use ($refundRequests) {
+            $file = fopen('php://output', 'w');
+            fputcsv($file, [
+                'ID',
+                'Event',
+                'Ticket Number',
+                'Attendee',
+                'Email',
+                'Amount (LKR)',
+                'Percentage',
+                'Status',
+                'Reviewed By',
+                'Reviewed At',
+                'Requested At',
+                'Reason',
+                'CRO Notes',
+            ]);
+
+            foreach ($refundRequests as $refundRequest) {
+                $reviewedBy = '—';
+                if ($refundRequest->status === RefundRequestStatusEnum::Pending) {
+                    $reviewedBy = 'Awaiting review';
+                } elseif ($refundRequest->reviewer) {
+                    $reviewedBy = $refundRequest->reviewer->full_name;
+                } elseif ($refundRequest->status->isProcessed()) {
+                    $reviewedBy = 'System';
+                }
+
+                fputcsv($file, [
+                    $refundRequest->id,
+                    $refundRequest->ticketBooking?->event?->name ?? '',
+                    $refundRequest->ticketBooking?->ticket_number ?? '',
+                    $refundRequest->user?->full_name ?? '',
+                    $refundRequest->user?->email ?? '',
+                    number_format((float) $refundRequest->refund_amount, 2, '.', ''),
+                    $refundRequest->refund_percentage,
+                    $refundRequest->status->label(),
+                    $reviewedBy,
+                    $refundRequest->reviewed_at?->format('Y-m-d H:i') ?? '',
+                    $refundRequest->created_at?->format('Y-m-d H:i'),
+                    $refundRequest->reason,
+                    $refundRequest->cro_notes,
+                ]);
+            }
+
+            fclose($file);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=utf-8',
+        ]);
+    }
+
+    public function exportPdf(Request $request): Response
+    {
+        $croId = (int) Auth::id();
+        $filters = $this->validatedFilters($request);
+        $refundRequests = $this->exportRows($request, $filters, $croId);
+
+        $eventName = $filters['event']
+            ? Event::query()->assignedToCro($croId)->whereKey($filters['event'])->value('name')
+            : null;
+
+        $pdf = Pdf::loadView('cro.exports.refund-requests_pdf', [
+            'refundRequests' => $refundRequests,
+            'filters' => $filters,
+            'eventName' => $eventName,
+        ])->setPaper('a4', 'landscape');
+
+        return $pdf->download('refund-requests_'.now()->format('Ymd_His').'.pdf');
     }
 
     public function show(RefundRequest $refundRequest): View
@@ -128,6 +206,31 @@ class RefundRequestController extends Controller
     }
 
     /**
+     * @param  array{status: ?string, event: ?int, from: ?string, to: ?string, q: ?string}|null  $filters
+     * @return \Illuminate\Support\Collection<int, RefundRequest>
+     */
+    private function exportRows(Request $request, ?array $filters = null, ?int $croId = null)
+    {
+        $croId ??= (int) Auth::id();
+        $filters ??= $this->validatedFilters($request);
+
+        return $this->applyFilters(
+            RefundRequest::query()->forCroQueue($croId, 'mine'),
+            $filters,
+            $croId,
+        )
+            ->with([
+                'user',
+                'reviewer',
+                'ticketBooking.event',
+                'ticketBooking.ticketCategory',
+            ])
+            ->orderByRaw("CASE WHEN status = 'pending' THEN 0 ELSE 1 END")
+            ->latest('created_at')
+            ->get();
+    }
+
+    /**
      * @return array{status: ?string, event: ?int, from: ?string, to: ?string, q: ?string}
      */
     private function validatedFilters(Request $request): array
@@ -178,7 +281,7 @@ class RefundRequestController extends Controller
             ->when($filters['event'], function (Builder $q, int $eventId) use ($croId) {
                 $q->whereHas('ticketBooking', function (Builder $booking) use ($eventId, $croId) {
                     $booking->where('event_id', $eventId)
-                        ->whereHas('event', fn (Builder $event) => $event->where('contact_person', $croId));
+                        ->whereHas('event', fn (Builder $event) => $event->assignedToCro($croId));
                 });
             })
             ->when($filters['from'], fn (Builder $q, string $from) => $q->whereDate('created_at', '>=', $from))
@@ -197,7 +300,7 @@ class RefundRequestController extends Controller
                         ->orWhereHas('ticketBooking', function (Builder $booking) use ($like, $croId) {
                             $booking->where('ticket_number', 'like', $like)
                                 ->orWhereHas('event', function (Builder $event) use ($like, $croId) {
-                                    $event->where('contact_person', $croId)
+                                    $event->assignedToCro($croId)
                                         ->where('name', 'like', $like);
                                 });
                         });

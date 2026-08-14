@@ -16,6 +16,7 @@ use App\Services\CroReportService;
 use App\Services\EventNotificationService;
 use App\Services\Exports\AdminDashboardExportBuilder;
 use App\Services\Exports\CroDashboardExportBuilder;
+use App\Services\Exports\CroReportExportBuilder;
 use App\Services\Exports\OrganizerDashboardExportBuilder;
 use App\Services\Exports\OrganizerReportExportBuilder;
 use App\Services\OrganizerDashboardService;
@@ -40,6 +41,7 @@ class DashboardController extends Controller
         protected OrganizerDashboardExportBuilder $organizerDashboardExportBuilder,
         protected OrganizerReportExportBuilder $organizerReportExportBuilder,
         protected CroDashboardExportBuilder $croDashboardExportBuilder,
+        protected CroReportExportBuilder $croReportExportBuilder,
     ) {}
 
     /**
@@ -334,8 +336,8 @@ class DashboardController extends Controller
         $croId = (int) Auth::id();
 
         if ($filters['event'] && ! Event::query()
-            ->where('id', $filters['event'])
-            ->where('contact_person', $croId)
+            ->assignedToCro($croId)
+            ->whereKey($filters['event'])
             ->exists()) {
             $filters['event'] = null;
         }
@@ -362,8 +364,8 @@ class DashboardController extends Controller
         $croId = (int) Auth::id();
 
         if ($filters['event'] && ! Event::query()
-            ->where('id', $filters['event'])
-            ->where('contact_person', $croId)
+            ->assignedToCro($croId)
+            ->whereKey($filters['event'])
             ->exists()) {
             $filters['event'] = null;
         }
@@ -371,9 +373,52 @@ class DashboardController extends Controller
         $payload = $this->croDashboardExportBuilder->build($filters, $croId);
         $payload['charts'] = $this->validatedDashboardChartImages($request);
 
+        $reportFilters = [
+            'event' => $filters['event'] ?? null,
+            'from' => $filters['from'] ?? null,
+            'to' => $filters['to'] ?? null,
+            'range' => $filters['range'] ?? null,
+        ];
+        $inquiryReport = $this->croReportExportBuilder->build('inquiries', $reportFilters);
+        $complaintReport = $this->croReportExportBuilder->build('complaints', $reportFilters);
+        $inquiryKpis = $this->kpiCardsFromCountTable($inquiryReport['tables'] ?? [], 'Status breakdown');
+        $complaintKpis = $this->kpiCardsFromCountTable($complaintReport['tables'] ?? [], 'Complaints by status');
+
+        $payload['sections'] = collect($payload['sections'] ?? [])
+            ->map(function (array $section) use ($inquiryReport, $complaintReport, $inquiryKpis, $complaintKpis) {
+                if (($section['key'] ?? '') === 'inquiry') {
+                    $section['tables'] = $inquiryReport['tables'] ?? ($section['tables'] ?? []);
+                    $section['summary'] = $inquiryKpis;
+                }
+                if (($section['key'] ?? '') === 'complaints') {
+                    $section['tables'] = $complaintReport['tables'] ?? ($section['tables'] ?? []);
+                    $section['summary'] = $complaintKpis;
+                }
+
+                return $section;
+            })
+            ->values()
+            ->all();
+
+        $payload['kpis'] = array_merge($payload['kpis'] ?? [], $inquiryKpis, $complaintKpis);
+
+        $payload['tables'] = collect($payload['sections'])
+            ->flatMap(function (array $section) {
+                $sectionTitle = $section['title'] ?? 'Section';
+
+                return collect($section['tables'] ?? [])->map(fn (array $table) => [
+                    'heading' => $sectionTitle.' — '.($table['heading'] ?? 'Data'),
+                    'headers' => $table['headers'] ?? [],
+                    'rows' => $table['rows'] ?? [],
+                ]);
+            })
+            ->values()
+            ->all();
+
         return $this->exportService->downloadPdf(
             $payload,
             sprintf('cro-dashboard-%s.pdf', now()->format('Y-m-d-His')),
+            'organizer.exports.dashboard-pdf',
         );
     }
 
@@ -428,6 +473,28 @@ class DashboardController extends Controller
             'upcomingThisWeek',
             'pendingRatingPrompts',
         ));
+    }
+
+    /**
+     * Convert a two-column count table into KPI cards for the dashboard PDF.
+     *
+     * @param  list<array{heading?: string, rows?: list<list<mixed>>}>  $tables
+     * @return list<array{label: string, value: string|int|float}>
+     */
+    private function kpiCardsFromCountTable(array $tables, string $heading): array
+    {
+        $table = collect($tables)->first(
+            fn (array $item) => ($item['heading'] ?? '') === $heading
+        );
+
+        return collect($table['rows'] ?? [])
+            ->map(fn (array $row) => [
+                'label' => (string) ($row[0] ?? 'Metric'),
+                'value' => $row[1] ?? '—',
+            ])
+            ->filter(fn (array $item) => $item['label'] !== '')
+            ->values()
+            ->all();
     }
 
     /**

@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Organizer;
+namespace App\Http\Controllers\Cro;
 
 use App\Enums\BookingStatusEnum;
 use App\Http\Controllers\Controller;
@@ -29,15 +29,15 @@ class BookingController extends Controller
         $this->authorize('viewAny', ticketBooking::class);
 
         $filters = $this->validatedFilters($request);
-        $organizerId = (int) Auth::id();
+        $croId = (int) Auth::id();
 
-        $bookings = $this->bookingsQuery($organizerId, $filters)
+        $bookings = $this->bookingsQuery($croId, $filters)
             ->with(['user', 'event', 'ticketCategory', 'payment', 'refundRequest', 'checkedInBy'])
             ->latest('ticket_bookings.created_at')
             ->paginate(20)
             ->withQueryString();
 
-        $statsQuery = $this->bookingsQuery($organizerId, $filters);
+        $statsQuery = $this->bookingsQuery($croId, $filters);
         $checkedIn = (clone $statsQuery)->whereNotNull('checked_in_at')->count();
         $total = (clone $statsQuery)->count();
         $validEntry = (clone $statsQuery)->whereIn('status', BookingStatusEnum::retainedSaleStatuses());
@@ -49,12 +49,13 @@ class BookingController extends Controller
         ];
 
         $events = Event::query()
-            ->createdByOrganizer($organizerId)
+            ->withTrashed()
+            ->assignedToCro($croId)
             ->orderBy('name')
-            ->get(['id', 'name']);
+            ->get(['id', 'name', 'deleted_at']);
 
         $hasOngoingEvents = Event::query()
-            ->createdByOrganizer($organizerId)
+            ->assignedToCro($croId)
             ->where('status', Event::STATUS_ONGOING)
             ->exists();
 
@@ -67,7 +68,7 @@ class BookingController extends Controller
             'statuses',
             'filters',
             'hasOngoingEvents',
-        ) + ['guestList' => GuestListUi::organizer()]);
+        ) + ['guestList' => GuestListUi::cro()]);
     }
 
     public function show(ticketBooking $ticketBooking): View
@@ -88,7 +89,7 @@ class BookingController extends Controller
             $relatedTickets = ticketBooking::query()
                 ->where('payment_id', $ticketBooking->payment_id)
                 ->where('id', '!=', $ticketBooking->id)
-                ->whereHas('event', fn (Builder $q) => $q->createdByOrganizer((int) Auth::id()))
+                ->forCroQueue((int) Auth::id())
                 ->with(['event', 'ticketCategory'])
                 ->orderBy('id')
                 ->get();
@@ -97,7 +98,7 @@ class BookingController extends Controller
         $qrSvg = $this->ticketQrService->getQrCodeSvg($ticketBooking->ticket_number);
 
         return view('organizer.bookings.show', compact('ticketBooking', 'relatedTickets', 'qrSvg') + [
-            'guestList' => GuestListUi::organizer(),
+            'guestList' => GuestListUi::cro(),
         ]);
     }
 
@@ -105,9 +106,9 @@ class BookingController extends Controller
     {
         $this->authorize('viewAny', ticketBooking::class);
 
-        $organizerId = (int) Auth::id();
+        $croId = (int) Auth::id();
         $events = Event::query()
-            ->createdByOrganizer($organizerId)
+            ->assignedToCro($croId)
             ->where('status', Event::STATUS_ONGOING)
             ->orderBy('name')
             ->get(['id', 'name', 'status']);
@@ -120,7 +121,7 @@ class BookingController extends Controller
         return view('organizer.bookings.scan', [
             'events' => $events,
             'eventId' => $eventId,
-            'guestList' => GuestListUi::organizer(),
+            'guestList' => GuestListUi::cro(),
         ]);
     }
 
@@ -134,7 +135,7 @@ class BookingController extends Controller
                 'nullable',
                 'integer',
                 Rule::exists('events', 'id')->where(fn ($query) => $query
-                    ->where('created_by', Auth::id())
+                    ->where('contact_person', Auth::id())
                     ->where('status', Event::STATUS_ONGOING)),
             ],
         ]);
@@ -147,10 +148,10 @@ class BookingController extends Controller
                 ->with('error', 'Could not read a valid ticket number from that code.');
         }
 
-        $organizerId = (int) Auth::id();
+        $croId = (int) Auth::id();
         $bookingQuery = ticketBooking::query()
             ->where('ticket_number', $ticketNumber)
-            ->whereHas('event', fn (Builder $q) => $q->createdByOrganizer($organizerId));
+            ->forCroQueue($croId);
 
         if (! empty($validated['event_id'])) {
             $bookingQuery->where('event_id', $validated['event_id']);
@@ -161,7 +162,7 @@ class BookingController extends Controller
         if (! $booking) {
             return back()
                 ->withInput()
-                ->with('error', 'No matching ticket found for your events.');
+                ->with('error', 'No matching ticket found for your assigned events.');
         }
 
         $this->authorize('view', $booking);
@@ -171,18 +172,18 @@ class BookingController extends Controller
         if (! $booking->event?->isOngoing()) {
             return back()
                 ->withInput()
-                ->with('error', 'Check-in is only available for ongoing events. Set this event\'s status to Ongoing first.');
+                ->with('error', 'Check-in is only available for ongoing events.');
         }
 
-        $error = $this->ticketCheckInService->markCheckedIn($booking, (int) Auth::id());
+        $error = $this->ticketCheckInService->markCheckedIn($booking, $croId);
         if ($error !== null) {
             return redirect()
-                ->route('organizer.bookings.show', $booking)
+                ->route('cro.bookings.show', $booking)
                 ->with('error', $error);
         }
 
         return redirect()
-            ->route('organizer.bookings.show', $booking)
+            ->route('cro.bookings.show', $booking)
             ->with('success', 'Guest checked in successfully.');
     }
 
@@ -204,9 +205,9 @@ class BookingController extends Controller
         $this->authorize('viewAny', ticketBooking::class);
 
         $filters = $this->validatedFilters($request);
-        $organizerId = (int) Auth::id();
+        $croId = (int) Auth::id();
 
-        $bookings = $this->bookingsQuery($organizerId, $filters)
+        $bookings = $this->bookingsQuery($croId, $filters)
             ->with(['user', 'event', 'ticketCategory', 'payment', 'refundRequest', 'checkedInBy'])
             ->latest('ticket_bookings.created_at')
             ->get();
@@ -270,6 +271,8 @@ class BookingController extends Controller
      */
     private function validatedFilters(Request $request): array
     {
+        $croId = (int) Auth::id();
+
         $request->merge([
             'search' => $request->filled('search') ? $request->input('search') : null,
             'event_id' => $request->filled('event_id') ? $request->input('event_id') : null,
@@ -284,7 +287,7 @@ class BookingController extends Controller
             'event_id' => [
                 'nullable',
                 'integer',
-                Rule::exists('events', 'id')->where(fn ($query) => $query->where('created_by', Auth::id())),
+                Rule::exists('events', 'id')->where('contact_person', $croId),
             ],
             'status' => [
                 'nullable',
@@ -300,10 +303,10 @@ class BookingController extends Controller
     /**
      * @param  array{search?: string|null, event_id?: int|null, status?: string|null, check_in?: string|null, from_date?: string|null, to_date?: string|null}  $filters
      */
-    private function bookingsQuery(int $organizerId, array $filters): Builder
+    private function bookingsQuery(int $croId, array $filters): Builder
     {
         $query = ticketBooking::query()
-            ->whereHas('event', fn (Builder $q) => $q->createdByOrganizer($organizerId))
+            ->forCroQueue($croId)
             ->whereIn('status', BookingStatusEnum::retainedSaleStatuses());
 
         if (! empty($filters['event_id'])) {
@@ -330,15 +333,17 @@ class BookingController extends Controller
 
         if (! empty($filters['search'])) {
             $search = $filters['search'];
-            $query->where(function (Builder $q) use ($search) {
+            $query->where(function (Builder $q) use ($search, $croId) {
                 $q->where('ticket_number', 'like', "%{$search}%")
                     ->orWhereHas('user', function (Builder $userQuery) use ($search) {
                         $userQuery->where('email', 'like', "%{$search}%")
                             ->orWhere('first_name', 'like', "%{$search}%")
                             ->orWhere('last_name', 'like', "%{$search}%");
                     })
-                    ->orWhereHas('event', function (Builder $eventQuery) use ($search) {
-                        $eventQuery->where('name', 'like', "%{$search}%");
+                    ->orWhereHas('event', function (Builder $eventQuery) use ($search, $croId) {
+                        $eventQuery->withTrashed()
+                            ->assignedToCro($croId)
+                            ->where('name', 'like', "%{$search}%");
                     });
             });
         }

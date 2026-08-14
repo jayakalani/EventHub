@@ -104,7 +104,9 @@ enum AttendeeNotificationCategory: string
             ],
             self::Interaction => [
                 'inquiry_replied' => 'Inquiry reply',
+                'inquiry_resolved' => 'Inquiry resolved',
                 'complaint_replied' => 'Complaint reply',
+                'complaint_resolved' => 'Complaint resolved',
             ],
             self::Wishlist => [
                 'saved_event_published' => 'Saved event published',

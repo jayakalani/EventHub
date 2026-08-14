@@ -90,6 +90,13 @@
             font-weight: bold;
         }
 
+        .kpi .sub {
+            color: #64748b;
+            font-size: 6.5px;
+            margin-top: 3px;
+            line-height: 1.3;
+        }
+
         .kpi-mint { background: #ecfdf5; border-color: #a7f3d0; }
         .kpi-blue { background: #eff6ff; border-color: #bfdbfe; }
         .kpi-violet { background: #f5f3ff; border-color: #ddd6fe; }
@@ -222,7 +229,8 @@
         $heroKpis = ! empty($kpis) ? $kpis : array_slice($summary, 0, 8);
 
         $sectionHints = [
-            'performance' => 'Headline sales charts and operational tables for the selected filters.',
+            'performance' => 'Headline KPIs, charts, and operational tables for the selected filters.',
+            'overview' => 'Headline KPIs, revenue and ticket trends, and a snapshot of the selected period.',
             'revenue' => 'Income trends, refunds, and contribution by event.',
             'tickets' => 'Sales volume, conversion, and category performance.',
             'events' => 'Fill rate, rankings, and revenue contribution.',
@@ -230,6 +238,11 @@
             'audience' => 'Attendee mix, demographics, and top customers.',
             'engagement' => 'Likes, saves, comments, ratings, and momentum.',
             'activity' => 'Latest confirmed and refund-related transactions.',
+            'today' => 'Queue, handoffs, refunds, and events happening today.',
+            'attendance' => 'Check-in mix, timing, and assigned-event attendance.',
+            'support' => 'Volume trends, resolution mix, and feedback themes.',
+            'inquiry' => 'Inquiry status, response speed, and volume by event.',
+            'complaints' => 'Categories, submission volume, and handling progress.',
         ];
 
         $titleToKey = [
@@ -304,6 +317,9 @@
                                 <div class="kpi {{ $kpiStyles[$kpiIndex % count($kpiStyles)] }}">
                                     <p class="label">{{ $item['label'] ?? 'Metric' }}</p>
                                     <p class="value">{{ $item['value'] ?? '—' }}</p>
+                                    @if (! empty($item['sub']))
+                                        <p class="sub">{{ $item['sub'] }}</p>
+                                    @endif
                                 </div>
                             </td>
                             @php $kpiIndex++; @endphp
@@ -323,15 +339,41 @@
             $sectionTitle = $section['title'] ?? 'Section';
             $sectionCharts = $chartsBySection[$sectionKey] ?? [];
             $sectionTables = $section['tables'] ?? [];
+            $sectionKpis = $section['summary'] ?? [];
         @endphp
 
-        @if (! empty($sectionCharts) || ! empty($sectionTables))
+        @if (! empty($sectionCharts) || ! empty($sectionTables) || ! empty($sectionKpis))
         <div class="section-break">
             <div class="section-head">
                 <p class="section-kicker">{{ str_pad((string) ($index + 1), 2, '0', STR_PAD_LEFT) }} · Dashboard tab</p>
                 <p class="section-title">{{ $sectionTitle }}</p>
                 <p class="section-sub">{{ $sectionHints[$sectionKey] ?? 'Charts and supporting tables for this topic.' }}</p>
             </div>
+
+            @if (! empty($sectionKpis))
+                @php $sectionKpiIndex = 0; @endphp
+                @foreach (array_chunk($sectionKpis, 4) as $chunk)
+                    <table class="grid">
+                        <tr>
+                            @foreach ($chunk as $item)
+                                <td width="{{ (int) floor(100 / max(1, count($chunk))) }}%">
+                                    <div class="kpi {{ $kpiStyles[$sectionKpiIndex % count($kpiStyles)] }}">
+                                        <p class="label">{{ $item['label'] ?? 'Metric' }}</p>
+                                        <p class="value">{{ $item['value'] ?? '—' }}</p>
+                                        @if (! empty($item['sub']))
+                                            <p class="sub">{{ $item['sub'] }}</p>
+                                        @endif
+                                    </div>
+                                </td>
+                                @php $sectionKpiIndex++; @endphp
+                            @endforeach
+                            @for ($i = count($chunk); $i < 4; $i++)
+                                <td width="25%"></td>
+                            @endfor
+                        </tr>
+                    </table>
+                @endforeach
+            @endif
 
             @foreach ($sectionCharts as $chart)
                 <div class="panel">
@@ -459,7 +501,7 @@
     @endif
 
     <div class="footer">
-        EventHub · Organizer dashboard export · Generated {{ $generatedAt }}
+        EventHub · {{ $title }} export · Generated {{ $generatedAt }}
     </div>
 </body>
 </html>

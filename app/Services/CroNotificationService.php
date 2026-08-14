@@ -23,11 +23,11 @@ class CroNotificationService
         string $url,
         array $metadata = [],
     ): void {
-        if (! $user || ! $this->isCro($user)) {
+        if (! $user || ! $this->isCro($user) || ! $user->is_active || $user->is_locked) {
             return;
         }
 
-        $user->notify(new CroActivityNotification(
+        $user->notifyNow(new CroActivityNotification(
             $category,
             $type,
             $message,
@@ -51,8 +51,11 @@ class CroNotificationService
     ): void {
         $event->loadMissing('contactPerson.userRole');
 
+        $cro = $event->contactPerson
+            ?? User::query()->with('userRole')->find($event->contact_person);
+
         $this->send(
-            $event->contactPerson,
+            $cro,
             $category,
             $type,
             $message,
@@ -103,18 +106,16 @@ class CroNotificationService
 
     public function notifyComplaintSubmitted(Complaint $complaint): void
     {
-        $complaint->loadMissing('event');
+        $complaint->loadMissing('event.contactPerson.userRole');
 
-        $message = 'A new complaint was submitted: "'.$complaint->subject.'".';
         $url = route('cro.complaints.show', $complaint);
         $metadata = ['complaint_id' => $complaint->id];
 
-        if ($complaint->event) {
-            $this->notifyEventCro(
-                $complaint->event,
+        if ($complaint->isGeneral()) {
+            $this->notifyAllCros(
                 CroNotificationCategory::Interaction,
                 'complaint_submitted',
-                $message,
+                'A new general complaint was submitted: "'.$complaint->subject.'". Any CRO can claim it.',
                 $url,
                 $metadata,
             );
@@ -122,10 +123,16 @@ class CroNotificationService
             return;
         }
 
-        $this->notifyAllCros(
+        $event = $complaint->event;
+        if (! $event) {
+            return;
+        }
+
+        $this->notifyEventCro(
+            $event,
             CroNotificationCategory::Interaction,
             'complaint_submitted',
-            $message.' (general)',
+            'A new complaint was submitted for "'.$event->name.'": "'.$complaint->subject.'".',
             $url,
             $metadata,
         );
@@ -241,7 +248,9 @@ class CroNotificationService
     public function allCros(): Collection
     {
         return User::query()
+            ->with('userRole')
             ->where('is_active', true)
+            ->where('is_locked', false)
             ->whereHas('userRole', fn ($q) => $q->where('name_en', UserRole::CRO))
             ->get();
     }

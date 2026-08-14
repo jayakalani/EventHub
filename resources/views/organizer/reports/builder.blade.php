@@ -48,7 +48,11 @@
                 </div>
             @endif
 
-            <form method="POST" action="{{ route('organizer.reports.generate') }}" class="space-y-4">
+            <form id="organizer-report-form"
+                method="POST"
+                action="{{ route('organizer.reports.generate') }}"
+                data-chart-data-url="{{ route('organizer.reports.chart-data') }}"
+                class="space-y-4">
                 @csrf
                 <input type="hidden" name="report" :value="selectedKey">
                 <input type="hidden" name="format" :value="format">
@@ -193,6 +197,52 @@
                     </button>
                 </div>
             </form>
+
+            <div id="organizer-analytics-export-charts"
+                class="pointer-events-none fixed top-0 w-[900px]"
+                style="left: -10000px;"
+                aria-hidden="true">
+                @foreach ([
+                    'organizerRevenueChart',
+                    'organizerTicketSalesChart',
+                    'overviewRevenueChart',
+                    'monthlyRevenueBarChart',
+                    'cumulativeRevenueChart',
+                    'refundsVsSalesChart',
+                    'refundsByEventChart',
+                    'refundsByCategoryChart',
+                    'ticketSalesOverTimeChart',
+                    'salesByCategoryChart',
+                    'ticketTypeTrendChart',
+                    'conversionFunnelChart',
+                    'salesVelocityChart',
+                    'salesVelocityCumulativeChart',
+                    'revenuePerEventChart',
+                    'top5EventsRevenueChart',
+                    'top5EventsTicketsChart',
+                    'revenueFillScatterChart',
+                    'eventCompareMetricsChart',
+                    'attendanceBreakdownChart',
+                    'checkInTimingChart',
+                    'attendanceByEventChart',
+                    'demographicsAgeChart',
+                    'demographicsGenderChart',
+                    'demographicsLocationChart',
+                    'repeatVsNewChart',
+                    'audienceEngagementVsSalesChart',
+                    'overviewAttendeesByEventChart',
+                    'overviewEngagementBarChart',
+                    'engagementOverTimeChart',
+                    'engagementBeforeEventChart',
+                    'engagementVsSalesChart',
+                    'ratingTrendChart',
+                    'ratingDistributionChart',
+                ] as $canvasId)
+                    <div class="h-64 w-full">
+                        <canvas id="{{ $canvasId }}"></canvas>
+                    </div>
+                @endforeach
+            </div>
         </div>
     </div>
 
@@ -256,4 +306,5 @@
             };
         }
     </script>
+    @vite('resources/js/organizer-report-builder.js')
 </x-app-layout>

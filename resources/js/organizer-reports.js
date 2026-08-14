@@ -1356,4 +1356,25 @@ function initOrganizerReports() {
     bindDashboardPdfExportButtons();
 }
 
+export function renderOrganizerReportExportCharts(data) {
+    if (!data) return;
+
+    window.organizerReportData = data;
+    const specs = buildChartSpecs({
+        chartLabels: [],
+        ticketSales: {},
+        revenue: {},
+        attendees: {},
+        engagement: {},
+        eventPerformance: [],
+        salesByCategory: [],
+        refundAnalytics: {},
+        ...data,
+    });
+
+    Object.values(specs).forEach((spec) => {
+        spec.render(spec.canvasId);
+    });
+}
+
 document.addEventListener('DOMContentLoaded', initOrganizerReports);

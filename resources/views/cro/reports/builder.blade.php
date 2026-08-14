@@ -51,7 +51,11 @@
                 </div>
             @endif
 
-            <form method="POST" action="{{ route('cro.reports.generate') }}" class="space-y-5">
+            <form id="cro-report-form"
+                method="POST"
+                action="{{ route('cro.reports.generate') }}"
+                data-chart-data-url="{{ route('cro.reports.chart-data') }}"
+                class="space-y-5">
                 @csrf
                 <input type="hidden" name="report" :value="selectedKey">
                 <input type="hidden" name="format" :value="format">
@@ -149,7 +153,10 @@
                                         class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200"
                                         :name="'filters[' + filter.key + ']'"
                                         x-model="filters[filter.key]">
-                                        <option value="">All</option>
+                                        <option
+                                            value=""
+                                            :hidden="filter.include_empty === false"
+                                            :disabled="filter.include_empty === false">All</option>
                                         <template x-for="(optLabel, optKey) in filter.options" :key="optKey">
                                             <option :value="optKey" x-text="optLabel"></option>
                                         </template>
@@ -199,6 +206,33 @@
                     </button>
                 </div>
             </form>
+
+            <div id="cro-analytics-export-charts"
+                class="pointer-events-none fixed top-0 w-[900px]"
+                style="left: -10000px;"
+                aria-hidden="true">
+                @foreach ([
+                    'croAttendanceBreakdownChart',
+                    'croCheckInTimingChart',
+                    'croAttendanceByEventChart',
+                    'croSatisfactionDistributionChart',
+                    'croSupportTrendChart',
+                    'croComplaintStatusChart',
+                    'croSupportCategoriesChart',
+                    'inquiryStatusChart',
+                    'inquiryResolutionTrendChart',
+                    'inquiryResponseTimeChart',
+                    'inquiryByEventChart',
+                    'complaintCategoryPieChart',
+                    'complaintSubmissionsChart',
+                    'complaintTypeChart',
+                    'complaintStatusByTypeChart',
+                ] as $canvasId)
+                    <div class="h-64 w-full">
+                        <canvas id="{{ $canvasId }}"></canvas>
+                    </div>
+                @endforeach
+            </div>
         </div>
     </div>
 
@@ -206,6 +240,13 @@
         function croReportBuilder({ catalog, defaultReport, oldFields, oldFilters, oldFormat }) {
             const byKey = Object.fromEntries(catalog.map((r) => [r.key, r]));
             const initialKey = byKey[defaultReport] ? defaultReport : (catalog[0]?.key ?? null);
+
+            const defaultFiltersFor = (key) => {
+                if (key === 'dashboard_analytics') {
+                    return { section: 'full' };
+                }
+                return {};
+            };
 
             return {
                 catalog,
@@ -215,7 +256,7 @@
                     : (byKey[initialKey]?.skips_fields ? [] : Object.keys(byKey[initialKey]?.fields ?? {})),
                 filters: Object.keys(oldFilters || {}).length
                     ? { ...(oldFilters || {}) }
-                    : (initialKey === 'dashboard_analytics' ? { period: 'month' } : {}),
+                    : defaultFiltersFor(initialKey),
                 format: oldFormat || (byKey[initialKey]?.formats?.[0] ?? 'pdf'),
 
                 get current() {
@@ -238,10 +279,7 @@
 
                 onReportChange() {
                     this.fields = this.current.skips_fields ? [] : Object.keys(this.current.fields || {});
-                    this.filters = {};
-                    if (this.current.key === 'dashboard_analytics') {
-                        this.filters.period = 'month';
-                    }
+                    this.filters = defaultFiltersFor(this.selectedKey);
                     if (!this.current.formats.includes(this.format)) {
                         this.format = this.current.formats[0] || 'pdf';
                     }
@@ -257,4 +295,5 @@
             };
         }
     </script>
+    @vite('resources/js/cro-report-builder.js')
 </x-app-layout>

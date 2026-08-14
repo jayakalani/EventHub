@@ -3,7 +3,15 @@
     $reassignRoute = $reassignRoute ?? null;
     $croUsers = $croUsers ?? collect();
     $ticket = $ticket ?? null;
-    $canReassign = $ticket && ($ticket->isUnassigned() || $ticket->isAssignedTo(auth()->id()));
+    $allowClaim = $allowClaim ?? true;
+    $allowReassign = $allowReassign ?? true;
+    $ownerLabel = $ownerLabel ?? ($ticket?->assignee?->full_name ?? 'Unassigned');
+    $ownerHint = $ownerHint ?? null;
+    $assignedViaEvent = $assignedViaEvent ?? false;
+    $canReassign = $allowReassign
+        && $reassignRoute
+        && $ticket
+        && ($ticket->isUnassigned() || $ticket->isAssignedTo(auth()->id()));
 @endphp
 
 <section class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
@@ -14,8 +22,11 @@
         <div>
             <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Current owner</p>
             <p class="mt-0.5 font-semibold text-slate-900">
-                {{ $ticket?->assignee?->full_name ?? 'Unassigned' }}
+                {{ $ownerLabel }}
             </p>
+            @if ($ownerHint)
+                <p class="mt-1 text-xs leading-relaxed text-slate-500">{{ $ownerHint }}</p>
+            @endif
         </div>
 
         @if ($errors->has('assignment') || $errors->has('assigned_to'))
@@ -23,7 +34,7 @@
         @endif
 
         <div class="flex flex-wrap gap-2">
-            @if ($claimRoute && $ticket?->isUnassigned())
+            @if ($allowClaim && $claimRoute && $ticket?->isUnassigned())
                 <form action="{{ $claimRoute }}" method="POST">
                     @csrf
                     <button type="submit"
@@ -31,6 +42,10 @@
                         Claim
                     </button>
                 </form>
+            @elseif ($assignedViaEvent)
+                <span class="inline-flex rounded-xl bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700">
+                    Assigned via event
+                </span>
             @elseif ($ticket?->isAssignedTo(auth()->id()))
                 <span class="inline-flex rounded-xl bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700">
                     Claimed by you
@@ -60,7 +75,7 @@
                     Update assignment
                 </button>
             </form>
-        @elseif ($reassignRoute && ! $canReassign)
+        @elseif ($reassignRoute && $allowReassign && ! $canReassign)
             <p class="border-t border-slate-100 pt-3 text-xs text-slate-500">
                 Only the assigned CRO can reassign this case.
             </p>

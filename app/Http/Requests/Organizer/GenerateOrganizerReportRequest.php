@@ -53,6 +53,10 @@ class GenerateOrganizerReportRequest extends FormRequest
             'filters.period' => ['nullable', 'string', Rule::in(['week', 'month', 'custom'])],
             'filters.date_from' => ['nullable', 'date'],
             'filters.date_to' => ['nullable', 'date', 'after_or_equal:filters.date_from'],
+            'charts' => ['nullable', 'array', 'max:40'],
+            'charts.*.title' => ['required', 'string', 'max:120'],
+            'charts.*.image' => ['required', 'string', 'max:5000000'],
+            'charts.*.section' => ['nullable', 'string', 'max:40'],
         ];
     }
 
@@ -132,5 +136,26 @@ class GenerateOrganizerReportRequest extends FormRequest
         $filters = $this->input('filters', []);
 
         return is_array($filters) ? $filters : [];
+    }
+
+    /**
+     * @return list<array{title: string, image: string, section: string}>
+     */
+    public function selectedCharts(): array
+    {
+        return collect($this->validated()['charts'] ?? [])
+            ->filter(function (array $chart) {
+                $image = $chart['image'] ?? '';
+
+                return is_string($image)
+                    && preg_match('/^data:image\/(png|jpeg|jpg);base64,/', $image) === 1;
+            })
+            ->map(fn (array $chart) => [
+                'title' => (string) $chart['title'],
+                'image' => (string) $chart['image'],
+                'section' => (string) ($chart['section'] ?? ''),
+            ])
+            ->values()
+            ->all();
     }
 }

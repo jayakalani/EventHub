@@ -25,7 +25,7 @@
             </div>
         </div>
         <a href="{{ route('cro.reports') }}"
-            class="inline-flex items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-3.5 py-2 text-sm font-semibold text-indigo-700 transition hover:bg-indigo-100">
+            class="btn-smooth inline-flex items-center gap-2 rounded-xl border border-white/70 bg-white/55 px-3.5 py-2 text-sm font-semibold text-indigo-700 shadow-sm backdrop-blur-md transition hover:-translate-y-0.5 hover:border-indigo-200 hover:bg-white/85 hover:shadow-md">
             <i class="bi bi-sliders"></i>
             Reports
         </a>

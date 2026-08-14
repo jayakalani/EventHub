@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\BookingStatusEnum;
 use App\Enums\RefundRequestStatusEnum;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -49,6 +50,25 @@ class ticketBooking extends Model
         $this->loadMissing('event');
 
         return $this->event?->isOwnedByOrganizer($organizerId) ?? false;
+    }
+
+    public function isAssignedToCro(?int $croId): bool
+    {
+        $this->loadMissing('event');
+
+        return $this->event?->isAssignedToCro($croId) ?? false;
+    }
+
+    /**
+     * Bookings for events where this CRO is the assigned contact person,
+     * including archived (soft-deleted) events.
+     */
+    public function scopeForCroQueue(Builder $query, int $croId): Builder
+    {
+        return $query->whereHas(
+            'event',
+            fn (Builder $event) => $event->withTrashed()->assignedToCro($croId)
+        );
     }
 
     public function ticketCategory(): BelongsTo
@@ -171,22 +191,7 @@ class ticketBooking extends Model
 
     public function canUndoCheckIn(): bool
     {
-        $this->loadMissing('event');
-
-        if (! $this->isCheckedIn()) {
-            return false;
-        }
-
-        if (! in_array($this->status, BookingStatusEnum::retainedSaleStatuses(), true)) {
-            return false;
-        }
-
-        if ($this->event?->isCancelled()) {
-            return false;
-        }
-
-        // Undo is only allowed while the event is still ongoing.
-        return (bool) $this->event?->isOngoing();
+        return false;
     }
 
     public function checkInIneligibilityReason(): ?string

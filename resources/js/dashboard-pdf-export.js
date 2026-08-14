@@ -22,7 +22,8 @@ function filenameFromDisposition(header, fallback = 'dashboard.pdf') {
 }
 
 /**
- * Temporarily reveal Alpine/x-show ancestors so Chart.js can measure and export.
+ * Temporarily reveal Alpine/x-show/x-cloak ancestors so Chart.js can measure and export.
+ * x-cloak uses display: none !important, so a plain style.display = 'block' is not enough.
  * @returns {() => void} restore function
  */
 function revealHiddenAncestors(element) {
@@ -31,11 +32,18 @@ function revealHiddenAncestors(element) {
 
     while (node && node !== document.body) {
         const computed = window.getComputedStyle(node);
-        if (computed.display === 'none') {
+        const hasCloak = node.hasAttribute('x-cloak');
+        const isHidden = computed.display === 'none' || hasCloak;
+
+        if (isHidden) {
             changes.push({
                 node,
+                cloak: hasCloak,
                 display: node.style.display,
+                displayPriority: node.style.getPropertyPriority('display'),
                 visibility: node.style.visibility,
+                opacity: node.style.opacity,
+                opacityPriority: node.style.getPropertyPriority('opacity'),
                 position: node.style.position,
                 left: node.style.left,
                 top: node.style.top,
@@ -46,8 +54,13 @@ function revealHiddenAncestors(element) {
                 zIndex: node.style.zIndex,
             });
 
+            if (hasCloak) {
+                node.removeAttribute('x-cloak');
+            }
+
             // Off-screen but laid out so Chart.js has a real size.
-            node.style.display = 'block';
+            node.style.setProperty('display', 'block', 'important');
+            node.style.setProperty('opacity', '1', 'important');
             node.style.visibility = 'hidden';
             node.style.position = 'fixed';
             node.style.left = '-10000px';
@@ -63,7 +76,22 @@ function revealHiddenAncestors(element) {
 
     return () => {
         changes.forEach((change) => {
-            change.node.style.display = change.display;
+            if (change.cloak) {
+                change.node.setAttribute('x-cloak', '');
+            }
+
+            if (change.display) {
+                change.node.style.setProperty('display', change.display, change.displayPriority || '');
+            } else {
+                change.node.style.removeProperty('display');
+            }
+
+            if (change.opacity) {
+                change.node.style.setProperty('opacity', change.opacity, change.opacityPriority || '');
+            } else {
+                change.node.style.removeProperty('opacity');
+            }
+
             change.node.style.visibility = change.visibility;
             change.node.style.position = change.position;
             change.node.style.left = change.left;
@@ -74,6 +102,21 @@ function revealHiddenAncestors(element) {
             change.node.style.pointerEvents = change.pointerEvents;
             change.node.style.zIndex = change.zIndex;
         });
+    };
+}
+
+function revealExportCanvases(targets = []) {
+    const restores = [];
+
+    targets.forEach(({ canvasId }) => {
+        const canvas = document.getElementById(canvasId);
+        if (canvas) {
+            restores.push(revealHiddenAncestors(canvas));
+        }
+    });
+
+    return () => {
+        restores.reverse().forEach((restore) => restore());
     };
 }
 
@@ -249,64 +292,75 @@ function readFilterFormParams(formId) {
 export async function submitDashboardPdfExport({ url, params = {}, charts = [], filterFormId = '' }) {
     if (!url) return;
 
-    window.dispatchEvent(new CustomEvent('organizer-reports-tab-changed', {
-        detail: { tab: 'export' },
-    }));
-    await new Promise((resolve) => {
-        requestAnimationFrame(() => setTimeout(resolve, 120));
-    });
+    const restoreCanvases = revealExportCanvases(charts);
 
-    const formData = new FormData();
-    formData.append('_token', csrfToken());
+    try {
+        window.dispatchEvent(new CustomEvent('organizer-reports-tab-changed', {
+            detail: { tab: 'export' },
+        }));
+        window.dispatchEvent(new CustomEvent('dashboard-pdf-export-prepare'));
+        window.dispatchEvent(new CustomEvent('cro-reports-tab-changed'));
+        ['support', 'performance', 'attendance', 'inquiry', 'complaints'].forEach((section) => {
+            window.dispatchEvent(new CustomEvent('cro-dashboard-section-changed', { detail: { section } }));
+        });
+        await new Promise((resolve) => {
+            requestAnimationFrame(() => setTimeout(resolve, 400));
+        });
 
-    const mergedParams = {
-        ...params,
-        ...readFilterFormParams(filterFormId),
-    };
+        const formData = new FormData();
+        formData.append('_token', csrfToken());
 
-    if (!mergedParams.event_id && mergedParams.focus_event) {
-        mergedParams.event_id = mergedParams.focus_event;
-    }
+        const mergedParams = {
+            ...params,
+            ...readFilterFormParams(filterFormId),
+        };
 
-    Object.entries(mergedParams).forEach(([key, value]) => {
-        if (value === null || value === undefined || value === '') return;
-        formData.append(key, String(value));
-    });
-
-    captureDashboardChartImages(charts).forEach((chart, index) => {
-        formData.append(`charts[${index}][title]`, chart.title);
-        formData.append(`charts[${index}][image]`, chart.image);
-        if (chart.section) {
-            formData.append(`charts[${index}][section]`, chart.section);
+        if (!mergedParams.event_id && mergedParams.focus_event) {
+            mergedParams.event_id = mergedParams.focus_event;
         }
-    });
 
-    const response = await fetch(url, {
-        method: 'POST',
-        body: formData,
-        headers: {
-            Accept: 'application/pdf',
-            'X-Requested-With': 'XMLHttpRequest',
-        },
-        credentials: 'same-origin',
-    });
+        Object.entries(mergedParams).forEach(([key, value]) => {
+            if (value === null || value === undefined || value === '') return;
+            formData.append(key, String(value));
+        });
 
-    if (!response.ok) {
-        throw new Error(`PDF export failed (${response.status})`);
+        captureDashboardChartImages(charts).forEach((chart, index) => {
+            formData.append(`charts[${index}][title]`, chart.title);
+            formData.append(`charts[${index}][image]`, chart.image);
+            if (chart.section) {
+                formData.append(`charts[${index}][section]`, chart.section);
+            }
+        });
+
+        const response = await fetch(url, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                Accept: 'application/pdf',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            credentials: 'same-origin',
+        });
+
+        if (!response.ok) {
+            throw new Error(`PDF export failed (${response.status})`);
+        }
+
+        const blob = await response.blob();
+        const objectUrl = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = objectUrl;
+        link.download = filenameFromDisposition(
+            response.headers.get('Content-Disposition'),
+            'dashboard.pdf',
+        );
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(objectUrl);
+    } finally {
+        restoreCanvases();
     }
-
-    const blob = await response.blob();
-    const objectUrl = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = objectUrl;
-    link.download = filenameFromDisposition(
-        response.headers.get('Content-Disposition'),
-        'dashboard.pdf',
-    );
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(objectUrl);
 }
 
 export function bindDashboardPdfExportButtons(root = document) {

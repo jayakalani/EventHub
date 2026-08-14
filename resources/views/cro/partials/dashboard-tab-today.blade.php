@@ -24,7 +24,7 @@
                         default => ['badge' => 'bg-sky-100/90 text-sky-800', 'label' => 'Inquiry'],
                     };
                 @endphp
-                <div class="btn-smooth flex flex-col gap-3 px-4 py-3.5 hover:bg-white/50 sm:flex-row sm:items-center sm:justify-between sm:px-5 {{ !empty($item['urgent']) ? 'bg-rose-50/40' : '' }}">
+                <div class="btn-smooth flex flex-col gap-3 px-4 py-3.5 transition hover:bg-white/65 hover:shadow-inner sm:flex-row sm:items-center sm:justify-between sm:px-5 {{ !empty($item['urgent']) ? 'bg-rose-50/40' : '' }}">
                     <div class="min-w-0 flex-1">
                         <div class="flex flex-wrap items-center gap-2">
                             <span class="inline-flex rounded-md px-2 py-0.5 text-[11px] font-semibold {{ $typeTone['badge'] }}">{{ $typeTone['label'] }}</span>
@@ -210,7 +210,12 @@
                     <div class="btn-smooth px-4 py-3.5 hover:bg-white/50 sm:px-5">
                         <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                             <p class="font-semibold text-slate-900">{{ $event['name'] }}</p>
-                            <div class="flex flex-wrap gap-2">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <a href="{{ $event['guestListHref'] ?? route('cro.bookings.index') }}"
+                                    class="inline-flex items-center gap-1 rounded-lg border border-indigo-200/60 bg-indigo-50/80 px-2 py-0.5 text-[11px] font-semibold text-indigo-700 transition hover:bg-indigo-100">
+                                    <i class="bi bi-person-check"></i>
+                                    Guest list
+                                </a>
                                 <span class="inline-flex items-center gap-1 rounded-lg border border-cyan-200/50 bg-cyan-50/70 px-2 py-0.5 text-[11px] font-semibold text-cyan-700">
                                     <i class="bi bi-people"></i>
                                     {{ number_format($event['attendees']) }} attendees

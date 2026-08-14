@@ -26,14 +26,14 @@
                             default => ['top' => 'border-t-indigo-500', 'iconBg' => 'bg-indigo-100/80', 'iconText' => 'text-indigo-600'],
                         };
                     @endphp
-                    <div class="glass-card kpi-lift border-t-4 {{ $accent['top'] }} p-4 sm:p-5">
+                    <div class="glass-card kpi-lift group border-t-4 {{ $accent['top'] }} p-4 sm:p-5">
                         <div class="flex items-start justify-between gap-3">
                             <div class="min-w-0">
                                 <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ $kpi['label'] }}</p>
                                 <p class="mt-1 truncate text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">{{ $kpi['value'] }}</p>
                                 <p class="mt-1 text-xs font-medium text-slate-500">{{ $kpi['sub'] }}</p>
                             </div>
-                            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl {{ $accent['iconBg'] }}">
+                            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl {{ $accent['iconBg'] }} transition duration-300 group-hover:scale-110">
                                 <i class="bi {{ $kpi['icon'] }} text-lg {{ $accent['iconText'] }}"></i>
                             </div>
                         </div>

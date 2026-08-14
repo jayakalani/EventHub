@@ -11,6 +11,7 @@ use App\Models\UserRole;
 use App\Services\CroCaseContextService;
 use App\Services\InquiryService;
 use App\Support\CroReplyTemplates;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -18,6 +19,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use RuntimeException;
+use Symfony\Component\HttpFoundation\Response;
 
 class InquiryController extends Controller
 {
@@ -48,9 +50,9 @@ class InquiryController extends Controller
             ->withQueryString();
 
         $events = Event::query()
-            ->where('contact_person', $croId)
+            ->assignedToCro($croId)
             ->orderBy('name')
-            ->get(['id', 'name']);
+            ->get(['id', 'name', 'deleted_at']);
 
         $statuses = SupportTicketStatusEnum::cases();
 
@@ -61,6 +63,65 @@ class InquiryController extends Controller
             'events',
             'statuses',
         ));
+    }
+
+    public function exportCsv(Request $request): Response
+    {
+        $inquiries = $this->exportRows($request);
+
+        $filename = 'inquiries_'.now()->format('Ymd_His').'.csv';
+
+        return response()->streamDownload(function () use ($inquiries) {
+            $file = fopen('php://output', 'w');
+            fputcsv($file, [
+                'ID',
+                'Subject',
+                'Attendee',
+                'Email',
+                'Event',
+                'Assignee',
+                'Status',
+                'Submitted At',
+                'Message',
+            ]);
+
+            foreach ($inquiries as $inquiry) {
+                fputcsv($file, [
+                    $inquiry->id,
+                    $inquiry->subject,
+                    $inquiry->user?->full_name ?? '',
+                    $inquiry->user?->email ?? '',
+                    $inquiry->event?->name ?? '—',
+                    $inquiry->assignee?->full_name ?? 'Unassigned',
+                    $inquiry->status->label(),
+                    $inquiry->created_at?->format('Y-m-d H:i'),
+                    $inquiry->message,
+                ]);
+            }
+
+            fclose($file);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=utf-8',
+        ]);
+    }
+
+    public function exportPdf(Request $request): Response
+    {
+        $croId = (int) Auth::id();
+        $filters = $this->validatedFilters($request);
+        $inquiries = $this->exportRows($request, $filters, $croId);
+
+        $eventName = $filters['event']
+            ? Event::query()->assignedToCro($croId)->whereKey($filters['event'])->value('name')
+            : null;
+
+        $pdf = Pdf::loadView('cro.exports.inquiries_pdf', [
+            'inquiries' => $inquiries,
+            'filters' => $filters,
+            'eventName' => $eventName,
+        ])->setPaper('a4', 'landscape');
+
+        return $pdf->download('inquiries_'.now()->format('Ymd_His').'.pdf');
     }
 
     public function show(Inquiry $inquiry): View
@@ -175,6 +236,25 @@ class InquiryController extends Controller
     }
 
     /**
+     * @param  array{status: ?string, q: ?string, event: ?int, from: ?string, to: ?string}|null  $filters
+     * @return \Illuminate\Support\Collection<int, Inquiry>
+     */
+    private function exportRows(Request $request, ?array $filters = null, ?int $croId = null)
+    {
+        $croId ??= (int) Auth::id();
+        $filters ??= $this->validatedFilters($request);
+
+        return $this->applyFilters(
+            Inquiry::query()->forCroQueue($croId, 'mine'),
+            $filters,
+            $croId,
+        )
+            ->with(['user', 'event', 'assignee'])
+            ->oldest('created_at')
+            ->get();
+    }
+
+    /**
      * @return array{status: ?string, q: ?string, event: ?int, from: ?string, to: ?string}
      */
     private function validatedFilters(Request $request): array
@@ -211,7 +291,7 @@ class InquiryController extends Controller
             ->when($filters['status'], fn (Builder $q, string $status) => $q->where('status', $status))
             ->when($filters['event'], function (Builder $q, int $eventId) use ($croId) {
                 $q->where('event_id', $eventId)
-                    ->whereHas('event', fn (Builder $event) => $event->where('contact_person', $croId));
+                    ->whereHas('event', fn (Builder $event) => $event->assignedToCro($croId));
             })
             ->when($filters['from'], fn (Builder $q, string $from) => $q->whereDate('created_at', '>=', $from))
             ->when($filters['to'], fn (Builder $q, string $to) => $q->whereDate('created_at', '<=', $to))
@@ -227,7 +307,7 @@ class InquiryController extends Controller
                                 ->orWhereRaw("CONCAT(first_name, ' ', last_name) like ?", [$like]);
                         })
                         ->orWhereHas('event', function (Builder $event) use ($like, $croId) {
-                            $event->where('contact_person', $croId)
+                            $event->assignedToCro($croId)
                                 ->where('name', 'like', $like);
                         });
                 });

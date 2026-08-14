@@ -26,6 +26,7 @@ use App\Http\Controllers\HostController;
 use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ComplaintController;
+use App\Http\Controllers\Cro\BookingController as CroBookingController;
 use App\Http\Controllers\Cro\ComplaintController as CroComplaintController;
 use App\Http\Controllers\Cro\HandoffController as CroHandoffController;
 use App\Http\Controllers\Cro\InquiryController as CroInquiryController;
@@ -229,7 +230,6 @@ Route::prefix('organizer')->name('organizer.')->middleware(['auth', 'verified', 
     Route::post('/bookings/scan', [OrganizerBookingController::class, 'scan'])->name('bookings.scan.submit');
     Route::get('/bookings/{ticketBooking}', [OrganizerBookingController::class, 'show'])->name('bookings.show');
     Route::post('/bookings/{ticketBooking}/check-in', [OrganizerBookingController::class, 'checkIn'])->name('bookings.check-in');
-    Route::post('/bookings/{ticketBooking}/undo-check-in', [OrganizerBookingController::class, 'undoCheckIn'])->name('bookings.undo-check-in');
 
     // Sales activity feed
     Route::get('/sales', [OrganizerSalesController::class, 'index'])->name('sales.index');
@@ -265,6 +265,7 @@ Route::prefix('organizer')->name('organizer.')->middleware(['auth', 'verified', 
 
     // Reports & Analytics
     Route::get('/reports', [OrganizerReportController::class, 'index'])->name('reports');
+    Route::get('/reports/chart-data', [OrganizerReportController::class, 'chartData'])->name('reports.chart-data');
     Route::post('/reports/generate', [OrganizerReportController::class, 'generate'])->name('reports.generate');
     Route::get('/reports/tab-data', [OrganizerReportController::class, 'tabData'])->name('reports.tab-data');
     Route::get('/reports/export/excel', [OrganizerReportController::class, 'exportExcel'])->name('reports.export.excel');
@@ -285,11 +286,21 @@ Route::prefix('cro')->name('cro.')->middleware(['auth', 'verified', 'prevent-bac
     Route::get('/dashboard', [DashboardController::class, 'cro'])->name('dashboard');
     Route::post('/dashboard/export/pdf', [DashboardController::class, 'exportCroPdf'])->name('dashboard.export.pdf');
     Route::get('/handoffs/{event}', [CroHandoffController::class, 'show'])->name('handoffs.show');
+    Route::get('/bookings', [CroBookingController::class, 'index'])->name('bookings.index');
+    Route::get('/bookings/export/csv', [CroBookingController::class, 'exportCsv'])->name('bookings.export.csv');
+    Route::get('/bookings/scan', [CroBookingController::class, 'scanForm'])->name('bookings.scan');
+    Route::post('/bookings/scan', [CroBookingController::class, 'scan'])->name('bookings.scan.submit');
+    Route::get('/bookings/{ticketBooking}', [CroBookingController::class, 'show'])->name('bookings.show');
+    Route::post('/bookings/{ticketBooking}/check-in', [CroBookingController::class, 'checkIn'])->name('bookings.check-in');
     Route::get('/refund-requests', [CroRefundRequestController::class, 'index'])->name('refund-requests.index');
+    Route::get('/refund-requests/export/csv', [CroRefundRequestController::class, 'exportCsv'])->name('refund-requests.export.csv');
+    Route::get('/refund-requests/export/pdf', [CroRefundRequestController::class, 'exportPdf'])->name('refund-requests.export.pdf');
     Route::get('/refund-requests/{refundRequest}', [CroRefundRequestController::class, 'show'])->name('refund-requests.show');
     Route::post('/refund-requests/{refundRequest}/approve', [CroRefundRequestController::class, 'approve'])->name('refund-requests.approve');
     Route::post('/refund-requests/{refundRequest}/decline', [CroRefundRequestController::class, 'decline'])->name('refund-requests.decline');
     Route::get('/inquiries', [CroInquiryController::class, 'index'])->name('inquiries.index');
+    Route::get('/inquiries/export/csv', [CroInquiryController::class, 'exportCsv'])->name('inquiries.export.csv');
+    Route::get('/inquiries/export/pdf', [CroInquiryController::class, 'exportPdf'])->name('inquiries.export.pdf');
     Route::get('/inquiries/{inquiry}', [CroInquiryController::class, 'show'])->name('inquiries.show');
     Route::post('/inquiries/{inquiry}/reply', [CroInquiryController::class, 'reply'])->name('inquiries.reply');
     Route::patch('/inquiries/{inquiry}/status', [CroInquiryController::class, 'updateStatus'])->name('inquiries.update-status');
@@ -297,6 +308,8 @@ Route::prefix('cro')->name('cro.')->middleware(['auth', 'verified', 'prevent-bac
     Route::post('/inquiries/{inquiry}/reassign', [CroInquiryController::class, 'reassign'])->name('inquiries.reassign');
     Route::patch('/inquiries/{inquiry}/notes', [CroInquiryController::class, 'updateNotes'])->name('inquiries.notes');
     Route::get('/complaints', [CroComplaintController::class, 'index'])->name('complaints.index');
+    Route::get('/complaints/export/csv', [CroComplaintController::class, 'exportCsv'])->name('complaints.export.csv');
+    Route::get('/complaints/export/pdf', [CroComplaintController::class, 'exportPdf'])->name('complaints.export.pdf');
     Route::get('/complaints/{complaint}', [CroComplaintController::class, 'show'])->name('complaints.show');
     Route::post('/complaints/{complaint}/reply', [CroComplaintController::class, 'reply'])->name('complaints.reply');
     Route::patch('/complaints/{complaint}/status', [CroComplaintController::class, 'updateStatus'])->name('complaints.update-status');
@@ -307,6 +320,7 @@ Route::prefix('cro')->name('cro.')->middleware(['auth', 'verified', 'prevent-bac
 
     // Reports & Analytics
     Route::get('/reports', [CroReportController::class, 'index'])->name('reports');
+    Route::get('/reports/chart-data', [CroReportController::class, 'chartData'])->name('reports.chart-data');
     Route::post('/reports/generate', [CroReportController::class, 'generate'])->name('reports.generate');
     Route::get('/reports/export/excel', [CroReportController::class, 'exportExcel'])->name('reports.export.excel');
     Route::post('/reports/export/pdf', [CroReportController::class, 'exportPdf'])->name('reports.export.pdf');

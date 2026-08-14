@@ -50,6 +50,9 @@ class InsightsAnalyticsReport implements ReportGenerator
             $section = 'full';
         }
 
+        $charts = $filters['_charts'] ?? [];
+        unset($filters['_charts']);
+
         $serviceFilters = [
             'from' => $from,
             'to' => $to,
@@ -58,11 +61,33 @@ class InsightsAnalyticsReport implements ReportGenerator
         ];
 
         $payload = $this->exportBuilder->build((int) $user->id, $section, $serviceFilters);
+        $payload['charts'] = $this->chartsForSection(is_array($charts) ? $charts : [], $section);
 
         return $this->exportService->downloadPdf(
             $payload,
             'organizer-insights_'.now()->format('Ymd_His').'.pdf',
-            'organizer.exports.report-pdf',
+            'organizer.exports.dashboard-pdf',
         );
+    }
+
+    /**
+     * @param  list<array{title?: string, image?: string, section?: string}>  $charts
+     * @return list<array{title: string, image: string, section: string}>
+     */
+    private function chartsForSection(array $charts, string $section): array
+    {
+        return collect($charts)
+            ->filter(fn (array $chart) => ! empty($chart['image']))
+            ->when(
+                $section !== 'full',
+                fn ($rows) => $rows->filter(fn (array $chart) => ($chart['section'] ?? '') === $section)
+            )
+            ->map(fn (array $chart) => [
+                'title' => (string) ($chart['title'] ?? 'Chart'),
+                'image' => (string) $chart['image'],
+                'section' => (string) ($chart['section'] ?? ''),
+            ])
+            ->values()
+            ->all();
     }
 }

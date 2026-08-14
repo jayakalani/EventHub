@@ -37,7 +37,7 @@ class Complaint extends Model
 
     public function event(): BelongsTo
     {
-        return $this->belongsTo(Event::class);
+        return $this->belongsTo(Event::class)->withTrashed();
     }
 
     public function assignee(): BelongsTo
@@ -58,7 +58,7 @@ class Complaint extends Model
     /**
      * Scope to complaints relevant to this CRO:
      * - event-scoped: only when they are the event's contact_person
-     * - general (null event_id): visible to all CROs
+     * - general (null event_id): unclaimed, or claimed by this CRO
      *
      * Pass $scope = 'all' to disable filtering.
      */
@@ -69,11 +69,16 @@ class Complaint extends Model
         }
 
         return $query->where(function (Builder $inner) use ($croId) {
-            $inner->whereNull('event_id')
-                ->orWhereIn(
-                    'event_id',
-                    Event::query()->where('contact_person', $croId)->select('id')
-                );
+            $inner->where(function (Builder $general) use ($croId) {
+                $general->whereNull('event_id')
+                    ->where(function (Builder $claim) use ($croId) {
+                        $claim->whereNull('assigned_to')
+                            ->orWhere('assigned_to', $croId);
+                    });
+            })->orWhereIn(
+                'event_id',
+                Event::query()->assignedToCro($croId)->select('id')
+            );
         });
     }
 
@@ -97,12 +102,40 @@ class Complaint extends Model
     }
 
     /**
+     * General complaints have no event and are shared across CROs until claimed.
+     */
+    public function isGeneral(): bool
+    {
+        return $this->event_id === null;
+    }
+
+    public function canBeClaimed(): bool
+    {
+        return $this->isGeneral() && $this->isUnassigned();
+    }
+
+    public function queueOwnerName(): string
+    {
+        if ($this->assignee) {
+            return $this->assignee->full_name;
+        }
+
+        if (! $this->isGeneral()) {
+            $this->loadMissing('event.contactPerson');
+
+            return $this->event?->contactPerson?->full_name ?? 'Event CRO';
+        }
+
+        return 'Unassigned';
+    }
+
+    /**
      * Whether this complaint is in the CRO's actionable queue.
      */
     public function isInCroQueue(int $croId): bool
     {
-        if ($this->event_id === null) {
-            return true;
+        if ($this->isGeneral()) {
+            return $this->isUnassigned() || $this->isAssignedTo($croId);
         }
 
         $this->loadMissing('event');

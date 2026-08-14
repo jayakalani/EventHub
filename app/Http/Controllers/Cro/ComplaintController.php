@@ -12,6 +12,7 @@ use App\Models\UserRole;
 use App\Services\ComplaintService;
 use App\Services\CroCaseContextService;
 use App\Support\CroReplyTemplates;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -20,6 +21,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\Response;
 
 class ComplaintController extends Controller
 {
@@ -49,9 +51,9 @@ class ComplaintController extends Controller
             ->withQueryString();
 
         $events = Event::query()
-            ->where('contact_person', $croId)
+            ->assignedToCro($croId)
             ->orderBy('name')
-            ->get(['id', 'name']);
+            ->get(['id', 'name', 'deleted_at']);
 
         $statuses = SupportTicketStatusEnum::cases();
 
@@ -64,11 +66,72 @@ class ComplaintController extends Controller
         ));
     }
 
+    public function exportCsv(Request $request): Response
+    {
+        $complaints = $this->exportRows($request);
+
+        $filename = 'complaints_'.now()->format('Ymd_His').'.csv';
+
+        return response()->streamDownload(function () use ($complaints) {
+            $file = fopen('php://output', 'w');
+            fputcsv($file, [
+                'ID',
+                'Subject',
+                'Attendee',
+                'Email',
+                'Event',
+                'Assignee',
+                'Status',
+                'Attachments',
+                'Submitted At',
+                'Message',
+            ]);
+
+            foreach ($complaints as $complaint) {
+                fputcsv($file, [
+                    $complaint->id,
+                    $complaint->subject,
+                    $complaint->user?->full_name ?? '',
+                    $complaint->user?->email ?? '',
+                    $complaint->event?->name ?? 'General',
+                    $complaint->assignee?->full_name ?? 'Unassigned',
+                    $complaint->status->label(),
+                    $complaint->attachments->count(),
+                    $complaint->created_at?->format('Y-m-d H:i'),
+                    $complaint->message,
+                ]);
+            }
+
+            fclose($file);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=utf-8',
+        ]);
+    }
+
+    public function exportPdf(Request $request): Response
+    {
+        $croId = (int) Auth::id();
+        $filters = $this->validatedFilters($request);
+        $complaints = $this->exportRows($request, $filters, $croId);
+
+        $eventName = $filters['event']
+            ? Event::query()->assignedToCro($croId)->whereKey($filters['event'])->value('name')
+            : null;
+
+        $pdf = Pdf::loadView('cro.exports.complaints_pdf', [
+            'complaints' => $complaints,
+            'filters' => $filters,
+            'eventName' => $eventName,
+        ])->setPaper('a4', 'landscape');
+
+        return $pdf->download('complaints_'.now()->format('Ymd_His').'.pdf');
+    }
+
     public function show(Complaint $complaint): View
     {
         $this->authorize('view', $complaint);
 
-        $complaint->load(['user', 'event', 'attachments', 'responses.user', 'assignee']);
+        $complaint->load(['user', 'event.contactPerson', 'attachments', 'responses.user', 'assignee']);
         $caseContext = $this->caseContextService->forComplaint($complaint);
         $replyTemplates = CroReplyTemplates::forComplaints();
         $croUsers = $this->croUsers();
@@ -188,6 +251,25 @@ class ComplaintController extends Controller
     }
 
     /**
+     * @param  array{status: ?string, q: ?string, event: ?int, from: ?string, to: ?string}|null  $filters
+     * @return \Illuminate\Support\Collection<int, Complaint>
+     */
+    private function exportRows(Request $request, ?array $filters = null, ?int $croId = null)
+    {
+        $croId ??= (int) Auth::id();
+        $filters ??= $this->validatedFilters($request);
+
+        return $this->applyFilters(
+            Complaint::query()->forCroQueue($croId, 'mine'),
+            $filters,
+            $croId,
+        )
+            ->with(['user', 'event', 'attachments', 'assignee'])
+            ->oldest('created_at')
+            ->get();
+    }
+
+    /**
      * @return array{status: ?string, q: ?string, event: ?int, from: ?string, to: ?string}
      */
     private function validatedFilters(Request $request): array
@@ -224,13 +306,13 @@ class ComplaintController extends Controller
             ->when($filters['status'], fn (Builder $q, string $status) => $q->where('status', $status))
             ->when($filters['event'], function (Builder $q, int $eventId) use ($croId) {
                 $q->where('event_id', $eventId)
-                    ->whereHas('event', fn (Builder $event) => $event->where('contact_person', $croId));
+                    ->whereHas('event', fn (Builder $event) => $event->assignedToCro($croId));
             })
             ->when($filters['from'], fn (Builder $q, string $from) => $q->whereDate('created_at', '>=', $from))
             ->when($filters['to'], fn (Builder $q, string $to) => $q->whereDate('created_at', '<=', $to))
-            ->when($filters['q'], function (Builder $q, string $search) {
+            ->when($filters['q'], function (Builder $q, string $search) use ($croId) {
                 $like = '%'.$search.'%';
-                $q->where(function (Builder $inner) use ($like) {
+                $q->where(function (Builder $inner) use ($like, $croId) {
                     $inner->where('subject', 'like', $like)
                         ->orWhere('message', 'like', $like)
                         ->orWhereHas('user', function (Builder $user) use ($like) {
@@ -239,8 +321,9 @@ class ComplaintController extends Controller
                                 ->orWhere('email', 'like', $like)
                                 ->orWhereRaw("CONCAT(first_name, ' ', last_name) like ?", [$like]);
                         })
-                        ->orWhereHas('event', function (Builder $event) use ($like) {
-                            $event->where('name', 'like', $like);
+                        ->orWhereHas('event', function (Builder $event) use ($like, $croId) {
+                            $event->assignedToCro($croId)
+                                ->where('name', 'like', $like);
                         });
                 });
             });

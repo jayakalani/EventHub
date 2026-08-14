@@ -442,4 +442,26 @@ function initLiveSalesPulse() {
     start();
 }
 
+export function renderOrganizerDashboardExportCharts(data, preferredPeriod) {
+    if (!data?.charts?.periods) return;
+
+    const requested = preferredPeriod === 'week' || preferredPeriod === 'month'
+        ? preferredPeriod
+        : null;
+    const period = (requested && data.charts.periods[requested])
+        ? requested
+        : (data.charts.defaultPeriod ?? 'month');
+    const payload = data.charts.periods[period] ?? data.charts.periods.month ?? {};
+
+    Object.entries(chartConfigs).forEach(([key, config]) => {
+        const metric = payload[key] ?? { labels: [], series: [] };
+        createTrendChart(
+            config.canvasId,
+            metric.labels ?? [],
+            metric.series ?? [],
+            config,
+        );
+    });
+}
+
 document.addEventListener('DOMContentLoaded', initOrganizerDashboard);

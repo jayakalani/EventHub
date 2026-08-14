@@ -9,12 +9,20 @@ class TicketBookingPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->isOrganizer();
+        return $user->isOrganizer() || $user->isCro();
     }
 
     public function view(User $user, ticketBooking $ticketBooking): bool
     {
-        return $user->isOrganizer() && $ticketBooking->isOwnedByOrganizer($user->id);
+        if ($user->isOrganizer()) {
+            return $ticketBooking->isOwnedByOrganizer($user->id);
+        }
+
+        if ($user->isCro()) {
+            return $ticketBooking->isAssignedToCro($user->id);
+        }
+
+        return false;
     }
 
     public function checkIn(User $user, ticketBooking $ticketBooking): bool
@@ -24,6 +32,6 @@ class TicketBookingPolicy
 
     public function undoCheckIn(User $user, ticketBooking $ticketBooking): bool
     {
-        return $this->view($user, $ticketBooking) && $ticketBooking->canUndoCheckIn();
+        return false;
     }
 }

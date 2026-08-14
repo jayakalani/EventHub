@@ -9,6 +9,13 @@
     $navDisplayName = $user?->full_name ?: ($user?->email ?? 'User');
     $currentLocale = \App\Support\Locale::current();
 
+    $homeRoute = match (true) {
+        $isAttendee => 'attendee.dashboard',
+        $isOrganizer => 'organizer.dashboard',
+        $isCro => 'cro.dashboard',
+        default => 'dashboard',
+    };
+
     $navIdle = 'text-slate-600 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:bg-white/70 hover:text-[#0F0363] hover:shadow-md hover:shadow-[#0F0363]/10';
     $navActive = 'bg-white/80 font-semibold text-[#0F0363] shadow-sm shadow-[#0F0363]/10 ring-1 ring-[#0F0363]/15';
     $iconIdle = 'bg-white/40 text-slate-600 ring-1 ring-white/60 shadow-sm backdrop-blur-md transition-all duration-200 hover:-translate-y-0.5 hover:bg-white/80 hover:text-[#0F0363] hover:shadow-md hover:shadow-[#0F0363]/10 hover:ring-[#0F0363]/20';
@@ -50,7 +57,7 @@
         <div class="flex h-16 items-center justify-between gap-4">
 
             {{-- Brand --}}
-            <a href="{{ route('dashboard') }}" class="group flex shrink-0 items-center gap-3 transition-transform duration-200 hover:scale-[1.02]">
+            <a href="{{ route($homeRoute) }}" class="group flex shrink-0 items-center gap-3 transition-transform duration-200 hover:scale-[1.02]">
                 <img src="{{ asset('images/eventhub-logo.png') }}"
                     alt="{{ config('app.name', 'EventHub') }}"
                     class="h-8 w-auto object-contain transition duration-200 group-hover:drop-shadow-md sm:h-9">
@@ -85,8 +92,8 @@
                         {{ t(['en' => 'Support', 'si' => 'සහාය']) }}
                     </a>
                 @elseif ($isOrganizer)
-                    <a href="{{ route('dashboard') }}"
-                        class="rounded-xl px-3.5 py-2 text-sm font-medium transition {{ request()->routeIs('dashboard') ? $navActive : $navIdle }}">
+                    <a href="{{ route('organizer.dashboard') }}"
+                        class="rounded-xl px-3.5 py-2 text-sm font-medium transition {{ request()->routeIs('organizer.dashboard') ? $navActive : $navIdle }}">
                         Dashboard
                     </a>
                     <a href="{{ route('organizer.events.index') }}"
@@ -393,8 +400,8 @@
                     {{ t(['en' => 'Wallet', 'si' => 'පසුම්බිය']) }}
                 </a>
             @elseif ($isOrganizer)
-                <a href="{{ route('dashboard') }}"
-                    class="block rounded-xl px-3 py-2.5 transition hover:bg-[#0F0363]/5 hover:text-[#0F0363] {{ request()->routeIs('dashboard') ? $navActive : 'text-slate-700' }}">
+                <a href="{{ route('organizer.dashboard') }}"
+                    class="block rounded-xl px-3 py-2.5 transition hover:bg-[#0F0363]/5 hover:text-[#0F0363] {{ request()->routeIs('organizer.dashboard') ? $navActive : 'text-slate-700' }}">
                     Dashboard
                 </a>
                 <a href="{{ route('organizer.events.index') }}"

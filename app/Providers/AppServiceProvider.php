@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Models\CartItem;
+use App\Models\Event;
 use App\Models\Payment;
 use App\Models\Rating;
 use App\Models\ticketBooking;
@@ -15,6 +16,7 @@ use App\Policies\TicketCategoryPolicy;
 use App\Services\PostponementAlertService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 
@@ -33,6 +35,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Route::bind('event', function (string $value) {
+            return Event::withTrashed()->findOrFail($value);
+        });
+
         // Non-standard model class names need explicit policy registration.
         Gate::policy(ticketBooking::class, TicketBookingPolicy::class);
         Gate::policy(ticketCategory::class, TicketCategoryPolicy::class);

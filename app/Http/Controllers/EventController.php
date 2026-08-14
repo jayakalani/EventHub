@@ -19,6 +19,7 @@ use App\Services\EventCancellationService;
 use App\Services\EventNotificationService;
 use App\Services\EventPostponementService;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
@@ -38,25 +39,123 @@ class EventController extends Controller
     /**
      * Base query scoped to the logged-in organizer's events.
      */
-    private function organizerEventsQuery()
+    private function organizerEventsQuery(): Builder
     {
         return Event::createdByOrganizer(Auth::id());
     }
 
     /**
+     * Apply list/export filters used on the organizer events page.
+     */
+    private function applyOrganizerEventFilters(Builder $query, Request $request): Builder
+    {
+        if ($request->filled('search')) {
+            $search = $request->string('search')->toString();
+            $query->where(function (Builder $q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                    ->orWhere('place', 'like', "%{$search}%")
+                    ->orWhereHas('host', function (Builder $hostQuery) use ($search) {
+                        $hostQuery->where('name', 'like', "%{$search}%");
+                    })
+                    ->orWhereHas('artists', function (Builder $artistQuery) use ($search) {
+                        $artistQuery->where('name', 'like', "%{$search}%");
+                    })
+                    ->orWhereHas('eventCategory', function (Builder $catQuery) use ($search) {
+                        $catQuery->where('name', 'like', "%{$search}%");
+                    });
+            });
+        }
+
+        if ($request->filled('status')) {
+            $status = $request->string('status')->toString();
+
+            if ($status === 'archived') {
+                $query->onlyTrashed();
+            } else {
+                $query->where('status', $status);
+            }
+        }
+
+        if ($request->filled('from_date') && $request->filled('to_date')) {
+            $query->whereBetween('date', [$request->input('from_date'), $request->input('to_date')]);
+        } elseif ($request->filled('from_date')) {
+            $query->whereDate('date', '>=', $request->input('from_date'));
+        } elseif ($request->filled('to_date')) {
+            $query->whereDate('date', '<=', $request->input('to_date'));
+        }
+
+        return $query;
+    }
+
+    /**
      * @return list<\Illuminate\Contracts\Validation\ValidationRule|string>
      */
-    private function contactPersonRules(): array
+    private function contactPersonRules(?int $allowCurrentCroId = null): array
     {
         return [
             'required',
-            Rule::exists('users', 'id')->where(function ($query) {
+            Rule::exists('users', 'id')->where(function ($query) use ($allowCurrentCroId) {
                 $query->whereIn(
                     'role_id',
                     UserRole::query()->where('name_en', UserRole::CRO)->select('id')
-                );
+                )->where(function ($scoped) use ($allowCurrentCroId) {
+                    $scoped->where('is_active', true)->where('is_locked', false);
+
+                    if ($allowCurrentCroId) {
+                        $scoped->orWhere('id', $allowCurrentCroId);
+                    }
+                });
             }),
         ];
+    }
+
+    /**
+     * @return list<\Illuminate\Contracts\Validation\ValidationRule|string>
+     */
+    private function assignableCategoryRules(?int $allowInactiveCategoryId = null): array
+    {
+        return [
+            'required',
+            Rule::exists('event_categories', 'id')->where(function ($query) use ($allowInactiveCategoryId) {
+                $query->where(function ($scoped) use ($allowInactiveCategoryId) {
+                    $scoped->where('is_active', true);
+
+                    if ($allowInactiveCategoryId) {
+                        $scoped->orWhere('id', $allowInactiveCategoryId);
+                    }
+                });
+            }),
+        ];
+    }
+
+    private function assignableEventCategories(?int $allowInactiveCategoryId = null)
+    {
+        return EventCategory::query()
+            ->where(function ($query) use ($allowInactiveCategoryId) {
+                $query->where('is_active', true);
+
+                if ($allowInactiveCategoryId) {
+                    $query->orWhere('id', $allowInactiveCategoryId);
+                }
+            })
+            ->orderBy('name')
+            ->get();
+    }
+
+    private function assignableCroUsers(?int $allowCurrentCroId = null)
+    {
+        return User::query()
+            ->whereHas('userRole', fn ($q) => $q->where('name_en', UserRole::CRO))
+            ->where(function ($query) use ($allowCurrentCroId) {
+                $query->where('is_active', true)->where('is_locked', false);
+
+                if ($allowCurrentCroId) {
+                    $query->orWhere('id', $allowCurrentCroId);
+                }
+            })
+            ->orderBy('first_name')
+            ->orderBy('last_name')
+            ->get();
     }
 
     /**
@@ -153,48 +252,22 @@ class EventController extends Controller
     {
         $this->authorize('viewAny', Event::class);
 
-        $query = $this->organizerEventsQuery();
-
-        // Search
-        if ($request->filled('search')) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                    ->orWhere('place', 'like', "%{$search}%")
-                    ->orWhereHas('host', function ($hostQuery) use ($search) {
-                        $hostQuery->where('name', 'like', "%{$search}%");
-                    })
-                    ->orWhereHas('artists', function ($artistQuery) use ($search) {
-                        $artistQuery->where('name', 'like', "%{$search}%");
-                    })
-                    ->orWhereHas('eventCategory', function ($catQuery) use ($search) {
-                        $catQuery->where('name', 'like', "%{$search}%");
-                    });
-            });
-        }
-
-        // Status filter
-        if ($request->filled('status')) {
-            $query->where('status', $request->status);
-        }
-
-        // Date range filter
-        if ($request->filled('from_date') && $request->filled('to_date')) {
-            $query->whereBetween('date', [$request->from_date, $request->to_date]);
-        } elseif ($request->filled('from_date')) {
-            $query->whereDate('date', '>=', $request->from_date);
-        } elseif ($request->filled('to_date')) {
-            $query->whereDate('date', '<=', $request->to_date);
-        }
-
-        $events = $query
+        $events = $this->applyOrganizerEventFilters($this->organizerEventsQuery(), $request)
             ->with(['host', 'artists', 'eventCategory'])
             ->withSum('ticketCategories', 'no_of_tickets')
             ->withCount('ticketBookings')
             ->paginate(10)
-            ->appends($request->all());
+            ->appends($request->only(['search', 'status', 'from_date', 'to_date']));
 
-        return view('organizer.events.index', compact('events'));
+        $archivedEvents = $this->organizerEventsQuery()
+            ->onlyTrashed()
+            ->with(['host', 'eventCategory'])
+            ->withSum('ticketCategories', 'no_of_tickets')
+            ->withCount('ticketBookings')
+            ->latest('deleted_at')
+            ->get();
+
+        return view('organizer.events.index', compact('events', 'archivedEvents'));
     }
 
     /**
@@ -215,11 +288,8 @@ class EventController extends Controller
             ->where('is_active', true)
             ->orderBy('name')
             ->get();
-        $event_categories = EventCategory::all();
-
-        $croUsers = User::whereHas('userRole', function ($q) {
-            $q->where('name_en', UserRole::CRO);
-        })->get();
+        $event_categories = $this->assignableEventCategories();
+        $croUsers = $this->assignableCroUsers();
 
         return view('organizer.events.create', compact('hosts', 'artists', 'event_categories', 'croUsers'));
     }
@@ -241,7 +311,7 @@ class EventController extends Controller
         $validatedData = $request->validate([
             'name' => 'required|string|max:255',
             'host_id' => $this->ownedActiveHostRules($organizerId),
-            'category_id' => 'required|exists:event_categories,id',
+            'category_id' => $this->assignableCategoryRules(),
             'artist_ids' => [$allowsArtists ? 'nullable' : 'prohibited', 'array'],
             'artist_ids.*' => $this->ownedActiveArtistRules($organizerId),
             'schedule_tba' => 'sometimes|boolean',
@@ -259,7 +329,8 @@ class EventController extends Controller
         ], [
             'date.after' => 'The event date must be a future date. Today and past dates are not allowed.',
             'time.regex' => 'The event time must be a valid time (HH:MM).',
-            'contact_person.exists' => 'The selected contact person must be a Customer Relations Officer.',
+            'category_id.exists' => 'The selected category must be an active event category.',
+            'contact_person.exists' => 'The selected contact person must be an active, unlocked Customer Relations Officer.',
             ...$refundPartial['messages'],
         ]);
 
@@ -544,10 +615,12 @@ class EventController extends Controller
             })
             ->orderBy('name')
             ->get();
-        $event_categories = EventCategory::all();
-        $croUsers = User::whereHas('userRole', function ($q) {
-            $q->where('name_en', UserRole::CRO);
-        })->get();
+        $event_categories = $this->assignableEventCategories(
+            $event->category_id ? (int) $event->category_id : null
+        );
+        $croUsers = $this->assignableCroUsers(
+            $event->contact_person ? (int) $event->contact_person : null
+        );
 
         $event->load('artists');
 
@@ -580,7 +653,7 @@ class EventController extends Controller
         $rules = [
             'name' => 'required|string|max:255',
             'host_id' => $this->ownedActiveHostRules($organizerId, $event->host_id ? (int) $event->host_id : null),
-            'category_id' => 'required|exists:event_categories,id',
+            'category_id' => $this->assignableCategoryRules($event->category_id ? (int) $event->category_id : null),
             'artist_ids' => [$allowsArtists ? 'nullable' : 'prohibited', 'array'],
             'artist_ids.*' => $this->ownedActiveArtistRules($organizerId, $currentArtistIds),
             'schedule_tba' => 'sometimes|boolean',
@@ -589,12 +662,13 @@ class EventController extends Controller
             'place' => ($scheduleTba ? 'nullable' : 'required').'|string|max:255',
             'no_of_tickets' => ['required', 'integer', 'min:'.$minEventTickets],
             'description' => 'required|string',
-            'contact_person' => $this->contactPersonRules(),
+            'contact_person' => $this->contactPersonRules($event->contact_person ? (int) $event->contact_person : null),
             'cover' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
         ];
 
         $messages = [
-            'contact_person.exists' => 'The selected contact person must be a Customer Relations Officer.',
+            'category_id.exists' => 'The selected category must be an active event category.',
+            'contact_person.exists' => 'The selected contact person must be an active, unlocked Customer Relations Officer.',
             'time.regex' => 'The event time must be a valid time (HH:MM).',
             'date.after' => 'The event date must be a future date. Today and past dates are not allowed.',
             'date.after_or_equal' => 'The event date must be today or a future date.',
@@ -721,24 +795,26 @@ class EventController extends Controller
      */
     public function destroy(Event $event)
     {
-        $this->authorize('delete', $event);
-
         $name = $event->name;
 
         if ($event->hasBookingHistory()) {
-            $event->ticketCategories()->each(function (ticketCategory $category) {
-                if (! $category->trashed()) {
-                    $category->delete();
-                }
-            });
+            if (! $event->isCompleted()) {
+                return back()->with(
+                    'error',
+                    'Events with ticket bookings cannot be deleted. Archive is available only after the event is completed.'
+                );
+            }
+
+            $this->authorize('archive', $event);
 
             $event->delete();
 
-            return redirect()->route('organizer.events.index')->with(
-                'success',
-                "Event {$name} has been archived. Booking history was preserved."
-            );
+            return redirect()
+                ->route('organizer.events.index', ['archived' => 1])
+                ->with('success', "Event {$name} has been archived. Booking history was preserved.");
         }
+
+        $this->authorize('delete', $event);
 
         if ($event->cover) {
             $this->deleteEventCoverFile($event->cover);
@@ -750,13 +826,28 @@ class EventController extends Controller
     }
 
     /**
+     * Restore an archived event to the active list.
+     */
+    public function restore(Event $event)
+    {
+        $this->authorize('restore', $event);
+
+        $name = $event->name;
+        $event->restore();
+
+        return redirect()
+            ->route('organizer.events.index')
+            ->with('success', "Event {$name} has been restored from archive.");
+    }
+
+    /**
      * Export events to CSV.
      */
-    public function exportCsv()
+    public function exportCsv(Request $request)
     {
         $this->authorize('viewAny', Event::class);
 
-        $events = $this->organizerEventsQuery()->get();
+        $events = $this->applyOrganizerEventFilters($this->organizerEventsQuery(), $request)->get();
 
         $csvData = [];
         $csvData[] = ['ID', 'Name', 'Place', 'Date', 'Time', 'tickets', 'Status', 'Created At'];
@@ -769,7 +860,7 @@ class EventController extends Controller
                 $event->date,
                 $event->time,
                 $event->no_of_tickets,
-                $event->status,
+                $event->trashed() ? 'archived' : $event->status,
                 $event->created_at->format('Y-m-d H:i'),
             ];
         }
@@ -792,11 +883,13 @@ class EventController extends Controller
     /**
      * Export events to PDF.
      */
-    public function exportPdf()
+    public function exportPdf(Request $request)
     {
         $this->authorize('viewAny', Event::class);
 
-        $events = $this->organizerEventsQuery()->with(['host', 'artists', 'eventCategory'])->get();
+        $events = $this->applyOrganizerEventFilters($this->organizerEventsQuery(), $request)
+            ->with(['host', 'artists', 'eventCategory'])
+            ->get();
         $pdf = \PDF::loadView('organizer.exports.events_pdf', compact('events'));
 
         return $pdf->download('events_'.now()->format('Ymd_His').'.pdf');

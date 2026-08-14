@@ -26,6 +26,8 @@ class SupportReportController extends Controller
             'cro' => $request->input('cro'),
             'organizer' => $request->input('organizer'),
             'event' => $request->input('event'),
+            'support' => 1,
+            'section' => 'support',
         ], fn ($value) => filled($value));
 
         return redirect()->to(route('dashboard', $query).'#support');

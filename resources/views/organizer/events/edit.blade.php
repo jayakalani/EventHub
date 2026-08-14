@@ -141,7 +141,7 @@
                                             <option value="{{ $event_category->id }}"
                                                 data-allows-artists="{{ $event_category->allows_artists ? '1' : '0' }}"
                                                 {{ old('category_id', $event->category_id) == $event_category->id ? 'selected' : '' }}>
-                                                {{ $event_category->name }}
+                                                {{ $event_category->name }}{{ $event_category->is_active ? '' : ' (inactive)' }}
                                             </option>
                                         @endforeach
                                     </select>
@@ -244,7 +244,7 @@
                                         @foreach ($croUsers as $user)
                                             <option value="{{ $user->id }}"
                                                 {{ old('contact_person', $event->contact_person) == $user->id ? 'selected' : '' }}>
-                                                {{ $user->first_name }} {{ $user->last_name }}
+                                                {{ $user->first_name }} {{ $user->last_name }}{{ ($user->is_active && ! $user->is_locked) ? '' : ' (unavailable)' }}
                                             </option>
                                         @endforeach
                                     </select>

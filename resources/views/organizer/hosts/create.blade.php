@@ -51,7 +51,14 @@
                     <label for="contact_number" class="block text-sm font-medium text-gray-700">Contact Number</label>
                     <input id="contact_number" type="text" name="contact_number"
                         class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                        value="{{ old('contact_number') }}" required>
+                        value="{{ old('contact_number') }}"
+                        inputmode="numeric"
+                        pattern="[0-9]{10}"
+                        maxlength="10"
+                        title="Enter a 10-digit phone number"
+                        required
+                        oninput="this.value = this.value.replace(/\D/g, '').slice(0, 10)">
+                    <p class="text-xs text-gray-500 mt-1">Must be exactly 10 digits</p>
                     @error('contact_number')
                         <p class="text-sm text-red-600 mt-1">{{ $message }}</p>
                     @enderror

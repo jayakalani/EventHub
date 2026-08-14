@@ -507,6 +507,92 @@ class OrganizerReportService
         return (float) $current > 0 ? 100.0 : 0.0;
     }
 
+    private function eventCapacity(Event $event): int
+    {
+        $fromCategories = (int) ($event->ticket_categories_sum_no_of_tickets ?? 0);
+
+        if ($fromCategories <= 0 && $event->relationLoaded('ticketCategories')) {
+            $fromCategories = (int) $event->ticketCategories->sum('no_of_tickets');
+        }
+
+        if ($fromCategories > 0) {
+            return $fromCategories;
+        }
+
+        return max(0, (int) $event->no_of_tickets);
+    }
+
+    private function fillRate(int $sold, int $capacity): float
+    {
+        if ($capacity <= 0) {
+            return 0.0;
+        }
+
+        return round(min(100, ($sold / $capacity) * 100), 1);
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $rows
+     * @return list<array<string, mixed>>
+     */
+    private function withRevenueFillInsights(array $rows): array
+    {
+        $collection = collect($rows);
+        $medianRevenue = $this->medianInt($collection->map(fn (array $row) => (int) round((float) ($row['revenue'] ?? 0)))->all());
+        $medianFill = $this->medianInt($collection->map(fn (array $row) => (int) round((float) ($row['fill_rate'] ?? 0)))->all());
+
+        return $collection
+            ->map(function (array $row) use ($medianRevenue, $medianFill) {
+                $row['insight'] = $this->revenueFillInsight(
+                    (float) ($row['revenue'] ?? 0),
+                    (float) ($row['fill_rate'] ?? 0),
+                    (int) ($row['capacity'] ?? 0),
+                    $medianRevenue,
+                    $medianFill,
+                );
+
+                return $row;
+            })
+            ->all();
+    }
+
+    private function revenueFillInsight(
+        float $revenue,
+        float $fillRate,
+        int $capacity,
+        int $medianRevenue,
+        int $medianFill,
+    ): string {
+        if ($revenue <= 0 && $fillRate <= 0) {
+            return 'No sales yet';
+        }
+
+        if ($capacity <= 0) {
+            return $revenue > 0 ? 'Revenue recorded, no capacity set' : 'No sales yet';
+        }
+
+        if ($fillRate <= 0 && $revenue > 0) {
+            return 'Making money, lots of unsold seats';
+        }
+
+        $highRevenue = $revenue >= max(1, $medianRevenue);
+        $highFill = $fillRate >= max(1, $medianFill);
+
+        if ($highRevenue && $highFill) {
+            return 'Strong seller';
+        }
+
+        if ($highRevenue) {
+            return 'Making money, lots of unsold seats';
+        }
+
+        if ($highFill) {
+            return 'Filling up, lower revenue';
+        }
+
+        return 'Needs more promotion';
+    }
+
     /**
      * @param  array{from?: string|null, to?: string|null, event_id?: int|string|null, status?: string|null}  $filters
      * @return array<string, mixed>
@@ -522,17 +608,21 @@ class OrganizerReportService
                     $filters
                 ),
             ])
+            ->withSum('ticketCategories', 'no_of_tickets')
             ->orderByDesc('tickets_sold')
             ->get();
 
-        $salesByEvent = $events->map(fn (Event $event) => [
-            'name' => $event->name,
-            'sold' => (int) $event->tickets_sold,
-            'capacity' => (int) $event->no_of_tickets,
-            'fill_rate' => $event->no_of_tickets > 0
-                ? round(($event->tickets_sold / $event->no_of_tickets) * 100, 1)
-                : 0,
-        ])->values()->all();
+        $salesByEvent = $events->map(function (Event $event) {
+            $sold = (int) $event->tickets_sold;
+            $capacity = $this->eventCapacity($event);
+
+            return [
+                'name' => $event->name,
+                'sold' => $sold,
+                'capacity' => $capacity,
+                'fill_rate' => $this->fillRate($sold, $capacity),
+            ];
+        })->values()->all();
 
         return [
             'totalTicketsSold' => (int) $this->organizerBookingsQuery($organizerId, $filters)
@@ -941,18 +1031,7 @@ class OrganizerReportService
             'topEvents' => collect($popularityByEvent)->take(5)->values()->all(),
             'engagementTrend' => $this->monthlyEngagement($organizerId, $filters),
             'engagementBeforeEvent' => $this->engagementBeforeEventDay($organizerId, $filters),
-            'engagementVsSales' => collect($popularityByEvent)
-                ->map(fn (array $event) => [
-                    'name' => $event['name'],
-                    'engagement' => (int) $event['score'],
-                    'tickets_sold' => (int) $event['tickets_sold'],
-                    'likes' => (int) $event['likes'],
-                    'comments' => (int) $event['comments'],
-                    'saves' => (int) $event['saves'],
-                    'ratings' => (int) $event['ratings'],
-                ])
-                ->values()
-                ->all(),
+            'engagementVsSales' => $this->engagementVsSalesRows($popularityByEvent),
             'engagementBreakdown' => [
                 ['label' => 'Likes', 'count' => $totalLikes],
                 ['label' => 'Saves', 'count' => $totalSaves],
@@ -961,6 +1040,95 @@ class OrganizerReportService
             ],
             'reviewQuality' => $this->getReviewQuality($organizerId, $filters, $popularityByEvent),
         ];
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $popularityByEvent
+     * @return list<array{name: string, engagement: int, tickets_sold: int, likes: int, comments: int, saves: int, ratings: int, insight: string}>
+     */
+    private function engagementVsSalesRows(array $popularityByEvent): array
+    {
+        $rows = collect($popularityByEvent)
+            ->map(fn (array $event) => [
+                'name' => (string) ($event['name'] ?? 'Event'),
+                'engagement' => (int) ($event['score'] ?? 0),
+                'tickets_sold' => (int) ($event['tickets_sold'] ?? 0),
+                'likes' => (int) ($event['likes'] ?? 0),
+                'comments' => (int) ($event['comments'] ?? 0),
+                'saves' => (int) ($event['saves'] ?? 0),
+                'ratings' => (int) ($event['ratings'] ?? 0),
+            ])
+            ->sortByDesc('tickets_sold')
+            ->values();
+
+        $medianEngagement = $this->medianInt($rows->pluck('engagement')->all());
+        $medianTickets = $this->medianInt($rows->pluck('tickets_sold')->all());
+
+        return $rows
+            ->map(function (array $row) use ($medianEngagement, $medianTickets) {
+                $row['insight'] = $this->engagementSalesInsight(
+                    $row['engagement'],
+                    $row['tickets_sold'],
+                    $medianEngagement,
+                    $medianTickets,
+                );
+
+                return $row;
+            })
+            ->all();
+    }
+
+    /**
+     * @param  list<int>  $values
+     */
+    private function medianInt(array $values): int
+    {
+        $sorted = collect($values)->sort()->values();
+        $count = $sorted->count();
+
+        if ($count === 0) {
+            return 0;
+        }
+
+        $middle = intdiv($count, 2);
+
+        if ($count % 2 === 1) {
+            return (int) $sorted[$middle];
+        }
+
+        return (int) round(((int) $sorted[$middle - 1] + (int) $sorted[$middle]) / 2);
+    }
+
+    private function engagementSalesInsight(int $engagement, int $tickets, int $medianEngagement, int $medianTickets): string
+    {
+        if ($engagement === 0 && $tickets === 0) {
+            return 'No activity yet';
+        }
+
+        if ($tickets === 0) {
+            return 'Interest, no sales yet';
+        }
+
+        if ($engagement === 0) {
+            return 'Selling with little buzz';
+        }
+
+        $highEngagement = $engagement >= max(1, $medianEngagement);
+        $highTickets = $tickets >= max(1, $medianTickets);
+
+        if ($highEngagement && $highTickets) {
+            return 'Strong on both';
+        }
+
+        if ($highEngagement) {
+            return 'High interest, low sales';
+        }
+
+        if ($highTickets) {
+            return 'Sales without much buzz';
+        }
+
+        return 'Needs more promotion';
     }
 
     /**
@@ -1150,7 +1318,7 @@ class OrganizerReportService
     {
         $filters = $this->normalizeFilters($filters);
 
-        return $this->organizerEventsQuery($organizerId, $filters)
+        $events = $this->organizerEventsQuery($organizerId, $filters)
             ->withCount([
                 'ticketBookings as tickets_sold' => fn ($query) => $this->applyBookingFilters(
                     $query->where('status', BookingStatusEnum::Confirmed),
@@ -1163,23 +1331,29 @@ class OrganizerReportService
                     $filters
                 ),
             ], 'ticket_price')
+            ->withSum('ticketCategories', 'no_of_tickets')
             ->withAvg('ratings', 'score')
             ->orderByDesc('revenue')
-            ->get()
-            ->map(fn (Event $event) => [
+            ->get();
+
+        $rows = $events->map(function (Event $event) {
+            $sold = (int) $event->tickets_sold;
+            $capacity = $this->eventCapacity($event);
+
+            return [
                 'id' => $event->id,
                 'name' => $event->name,
-                'tickets_sold' => (int) $event->tickets_sold,
+                'tickets_sold' => $sold,
+                'capacity' => $capacity,
                 'revenue' => round((float) ($event->revenue ?? 0), 2),
-                'fill_rate' => $event->no_of_tickets > 0
-                    ? round(($event->tickets_sold / $event->no_of_tickets) * 100, 1)
-                    : 0,
+                'fill_rate' => $this->fillRate($sold, $capacity),
                 'rating' => $event->ratings_avg_score ? round((float) $event->ratings_avg_score, 1) : null,
                 'status' => ucfirst((string) $event->status),
                 'status_key' => strtolower((string) $event->status),
-            ])
-            ->values()
-            ->all();
+            ];
+        })->values()->all();
+
+        return $this->withRevenueFillInsights($rows);
     }
 
     /**
@@ -2108,6 +2282,7 @@ class OrganizerReportService
             ], 'ticket_price')
             ->withAvg('ratings', 'score')
             ->withCount('ratings')
+            ->withSum('ticketCategories', 'no_of_tickets')
             ->orderByDesc('revenue')
             ->limit(24)
             ->get();
@@ -2115,7 +2290,7 @@ class OrganizerReportService
         return $events->map(function (Event $event) {
             $tickets = (int) $event->tickets_sold;
             $views = (int) $event->views_count;
-            $capacity = (int) $event->no_of_tickets;
+            $capacity = $this->eventCapacity($event);
             $revenue = round((float) ($event->revenue ?? 0), 2);
 
             return [
@@ -2126,7 +2301,7 @@ class OrganizerReportService
                 'revenue' => $revenue,
                 'tickets_sold' => $tickets,
                 'capacity' => $capacity,
-                'fill_rate' => $capacity > 0 ? round(($tickets / $capacity) * 100, 1) : 0.0,
+                'fill_rate' => $this->fillRate($tickets, $capacity),
                 'views' => $views,
                 'conversion_rate' => $views > 0 ? round(($tickets / $views) * 100, 1) : null,
                 'rating' => $event->ratings_avg_score ? round((float) $event->ratings_avg_score, 1) : null,

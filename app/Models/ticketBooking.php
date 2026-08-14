@@ -41,7 +41,7 @@ class ticketBooking extends Model
 
     public function event(): BelongsTo
     {
-        return $this->belongsTo(Event::class);
+        return $this->belongsTo(Event::class)->withTrashed();
     }
 
     public function isOwnedByOrganizer(?int $organizerId): bool
@@ -53,7 +53,7 @@ class ticketBooking extends Model
 
     public function ticketCategory(): BelongsTo
     {
-        return $this->belongsTo(ticketCategory::class, 'ticket_category_id');
+        return $this->belongsTo(ticketCategory::class, 'ticket_category_id')->withTrashed();
     }
 
     public function payment(): BelongsTo

@@ -178,6 +178,12 @@
                 </div>
             @endif
 
+            @if ($event->trashed())
+                <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                    This event is archived. Attendees still see it as a past event. Use Undo Archive to return it to your events list.
+                </div>
+            @endif
+
             {{-- Hero Card --}}
             <div
                 class="overflow-hidden rounded-2xl border border-white/70 bg-white/90 shadow-lg shadow-indigo-100/40 backdrop-blur">
@@ -875,36 +881,43 @@
                                 </svg>
                                 {{ __('Download PDF') }}
                             </a>
-                            @can('delete', $event)
-                                @if ($event->hasBookingHistory())
-                                    <form action="{{ route('organizer.events.destroy', $event->id) }}" method="POST"
-                                        onsubmit="return confirm('{{ __('Archive this event? Booking history will be preserved.') }}')">
-                                        @csrf
-                                        @method('DELETE')
-                                        <button type="submit"
-                                            class="flex w-full items-center justify-center gap-2 rounded-xl border border-amber-200 bg-white px-4 py-2.5 text-sm font-semibold text-amber-700 shadow-sm transition hover:bg-amber-50">
-                                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
-                                                    d="M19 7H5m5 4v6m4-6v6m-7-10l1 12a2 2 0 002 2h4a2 2 0 002-2l1-12M10 7V4a1 1 0 011-1h2a1 1 0 011 1v3" />
-                                            </svg>
-                                            {{ __('Archive Event') }}
-                                        </button>
-                                    </form>
-                                @else
-                                    <form action="{{ route('organizer.events.destroy', $event->id) }}" method="POST"
-                                        onsubmit="return confirm('{{ __('Delete this event? This action cannot be undone.') }}')">
-                                        @csrf
-                                        @method('DELETE')
-                                        <button type="submit"
-                                            class="flex w-full items-center justify-center gap-2 rounded-xl border border-red-200 bg-white px-4 py-2.5 text-sm font-semibold text-red-600 shadow-sm transition hover:bg-red-50">
-                                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
-                                                    d="M19 7H5m5 4v6m4-6v6m-7-10l1 12a2 2 0 002 2h4a2 2 0 002-2l1-12M10 7V4a1 1 0 011-1h2a1 1 0 011 1v3" />
-                                            </svg>
-                                            {{ __('Delete Event') }}
-                                        </button>
-                                    </form>
-                                @endif
+                            @can('restore', $event)
+                                <form action="{{ route('organizer.events.restore', $event->id) }}" method="POST"
+                                    onsubmit="return confirm('{{ __('Restore this event to your active list?') }}')">
+                                    @csrf
+                                    <button type="submit"
+                                        class="flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-white px-4 py-2.5 text-sm font-semibold text-emerald-700 shadow-sm transition hover:bg-emerald-50">
+                                        {{ __('Undo Archive') }}
+                                    </button>
+                                </form>
+                            @elsecan('archive', $event)
+                                <form action="{{ route('organizer.events.destroy', $event->id) }}" method="POST"
+                                    onsubmit="return confirm('{{ __('Archive this event? Booking history will be preserved.') }}')">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit"
+                                        class="flex w-full items-center justify-center gap-2 rounded-xl border border-amber-200 bg-white px-4 py-2.5 text-sm font-semibold text-amber-700 shadow-sm transition hover:bg-amber-50">
+                                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
+                                                d="M19 7H5m5 4v6m4-6v6m-7-10l1 12a2 2 0 002 2h4a2 2 0 002-2l1-12M10 7V4a1 1 0 011-1h2a1 1 0 011 1v3" />
+                                        </svg>
+                                        {{ __('Archive Event') }}
+                                    </button>
+                                </form>
+                            @elsecan('delete', $event)
+                                <form action="{{ route('organizer.events.destroy', $event->id) }}" method="POST"
+                                    onsubmit="return confirm('{{ __('Delete this event? This action cannot be undone.') }}')">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit"
+                                        class="flex w-full items-center justify-center gap-2 rounded-xl border border-red-200 bg-white px-4 py-2.5 text-sm font-semibold text-red-600 shadow-sm transition hover:bg-red-50">
+                                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
+                                                d="M19 7H5m5 4v6m4-6v6m-7-10l1 12a2 2 0 002 2h4a2 2 0 002-2l1-12M10 7V4a1 1 0 011-1h2a1 1 0 011 1v3" />
+                                        </svg>
+                                        {{ __('Delete Event') }}
+                                    </button>
+                                </form>
                             @endcan
                         </div>
                     </div>

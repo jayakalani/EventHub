@@ -208,6 +208,7 @@ Route::prefix('organizer')->name('organizer.')->middleware(['auth', 'verified', 
     Route::get('/events/{event}/edit', [EventController::class, 'edit'])->name('events.edit');
     Route::put('/events/{event}', [EventController::class, 'update'])->name('events.update');
     Route::delete('/events/{event}', [EventController::class, 'destroy'])->name('events.destroy');
+    Route::post('/events/{event}/restore', [EventController::class, 'restore'])->name('events.restore');
     Route::patch('/events/{event}/status', [EventController::class, 'updateStatus'])->name('events.updateStatus');
     Route::post('/events/{event}/cancel', [EventController::class, 'cancel'])->name('events.cancel');
     Route::post('/events/{event}/postpone', [EventController::class, 'postpone'])->name('events.postpone');

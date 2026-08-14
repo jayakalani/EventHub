@@ -316,9 +316,18 @@ class OrganizerReportExportBuilder
                     ])->all(),
                 ],
                 [
-                    'heading' => 'Sales Velocity Before Event Day (T-30 → T-0)',
-                    'headers' => ['Day', 'Tickets Sold', 'Cumulative'],
-                    'rows' => count($velocityRows) ? $velocityRows : [['—', 0, 0]],
+                    'heading' => 'Tickets Per Day Before Event (T-30 → T-0)',
+                    'headers' => ['Day', 'Tickets Sold'],
+                    'rows' => count($velocityRows)
+                        ? collect($velocityRows)->map(fn ($row) => [$row[0], $row[1]])->all()
+                        : [['—', 0]],
+                ],
+                [
+                    'heading' => 'Cumulative Tickets Before Event (T-30 → T-0)',
+                    'headers' => ['Day', 'Cumulative'],
+                    'rows' => count($velocityRows)
+                        ? collect($velocityRows)->map(fn ($row) => [$row[0], $row[2]])->all()
+                        : [['—', 0]],
                 ],
                 [
                     'heading' => 'Sales by Event',
@@ -378,10 +387,15 @@ class OrganizerReportExportBuilder
                     ])->all(),
                 ],
                 [
-                    'heading' => 'Revenue vs Fill Rate',
-                    'headers' => ['Event', 'Fill Rate %', 'Revenue (LKR)'],
+                    'heading' => 'Fill Rate by Event',
+                    'headers' => ['Event', 'Revenue (LKR)', 'Fill Rate %', 'Tickets Sold', 'Capacity', 'What this means'],
                     'rows' => collect($performance)->map(fn ($r) => [
-                        $r['name'], $r['fill_rate'], number_format($r['revenue'], 2),
+                        $r['name'],
+                        number_format((float) ($r['revenue'] ?? 0), 2),
+                        $r['fill_rate'],
+                        $r['tickets_sold'] ?? 0,
+                        $r['capacity'] ?? '—',
+                        $r['insight'] ?? '—',
                     ])->all(),
                 ],
                 [
@@ -491,18 +505,19 @@ class OrganizerReportExportBuilder
                     $r['tickets_sold'] ?? 0,
                 ])->all(),
             ],
-            [
-                'heading' => 'Engagement vs Ticket Sales',
-                'headers' => ['Event', 'Engagement Score', 'Tickets Sold', 'Likes', 'Comments', 'Saves'],
-                'rows' => collect($vsSales)->map(fn ($r) => [
-                    $r['name'],
-                    $r['engagement'],
-                    $r['tickets_sold'],
-                    $r['likes'] ?? 0,
-                    $r['comments'] ?? 0,
-                    $r['saves'] ?? 0,
-                ])->all(),
-            ],
+                [
+                    'heading' => 'Tickets vs Engagement by Event',
+                    'headers' => ['Event', 'Tickets Sold', 'Engagement', 'What this means', 'Likes', 'Comments', 'Saves'],
+                    'rows' => collect($vsSales)->map(fn ($r) => [
+                        $r['name'],
+                        $r['tickets_sold'],
+                        $r['engagement'],
+                        $r['insight'] ?? '—',
+                        $r['likes'] ?? 0,
+                        $r['comments'] ?? 0,
+                        $r['saves'] ?? 0,
+                    ])->all(),
+                ],
         ];
 
         if (is_array($before) && ! empty($before['labels'])) {

@@ -8,11 +8,13 @@ use App\Models\Concerns\HasTitleCaseAttributes;
 use App\Traits\Auditable;
 use Illuminate\Auth\MustVerifyEmail;
 use Illuminate\Contracts\Auth\MustVerifyEmail as MustVerifyEmailContract;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Auth;
 
 class User extends Authenticatable implements MustVerifyEmailContract
 {
@@ -148,6 +150,124 @@ class User extends Authenticatable implements MustVerifyEmailContract
         return $this->userRole?->name_en === UserRole::ORGANIZER;
     }
 
+    public function isAdmin(): bool
+    {
+        $this->loadMissing('userRole');
+
+        return $this->userRole?->name_en === UserRole::ADMIN;
+    }
+
+    /**
+     * Admin who can currently sign in and manage the platform.
+     */
+    public function isOperationalAdmin(): bool
+    {
+        return $this->isAdmin()
+            && (bool) $this->is_active
+            && ! (bool) $this->is_locked;
+    }
+
+    public function isCurrentAuthUser(): bool
+    {
+        $actorId = Auth::id();
+
+        return $actorId !== null && (int) $actorId === (int) $this->id;
+    }
+
+    /**
+     * @return Builder<User>
+     */
+    public static function operationalAdminsQuery(): Builder
+    {
+        return static::query()
+            ->where('is_active', true)
+            ->where('is_locked', false)
+            ->whereHas('userRole', fn (Builder $query) => $query->where('name_en', UserRole::ADMIN));
+    }
+
+    public static function operationalAdminCount(): int
+    {
+        return static::operationalAdminsQuery()->count();
+    }
+
+    public function isSoleOperationalAdmin(): bool
+    {
+        return $this->isOperationalAdmin() && static::operationalAdminCount() <= 1;
+    }
+
+    /**
+     * Whether destructive account actions should be hidden for this row.
+     * Unlock / activate remain available for other admins when the account is already impaired.
+     */
+    public function shouldHideDestructiveAdminActions(): bool
+    {
+        if ($this->isCurrentAuthUser()) {
+            return true;
+        }
+
+        return $this->isSoleOperationalAdmin();
+    }
+
+    /**
+     * Server-side guard message for lock / deactivate / delete / demote.
+     * Unlocking or reactivating is always allowed.
+     *
+     * @param  'lock'|'deactivate'|'delete'|'demote'  $action
+     */
+    public function adminProtectionError(string $action): ?string
+    {
+        $isSelf = $this->isCurrentAuthUser();
+
+        return match ($action) {
+            'lock' => $this->protectionErrorForImpairingAction(
+                $isSelf,
+                impairing: ! $this->is_locked,
+                selfMessage: 'You cannot lock your own account.',
+                lastAdminMessage: 'Cannot lock the last active admin account.',
+            ),
+            'deactivate' => $this->protectionErrorForImpairingAction(
+                $isSelf,
+                impairing: (bool) $this->is_active,
+                selfMessage: 'You cannot deactivate your own account.',
+                lastAdminMessage: 'Cannot deactivate the last active admin account.',
+            ),
+            'delete' => $this->protectionErrorForImpairingAction(
+                $isSelf,
+                impairing: true,
+                selfMessage: 'You cannot delete your own account.',
+                lastAdminMessage: 'Cannot delete the last active admin account.',
+            ),
+            'demote' => $this->protectionErrorForImpairingAction(
+                $isSelf,
+                impairing: $this->isAdmin(),
+                selfMessage: 'You cannot change your own admin role.',
+                lastAdminMessage: 'Cannot demote the last active admin account.',
+            ),
+            default => null,
+        };
+    }
+
+    private function protectionErrorForImpairingAction(
+        bool $isSelf,
+        bool $impairing,
+        string $selfMessage,
+        string $lastAdminMessage,
+    ): ?string {
+        if (! $impairing) {
+            return null;
+        }
+
+        if ($isSelf) {
+            return $selfMessage;
+        }
+
+        if ($this->isSoleOperationalAdmin()) {
+            return $lastAdminMessage;
+        }
+
+        return null;
+    }
+
     public function likes()
     {
         return $this->hasMany(Like::class);
@@ -160,7 +280,9 @@ class User extends Authenticatable implements MustVerifyEmailContract
 
     public function likedEvents()
     {
-        return $this->belongsToMany(Event::class, 'likes', 'user_id', 'event_id')->withTimestamps();
+        return $this->belongsToMany(Event::class, 'likes', 'user_id', 'event_id')
+            ->withTrashed()
+            ->withTimestamps();
     }
 
     public function hasLiked(Event $event): bool
@@ -200,7 +322,9 @@ class User extends Authenticatable implements MustVerifyEmailContract
 
     public function savedEvents()
     {
-        return $this->belongsToMany(Event::class, 'saved_events', 'user_id', 'event_id')->withTimestamps();
+        return $this->belongsToMany(Event::class, 'saved_events', 'user_id', 'event_id')
+            ->withTrashed()
+            ->withTimestamps();
     }
 
     public function hasSaved(Event $event): bool
@@ -220,7 +344,9 @@ class User extends Authenticatable implements MustVerifyEmailContract
 
     public function ratedEvents()
     {
-        return $this->belongsToMany(Event::class, 'ratings', 'user_id', 'event_id')->withTimestamps();
+        return $this->belongsToMany(Event::class, 'ratings', 'user_id', 'event_id')
+            ->withTrashed()
+            ->withTimestamps();
     }
 
     public function ratingFor(Event $event): ?int

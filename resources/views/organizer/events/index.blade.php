@@ -16,12 +16,12 @@
                     + New Event
                 </a>
 
-                <a href="{{ route('organizer.events.export.csv') }}"
+                <a href="{{ route('organizer.events.export.csv', request()->only(['search', 'status', 'from_date', 'to_date'])) }}"
                     class="inline-flex items-center rounded-xl bg-emerald-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700">
                     Export CSV
                 </a>
 
-                <a href="{{ route('organizer.events.export.pdf') }}"
+                <a href="{{ route('organizer.events.export.pdf', request()->only(['search', 'status', 'from_date', 'to_date'])) }}"
                     class="inline-flex items-center rounded-xl bg-rose-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-rose-700">
                     Export PDF
                 </a>
@@ -110,6 +110,8 @@
                         <option value="completed" {{ request('status') == 'completed' ? 'selected' : '' }}>Completed
                         </option>
                         <option value="cancelled" {{ request('status') == 'cancelled' ? 'selected' : '' }}>Cancelled
+                        </option>
+                        <option value="archived" {{ request('status') == 'archived' ? 'selected' : '' }}>Archived
                         </option>
                     </select>
 
@@ -247,7 +249,11 @@
                                     </td>
 
                                     <td class="px-4 py-3">
-                                        @if ($event->status === 'cancelled')
+                                        @if ($event->trashed())
+                                            <span class="inline-flex rounded-lg bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800">
+                                                Archived
+                                            </span>
+                                        @elseif ($event->status === 'cancelled')
                                             <span class="inline-flex rounded-lg bg-rose-100 px-2.5 py-1 text-xs font-semibold text-rose-700">
                                                 Cancelled
                                             </span>
@@ -404,15 +410,27 @@
                                                 View
                                             </a>
 
-                                            @can('update', $event)
-                                                <a href="{{ route('organizer.events.edit', $event->id) }}"
-                                                    class="rounded-lg bg-blue-50 px-2.5 py-1.5 text-xs font-medium text-blue-600 transition hover:bg-blue-100">
-                                                    Edit
-                                                </a>
-                                            @endcan
+                                            @if ($event->trashed())
+                                                @can('restore', $event)
+                                                    <form action="{{ route('organizer.events.restore', $event->id) }}"
+                                                        method="POST">
+                                                        @csrf
+                                                        <button type="submit"
+                                                            onclick="return confirm('Restore this event to your active list?')"
+                                                            class="rounded-lg bg-emerald-50 px-2.5 py-1.5 text-xs font-medium text-emerald-700 transition hover:bg-emerald-100">
+                                                            Undo Archive
+                                                        </button>
+                                                    </form>
+                                                @endcan
+                                            @else
+                                                @can('update', $event)
+                                                    <a href="{{ route('organizer.events.edit', $event->id) }}"
+                                                        class="rounded-lg bg-blue-50 px-2.5 py-1.5 text-xs font-medium text-blue-600 transition hover:bg-blue-100">
+                                                        Edit
+                                                    </a>
+                                                @endcan
 
-                                            @can('delete', $event)
-                                                @if ($event->hasBookingHistory())
+                                                @can('archive', $event)
                                                     <form action="{{ route('organizer.events.destroy', $event->id) }}"
                                                         method="POST">
                                                         @csrf
@@ -424,7 +442,7 @@
                                                             Archive
                                                         </button>
                                                     </form>
-                                                @else
+                                                @elsecan('delete', $event)
                                                     <form action="{{ route('organizer.events.destroy', $event->id) }}"
                                                         method="POST">
                                                         @csrf
@@ -435,8 +453,8 @@
                                                             Delete
                                                         </button>
                                                     </form>
-                                                @endif
-                                            @endcan
+                                                @endcan
+                                            @endif
                                         </div>
                                     </td>
                                 </tr>
@@ -455,12 +473,106 @@
                     {{ $events->links() }}
                 </div>
             </div>
+
+            {{-- Archived events --}}
+            @unless (request('status') === 'archived')
+            <div class="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
+                x-data="{ archivedOpen: {{ request()->boolean('archived') ? 'true' : 'false' }} }">
+                <button type="button"
+                    class="flex w-full items-center justify-between gap-3 px-5 py-3.5 text-left transition hover:bg-slate-50"
+                    @click="archivedOpen = !archivedOpen"
+                    :aria-expanded="archivedOpen.toString()">
+                    <div>
+                        <h3 class="text-base font-semibold text-slate-900">Archived events</h3>
+                        <p class="mt-0.5 text-xs text-slate-500">Completed events you archived. Attendees still see these as past events.</p>
+                    </div>
+                    <span class="inline-flex items-center gap-2">
+                        <span class="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600">
+                            {{ $archivedEvents->count() }}
+                        </span>
+                        <i class="bi text-slate-400" :class="archivedOpen ? 'bi-chevron-up' : 'bi-chevron-down'"></i>
+                    </span>
+                </button>
+
+                <div x-show="archivedOpen" x-cloak class="border-t border-slate-100">
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full">
+                            <thead class="bg-slate-50">
+                                <tr>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">ID</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Event Name</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Host</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Category</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Date</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Place</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Tickets</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Status</th>
+                                    <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-500">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+                                @forelse ($archivedEvents as $event)
+                                    <tr class="transition hover:bg-slate-50">
+                                        <td class="px-4 py-3 text-sm font-medium text-slate-900">#{{ $event->id }}</td>
+                                        <td class="px-4 py-3">
+                                            <div class="text-sm font-semibold text-slate-900">{{ $event->name }}</div>
+                                            <div class="mt-0.5 text-xs text-slate-500">{{ $event->time }}</div>
+                                        </td>
+                                        <td class="px-4 py-3 text-sm text-slate-600">{{ $event->host->name ?? 'N/A' }}</td>
+                                        <td class="px-4 py-3 text-sm text-slate-600">{{ $event->eventCategory->name ?? 'N/A' }}</td>
+                                        <td class="px-4 py-3 text-sm text-slate-600">{{ $event->date }}</td>
+                                        <td class="px-4 py-3 text-sm text-slate-600">{{ $event->displayPlace() }}</td>
+                                        <td class="px-4 py-3 text-sm text-slate-600">{{ number_format($event->total_tickets) }}</td>
+                                        <td class="px-4 py-3">
+                                            <span class="inline-flex rounded-lg bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800">
+                                                Archived
+                                            </span>
+                                        </td>
+                                        <td class="px-4 py-3">
+                                            <div class="flex justify-end gap-1.5">
+                                                <a href="{{ route('organizer.events.show', $event->id) }}"
+                                                    class="rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-200">
+                                                    View
+                                                </a>
+                                                @can('restore', $event)
+                                                    <form action="{{ route('organizer.events.restore', $event->id) }}"
+                                                        method="POST">
+                                                        @csrf
+                                                        <button type="submit"
+                                                            onclick="return confirm('Restore this event to your active list?')"
+                                                            class="rounded-lg bg-emerald-50 px-2.5 py-1.5 text-xs font-medium text-emerald-700 transition hover:bg-emerald-100">
+                                                            Undo Archive
+                                                        </button>
+                                                    </form>
+                                                @endcan
+                                            </div>
+                                        </td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="9" class="py-10 text-center text-sm text-slate-500">
+                                            No archived events yet.
+                                        </td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            @endunless
         </div>
 
         @include('organizer.events.partials.cancel-event-modal')
         @include('organizer.events.partials.postpone-event-modal')
         @include('organizer.events.partials.postponed-schedule-modal')
     </div>
+
+    @push('styles')
+        <style>
+            [x-cloak] { display: none !important; }
+        </style>
+    @endpush
 
     @push('scripts')
         @include('organizer.events.partials.status-change-script')

@@ -75,11 +75,15 @@
             $analyticsTabs
         );
         $analyticsTabKeys = array_keys($analyticsTabs);
-        $selectedCroId = $supportReport['selectedCroId'] ?? null;
+        $selectedCroId = $supportScopeFilter['selectedCroId']
+            ?? ($supportReport['selectedCroId'] ?? null);
+        $croOptions = $supportScopeFilter['cros']
+            ?? ($supportReport['cros'] ?? []);
         $hasActiveFilters = filled($scopeFilter['selectedOrganizerId'] ?? null)
             || filled($scopeFilter['selectedEventId'] ?? null)
             || filled($selectedCroId);
         $loadInsights = $loadInsights ?? false;
+        $loadSupport = $loadSupport ?? false;
         $filterQuery = array_filter([
             'organizer' => $scopeFilter['selectedOrganizerId'] ?? null,
             'event' => $scopeFilter['selectedEventId'] ?? null,
@@ -96,17 +100,42 @@
             analyticsTabs: @js($analyticsTabKeys),
             insightsLoaded: @js($loadInsights),
             insightsLoading: false,
-            section: (() => {
-                const analytics = @js($analyticsTabKeys);
-                const hash = (window.location.hash || '').replace('#', '');
-                if (hash === 'insights' || hash === 'reports' || hash === 'admin') {
-                    return hash === 'admin' ? 'events' : 'overview';
-                }
-                if (hash === 'support-reports') return 'support';
-                if (hash === 'performance' || hash === 'support' || analytics.includes(hash)) return hash;
+            supportLoaded: @js($loadSupport),
+            supportLoading: false,
+            autoApply: true,
+            sectionStorageKey: 'admin-dashboard-section',
+            autoApplyStorageKey: 'admin-dashboard-auto-apply',
+            resolveSection() {
+                const allowed = ['performance', 'support'].concat(this.analyticsTabs);
+                const map = {
+                    insights: 'overview',
+                    reports: 'overview',
+                    admin: 'events',
+                    'support-reports': 'support',
+                };
+                const normalize = (value) => {
+                    if (! value) return null;
+                    const mapped = map[value] || value;
+                    return allowed.includes(mapped) ? mapped : null;
+                };
+
+                const fromHash = normalize((window.location.hash || '').replace('#', ''));
+                if (fromHash) return fromHash;
+
+                try {
+                    const fromStore = normalize(localStorage.getItem(this.sectionStorageKey));
+                    if (fromStore) return fromStore;
+                } catch (e) {}
+
                 return 'performance';
-            })(),
-            insightsUrl(section) {
+            },
+            section: 'performance',
+            rememberSection(section) {
+                try {
+                    localStorage.setItem(this.sectionStorageKey, section);
+                } catch (e) {}
+            },
+            deferredTabUrl(section, flag) {
                 const url = new URL(@js(route('dashboard')), window.location.origin);
                 const params = @js($filterQuery);
                 Object.entries(params).forEach(([key, value]) => {
@@ -114,22 +143,43 @@
                         url.searchParams.set(key, String(value));
                     }
                 });
-                url.searchParams.set('insights', '1');
+                url.searchParams.set(flag, '1');
+                if (flag !== 'support' && this.supportLoaded) {
+                    url.searchParams.set('support', '1');
+                }
+                if (flag !== 'insights' && this.insightsLoaded) {
+                    url.searchParams.set('insights', '1');
+                }
                 url.searchParams.set('section', section);
                 url.hash = section;
                 return url;
+            },
+            insightsUrl(section) {
+                return this.deferredTabUrl(section, 'insights');
+            },
+            supportUrl() {
+                return this.deferredTabUrl('support', 'support');
             },
             setSection(section) {
                 const map = { admin: 'events', 'support-reports': 'support' };
                 section = map[section] || section;
 
+                if (section === 'support' && ! this.supportLoaded) {
+                    this.rememberSection(section);
+                    this.supportLoading = true;
+                    window.location.assign(this.supportUrl().toString());
+                    return;
+                }
+
                 if (this.analyticsTabs.includes(section) && ! this.insightsLoaded) {
+                    this.rememberSection(section);
                     this.insightsLoading = true;
                     window.location.assign(this.insightsUrl(section).toString());
                     return;
                 }
 
                 this.section = section;
+                this.rememberSection(section);
                 history.replaceState(null, '', '#' + section);
                 this.$nextTick(() => {
                     window.dispatchEvent(new CustomEvent('admin-dashboard-section-changed', { detail: { section } }));
@@ -157,10 +207,34 @@
                 window.dispatchEvent(new CustomEvent('admin-chart-collapse'));
             },
             init() {
+                try {
+                    const storedAuto = localStorage.getItem(this.autoApplyStorageKey);
+                    if (storedAuto === '0' || storedAuto === 'false') {
+                        this.autoApply = false;
+                    }
+                } catch (e) {}
+
+                this.section = this.resolveSection();
+                this.rememberSection(this.section);
+                if (! (window.location.hash || '').replace('#', '')) {
+                    history.replaceState(null, '', '#' + this.section);
+                }
+
+                if (this.section === 'support' && ! this.supportLoaded) {
+                    this.supportLoading = true;
+                    window.location.replace(this.supportUrl().toString());
+                    return;
+                }
                 if (this.analyticsTabs.includes(this.section) && ! this.insightsLoaded) {
                     this.insightsLoading = true;
                     window.location.replace(this.insightsUrl(this.section).toString());
                 }
+            },
+            toggleAutoApply() {
+                this.autoApply = ! this.autoApply;
+                try {
+                    localStorage.setItem(this.autoApplyStorageKey, this.autoApply ? '1' : '0');
+                } catch (e) {}
             },
         }"
         x-init="init()"
@@ -228,7 +302,7 @@
                             <a href="{{ route('admin.reports') }}"
                                 class="btn-smooth inline-flex items-center gap-1.5 rounded-lg bg-indigo-600/95 px-3 py-2 text-xs font-semibold text-white shadow-sm backdrop-blur hover:bg-indigo-700 hover:shadow-md sm:text-sm">
                                 <i class="bi bi-sliders"></i>
-                                Reports
+                                Exports
                             </a>
                             
                         </div>
@@ -295,7 +369,10 @@
                                     'bg' => 'bg-amber-50/60',
                                     'iconBg' => 'bg-amber-100/80',
                                     'iconColor' => 'text-amber-600',
-                                    'href' => route('dashboard', $filterQuery).'#support',
+                                    'href' => route('dashboard', array_merge($filterQuery, [
+                                        'support' => 1,
+                                        'section' => 'support',
+                                    ])).'#support',
                                     'section' => 'support',
                                 ],
                             ];
@@ -324,6 +401,10 @@
             </section>
 
             {{-- Shared filters above tabs --}}
+            @php
+                $organizerSelected = filled($scopeFilter['selectedOrganizerId'] ?? null);
+                $organizerHasNoEvents = $organizerSelected && count($scopeFilter['events'] ?? []) === 0;
+            @endphp
             <section class="dashboard-filters relative overflow-hidden rounded-2xl border border-white/50 bg-white/40 px-4 py-4 shadow-lg shadow-indigo-500/10 backdrop-blur-2xl sm:px-5">
                 <div class="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-indigo-300/20 blur-2xl"></div>
                 <div class="pointer-events-none absolute -bottom-10 left-1/4 h-24 w-24 rounded-full bg-cyan-300/15 blur-2xl"></div>
@@ -338,14 +419,26 @@
                             <p class="text-xs text-slate-500">Shared controls · each filter applies to the tabs noted below</p>
                         </div>
                     </div>
-                    @if ($hasActiveFilters)
-                        <a href="{{ route('dashboard') }}"
-                            @click.prevent="window.location.href = @js(route('dashboard')) + '#' + section"
-                            class="btn-smooth inline-flex items-center gap-1 rounded-xl border border-rose-200/70 bg-rose-50/70 px-3 py-1.5 text-xs font-semibold text-rose-700 backdrop-blur-md transition hover:-translate-y-0.5 hover:bg-rose-100/80 hover:shadow-sm">
-                            <i class="bi bi-x-circle"></i>
-                            Reset
-                        </a>
-                    @endif
+                    <div class="flex flex-wrap items-center gap-2 sm:justify-end">
+                        <button type="button"
+                            @click="toggleAutoApply()"
+                            class="btn-smooth inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold backdrop-blur-md transition hover:-translate-y-0.5 hover:shadow-sm"
+                            :class="autoApply
+                                ? 'border-indigo-200/80 bg-indigo-50/80 text-indigo-700'
+                                : 'border-white/70 bg-white/60 text-slate-600'"
+                            :aria-pressed="autoApply.toString()"
+                            title="When on, filters apply as soon as you change a dropdown">
+                            
+                        </button>
+                        @if ($hasActiveFilters)
+                            <a href="{{ route('dashboard') }}"
+                                @click.prevent="window.location.href = @js(route('dashboard')) + '#' + section"
+                                class="btn-smooth inline-flex items-center gap-1 rounded-xl border border-rose-200/70 bg-rose-50/70 px-3 py-1.5 text-xs font-semibold text-rose-700 backdrop-blur-md transition hover:-translate-y-0.5 hover:bg-rose-100/80 hover:shadow-sm">
+                                <i class="bi bi-x-circle"></i>
+                                Reset
+                            </a>
+                        @endif
+                    </div>
                 </div>
 
                 <form id="admin-dashboard-filters" method="GET" action="{{ route('dashboard') }}"
@@ -353,6 +446,8 @@
                     @submit="$el.action = '{{ route('dashboard') }}' + '#' + section">
                     <input type="hidden" name="insights" value="1"
                         :disabled="!(insightsLoaded || analyticsTabs.includes(section))">
+                    <input type="hidden" name="support" value="1"
+                        :disabled="!(supportLoaded || section === 'support')">
                     <input type="hidden" name="section" :value="section">
                     <div class="lg:col-span-3">
                         <label for="admin_organizer" class="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">Organizer</label>
@@ -371,9 +466,10 @@
                     <div class="lg:col-span-3">
                         <label for="admin_event" class="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">Event</label>
                         <select id="admin_event" name="event"
-                            class="filter-control w-full rounded-xl border border-white/70 bg-white/55 px-3 py-2.5 text-sm font-medium text-slate-800 shadow-sm backdrop-blur-md transition hover:border-indigo-200 hover:bg-white/80 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200/80"
-                            @disabled(! ($scopeFilter['selectedOrganizerId'] ?? null))>
-                            <option value="">All events</option>
+                            class="filter-control w-full rounded-xl border border-white/70 bg-white/55 px-3 py-2.5 text-sm font-medium text-slate-800 shadow-sm backdrop-blur-md transition hover:border-indigo-200 hover:bg-white/80 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200/80
+                                {{ $organizerHasNoEvents ? 'opacity-60' : '' }}"
+                            @disabled(! $organizerSelected || $organizerHasNoEvents)>
+                            <option value="">{{ $organizerHasNoEvents ? 'No events available' : 'All events' }}</option>
                             @foreach ($scopeFilter['events'] as $eventOption)
                                 <option value="{{ $eventOption['id'] }}"
                                     @selected((int) ($scopeFilter['selectedEventId'] ?? 0) === (int) $eventOption['id'])>
@@ -381,14 +477,20 @@
                                 </option>
                             @endforeach
                         </select>
-                        <p class="mt-1 text-[10px] font-medium text-slate-400">Performance · Insights · Support</p>
+                        @if ($organizerHasNoEvents)
+                            <p class="mt-1 text-[10px] font-medium text-amber-600">
+                                This organizer has no events to filter by.
+                            </p>
+                        @else
+                            <p class="mt-1 text-[10px] font-medium text-slate-400">Performance · Insights · Support</p>
+                        @endif
                     </div>
                     <div class="lg:col-span-4">
                         <label for="admin_cro" class="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">CRO</label>
                         <select id="admin_cro" name="cro"
                             class="filter-control w-full rounded-xl border border-white/70 bg-white/55 px-3 py-2.5 text-sm font-medium text-slate-800 shadow-sm backdrop-blur-md transition hover:border-indigo-200 hover:bg-white/80 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200/80">
                             <option value="">All CROs</option>
-                            @foreach (($supportReport['cros'] ?? []) as $croOption)
+                            @foreach ($croOptions as $croOption)
                                 <option value="{{ $croOption['id'] }}"
                                     @selected((int) ($selectedCroId ?? 0) === (int) $croOption['id'])>
                                     {{ $croOption['name'] }}
@@ -399,27 +501,42 @@
                     </div>
                     <div class="flex gap-2 lg:col-span-2">
                         <button type="submit"
-                            class="btn-smooth inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-2.5 text-sm font-semibold text-white shadow-md shadow-indigo-500/20 transition hover:-translate-y-0.5 hover:bg-indigo-700 hover:shadow-lg hover:shadow-indigo-500/30">
+                            class="btn-smooth inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-2.5 text-sm font-semibold text-white shadow-md shadow-indigo-500/20 transition hover:-translate-y-0.5 hover:bg-indigo-700 hover:shadow-lg hover:shadow-indigo-500/30"
+                            :title="autoApply ? 'Filters also apply automatically on change' : 'Apply the selected filters'">
                             <i class="bi bi-funnel"></i>
                             Apply
                         </button>
                     </div>
                 </form>
+
+                @if ($organizerHasNoEvents)
+                    <div class="relative mt-3 flex items-start gap-2.5 rounded-xl border border-amber-200/70 bg-amber-50/70 px-3.5 py-3 text-sm text-amber-900">
+                        <span class="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-700">
+                            <i class="bi bi-calendar-x"></i>
+                        </span>
+                        <div class="min-w-0">
+                            <p class="font-semibold">No events for this organizer</p>
+                            <p class="mt-0.5 text-xs text-amber-800/80">
+                                Platform stats still reflect the organizer scope. Pick another organizer, or clear the filter to view all events.
+                            </p>
+                        </div>
+                    </div>
+                @endif
             </section>
 
             {{-- Tabs --}}
-            <nav class="sticky top-16 z-30 sm:top-20" aria-label="Dashboard sections">
-                <div class="segmented-control overflow-x-auto rounded-2xl border border-white/60 bg-white/55 p-1.5 shadow-lg shadow-indigo-500/5 backdrop-blur-2xl [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                    <div class="flex min-w-max gap-1">
+            <nav class="admin-dashboard-tabs sticky z-30" aria-label="Dashboard sections">
+                <div class="segmented-control overflow-x-auto rounded-2xl border border-white/60 bg-white/55 p-1 shadow-lg shadow-indigo-500/5 backdrop-blur-2xl sm:p-1.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                    <div class="flex min-w-max gap-0.5 sm:gap-1">
                         @foreach ($sectionTabs as $key => $sectionTab)
                             <button type="button"
                                 @click="setSection('{{ $key }}')"
-                                class="btn-smooth group relative inline-flex items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-semibold transition duration-200 sm:gap-2 sm:px-3.5 sm:text-sm"
+                                class="btn-smooth group relative inline-flex items-center justify-center gap-1 rounded-xl px-2.5 py-2 text-[11px] font-semibold transition duration-200 sm:gap-2 sm:px-3.5 sm:py-2.5 sm:text-sm"
                                 :class="section === '{{ $key }}'
                                     ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/25'
                                     : 'text-slate-600 hover:-translate-y-0.5 hover:bg-white/80 hover:text-slate-900 hover:shadow-sm'">
-                                <i class="bi {{ $sectionTab['icon'] }} transition group-hover:scale-110"></i>
-                                <span>{{ $sectionTab['label'] }}</span>
+                                <i class="bi {{ $sectionTab['icon'] }} text-sm transition group-hover:scale-110 sm:text-base"></i>
+                                <span class="max-[380px]:sr-only">{{ $sectionTab['label'] }}</span>
                             </button>
                         @endforeach
                     </div>
@@ -427,15 +544,37 @@
             </nav>
 
             {{-- Panels --}}
-            <div>
+            <div class="admin-dashboard-panels scroll-mt-[8.5rem] space-y-0 sm:scroll-mt-28">
                 <div x-show="section === 'performance'" x-cloak x-transition.opacity.duration.200ms>
                     @include('admin.partials.dashboard-tab-performance')
                 </div>
                 <div x-show="section === 'support'" x-cloak x-transition.opacity.duration.200ms>
-                    @include('admin.partials.dashboard-tab-support')
+                    @if ($loadSupport && $supportReport)
+                        @include('admin.partials.dashboard-tab-support')
+                    @else
+                        <div class="glass-panel !rounded-2xl px-6 py-16 text-center">
+                            <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 text-amber-600">
+                                <i class="bi bi-arrow-repeat animate-spin text-xl" x-show="supportLoading"></i>
+                                <i class="bi bi-headset text-xl" x-show="!supportLoading"></i>
+                            </div>
+                            <p class="mt-4 text-sm font-semibold text-slate-800">Loading support…</p>
+                            <p class="mt-1 text-xs text-slate-500">Inquiry and complaint queues load only when you open this tab.</p>
+                        </div>
+                    @endif
                 </div>
                 <div x-show="analyticsTabs.includes(section)" x-cloak x-transition.opacity.duration.200ms>
                     @if ($loadInsights && $reports)
+                        <div class="mb-4 flex flex-col gap-2 rounded-xl border border-indigo-100/80 bg-indigo-50/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+                            <div class="min-w-0">
+                                <p class="text-sm font-semibold text-slate-900">Insights</p>
+                                <p class="text-xs text-slate-500">Live snapshot charts for the current filters. Custom CSV/PDF downloads live in the export builder.</p>
+                            </div>
+                            <a href="{{ route('admin.reports') }}"
+                                class="btn-smooth inline-flex shrink-0 items-center gap-1.5 self-start rounded-lg border border-white/70 bg-white/80 px-3 py-2 text-xs font-semibold text-indigo-700 shadow-sm hover:bg-white sm:self-auto">
+                                <i class="bi bi-sliders"></i>
+                                Build export
+                            </a>
+                        </div>
                         @include('admin.partials.insights')
                     @else
                         <div class="glass-panel !rounded-2xl px-6 py-16 text-center">
@@ -509,6 +648,21 @@
             .filter-control:hover {
                 box-shadow: 0 8px 20px -12px rgba(79, 70, 229, 0.28);
             }
+            /* Keep sticky tabs below the fixed nav with a little breathing room on mobile. */
+            .admin-dashboard-tabs {
+                top: max(4.5rem, calc(env(safe-area-inset-top, 0px) + 4rem));
+                margin-top: 0.25rem;
+                padding-bottom: 0.35rem;
+                background: linear-gradient(to bottom, rgba(248, 250, 252, 0.92), rgba(248, 250, 252, 0.72) 70%, transparent);
+            }
+            @media (min-width: 640px) {
+                .admin-dashboard-tabs {
+                    top: 5rem;
+                }
+            }
+            .admin-dashboard-panels {
+                padding-top: 0.25rem;
+            }
         </style>
     @endpush
 
@@ -517,7 +671,10 @@
             window.adminDashboardData = @json($dashboard);
             window.adminReportData = @json($reports);
             (function () {
-                var key = 'admin-dashboard-scroll';
+                var scrollKey = 'admin-dashboard-scroll';
+                var sectionKey = 'admin-dashboard-section';
+                var autoApplyKey = 'admin-dashboard-auto-apply';
+                var analytics = @json($analyticsTabKeys);
 
                 function currentScrollY() {
                     return window.scrollY || window.pageYOffset || document.documentElement.scrollTop || 0;
@@ -527,10 +684,68 @@
                     window.scrollTo(0, y);
                 }
 
+                function isAutoApplyEnabled() {
+                    try {
+                        var stored = localStorage.getItem(autoApplyKey);
+                        if (stored === '0' || stored === 'false') return false;
+                    } catch (e) {}
+                    return true;
+                }
+
+                function resolveSectionFromPage() {
+                    var hash = (window.location.hash || '').replace('#', '');
+                    if (hash === 'insights' || hash === 'reports') return 'overview';
+                    if (hash === 'admin') return 'events';
+                    if (hash === 'support-reports') return 'support';
+                    if (hash === 'performance' || hash === 'support' || analytics.includes(hash)) return hash;
+                    try {
+                        var stored = localStorage.getItem(sectionKey);
+                        if (stored === 'performance' || stored === 'support' || analytics.includes(stored)) {
+                            return stored;
+                        }
+                    } catch (e) {}
+                    return 'performance';
+                }
+
+                function prepareAndSubmit(form, changedSelect) {
+                    try {
+                        sessionStorage.setItem(scrollKey, String(currentScrollY()));
+                    } catch (e) {}
+
+                    if (changedSelect && changedSelect.name === 'organizer') {
+                        var eventSelect = form.querySelector('select[name="event"]');
+                        if (eventSelect) eventSelect.selectedIndex = 0;
+                    }
+
+                    var section = resolveSectionFromPage();
+
+                    var insightsInput = form.querySelector('input[name="insights"]');
+                    if (insightsInput) {
+                        var wantsInsights = @js($loadInsights) || analytics.includes(section);
+                        insightsInput.disabled = !wantsInsights;
+                    }
+
+                    var supportInput = form.querySelector('input[name="support"]');
+                    if (supportInput) {
+                        var wantsSupport = @js($loadSupport) || section === 'support';
+                        supportInput.disabled = !wantsSupport;
+                    }
+
+                    var sectionInput = form.querySelector('input[name="section"]');
+                    if (sectionInput) sectionInput.value = section;
+
+                    try {
+                        localStorage.setItem(sectionKey, section);
+                    } catch (e) {}
+
+                    form.action = @js(route('dashboard')) + '#' + section;
+                    form.submit();
+                }
+
                 try {
-                    var saved = sessionStorage.getItem(key);
+                    var saved = sessionStorage.getItem(scrollKey);
                     if (saved !== null) {
-                        sessionStorage.removeItem(key);
+                        sessionStorage.removeItem(scrollKey);
                         if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
                         var y = Number(saved);
                         if (Number.isFinite(y)) {
@@ -548,36 +763,18 @@
                     var form = document.getElementById('admin-dashboard-filters');
                     if (!form) return;
 
-                    form.querySelectorAll('select[name="organizer"], select[name="event"]').forEach(function (select) {
+                    form.querySelectorAll('select[name="organizer"], select[name="event"], select[name="cro"]').forEach(function (select) {
                         select.addEventListener('change', function () {
-                            try {
-                                sessionStorage.setItem(key, String(currentScrollY()));
-                            } catch (e) {}
-
-                            if (this.name === 'organizer') {
-                                var eventSelect = form.querySelector('select[name="event"]');
-                                if (eventSelect) eventSelect.selectedIndex = 0;
-                            }
-
-                            var section = 'performance';
-                            try {
-                                var hash = (window.location.hash || '').replace('#', '');
-                                var analytics = @json($analyticsTabKeys);
-                                if (hash === 'performance' || hash === 'support' || analytics.includes(hash)) section = hash;
-                            } catch (e) {}
-
-                            var insightsInput = form.querySelector('input[name="insights"]');
-                            if (insightsInput) {
-                                var wantsInsights = @js($loadInsights) || (typeof analytics !== 'undefined' && analytics.includes(section));
-                                insightsInput.disabled = !wantsInsights;
-                            }
-
-                            var sectionInput = form.querySelector('input[name="section"]');
-                            if (sectionInput) sectionInput.value = section;
-
-                            form.action = @js(route('dashboard')) + '#' + section;
-                            form.submit();
+                            if (! isAutoApplyEnabled()) return;
+                            prepareAndSubmit(form, this);
                         });
+                    });
+
+                    form.addEventListener('submit', function () {
+                        try {
+                            sessionStorage.setItem(scrollKey, String(currentScrollY()));
+                            localStorage.setItem(sectionKey, resolveSectionFromPage());
+                        } catch (e) {}
                     });
                 });
             })();

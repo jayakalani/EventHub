@@ -156,8 +156,6 @@
 
         .chart-frame img {
             width: 100%;
-            height: auto;
-            max-height: 260px;
             background: #ffffff;
             display: block;
         }
@@ -211,6 +209,7 @@
         $summary = $summary ?? [];
         $tables = $tables ?? [];
         $charts = $charts ?? [];
+        $sections = $sections ?? [];
         $subtitle = $subtitle ?? 'Events, ticket sales, and revenue snapshot';
         $kpis = $kpis ?? [];
         $filters = $filters ?? [];
@@ -221,6 +220,53 @@
 
         // Keep executive summary compact: prefer explicit KPIs, else first summary rows.
         $heroKpis = ! empty($kpis) ? $kpis : array_slice($summary, 0, 8);
+
+        $sectionHints = [
+            'performance' => 'Headline sales charts and operational tables for the selected filters.',
+            'revenue' => 'Income trends, refunds, and contribution by event.',
+            'tickets' => 'Sales volume, conversion, and category performance.',
+            'events' => 'Fill rate, rankings, and revenue contribution.',
+            'attendance' => 'Check-in mix, timing, and attendance by event.',
+            'audience' => 'Attendee mix, demographics, and top customers.',
+            'engagement' => 'Likes, saves, comments, ratings, and momentum.',
+            'activity' => 'Latest confirmed and refund-related transactions.',
+        ];
+
+        $titleToKey = [
+            'performance' => 'performance',
+            'revenue' => 'revenue',
+            'tickets' => 'tickets',
+            'events' => 'events',
+            'attendance' => 'attendance',
+            'audience' => 'audience',
+            'engagement' => 'engagement',
+            'activity' => 'activity',
+        ];
+
+        $chartsBySection = [];
+        foreach ($charts as $chart) {
+            $chartTitle = (string) ($chart['title'] ?? 'Chart');
+            $sectionKey = strtolower(trim((string) ($chart['section'] ?? '')));
+
+            if ($sectionKey === '') {
+                $parts = explode(' — ', $chartTitle, 2);
+                $prefix = strtolower(trim($parts[0] ?? ''));
+                $sectionKey = $titleToKey[$prefix] ?? 'other';
+                $chartTitle = count($parts) === 2 ? $parts[1] : $chartTitle;
+            }
+
+            $chartsBySection[$sectionKey][] = [
+                'title' => $chartTitle,
+                'image' => $chart['image'] ?? '',
+            ];
+        }
+
+        $knownKeys = collect($sections)->pluck('key')->filter()->all();
+        $leftoverCharts = collect($chartsBySection)
+            ->reject(fn ($groupCharts, $key) => in_array($key, $knownKeys, true))
+            ->flatten(1)
+            ->values()
+            ->all();
     @endphp
 
     <div class="cover">
@@ -245,7 +291,7 @@
         <div class="hero">
             <p class="eyebrow">Dashboard Export</p>
             <p class="title">Performance snapshot</p>
-            <p class="desc">Charts and tables for the current dashboard filters.</p>
+            <p class="desc">Each dashboard tab is exported with its charts directly above the matching tables.</p>
         </div>
 
         @if (! empty($heroKpis))
@@ -271,62 +317,146 @@
         @endif
     </div>
 
-    @if (! empty($charts))
-        <div class="section-head">
-            <p class="section-kicker">Visuals</p>
-            <p class="section-title">Dashboard Charts</p>
-            <p class="section-sub">Captured from the live dashboard with a white chart background.</p>
-        </div>
+    @foreach ($sections as $index => $section)
+        @php
+            $sectionKey = (string) ($section['key'] ?? '');
+            $sectionTitle = $section['title'] ?? 'Section';
+            $sectionCharts = $chartsBySection[$sectionKey] ?? [];
+            $sectionTables = $section['tables'] ?? [];
+        @endphp
 
-        @foreach ($charts as $chart)
-            <div class="panel">
-                <div class="panel-accent"></div>
-                <p class="panel-title">{{ $chart['title'] ?? 'Chart' }}</p>
-                <div class="chart-frame">
-                    <img src="{{ $chart['image'] }}" alt="{{ $chart['title'] ?? 'Chart' }}">
-                </div>
+        @if (! empty($sectionCharts) || ! empty($sectionTables))
+        <div class="section-break">
+            <div class="section-head">
+                <p class="section-kicker">{{ str_pad((string) ($index + 1), 2, '0', STR_PAD_LEFT) }} · Dashboard tab</p>
+                <p class="section-title">{{ $sectionTitle }}</p>
+                <p class="section-sub">{{ $sectionHints[$sectionKey] ?? 'Charts and supporting tables for this topic.' }}</p>
             </div>
-        @endforeach
-    @endif
 
-    <div class="section-break">
-        <div class="section-head">
-            <p class="section-kicker">Data</p>
-            <p class="section-title">Dashboard Tables</p>
-            <p class="section-sub">Supporting operational details for this export.</p>
-        </div>
+            @foreach ($sectionCharts as $chart)
+                <div class="panel">
+                    <div class="panel-accent"></div>
+                    <p class="panel-title">{{ $chart['title'] ?? 'Chart' }}</p>
+                    <div class="chart-frame">
+                        <img src="{{ $chart['image'] }}" alt="{{ $chart['title'] ?? 'Chart' }}">
+                    </div>
+                </div>
+            @endforeach
 
-        @foreach ($tables as $table)
-            <div class="panel">
-                <div class="panel-accent"></div>
-                <p class="panel-title">{{ $table['heading'] ?? 'Data' }}</p>
-                <table class="data">
-                    <thead>
-                        <tr>
-                            @foreach ($table['headers'] as $header)
-                                <th>{{ $header }}</th>
-                            @endforeach
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @forelse ($table['rows'] as $row)
+            @foreach ($sectionTables as $table)
+                <div class="panel">
+                    <div class="panel-accent"></div>
+                    <p class="panel-title">{{ $table['heading'] ?? 'Data' }}</p>
+                    <table class="data">
+                        <thead>
                             <tr>
-                                @foreach ($row as $cell)
-                                    <td>{{ $cell }}</td>
+                                @foreach ($table['headers'] as $header)
+                                    <th>{{ $header }}</th>
                                 @endforeach
                             </tr>
-                        @empty
-                            <tr>
-                                <td class="empty" colspan="{{ max(1, count($table['headers'] ?? [])) }}">
-                                    No data available.
-                                </td>
-                            </tr>
-                        @endforelse
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            @forelse ($table['rows'] as $row)
+                                <tr>
+                                    @foreach ($row as $cell)
+                                        <td>{{ $cell }}</td>
+                                    @endforeach
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td class="empty" colspan="{{ max(1, count($table['headers'] ?? [])) }}">
+                                        No data available.
+                                    </td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            @endforeach
+        </div>
+        @endif
+    @endforeach
+
+    @if (! empty($leftoverCharts))
+        <div class="section-break">
+            <div class="section-head">
+                <p class="section-kicker">Visuals</p>
+                <p class="section-title">Additional Charts</p>
+                <p class="section-sub">Supporting visuals captured from the dashboard.</p>
             </div>
-        @endforeach
-    </div>
+
+            @foreach ($leftoverCharts as $chart)
+                <div class="panel">
+                    <div class="panel-accent"></div>
+                    <p class="panel-title">{{ $chart['title'] ?? 'Chart' }}</p>
+                    <div class="chart-frame">
+                        <img src="{{ $chart['image'] }}" alt="{{ $chart['title'] ?? 'Chart' }}">
+                    </div>
+                </div>
+            @endforeach
+        </div>
+    @endif
+
+    @if (empty($sections))
+        @if (! empty($charts))
+            <div class="section-head">
+                <p class="section-kicker">Visuals</p>
+                <p class="section-title">Dashboard Charts</p>
+                <p class="section-sub">Captured from the live dashboard with a white chart background.</p>
+            </div>
+
+            @foreach ($charts as $chart)
+                <div class="panel">
+                    <div class="panel-accent"></div>
+                    <p class="panel-title">{{ $chart['title'] ?? 'Chart' }}</p>
+                    <div class="chart-frame">
+                        <img src="{{ $chart['image'] }}" alt="{{ $chart['title'] ?? 'Chart' }}">
+                    </div>
+                </div>
+            @endforeach
+        @endif
+
+        @if (! empty($tables))
+            <div class="section-break">
+                <div class="section-head">
+                    <p class="section-kicker">Data</p>
+                    <p class="section-title">Dashboard Tables</p>
+                    <p class="section-sub">Supporting operational details for this export.</p>
+                </div>
+
+                @foreach ($tables as $table)
+                    <div class="panel">
+                        <div class="panel-accent"></div>
+                        <p class="panel-title">{{ $table['heading'] ?? 'Data' }}</p>
+                        <table class="data">
+                            <thead>
+                                <tr>
+                                    @foreach ($table['headers'] as $header)
+                                        <th>{{ $header }}</th>
+                                    @endforeach
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse ($table['rows'] as $row)
+                                    <tr>
+                                        @foreach ($row as $cell)
+                                            <td>{{ $cell }}</td>
+                                        @endforeach
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td class="empty" colspan="{{ max(1, count($table['headers'] ?? [])) }}">
+                                            No data available.
+                                        </td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                @endforeach
+            </div>
+        @endif
+    @endif
 
     <div class="footer">
         EventHub · Organizer dashboard export · Generated {{ $generatedAt }}

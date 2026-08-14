@@ -76,7 +76,9 @@ class Event extends Model
 
     public function scopeVisibleToAttendees($query)
     {
-        return $query->where('status', '!=', self::STATUS_UNPUBLISHED);
+        return $query
+            ->withTrashed()
+            ->where('status', '!=', self::STATUS_UNPUBLISHED);
     }
 
     public function isVisibleToAttendees(): bool
@@ -475,6 +477,26 @@ class Event extends Model
         }
 
         return $this->ticketBookings()->exists();
+    }
+
+    public function isArchived(): bool
+    {
+        return $this->trashed();
+    }
+
+    public function canBeArchived(): bool
+    {
+        return ! $this->trashed() && $this->isCompleted() && $this->hasBookingHistory();
+    }
+
+    public function canBeRestored(): bool
+    {
+        return $this->trashed();
+    }
+
+    public function canBeHardDeleted(): bool
+    {
+        return ! $this->trashed() && ! $this->hasBookingHistory();
     }
 
     public function cartItems()

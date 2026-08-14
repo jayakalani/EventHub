@@ -23,7 +23,7 @@ class HostController extends Controller
         $validatedData = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:hosts'],
-            'contact_number' => ['required', 'string', 'max:20'],
+            'contact_number' => ['required', 'digits:10'],
             'cover' => 'nullable|image|mimes:jpg,jpeg,png,gif|max:2048',
         ]);
 
@@ -122,7 +122,7 @@ class HostController extends Controller
         $validatedData = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', Rule::unique(Host::class)->ignore($host->id)],
-            'contact_number' => ['required', 'string', 'max:20'],
+            'contact_number' => ['required', 'digits:10'],
             'cover' => 'nullable|image|mimes:jpg,jpeg,png,gif|max:2048',
         ]);
 

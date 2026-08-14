@@ -1286,7 +1286,10 @@ class AdminReportService
                 'icon' => 'bi-exclamation-triangle-fill',
                 'accent' => 'rose',
                 'cta' => 'Open support',
-                'href' => route('dashboard', $filterQuery).'#support',
+                'href' => route('dashboard', array_merge($filterQuery, [
+                    'support' => 1,
+                    'section' => 'support',
+                ])).'#support',
                 'section' => 'support',
             ],
             [

@@ -236,7 +236,12 @@
                                 <div>
                                     <dt class="text-xs font-medium text-slate-500">Method</dt>
                                     <dd class="mt-1 text-sm capitalize text-slate-900">
-                                        {{ $payment->payment_method?->value ?? '—' }}
+                                        @if ($payment->payment_method?->value == 'stripe')
+                                            Card
+                                        @else
+                                            {{ $payment->payment_method?->value == 'wallet' ? 'Wallet' : '—' }}
+                                        @endif
+                                        
                                     </dd>
                                 </div>
                                 <div>
@@ -260,7 +265,7 @@
                                 </div>
                                 @if ($payment->stripe_payment_intent_id)
                                     <div class="sm:col-span-2">
-                                        <dt class="text-xs font-medium text-slate-500">Stripe Payment Intent</dt>
+                                        <dt class="text-xs font-medium text-slate-500">Card Payment Intent</dt>
                                         <dd class="mt-1 break-all font-mono text-xs text-slate-600">
                                             {{ $payment->stripe_payment_intent_id }}
                                         </dd>

@@ -116,7 +116,7 @@
         $analyticsTabKeys = array_keys($analyticsTabs);
     @endphp
 
-    <div class="organizer-dashboard relative isolate overflow-hidden py-5 sm:py-6"
+    <div class="organizer-dashboard relative isolate py-3 sm:py-4"
         x-data="{
             analyticsTabs: @js($analyticsTabKeys),
             loadedTabs: @js($loadedTabs),
@@ -189,7 +189,7 @@
         }"
         @organizer-open-performance.window="setSection('performance')">
 
-        <div class="pointer-events-none absolute inset-0 -z-10">
+        <div class="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
             <div class="absolute inset-0 bg-gradient-to-br from-slate-100 via-indigo-50/45 to-cyan-50/55"></div>
             <div class="absolute -left-24 top-8 h-72 w-72 rounded-full bg-indigo-300/25 blur-3xl"></div>
             <div class="absolute right-0 top-36 h-80 w-80 rounded-full bg-cyan-300/20 blur-3xl"></div>
@@ -197,7 +197,7 @@
             <div class="absolute inset-0 bg-grid-slate-100 opacity-50"></div>
         </div>
 
-        <div class="mx-auto max-w-7xl space-y-5 px-4 sm:px-6 lg:px-8">
+        <div class="mx-auto max-w-7xl space-y-3 px-4 sm:px-6 lg:px-8">
 
             @if (session('success'))
                 <div class="glass-card !rounded-xl border-emerald-200/80 bg-emerald-50/70 px-4 py-3 text-sm font-medium text-emerald-800"
@@ -214,7 +214,7 @@
 
             {{-- Hero --}}
             <section class="glass-panel overflow-hidden !rounded-2xl">
-                <div class="relative px-4 py-4 sm:px-6 sm:py-5">
+                <div class="relative px-4 py-3 sm:px-5 sm:py-3.5">
                     <div class="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-indigo-200/35 blur-2xl"></div>
                     <div class="pointer-events-none absolute -bottom-12 left-1/4 h-28 w-28 rounded-full bg-cyan-200/30 blur-2xl"></div>
 
@@ -250,8 +250,51 @@
                         <div class="flex flex-wrap gap-2 sm:justify-end">
                             <x-dashboard-export-pdf
                                 route="organizer.dashboard.export.pdf"
-                                :params="$filterQuery"
-                                :charts="[]"
+                                filter-form-id="organizer-reports-filters"
+                                :params="array_filter([
+                                    ...$filterQuery,
+                                    'from' => $activeFilters['from'] ?? null,
+                                    'to' => $activeFilters['to'] ?? null,
+                                    'status' => $activeFilters['status'] ?? null,
+                                    'event_id' => $activeFilters['event_id'] ?? ($focusFilter['selectedEventId'] ?? null),
+                                    'focus_event' => $focusFilter['selectedEventId'] ?? ($filterQuery['focus_event'] ?? null),
+                                ], fn ($value) => $value !== null && $value !== '')"
+                                :charts="[
+                                    ['canvasId' => 'organizerRevenueChart', 'title' => 'Revenue trend', 'section' => 'performance'],
+                                    ['canvasId' => 'organizerTicketSalesChart', 'title' => 'Ticket sales trend', 'section' => 'performance'],
+                                    ['canvasId' => 'overviewRevenueChart', 'title' => 'Revenue trend', 'section' => 'revenue'],
+                                    ['canvasId' => 'monthlyRevenueBarChart', 'title' => 'Monthly revenue', 'section' => 'revenue'],
+                                    ['canvasId' => 'cumulativeRevenueChart', 'title' => 'Cumulative revenue', 'section' => 'revenue'],
+                                    ['canvasId' => 'refundsVsSalesChart', 'title' => 'Refunds vs confirmed sales', 'section' => 'revenue'],
+                                    ['canvasId' => 'refundsByEventChart', 'title' => 'Refunds by event', 'section' => 'revenue'],
+                                    ['canvasId' => 'refundsByCategoryChart', 'title' => 'Refunds by category', 'section' => 'revenue'],
+                                    ['canvasId' => 'ticketSalesOverTimeChart', 'title' => 'Ticket sales over time', 'section' => 'tickets'],
+                                    ['canvasId' => 'salesByCategoryChart', 'title' => 'Ticket sales by category', 'section' => 'tickets'],
+                                    ['canvasId' => 'ticketTypeTrendChart', 'title' => 'Ticket type trend', 'section' => 'tickets'],
+                                    ['canvasId' => 'conversionFunnelChart', 'title' => 'Conversion funnel', 'section' => 'tickets'],
+                                    ['canvasId' => 'salesVelocityChart', 'title' => 'Tickets per day before event', 'section' => 'tickets'],
+                                    ['canvasId' => 'salesVelocityCumulativeChart', 'title' => 'Cumulative tickets before event', 'section' => 'tickets'],
+                                    ['canvasId' => 'revenuePerEventChart', 'title' => 'Revenue per event', 'section' => 'events'],
+                                    ['canvasId' => 'top5EventsRevenueChart', 'title' => 'Top 5 by revenue', 'section' => 'events'],
+                                    ['canvasId' => 'top5EventsTicketsChart', 'title' => 'Top 5 by tickets', 'section' => 'events'],
+                                    ['canvasId' => 'revenueFillScatterChart', 'title' => 'Fill rate by event', 'section' => 'events'],
+                                    ['canvasId' => 'eventCompareMetricsChart', 'title' => 'Event comparison', 'section' => 'events'],
+                                    ['canvasId' => 'attendanceBreakdownChart', 'title' => 'Attendance mix', 'section' => 'attendance'],
+                                    ['canvasId' => 'checkInTimingChart', 'title' => 'Check-in timing', 'section' => 'attendance'],
+                                    ['canvasId' => 'attendanceByEventChart', 'title' => 'Attendance by event', 'section' => 'attendance'],
+                                    ['canvasId' => 'demographicsAgeChart', 'title' => 'Age groups', 'section' => 'audience'],
+                                    ['canvasId' => 'demographicsGenderChart', 'title' => 'Gender', 'section' => 'audience'],
+                                    ['canvasId' => 'demographicsLocationChart', 'title' => 'Location', 'section' => 'audience'],
+                                    ['canvasId' => 'repeatVsNewChart', 'title' => 'Repeat vs new attendees', 'section' => 'audience'],
+                                    ['canvasId' => 'audienceEngagementVsSalesChart', 'title' => 'Tickets vs engagement by event', 'section' => 'audience'],
+                                    ['canvasId' => 'overviewAttendeesByEventChart', 'title' => 'Attendees by event', 'section' => 'audience'],
+                                    ['canvasId' => 'overviewEngagementBarChart', 'title' => 'Engagement analytics', 'section' => 'engagement'],
+                                    ['canvasId' => 'engagementOverTimeChart', 'title' => 'Engagement over time', 'section' => 'engagement'],
+                                    ['canvasId' => 'engagementBeforeEventChart', 'title' => 'Engagement before event day', 'section' => 'engagement'],
+                                    ['canvasId' => 'engagementVsSalesChart', 'title' => 'Tickets vs engagement by event', 'section' => 'engagement'],
+                                    ['canvasId' => 'ratingTrendChart', 'title' => 'Average rating trend', 'section' => 'engagement'],
+                                    ['canvasId' => 'ratingDistributionChart', 'title' => 'Rating distribution', 'section' => 'engagement'],
+                                ]"
                             />
                             <a href="{{ route('organizer.reports') }}"
                                 class="btn-smooth inline-flex items-center gap-1.5 rounded-lg border border-white/70 bg-white/50 px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm hover:border-indigo-200 hover:bg-white/80 sm:text-sm">
@@ -261,7 +304,7 @@
                         </div>
                     </div>
 
-                    <div class="relative mt-3 flex flex-col gap-2 rounded-xl border border-white/70 bg-white/45 px-3 py-2.5 shadow-sm backdrop-blur-md sm:flex-row sm:items-center sm:gap-4 sm:px-4"
+                    <div class="relative mt-2 flex flex-col gap-2 rounded-xl border border-white/70 bg-white/45 px-3 py-2 shadow-sm backdrop-blur-md sm:flex-row sm:items-center sm:gap-4 sm:px-4"
                         data-live-today>
                         <div class="shrink-0 sm:border-r sm:border-slate-200/60 sm:pr-4">
                             <p class="text-[11px] font-semibold uppercase tracking-wide text-indigo-600">Today</p>
@@ -319,7 +362,7 @@
                         </div>
                     </div>
 
-                    <div class="relative mt-3 flex flex-wrap gap-1.5">
+                    <div class="relative mt-2 flex flex-wrap gap-1.5">
                         @foreach ([
                             ['label' => 'Scan tickets', 'route' => $dayOfOps['scan_url'] ?? route('organizer.bookings.scan'), 'icon' => 'bi-qr-code-scan', 'emphasis' => true],
                             ['label' => 'Guest list', 'route' => $dayOfOps['guest_list_url'] ?? route('organizer.bookings.index'), 'icon' => 'bi-people', 'emphasis' => true],
@@ -339,11 +382,11 @@
             </section>
 
             {{-- Shared filters (above tabs — applies to every section) --}}
-            <section class="dashboard-filters relative overflow-hidden rounded-2xl border border-white/50 bg-white/40 px-4 py-4 shadow-lg shadow-indigo-500/10 backdrop-blur-2xl sm:px-5 sm:py-4.5">
+            <section class="dashboard-filters relative overflow-hidden rounded-2xl border border-white/50 bg-white/40 px-3 py-3 shadow-lg shadow-indigo-500/10 backdrop-blur-2xl sm:px-4">
                 <div class="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-indigo-300/20 blur-2xl"></div>
                 <div class="pointer-events-none absolute -bottom-10 left-1/4 h-24 w-24 rounded-full bg-cyan-300/15 blur-2xl"></div>
 
-                <div class="relative mb-3.5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div class="relative mb-2.5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <div class="min-w-0">
                         <div class="flex items-center gap-2">
                             <span class="flex h-8 w-8 items-center justify-center rounded-xl border border-white/70 bg-white/60 text-indigo-600 shadow-sm backdrop-blur-md">
@@ -387,7 +430,7 @@
                 </div>
 
                 <form id="organizer-reports-filters" method="GET" action="{{ route('organizer.dashboard') }}"
-                    class="relative grid gap-3 lg:grid-cols-12 lg:items-end"
+                    class="relative grid gap-2 lg:grid-cols-12 lg:items-end"
                     @submit="$el.action = '{{ route('organizer.dashboard') }}' + '#' + section">
                     <input type="hidden" name="tab" :value="analyticsTabs.includes(section) ? section : @js($tab)">
                     <div class="lg:col-span-4">
@@ -436,8 +479,8 @@
             </section>
 
             {{-- Segmented control --}}
-            <nav class="sticky top-16 z-30 sm:top-20" aria-label="Dashboard sections">
-                <div class="segmented-control overflow-x-auto rounded-2xl border border-white/60 bg-white/55 p-1.5 shadow-lg shadow-indigo-500/5 backdrop-blur-2xl [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <nav class="organizer-dashboard-tabs sticky z-30" aria-label="Dashboard sections">
+                <div class="segmented-control overflow-x-auto rounded-2xl border border-white/60 bg-white/80 p-1.5 shadow-lg shadow-indigo-500/10 backdrop-blur-2xl [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                     <div class="flex min-w-max gap-1">
                         @foreach ($sectionTabs as $key => $sectionTab)
                             <button type="button"
@@ -455,8 +498,8 @@
             </nav>
 
             {{-- Tab panels --}}
-            <div>
-                <div x-show="section === 'performance'" x-cloak x-transition.opacity.duration.200ms class="space-y-5">
+            <div class="organizer-dashboard-panels scroll-mt-[8.5rem] sm:scroll-mt-28">
+                <div x-show="section === 'performance'" x-cloak x-transition.opacity.duration.200ms class="space-y-3">
                     @include('organizer.partials.dashboard-tab-today')
                     @include('organizer.partials.dashboard-tab-performance')
                 </div>
@@ -482,6 +525,20 @@
             }
             .filter-control:hover {
                 box-shadow: 0 8px 20px -12px rgba(79, 70, 229, 0.28);
+            }
+            .organizer-dashboard-tabs {
+                top: max(4.25rem, calc(env(safe-area-inset-top, 0px) + 3.75rem));
+                margin-top: 0;
+                padding-bottom: 0.25rem;
+                background: linear-gradient(to bottom, rgba(248, 250, 252, 0.96), rgba(248, 250, 252, 0.78) 70%, transparent);
+            }
+            @media (min-width: 640px) {
+                .organizer-dashboard-tabs {
+                    top: 4.75rem;
+                }
+            }
+            .organizer-dashboard-panels {
+                padding-top: 0;
             }
         </style>
     @endpush

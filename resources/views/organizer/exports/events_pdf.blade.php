@@ -92,6 +92,7 @@
         .status-ongoing { background: #dcfce7; color: #15803d; }
         .status-completed { background: #e2e8f0; color: #475569; }
         .status-cancelled { background: #fee2e2; color: #b91c1c; }
+        .status-archived { background: #fef3c7; color: #92400e; }
         .footer {
             margin-top: 20px;
             padding-top: 10px;
@@ -146,12 +147,13 @@
         <tbody>
             @forelse ($events as $event)
                 @php
-                    $status = strtolower((string) $event->status);
+                    $status = $event->trashed() ? 'archived' : strtolower((string) $event->status);
                     $statusClass = match ($status) {
                         'upcoming' => 'status-upcoming',
                         'ongoing' => 'status-ongoing',
                         'completed' => 'status-completed',
                         'cancelled' => 'status-cancelled',
+                        'archived' => 'status-archived',
                         default => 'status-completed',
                     };
                 @endphp
@@ -165,7 +167,7 @@
                     <td>{{ $event->time }}</td>
                     <td>{{ $event->place }}</td>
                     <td>{{ number_format($event->no_of_tickets) }}</td>
-                    <td><span class="status {{ $statusClass }}">{{ ucfirst($event->status) }}</span></td>
+                    <td><span class="status {{ $statusClass }}">{{ ucfirst($status) }}</span></td>
                     <td>{{ optional($event->created_at)->format('Y-m-d H:i') }}</td>
                 </tr>
             @empty

@@ -109,7 +109,13 @@
                                     <x-text-input id="contact_number"
                                         class="mt-2 block w-full rounded-xl border-gray-200 bg-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                                         type="text" name="contact_number" :value="old('contact_number', $host->contact_number)"
+                                        inputmode="numeric"
+                                        pattern="[0-9]{10}"
+                                        maxlength="10"
+                                        title="Enter a 10-digit phone number"
+                                        oninput="this.value = this.value.replace(/\D/g, '').slice(0, 10)"
                                         required />
+                                    <p class="mt-1 text-xs text-gray-500">Must be exactly 10 digits</p>
                                     <x-input-error :messages="$errors->get('contact_number')" class="mt-2" />
                                 </div>
 

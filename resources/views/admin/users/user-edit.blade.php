@@ -3,6 +3,8 @@
         $fieldClass = 'w-full rounded-lg border border-white/70 bg-white/60 px-3 py-2.5 text-sm text-slate-700 shadow-sm backdrop-blur-md placeholder:text-slate-400 focus:border-indigo-500 focus:ring-indigo-500';
         $labelClass = 'mb-1.5 block text-xs font-semibold text-slate-600';
         $initials = strtoupper(substr($user->first_name ?? 'U', 0, 1).substr($user->last_name ?? '', 0, 1));
+        $roleChangeLocked = $roleChangeLocked ?? false;
+        $isSelf = $user->isCurrentAuthUser();
     @endphp
 
     <div class="admin-edit-user relative isolate overflow-hidden py-5 sm:py-6">
@@ -76,6 +78,16 @@
                     <div class="flex items-center gap-2">
                         <i class="bi bi-check-circle-fill"></i>
                         {{ session('success') }}
+                    </div>
+                </div>
+            @endif
+
+            @if (session('error'))
+                <div
+                    class="glass-panel !rounded-2xl border border-rose-200/70 bg-rose-50/70 px-4 py-3 text-sm font-medium text-rose-700 shadow-sm backdrop-blur">
+                    <div class="flex items-center gap-2">
+                        <i class="bi bi-exclamation-triangle-fill"></i>
+                        {{ session('error') }}
                     </div>
                 </div>
             @endif
@@ -183,17 +195,36 @@
                                 <div
                                     class="btn-smooth rounded-xl border border-white/60 bg-white/40 p-3 backdrop-blur-sm hover:-translate-y-0.5 hover:bg-white/70 hover:shadow-sm focus-within:border-indigo-200 focus-within:bg-white/80">
                                     <label for="role_id" class="{{ $labelClass }}">User role</label>
-                                    <select id="role_id" name="role_id" required class="{{ $fieldClass }}">
-                                        @foreach ($roles as $role)
-                                            <option value="{{ $role->id }}"
-                                                @selected(old('role_id', $user->role_id) == $role->id)>
-                                                {{ $role->name_en }}
-                                            </option>
-                                        @endforeach
-                                    </select>
-                                    <p class="mt-1.5 text-[11px] font-medium text-slate-500">
-                                        Changing the role can immediately affect access permissions.
-                                    </p>
+                                    @if ($roleChangeLocked)
+                                        <input type="hidden" name="role_id" value="{{ $user->role_id }}">
+                                        <select id="role_id" disabled class="{{ $fieldClass }} opacity-70">
+                                            @foreach ($roles as $role)
+                                                <option value="{{ $role->id }}"
+                                                    @selected(old('role_id', $user->role_id) == $role->id)>
+                                                    {{ $role->name_en }}
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                        <p class="mt-1.5 text-[11px] font-medium text-amber-700">
+                                            @if ($isSelf)
+                                                You cannot change your own admin role.
+                                            @else
+                                                Role is locked because this is the last active admin account.
+                                            @endif
+                                        </p>
+                                    @else
+                                        <select id="role_id" name="role_id" required class="{{ $fieldClass }}">
+                                            @foreach ($roles as $role)
+                                                <option value="{{ $role->id }}"
+                                                    @selected(old('role_id', $user->role_id) == $role->id)>
+                                                    {{ $role->name_en }}
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                        <p class="mt-1.5 text-[11px] font-medium text-slate-500">
+                                            Changing the role can immediately affect access permissions.
+                                        </p>
+                                    @endif
                                 </div>
                             </div>
                         </div>

@@ -6,9 +6,11 @@ use App\Http\Controllers\Admin\Concerns\FiltersUsers;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\UserRole;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Redirect;
 use Illuminate\Validation\Rule;
+use Illuminate\View\View;
 
 class UserController extends Controller
 {
@@ -17,7 +19,7 @@ class UserController extends Controller
     /**
      * Display a listing of all users.
      */
-    public function index(Request $request)
+    public function index(Request $request): View
     {
         $query = $this->filteredUsersQuery($request);
 
@@ -38,7 +40,7 @@ class UserController extends Controller
     /**
      * Show the form for editing the specified user.
      */
-    public function edit($id)
+    public function edit($id): View
     {
         $user = User::with('userRole')->findOrFail($id);
 
@@ -49,15 +51,17 @@ class UserController extends Controller
             $roles->push($user->userRole);
         }
 
-        return view('admin.users.user-edit', compact('user', 'roles'));
+        $roleChangeLocked = $user->adminProtectionError('demote') !== null;
+
+        return view('admin.users.user-edit', compact('user', 'roles', 'roleChangeLocked'));
     }
 
     /**
      * Update the specified user in storage.
      */
-    public function update(Request $request, $id)
+    public function update(Request $request, $id): RedirectResponse
     {
-        $user = User::findOrFail($id);
+        $user = User::with('userRole')->findOrFail($id);
 
         $validated = $request->validate([
             'first_name' => ['required', 'string', 'max:255'],
@@ -82,6 +86,17 @@ class UserController extends Controller
                 }),
             ],
         ]);
+
+        $newRole = UserRole::query()->find((int) $validated['role_id']);
+        $isDemotingAdmin = $user->isAdmin()
+            && $newRole
+            && $newRole->name_en !== UserRole::ADMIN;
+
+        if ($isDemotingAdmin) {
+            if ($response = $this->denyProtectedAdminAction($user, 'demote')) {
+                return $response;
+            }
+        }
 
         $user->fill($validated);
 
@@ -108,7 +123,7 @@ class UserController extends Controller
     /**
      * Resend the email verification notification.
      */
-    public function resendVerification(Request $request, $id)
+    public function resendVerification(Request $request, $id): RedirectResponse
     {
         $user = User::findOrFail($id);
 
@@ -126,7 +141,7 @@ class UserController extends Controller
     /**
      * Mark the user's email as verified (admin override).
      */
-    public function markVerified(Request $request, $id)
+    public function markVerified(Request $request, $id): RedirectResponse
     {
         $user = User::findOrFail($id);
 
@@ -144,9 +159,13 @@ class UserController extends Controller
     /**
      * Toggle user lock status (lock/unlock).
      */
-    public function toggleLock(Request $request, $id)
+    public function toggleLock(Request $request, $id): RedirectResponse
     {
-        $user = User::findOrFail($id);
+        $user = User::with('userRole')->findOrFail($id);
+
+        if ($response = $this->denyProtectedAdminAction($user, 'lock')) {
+            return $response;
+        }
 
         $user->update([
             'is_locked' => ! $user->is_locked,
@@ -162,9 +181,13 @@ class UserController extends Controller
     /**
      * Toggle user active status (activate/inactivate).
      */
-    public function toggleActive(Request $request, $id)
+    public function toggleActive(Request $request, $id): RedirectResponse
     {
-        $user = User::findOrFail($id);
+        $user = User::with('userRole')->findOrFail($id);
+
+        if ($response = $this->denyProtectedAdminAction($user, 'deactivate')) {
+            return $response;
+        }
 
         $user->update([
             'is_active' => ! $user->is_active,
@@ -178,12 +201,34 @@ class UserController extends Controller
     /**
      * Remove the specified user from storage.
      */
-    public function destroy(Request $request, $id)
+    public function destroy(Request $request, $id): RedirectResponse
     {
-        $user = User::findOrFail($id);
+        $user = User::with('userRole')->findOrFail($id);
+
+        if ($response = $this->denyProtectedAdminAction($user, 'delete')) {
+            return $response;
+        }
 
         $user->delete();
 
         return Redirect::route('admin.users')->with('success', "User {$user->first_name} {$user->last_name} has been deleted.");
+    }
+
+    /**
+     * @param  'lock'|'deactivate'|'delete'|'demote'  $action
+     */
+    private function denyProtectedAdminAction(User $user, string $action): ?RedirectResponse
+    {
+        $message = $user->adminProtectionError($action);
+
+        if ($message === null) {
+            return null;
+        }
+
+        $fallback = $action === 'demote'
+            ? route('admin.user.edit', $user->id)
+            : route('admin.users');
+
+        return Redirect::back(fallback: $fallback)->with('error', $message);
     }
 }

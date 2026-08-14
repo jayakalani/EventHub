@@ -1,5 +1,5 @@
 {{-- Today: onboarding, live ops, needs attention --}}
-<div class="space-y-5">
+<div class="space-y-3">
             {{-- Onboarding checklist --}}
             @if ($onboarding['show'] ?? false)
                 <section class="glass-panel overflow-hidden !rounded-2xl border-indigo-200/60">
@@ -274,7 +274,7 @@
             @endif
 
             @if (! ($onboarding['show'] ?? false) && ! ($dayOfOps['active'] ?? false) && ($needsAttention['count'] ?? 0) === 0)
-                <section class="glass-panel !rounded-2xl px-5 py-4 sm:px-6">
+                <section class="glass-panel !rounded-2xl px-4 py-3 sm:px-5">
                     <div class="flex items-start gap-3">
                         <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-100 text-indigo-600">
                             <i class="bi bi-calendar-check"></i>

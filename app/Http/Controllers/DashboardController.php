@@ -17,6 +17,7 @@ use App\Services\EventNotificationService;
 use App\Services\Exports\AdminDashboardExportBuilder;
 use App\Services\Exports\CroDashboardExportBuilder;
 use App\Services\Exports\OrganizerDashboardExportBuilder;
+use App\Services\Exports\OrganizerReportExportBuilder;
 use App\Services\OrganizerDashboardService;
 use App\Services\OrganizerReportService;
 use App\Services\ReportExportService;
@@ -37,6 +38,7 @@ class DashboardController extends Controller
         protected ReportExportService $exportService,
         protected AdminDashboardExportBuilder $adminDashboardExportBuilder,
         protected OrganizerDashboardExportBuilder $organizerDashboardExportBuilder,
+        protected OrganizerReportExportBuilder $organizerReportExportBuilder,
         protected CroDashboardExportBuilder $croDashboardExportBuilder,
     ) {}
 
@@ -48,8 +50,15 @@ class DashboardController extends Controller
         $user = Auth::user();
         $roleName = $user->userRole?->name_en;
 
-        if ($roleName === UserRole::ATTENDEE) {
-            $redirect = redirect()->route('attendee.dashboard');
+        $roleDashboard = match ($roleName) {
+            UserRole::ATTENDEE => 'attendee.dashboard',
+            UserRole::ORGANIZER => 'organizer.dashboard',
+            UserRole::CRO => 'cro.dashboard',
+            default => null,
+        };
+
+        if ($roleDashboard) {
+            $redirect = redirect()->route($roleDashboard, request()->query());
 
             if (session('welcome_back')) {
                 $redirect->with('welcome_back', true);
@@ -60,8 +69,6 @@ class DashboardController extends Controller
 
         return match ($roleName) {
             UserRole::ADMIN => $this->admin(request()),
-            UserRole::ORGANIZER => $this->organizer(request()),
-            UserRole::CRO => $this->cro(request()),
             default => redirect()->route('login')->with('error', 'Invalid role'),
         };
     }
@@ -80,11 +87,16 @@ class DashboardController extends Controller
             $filters['cro'],
             $filters['event'],
         );
-        $supportReport = app(SupportReportController::class)->buildReportData(
-            $filters['cro'],
-            $filters['organizer'],
-            $filters['event'],
-        );
+
+        // Heavy Support tab payload is deferred until first open.
+        $loadSupport = $this->wantsAdminSupport($request);
+        $supportReport = $loadSupport
+            ? app(SupportReportController::class)->buildReportData(
+                $filters['cro'],
+                $filters['organizer'],
+                $filters['event'],
+            )
+            : null;
 
         // Heavy Insights payload is deferred until requested (query or analytics section).
         $loadInsights = $this->wantsAdminInsights($request);
@@ -95,7 +107,13 @@ class DashboardController extends Controller
             )
             : null;
 
-        return view('admin.dashboard', compact('dashboard', 'reports', 'supportReport', 'loadInsights'));
+        return view('admin.dashboard', compact(
+            'dashboard',
+            'reports',
+            'supportReport',
+            'loadInsights',
+            'loadSupport',
+        ));
     }
 
     /**
@@ -151,11 +169,8 @@ class DashboardController extends Controller
             $tab = 'revenue';
         }
 
-        $reports = array_merge(
-            $this->organizerReportService->getReportShell($organizerId, $reportFilters),
-            $this->organizerReportService->getTabReports($organizerId, $reportFilters, $tab),
-        );
-        $loadedTabs = [$tab];
+        $reports = $this->organizerReportService->getAllReports($organizerId, $reportFilters);
+        $loadedTabs = $this->organizerReportService->reportTabs();
 
         return view('organizer.dashboard', compact('dashboard', 'reports', 'loadedTabs', 'tab'));
     }
@@ -171,15 +186,61 @@ class DashboardController extends Controller
     }
 
     /**
-     * Export the organizer dashboard as PDF (respects current event filters).
+     * Export the organizer dashboard as PDF (all tabs, current filters, live charts).
      */
     public function exportOrganizerPdf(Request $request)
     {
         abort_unless(Auth::user()?->userRole?->name_en === UserRole::ORGANIZER, 403);
 
         $filters = $this->validatedOrganizerDashboardFilters($request);
+        $reportFilters = $this->validatedOrganizerReportFilters($request);
+
+        if (empty($reportFilters['event_id']) && ! empty($filters['focus_event'])) {
+            $reportFilters['event_id'] = $filters['focus_event'];
+        }
+
         $payload = $this->organizerDashboardExportBuilder->build((int) Auth::id(), $filters);
+        $insights = $this->organizerReportExportBuilder->build((int) Auth::id(), 'full', $reportFilters);
+
+        $performanceTables = collect($payload['tables'] ?? [])
+            ->map(function (array $table) {
+                $heading = (string) ($table['heading'] ?? 'Data');
+                $table['heading'] = preg_replace('/^Performance — /', '', $heading) ?: $heading;
+
+                return $table;
+            })
+            ->all();
+
+        $insightSections = collect($insights['sections'] ?? [])
+            ->reject(fn (array $section) => ($section['key'] ?? '') === 'overview')
+            ->values()
+            ->all();
+
+        $payload['title'] = 'Organizer Dashboard';
+        $payload['subtitle'] = 'Performance, Revenue, Tickets, Events, Attendance, Audience, Engagement, and Activity';
+        $payload['filters'] = $insights['filters'] ?? ($payload['filters'] ?? []);
         $payload['charts'] = $this->validatedDashboardChartImages($request);
+        $payload['sections'] = [
+            [
+                'key' => 'performance',
+                'title' => 'Performance',
+                'summary' => [],
+                'tables' => $performanceTables,
+            ],
+            ...$insightSections,
+        ];
+        $payload['tables'] = collect($payload['sections'])
+            ->flatMap(function (array $section) {
+                $sectionTitle = $section['title'] ?? 'Section';
+
+                return collect($section['tables'] ?? [])->map(fn (array $table) => [
+                    'heading' => $sectionTitle.' — '.($table['heading'] ?? 'Data'),
+                    'headers' => $table['headers'] ?? [],
+                    'rows' => $table['rows'] ?? [],
+                ]);
+            })
+            ->values()
+            ->all();
 
         return $this->exportService->downloadPdf(
             $payload,
@@ -375,9 +436,10 @@ class DashboardController extends Controller
     private function validatedDashboardChartImages(Request $request): array
     {
         $validated = $request->validate([
-            'charts' => ['nullable', 'array', 'max:12'],
+            'charts' => ['nullable', 'array', 'max:40'],
             'charts.*.title' => ['required', 'string', 'max:120'],
             'charts.*.image' => ['required', 'string', 'max:5000000'],
+            'charts.*.section' => ['nullable', 'string', 'max:40'],
         ]);
 
         return collect($validated['charts'] ?? [])
@@ -390,6 +452,7 @@ class DashboardController extends Controller
             ->map(fn (array $chart) => [
                 'title' => (string) $chart['title'],
                 'image' => (string) $chart['image'],
+                'section' => (string) ($chart['section'] ?? ''),
             ])
             ->values()
             ->all();
@@ -443,6 +506,17 @@ class DashboardController extends Controller
             'reports',
             'admin',
         ], true);
+    }
+
+    private function wantsAdminSupport(Request $request): bool
+    {
+        if ($request->boolean('support')) {
+            return true;
+        }
+
+        $section = (string) $request->input('section', '');
+
+        return in_array($section, ['support', 'support-reports'], true);
     }
 
     /**

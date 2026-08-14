@@ -45,7 +45,7 @@ class SupportReport implements ReportGenerator
 
         if ($ticketType !== 'inquiry') {
             $complaintQuery = Complaint::query()
-                ->with(['user:id,first_name,last_name,email', 'assignee:id,first_name,last_name,email'])
+                ->with(['user:id,first_name,last_name,email', 'event:id,name,created_by', 'assignee:id,first_name,last_name,email'])
                 ->latest();
             $this->applyCommonFilters($complaintQuery, $filters);
             $rowsSource = $rowsSource->merge(
@@ -54,7 +54,7 @@ class SupportReport implements ReportGenerator
                     'id' => $complaint->id,
                     'subject' => $complaint->subject,
                     'user' => $this->userDisplayName($complaint->user),
-                    'context' => 'General',
+                    'context' => $complaint->event?->name ?? 'General',
                     'status' => $complaint->status instanceof SupportTicketStatusEnum
                         ? $complaint->status->label()
                         : (string) $complaint->status,
@@ -116,6 +116,14 @@ class SupportReport implements ReportGenerator
 
         if (! empty($filters['cro_id'])) {
             $query->where('assigned_to', (int) $filters['cro_id']);
+        }
+
+        if (! empty($filters['event_id'])) {
+            $query->where('event_id', (int) $filters['event_id']);
+        }
+
+        if (! empty($filters['organizer_id'])) {
+            $query->whereHas('event', fn (Builder $event) => $event->where('created_by', (int) $filters['organizer_id']));
         }
 
         if (! empty($filters['date_from'])) {

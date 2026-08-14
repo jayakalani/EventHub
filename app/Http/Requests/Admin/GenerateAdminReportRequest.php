@@ -32,6 +32,8 @@ class GenerateAdminReportRequest extends FormRequest
             'filters.status' => ['nullable', 'string', 'max:50'],
             'filters.state' => ['nullable', 'string', Rule::in(['active', 'inactive', 'locked'])],
             'filters.ticket_type' => ['nullable', 'string', Rule::in(['inquiry', 'complaint'])],
+            'filters.check_in' => ['nullable', 'string', Rule::in(['checked_in', 'not_checked_in'])],
+            'filters.active' => ['nullable', 'string', Rule::in(['0', '1'])],
             'filters.section' => ['nullable', 'string', Rule::in(['admin', 'users', 'payments'])],
             'filters.role_id' => ['nullable', 'integer', 'exists:user_roles,id'],
             'filters.organizer_id' => ['nullable', 'integer', 'exists:users,id'],

@@ -79,7 +79,7 @@ function prepareCanvas(canvasId) {
     return canvas;
 }
 
-function createLineChart(canvasId, labels, datasets) {
+function createLineChart(canvasId, labels, datasets, options = {}) {
     const canvas = prepareCanvas(canvasId);
     if (!canvas) return null;
 
@@ -99,16 +99,23 @@ function createLineChart(canvasId, labels, datasets) {
             interaction: { mode: 'index', intersect: false },
             plugins: {
                 legend: {
+                    display: options.showLegend !== false,
                     position: 'bottom',
                     labels: { font: defaultFont, padding: 16, usePointStyle: true },
                 },
             },
             scales: {
-                x: { grid: { display: false }, ticks: { font: defaultFont } },
+                x: {
+                    grid: { display: false },
+                    ticks: { font: defaultFont, maxTicksLimit: options.maxTicksLimit },
+                },
                 y: {
                     beginAtZero: true,
                     grid: { color: 'rgba(148, 163, 184, 0.2)' },
                     ticks: { font: defaultFont },
+                    title: options.yLabel
+                        ? { display: true, text: options.yLabel, font: defaultFont }
+                        : undefined,
                 },
             },
         },
@@ -149,20 +156,28 @@ function createBarChart(canvasId, labels, data, options = {}) {
                     beginAtZero: true,
                     stacked: Boolean(options.stacked),
                     grid: options.horizontal ? { color: 'rgba(148, 163, 184, 0.2)' } : { display: false },
-                    ticks: { font: defaultFont },
+                    ticks: {
+                        font: defaultFont,
+                        maxTicksLimit: options.maxTicksLimit,
+                    },
+                    ...(options.horizontal && options.max != null ? { max: options.max } : {}),
                 },
                 y: {
                     beginAtZero: true,
                     stacked: Boolean(options.stacked),
                     grid: options.horizontal ? { display: false } : { color: 'rgba(148, 163, 184, 0.2)' },
                     ticks: { font: defaultFont },
+                    title: options.yLabel
+                        ? { display: true, text: options.yLabel, font: defaultFont }
+                        : undefined,
+                    ...(!options.horizontal && options.max != null ? { max: options.max } : {}),
                 },
             },
         },
     });
 }
 
-function createGroupedBarChart(canvasId, labels, datasets) {
+function createGroupedBarChart(canvasId, labels, datasets, options = {}) {
     const canvas = prepareCanvas(canvasId);
     if (!canvas) return null;
 
@@ -172,6 +187,18 @@ function createGroupedBarChart(canvasId, labels, datasets) {
     if (!labels?.length || !hasData) {
         return showChartEmptyState(canvas);
     }
+
+    const horizontal = Boolean(options.horizontal);
+    const valueScale = {
+        beginAtZero: true,
+        grid: { color: 'rgba(148, 163, 184, 0.2)' },
+        ticks: { font: defaultFont },
+        ...(options.max != null ? { max: options.max } : {}),
+    };
+    const categoryScale = {
+        grid: { display: false },
+        ticks: { font: defaultFont },
+    };
 
     return new Chart(canvas, {
         type: 'bar',
@@ -186,6 +213,7 @@ function createGroupedBarChart(canvasId, labels, datasets) {
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            indexAxis: horizontal ? 'y' : 'x',
             plugins: {
                 legend: {
                     position: 'bottom',
@@ -193,19 +221,40 @@ function createGroupedBarChart(canvasId, labels, datasets) {
                 },
             },
             scales: {
-                x: {
-                    grid: { display: false },
-                    ticks: { font: defaultFont },
-                },
-                y: {
-                    beginAtZero: true,
-                    max: 100,
-                    grid: { color: 'rgba(148, 163, 184, 0.2)' },
-                    ticks: { font: defaultFont },
-                },
+                x: horizontal ? valueScale : categoryScale,
+                y: horizontal ? categoryScale : valueScale,
             },
         },
     });
+}
+
+function shortEventLabel(name, max = 24) {
+    const text = String(name || 'Event');
+    return text.length > max ? `${text.slice(0, max - 1)}…` : text;
+}
+
+function renderEngagementVsSalesChart(targetId, rows) {
+    const ranked = [...(rows ?? [])]
+        .sort((a, b) => Number(b.tickets_sold || 0) - Number(a.tickets_sold || 0))
+        .slice(0, 8);
+
+    return createGroupedBarChart(
+        targetId,
+        ranked.map((item) => shortEventLabel(item.name)),
+        [
+            {
+                label: 'Tickets sold',
+                data: ranked.map((item) => Number(item.tickets_sold || 0)),
+                backgroundColor: 'rgba(37, 99, 235, 0.8)',
+            },
+            {
+                label: 'Engagement',
+                data: ranked.map((item) => Number(item.engagement || 0)),
+                backgroundColor: 'rgba(244, 63, 94, 0.75)',
+            },
+        ],
+        { horizontal: true },
+    );
 }
 
 function createMixedBarLineChart(canvasId, labels, barSeries, lineSeries, options = {}) {
@@ -665,6 +714,7 @@ function buildChartSpecs(data) {
                             backgroundColor: 'rgba(245, 158, 11, 0.85)',
                         },
                     ],
+                    { max: 100 },
                 );
             },
         },
@@ -741,24 +791,39 @@ function buildChartSpecs(data) {
             canvasId: 'salesVelocityChart',
             render: (targetId) => {
                 const velocity = data.salesVelocity ?? {};
-                return createMixedBarLineChart(
+                return createBarChart(
                     targetId,
                     velocity.labels ?? [],
+                    velocity.tickets ?? [],
                     {
                         label: 'Tickets sold',
-                        data: velocity.tickets ?? [],
-                        backgroundColor: 'rgba(37, 99, 235, 0.75)',
+                        color: 'rgba(37, 99, 235, 0.75)',
+                        yLabel: 'Tickets / day',
+                        maxTicksLimit: 16,
                     },
-                    {
-                        label: 'Cumulative',
+                );
+            },
+        },
+        salesVelocityCumulative: {
+            canvasId: 'salesVelocityCumulativeChart',
+            render: (targetId) => {
+                const velocity = data.salesVelocity ?? {};
+                return createLineChart(
+                    targetId,
+                    velocity.labels ?? [],
+                    [{
+                        label: 'Cumulative tickets',
                         data: velocity.cumulative ?? [],
                         borderColor: palette.emerald,
-                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        backgroundColor: 'rgba(16, 185, 129, 0.12)',
                         fill: true,
-                    },
+                        tension: 0.25,
+                        pointRadius: 2,
+                        pointHoverRadius: 5,
+                    }],
                     {
-                        yLabel: 'Tickets / day',
-                        y1Label: 'Cumulative tickets',
+                        showLegend: false,
+                        yLabel: 'Cumulative tickets',
                         maxTicksLimit: 16,
                     },
                 );
@@ -889,32 +954,10 @@ function buildChartSpecs(data) {
         },
         engagementVsSales: {
             canvasId: 'engagementVsSalesChart',
-            render: (targetId) => {
-                const rows = data.engagement.engagementVsSales ?? [];
-                return createScatterChart(
-                    targetId,
-                    rows.map((item) => ({
-                        x: Number(item.engagement || 0),
-                        y: Number(item.tickets_sold || 0),
-                        name: item.name,
-                        likes: item.likes,
-                        comments: item.comments,
-                        saves: item.saves,
-                    })),
-                    {
-                        xLabel: 'Engagement score (likes + saves + comments + ratings)',
-                        yLabel: 'Tickets sold',
-                        pointColor: 'rgba(244, 63, 94, 0.75)',
-                        pointBorder: 'rgba(244, 63, 94, 1)',
-                        formatTooltip: (point) => {
-                            const name = point.name ?? 'Event';
-                            const engagement = Number(point.x ?? 0).toLocaleString();
-                            const tickets = Number(point.y ?? 0).toLocaleString();
-                            return `${name}: ${engagement} engagement · ${tickets} tickets`;
-                        },
-                    },
-                );
-            },
+            render: (targetId) => renderEngagementVsSalesChart(
+                targetId,
+                data.engagement.engagementVsSales ?? [],
+            ),
         },
         ratingTrend: {
             canvasId: 'ratingTrendChart',
@@ -969,32 +1012,10 @@ function buildChartSpecs(data) {
         },
         audienceEngagementVsSales: {
             canvasId: 'audienceEngagementVsSalesChart',
-            render: (targetId) => {
-                const rows = data.engagement.engagementVsSales ?? [];
-                return createScatterChart(
-                    targetId,
-                    rows.map((item) => ({
-                        x: Number(item.engagement || 0),
-                        y: Number(item.tickets_sold || 0),
-                        name: item.name,
-                        likes: item.likes,
-                        comments: item.comments,
-                        saves: item.saves,
-                    })),
-                    {
-                        xLabel: 'Engagement score (likes + saves + comments + ratings)',
-                        yLabel: 'Tickets sold',
-                        pointColor: 'rgba(79, 70, 229, 0.75)',
-                        pointBorder: 'rgba(79, 70, 229, 1)',
-                        formatTooltip: (point) => {
-                            const name = point.name ?? 'Event';
-                            const engagement = Number(point.x ?? 0).toLocaleString();
-                            const tickets = Number(point.y ?? 0).toLocaleString();
-                            return `${name}: ${engagement} engagement · ${tickets} tickets`;
-                        },
-                    },
-                );
-            },
+            render: (targetId) => renderEngagementVsSalesChart(
+                targetId,
+                data.engagement.engagementVsSales ?? [],
+            ),
         },
         revenueByEvent: {
             canvasId: 'overviewRevenueByEventChart',
@@ -1083,27 +1104,23 @@ function buildChartSpecs(data) {
         },
         revenueFillScatter: {
             canvasId: 'revenueFillScatterChart',
-            render: (targetId) => createScatterChart(
-                targetId,
-                eventPerformance.map((item) => ({
-                    x: Number(item.fill_rate || 0),
-                    y: Number(item.revenue || 0),
-                    name: item.name,
-                    tickets: item.tickets_sold,
-                })),
-                {
-                    xMax: 100,
-                    xLabel: 'Fill rate (%)',
-                    yLabel: 'Revenue (LKR)',
-                    formatTooltip: (point) => {
-                        const name = point.name ?? 'Event';
-                        const fill = Number(point.x ?? 0).toLocaleString();
-                        const revenue = Number(point.y ?? 0).toLocaleString();
-                        const tickets = Number(point.tickets ?? 0).toLocaleString();
-                        return `${name}: LKR ${revenue} · ${fill}% fill · ${tickets} tickets`;
+            render: (targetId) => {
+                const ranked = [...eventPerformance]
+                    .sort((a, b) => Number(b.fill_rate || 0) - Number(a.fill_rate || 0))
+                    .slice(0, 8);
+
+                return createBarChart(
+                    targetId,
+                    ranked.map((item) => shortEventLabel(item.name)),
+                    ranked.map((item) => Number(item.fill_rate || 0)),
+                    {
+                        label: 'Fill rate %',
+                        horizontal: true,
+                        color: 'rgba(79, 70, 229, 0.85)',
+                        max: 100,
                     },
-                },
-            ),
+                );
+            },
         },
         ticketSalesByEvent: {
             canvasId: 'overviewTicketSalesByEventChart',

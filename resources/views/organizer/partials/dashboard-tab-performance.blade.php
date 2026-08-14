@@ -1,5 +1,5 @@
 {{-- Performance: KPIs, goal, event tables, operations --}}
-<div class="space-y-5">
+<div class="space-y-3">
             {{-- 2. KPI snapshot --}}
             <section class="space-y-3">
                 <div class="min-w-0">
@@ -60,7 +60,7 @@
                             $trendArrow = $trendPositive ? '▲' : '▼';
                         @endphp
 
-                        <div class="glass-card kpi-lift group border-t-4 {{ $accent['top'] }} p-4 sm:p-5">
+                        <div class="glass-card kpi-lift group border-t-4 {{ $accent['top'] }} p-3 sm:p-4">
                             <div class="flex items-start justify-between gap-2">
                                 <div class="min-w-0">
                                     <p class="text-xs font-medium text-slate-500">
@@ -90,6 +90,75 @@
                             </p>
                         </div>
                     @endforeach
+                </div>
+            </section>
+
+            {{-- Analytics trends --}}
+            @php
+                $chartPeriods = $dashboard['charts']['periods'] ?? [];
+                $defaultChartPeriod = $dashboard['charts']['defaultPeriod'] ?? 'month';
+            @endphp
+            <section class="space-y-3" x-data="{ chartPeriod: @js($defaultChartPeriod) }">
+                <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                    <div>
+                        <h2 class="text-sm font-semibold text-slate-900">Sales analytics</h2>
+                        <p class="text-xs text-slate-500">
+                            Revenue and ticket trend for
+                            <span data-chart-period-label>{{ $chartPeriods[$defaultChartPeriod]['label'] ?? 'This Month' }}</span>
+                        </p>
+                    </div>
+                    <div class="inline-flex rounded-xl border border-white/70 bg-white/60 p-1 shadow-sm">
+                        @foreach (['week' => '7 days', 'month' => '30 days'] as $periodKey => $periodLabel)
+                            <button type="button"
+                                class="rounded-lg px-3 py-1.5 text-xs font-semibold transition"
+                                :class="chartPeriod === '{{ $periodKey }}'
+                                    ? 'bg-indigo-600 text-white shadow-sm'
+                                    : 'text-slate-600 hover:bg-white/80'"
+                                @click="chartPeriod = '{{ $periodKey }}'; window.dispatchEvent(new CustomEvent('organizer-chart-period', { detail: { period: '{{ $periodKey }}' } }))">
+                                {{ $periodLabel }}
+                            </button>
+                        @endforeach
+                    </div>
+                </div>
+
+                <div class="grid gap-3 lg:grid-cols-2">
+                    <div class="glass-card p-3 sm:p-4">
+                        <div class="flex items-start justify-between gap-3">
+                            <div>
+                                <p class="text-xs font-medium text-slate-500">Revenue</p>
+                                <p class="mt-0.5 text-lg font-bold tracking-tight text-slate-900" data-chart-total="revenue">
+                                    {{ $chartPeriods[$defaultChartPeriod]['revenue']['totalFormatted'] ?? '0' }}
+                                </p>
+                            </div>
+                            <span data-chart-change="revenue"
+                                class="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-bold {{ ($chartPeriods[$defaultChartPeriod]['revenue']['up'] ?? true) ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600' }}">
+                                {{ ($chartPeriods[$defaultChartPeriod]['revenue']['up'] ?? true) ? '▲' : '▼' }}
+                                {{ abs((float) ($chartPeriods[$defaultChartPeriod]['revenue']['changePercent'] ?? 0)) }}%
+                            </span>
+                        </div>
+                        <div class="mt-4 h-56">
+                            <canvas id="organizerRevenueChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="glass-card p-3 sm:p-4">
+                        <div class="flex items-start justify-between gap-3">
+                            <div>
+                                <p class="text-xs font-medium text-slate-500">Tickets sold</p>
+                                <p class="mt-0.5 text-lg font-bold tracking-tight text-slate-900" data-chart-total="tickets">
+                                    {{ $chartPeriods[$defaultChartPeriod]['tickets']['totalFormatted'] ?? '0' }}
+                                </p>
+                            </div>
+                            <span data-chart-change="tickets"
+                                class="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-bold {{ ($chartPeriods[$defaultChartPeriod]['tickets']['up'] ?? true) ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600' }}">
+                                {{ ($chartPeriods[$defaultChartPeriod]['tickets']['up'] ?? true) ? '▲' : '▼' }}
+                                {{ abs((float) ($chartPeriods[$defaultChartPeriod]['tickets']['changePercent'] ?? 0)) }}%
+                            </span>
+                        </div>
+                        <div class="mt-4 h-56">
+                            <canvas id="organizerTicketSalesChart"></canvas>
+                        </div>
+                    </div>
                 </div>
             </section>
 
@@ -258,7 +327,7 @@
                 </div>
 
                 @if ($isPeriodGoal)
-                    <div class="p-4 sm:p-5">
+                    <div class="p-4">
                         @if (count($periodGoals) === 0)
                             <div class="flex flex-col items-center justify-center rounded-2xl border border-dashed border-emerald-200/80 bg-gradient-to-b from-emerald-50/40 to-white/30 px-4 py-10 text-center">
                                 <span class="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200/70">
@@ -389,8 +458,8 @@
                         @endif
                     </div>
                 @else
-                    <div class="p-4 sm:p-5">
-                        <div class="grid gap-5 lg:grid-cols-[auto_minmax(0,1fr)] lg:items-center">
+                    <div class="p-4">
+                        <div class="grid gap-3 lg:grid-cols-[auto_minmax(0,1fr)] lg:items-center">
                             <div class="flex justify-center lg:justify-start">
                                 <div class="relative h-32 w-32 sm:h-36 sm:w-36">
                                     <svg class="h-full w-full -rotate-90" viewBox="0 0 100 100" aria-hidden="true">
@@ -463,10 +532,10 @@
             </section>
 
             {{-- 4. Performance + status --}}
-            <section class="grid gap-5 xl:grid-cols-12">
+            <section class="grid gap-3 xl:grid-cols-12">
                 <div class="glass-panel overflow-hidden xl:col-span-8"
                     x-data="{ showCompleted: false }">
-                    <div class="flex flex-col gap-3 border-b border-white/50 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+                    <div class="flex flex-col gap-2 border-b border-white/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-4">
                         <div>
                             <h2 class="text-lg font-bold text-slate-900">Event Performance</h2>
                             <p class="text-sm text-slate-500">Live and upcoming events first</p>
@@ -482,12 +551,12 @@
                         <table class="min-w-full divide-y divide-slate-100 text-left text-sm">
                             <thead class="bg-white/40 text-xs font-semibold uppercase tracking-wide text-slate-500 backdrop-blur-sm">
                                 <tr>
-                                    <th class="px-5 py-3 sm:px-6">Event</th>
+                                    <th class="px-4 py-2.5 sm:px-4">Event</th>
                                     <th class="px-3 py-3">Status</th>
                                     <th class="px-3 py-3">Sold</th>
                                     <th class="px-3 py-3">Remaining Tickets</th>
                                     <th class="px-3 py-3">Fill</th>
-                                    <th class="bg-rose-50/70 px-5 py-3 text-right font-semibold text-rose-700 sm:px-6">Revenue</th>
+                                    <th class="bg-rose-50/70 px-4 py-2.5 text-right font-semibold text-rose-700">Revenue</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-100">
@@ -521,7 +590,7 @@
                         <div class="border-t border-white/50">
                             <button type="button"
                                 @click="showCompleted = !showCompleted"
-                                class="btn-smooth flex w-full items-center justify-between gap-3 px-5 py-3 text-left text-sm font-semibold text-slate-600 hover:bg-white/40 sm:px-6">
+                                class="btn-smooth flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left text-sm font-semibold text-slate-600 hover:bg-white/40 sm:px-4">
                                 <span>
                                     Completed & cancelled
                                     <span class="ml-1 font-medium text-slate-400">({{ count($performanceCompleted) }})</span>
@@ -545,12 +614,12 @@
                     @endif
                 </div>
 
-                <aside class="space-y-5 xl:col-span-4">
-                    <div class="glass-panel p-5 sm:p-6">
+                <aside class="space-y-3 xl:col-span-4">
+                    <div class="glass-panel p-4">
                         <h2 class="text-lg font-bold text-slate-900">Event Status</h2>
                         <p class="mt-0.5 text-sm text-slate-500">How your catalog is distributed</p>
 
-                        <div class="mt-5 space-y-2.5">
+                        <div class="mt-3 space-y-2.5">
                             @foreach($statusSummary as $status)
                                 @php
                                     $pct = round(($status['count'] / $totalEvents) * 100);
@@ -602,9 +671,9 @@
             </section>
 
             {{-- 5. Operations --}}
-            <section class="grid gap-5 lg:grid-cols-3">
+            <section class="grid gap-3 lg:grid-cols-3">
                 <div class="glass-panel overflow-hidden">
-                    <div class="flex items-center justify-between border-b border-white/50 px-5 py-4">
+                    <div class="flex items-center justify-between border-b border-white/50 px-4 py-3">
                         <div>
                             <h2 class="text-base font-bold text-slate-900">Upcoming</h2>
                             <p class="text-xs text-slate-500">
@@ -620,7 +689,7 @@
                     </div>
 
                     @if ($nextUpcomingEvent)
-                        <div class="border-b border-indigo-100/70 bg-gradient-to-r from-indigo-50/70 to-cyan-50/40 px-5 py-4">
+                        <div class="border-b border-indigo-100/70 bg-gradient-to-r from-indigo-50/70 to-cyan-50/40 px-4 py-3">
                             <div class="flex items-start justify-between gap-3">
                                 <div class="min-w-0">
                                     <span class="inline-flex rounded-full bg-indigo-600/90 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
@@ -673,7 +742,7 @@
                                 ->values();
                         @endphp
                         @forelse($upcomingList as $event)
-                            <a href="{{ $event['url'] }}" class="btn-smooth flex gap-3 px-5 py-3.5 hover:bg-white/45">
+                            <a href="{{ $event['url'] }}" class="btn-smooth flex gap-3 px-4 py-3 hover:bg-white/45">
                                 <div @class([
                                     'flex h-11 w-11 shrink-0 flex-col items-center justify-center rounded-xl border backdrop-blur-sm',
                                     'border-orange-200/80 bg-orange-50/80 text-orange-700' => ($event['status'] ?? '') === 'postponed',
@@ -717,7 +786,7 @@
                 </div>
 
                 <div class="glass-panel overflow-hidden" data-live-sales>
-                    <div class="flex items-center justify-between border-b border-white/50 px-5 py-4">
+                    <div class="flex items-center justify-between border-b border-white/50 px-4 py-3">
                         <div>
                             <div class="flex items-center gap-2">
                                 <h2 class="text-base font-bold text-slate-900">Recent Sales</h2>
@@ -738,7 +807,7 @@
                     </div>
                     <div class="max-h-[28rem] divide-y divide-white/40 overflow-y-auto" data-live-sales-list>
                         @forelse($recentPurchases as $purchase)
-                            <a href="{{ $purchase['url'] }}" class="btn-smooth flex items-start gap-3 px-5 py-4 hover:bg-white/45">
+                            <a href="{{ $purchase['url'] }}" class="btn-smooth flex items-start gap-3 px-4 py-3 hover:bg-white/45">
                                 <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/60 bg-emerald-50/80 text-sm font-bold text-emerald-700 backdrop-blur-sm">
                                     <i class="bi bi-ticket-perforated"></i>
                                 </div>
@@ -774,7 +843,7 @@
                 </div>
 
                 <div class="glass-panel overflow-hidden">
-                    <div class="border-b border-white/50 px-5 py-4">
+                    <div class="border-b border-white/50 px-4 py-3">
                         <h2 class="text-base font-bold text-slate-900">Recent Activity</h2>
                         <p class="text-xs text-slate-500">Updates and bookings</p>
                         <div class="mt-2.5 flex flex-wrap gap-x-3 gap-y-1">

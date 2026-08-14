@@ -291,6 +291,16 @@
                 </div>
             @endif
 
+            @if (session('error'))
+                <div
+                    class="glass-panel !rounded-2xl border border-rose-200/70 bg-rose-50/70 px-4 py-3 text-sm font-medium text-rose-700 shadow-sm backdrop-blur">
+                    <div class="flex items-center gap-2">
+                        <i class="bi bi-exclamation-triangle-fill"></i>
+                        {{ session('error') }}
+                    </div>
+                </div>
+            @endif
+
             {{-- Directory table --}}
             <section class="glass-card overflow-hidden !p-0 !rounded-2xl">
                 <div class="flex flex-col gap-2 border-b border-white/60 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
@@ -336,6 +346,10 @@
                                         'attendee' => 'bg-slate-100 text-slate-700 ring-slate-200/70',
                                         default => 'bg-slate-100 text-slate-700 ring-slate-200/70',
                                     };
+                                    $isSelf = $user->isCurrentAuthUser();
+                                    $canToggleLock = $user->adminProtectionError('lock') === null;
+                                    $canToggleActive = $user->adminProtectionError('deactivate') === null;
+                                    $canDelete = $user->adminProtectionError('delete') === null;
                                 @endphp
 
                                 <tr class="btn-smooth align-middle hover:bg-white/45">
@@ -351,6 +365,9 @@
                                                         {{ $user->full_name }}
                                                     </p>
                                                     <span class="font-mono text-[11px] text-slate-400">#{{ $user->id }}</span>
+                                                    @if ($isSelf)
+                                                        <span class="inline-flex rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-700 ring-1 ring-indigo-100">You</span>
+                                                    @endif
                                                 </div>
                                                 <p class="mt-0.5 truncate text-xs text-slate-500">{{ $user->email }}</p>
                                                 <div class="mt-1">
@@ -388,31 +405,55 @@
 
                                     <td class="px-4 py-4 sm:px-6">
                                         <div class="flex flex-wrap gap-2">
-                                            <form action="{{ route('admin.user.toggleLock', $user->id) }}" method="POST">
-                                                @csrf
-                                                <button type="submit"
-                                                    onclick="return confirm('Are you sure you want to {{ $user->is_locked ? 'unlock' : 'lock' }} {{ $user->full_name }}?')"
-                                                    class="btn-smooth inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset transition hover:-translate-y-0.5 hover:shadow-sm
+                                            @if ($canToggleLock && ! $isSelf)
+                                                <form action="{{ route('admin.user.toggleLock', $user->id) }}" method="POST">
+                                                    @csrf
+                                                    <button type="submit"
+                                                        onclick="return confirm('Are you sure you want to {{ $user->is_locked ? 'unlock' : 'lock' }} {{ $user->full_name }}?')"
+                                                        class="btn-smooth inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset transition hover:-translate-y-0.5 hover:shadow-sm
+                                                        {{ $user->is_locked
+                                                            ? 'bg-amber-100 text-amber-700 ring-amber-200/70 hover:bg-amber-200/80'
+                                                            : 'bg-emerald-100 text-emerald-700 ring-emerald-200/70 hover:bg-emerald-200/80' }}">
+                                                        <i class="bi {{ $user->is_locked ? 'bi-lock-fill' : 'bi-unlock-fill' }}"></i>
+                                                        {{ $user->is_locked ? 'Locked' : 'Unlocked' }}
+                                                    </button>
+                                                </form>
+                                            @else
+                                                <span
+                                                    title="{{ $isSelf ? 'You cannot change your own lock status here' : 'Protected admin account' }}"
+                                                    class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset
                                                     {{ $user->is_locked
-                                                        ? 'bg-amber-100 text-amber-700 ring-amber-200/70 hover:bg-amber-200/80'
-                                                        : 'bg-emerald-100 text-emerald-700 ring-emerald-200/70 hover:bg-emerald-200/80' }}">
+                                                        ? 'bg-amber-50 text-amber-700 ring-amber-200/70'
+                                                        : 'bg-emerald-50 text-emerald-700 ring-emerald-200/70' }}">
                                                     <i class="bi {{ $user->is_locked ? 'bi-lock-fill' : 'bi-unlock-fill' }}"></i>
                                                     {{ $user->is_locked ? 'Locked' : 'Unlocked' }}
-                                                </button>
-                                            </form>
+                                                </span>
+                                            @endif
 
-                                            <form action="{{ route('admin.user.toggleActive', $user->id) }}" method="POST">
-                                                @csrf
-                                                <button type="submit"
-                                                    onclick="return confirm('Are you sure you want to set {{ $user->full_name }} as {{ $user->is_active ? 'inactive' : 'active' }}?')"
-                                                    class="btn-smooth inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset transition hover:-translate-y-0.5 hover:shadow-sm
+                                            @if ($canToggleActive && ! $isSelf)
+                                                <form action="{{ route('admin.user.toggleActive', $user->id) }}" method="POST">
+                                                    @csrf
+                                                    <button type="submit"
+                                                        onclick="return confirm('Are you sure you want to set {{ $user->full_name }} as {{ $user->is_active ? 'inactive' : 'active' }}?')"
+                                                        class="btn-smooth inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset transition hover:-translate-y-0.5 hover:shadow-sm
+                                                        {{ $user->is_active
+                                                            ? 'bg-emerald-100 text-emerald-700 ring-emerald-200/70 hover:bg-emerald-200/80'
+                                                            : 'bg-rose-100 text-rose-700 ring-rose-200/70 hover:bg-rose-200/80' }}">
+                                                        <i class="bi {{ $user->is_active ? 'bi-check-circle-fill' : 'bi-x-circle-fill' }}"></i>
+                                                        {{ $user->is_active ? 'Active' : 'Inactive' }}
+                                                    </button>
+                                                </form>
+                                            @else
+                                                <span
+                                                    title="{{ $isSelf ? 'You cannot change your own account status here' : 'Protected admin account' }}"
+                                                    class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset
                                                     {{ $user->is_active
-                                                        ? 'bg-emerald-100 text-emerald-700 ring-emerald-200/70 hover:bg-emerald-200/80'
-                                                        : 'bg-rose-100 text-rose-700 ring-rose-200/70 hover:bg-rose-200/80' }}">
+                                                        ? 'bg-emerald-50 text-emerald-700 ring-emerald-200/70'
+                                                        : 'bg-rose-50 text-rose-700 ring-rose-200/70' }}">
                                                     <i class="bi {{ $user->is_active ? 'bi-check-circle-fill' : 'bi-x-circle-fill' }}"></i>
                                                     {{ $user->is_active ? 'Active' : 'Inactive' }}
-                                                </button>
-                                            </form>
+                                                </span>
+                                            @endif
                                         </div>
                                     </td>
 
@@ -424,16 +465,18 @@
                                                 Edit
                                             </a>
 
-                                            <form action="{{ route('admin.user.destroy', $user->id) }}" method="POST">
-                                                @csrf
-                                                @method('DELETE')
-                                                <button type="submit"
-                                                    onclick="return confirm('Are you sure you want to delete this user?')"
-                                                    class="btn-smooth inline-flex items-center gap-1.5 rounded-lg border border-rose-100 bg-rose-50/80 px-3 py-2 text-xs font-semibold text-rose-700 backdrop-blur hover:-translate-y-0.5 hover:bg-rose-100 hover:shadow-sm">
-                                                    <i class="bi bi-trash3"></i>
-                                                    Delete
-                                                </button>
-                                            </form>
+                                            @if ($canDelete && ! $isSelf)
+                                                <form action="{{ route('admin.user.destroy', $user->id) }}" method="POST">
+                                                    @csrf
+                                                    @method('DELETE')
+                                                    <button type="submit"
+                                                        onclick="return confirm('Are you sure you want to delete this user?')"
+                                                        class="btn-smooth inline-flex items-center gap-1.5 rounded-lg border border-rose-100 bg-rose-50/80 px-3 py-2 text-xs font-semibold text-rose-700 backdrop-blur hover:-translate-y-0.5 hover:bg-rose-100 hover:shadow-sm">
+                                                        <i class="bi bi-trash3"></i>
+                                                        Delete
+                                                    </button>
+                                                </form>
+                                            @endif
                                         </div>
                                     </td>
                                 </tr>

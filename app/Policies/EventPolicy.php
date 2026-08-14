@@ -29,7 +29,17 @@ class EventPolicy
 
     public function delete(User $user, Event $event): bool
     {
-        return $this->owns($user, $event);
+        return $this->owns($user, $event) && $event->canBeHardDeleted();
+    }
+
+    public function archive(User $user, Event $event): bool
+    {
+        return $this->owns($user, $event) && $event->canBeArchived();
+    }
+
+    public function restore(User $user, Event $event): bool
+    {
+        return $this->owns($user, $event) && $event->canBeRestored();
     }
 
     private function owns(User $user, Event $event): bool

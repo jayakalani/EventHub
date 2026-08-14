@@ -117,43 +117,49 @@ function chartHasDrawableData(chart) {
 
 /**
  * Export chart canvas onto a solid white background for clean PDF pages.
+ * Keeps the Chart.js backing-store resolution (retina) so the PDF does not upscale a small JPEG.
  * Uses JPEG so DomPDF does not require the PHP GD extension (needed for PNG).
  * @param {import('chart.js').Chart} chart
  * @returns {string}
  */
 function chartToWhiteBackgroundImage(chart) {
     const source = chart.canvas;
-    const maxWidth = 1100;
-    const scale = source.width > maxWidth ? maxWidth / source.width : 1;
+    const width = Math.max(source.width || 0, 1);
+    const height = Math.max(source.height || 0, 1);
     const exportCanvas = document.createElement('canvas');
-    exportCanvas.width = Math.max(Math.round(source.width * scale), 1);
-    exportCanvas.height = Math.max(Math.round(source.height * scale), 1);
+    exportCanvas.width = width;
+    exportCanvas.height = height;
 
     const ctx = exportCanvas.getContext('2d');
     if (!ctx) {
-        return chart.toBase64Image('image/jpeg', 0.82);
+        return chart.toBase64Image('image/jpeg', 0.95);
     }
 
     ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
-    ctx.drawImage(source, 0, 0, exportCanvas.width, exportCanvas.height);
+    ctx.fillRect(0, 0, width, height);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(source, 0, 0);
 
-    return exportCanvas.toDataURL('image/jpeg', 0.82);
+    return exportCanvas.toDataURL('image/jpeg', 0.95);
 }
 
 /**
- * @param {Array<{ canvasId: string, title: string }>} targets
- * @returns {Array<{ title: string, image: string }>}
+ * @param {Array<{ canvasId: string, title: string, section?: string }>} targets
+ * @returns {Array<{ title: string, image: string, section?: string }>}
  */
 export function captureDashboardChartImages(targets = []) {
     return targets
-        .map(({ canvasId, title }) => {
+        .map(({ canvasId, title, section }) => {
             const canvas = document.getElementById(canvasId);
             if (!canvas || isCanvasMarkedEmpty(canvas)) {
                 return null;
             }
 
             const restore = revealHiddenAncestors(canvas);
+            const wrapper = canvas.parentElement;
+            const previousWrapper = wrapper
+                ? { width: wrapper.style.width, height: wrapper.style.height }
+                : null;
 
             try {
                 const chart = Chart.getChart(canvas);
@@ -161,49 +167,108 @@ export function captureDashboardChartImages(targets = []) {
                     return null;
                 }
 
-                const previousAnimation = chart.options.animation;
-                const previousBg = chart.options.backgroundColor;
-                chart.options.animation = false;
-                chart.options.backgroundColor = '#ffffff';
-                chart.resize();
-                chart.update('none');
+                const cssWidth = Math.max(canvas.clientWidth || 0, chart.width || 0, 1);
+                const cssHeight = Math.max(canvas.clientHeight || 0, chart.height || 0, 1);
+                const exportWidth = 1200;
+                const exportHeight = cssWidth > 40 && cssHeight > 40
+                    ? Math.max(Math.round(exportWidth * (cssHeight / cssWidth)), 280)
+                    : 400;
 
-                // Ensure non-zero drawable area for off-screen tabs.
-                if (canvas.width < 10 || canvas.height < 10) {
-                    canvas.width = Math.max(canvas.width, 800);
-                    canvas.height = Math.max(canvas.height, 360);
-                    chart.resize();
-                    chart.update('none');
+                if (wrapper) {
+                    wrapper.style.width = `${exportWidth}px`;
+                    wrapper.style.height = `${exportHeight}px`;
                 }
 
+                const previousAnimation = chart.options.animation;
+                const previousBg = chart.options.backgroundColor;
+                const previousRatio = chart.options.devicePixelRatio;
+
+                chart.options.animation = false;
+                chart.options.backgroundColor = '#ffffff';
+                chart.options.devicePixelRatio = 2;
+                chart.resize(exportWidth, exportHeight);
+                chart.update('none');
+
                 const image = chartToWhiteBackgroundImage(chart);
+
                 chart.options.animation = previousAnimation;
                 chart.options.backgroundColor = previousBg;
+                chart.options.devicePixelRatio = previousRatio;
 
                 return {
                     title: title || 'Chart',
                     image,
+                    section: section || '',
                 };
             } catch (error) {
                 console.warn('Unable to capture chart for PDF export', canvasId, error);
                 return null;
             } finally {
+                if (wrapper && previousWrapper) {
+                    wrapper.style.width = previousWrapper.width;
+                    wrapper.style.height = previousWrapper.height;
+                }
+
+                const chart = Chart.getChart(canvas);
+                chart?.resize();
+                chart?.update('none');
                 restore();
             }
         })
         .filter(Boolean);
 }
 
+function readFilterFormParams(formId) {
+    if (!formId) return {};
+
+    const form = document.getElementById(formId);
+    if (!form) return {};
+
+    const keys = ['from', 'to', 'event_id', 'status', 'focus_event', 'organizer', 'event', 'cro', 'range'];
+    const params = {};
+
+    keys.forEach((key) => {
+        const field = form.elements.namedItem(key);
+        if (!field || typeof field.value !== 'string') return;
+        const value = field.value.trim();
+        if (value !== '') {
+            params[key] = value;
+        }
+    });
+
+    if (!params.event_id && params.focus_event) {
+        params.event_id = params.focus_event;
+    }
+
+    return params;
+}
+
 /**
- * @param {{ url: string, params?: Record<string, string|number|null|undefined>, charts?: Array<{ canvasId: string, title: string }> }} options
+ * @param {{ url: string, params?: Record<string, string|number|null|undefined>, charts?: Array<{ canvasId: string, title: string }>, filterFormId?: string }} options
  */
-export async function submitDashboardPdfExport({ url, params = {}, charts = [] }) {
+export async function submitDashboardPdfExport({ url, params = {}, charts = [], filterFormId = '' }) {
     if (!url) return;
+
+    window.dispatchEvent(new CustomEvent('organizer-reports-tab-changed', {
+        detail: { tab: 'export' },
+    }));
+    await new Promise((resolve) => {
+        requestAnimationFrame(() => setTimeout(resolve, 120));
+    });
 
     const formData = new FormData();
     formData.append('_token', csrfToken());
 
-    Object.entries(params).forEach(([key, value]) => {
+    const mergedParams = {
+        ...params,
+        ...readFilterFormParams(filterFormId),
+    };
+
+    if (!mergedParams.event_id && mergedParams.focus_event) {
+        mergedParams.event_id = mergedParams.focus_event;
+    }
+
+    Object.entries(mergedParams).forEach(([key, value]) => {
         if (value === null || value === undefined || value === '') return;
         formData.append(key, String(value));
     });
@@ -211,6 +276,9 @@ export async function submitDashboardPdfExport({ url, params = {}, charts = [] }
     captureDashboardChartImages(charts).forEach((chart, index) => {
         formData.append(`charts[${index}][title]`, chart.title);
         formData.append(`charts[${index}][image]`, chart.image);
+        if (chart.section) {
+            formData.append(`charts[${index}][section]`, chart.section);
+        }
     });
 
     const response = await fetch(url, {
@@ -273,6 +341,7 @@ export function bindDashboardPdfExportButtons(root = document) {
                     url: button.getAttribute('data-export-url') || '',
                     params,
                     charts,
+                    filterFormId: button.getAttribute('data-export-filter-form') || '',
                 });
             } catch (error) {
                 console.error(error);

@@ -75,12 +75,12 @@ class CartItem extends Model
 
     public function event(): BelongsTo
     {
-        return $this->belongsTo(Event::class);
+        return $this->belongsTo(Event::class)->withTrashed();
     }
 
     public function ticketCategory(): BelongsTo
     {
-        return $this->belongsTo(ticketCategory::class, 'ticket_category_id');
+        return $this->belongsTo(ticketCategory::class, 'ticket_category_id')->withTrashed();
     }
 
     public function getUnitPriceAttribute(): float

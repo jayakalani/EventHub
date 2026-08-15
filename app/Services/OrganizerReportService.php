@@ -1765,12 +1765,13 @@ class OrganizerReportService
     private function getFilterOptions(int $organizerId): array
     {
         $events = Event::query()
+            ->forFilter()
             ->createdByOrganizer($organizerId)
             ->orderBy('name')
-            ->get(['id', 'name'])
+            ->get(['id', 'name', 'deleted_at'])
             ->map(fn (Event $event) => [
                 'id' => $event->id,
-                'name' => $event->name,
+                'name' => $event->filterLabel(),
             ])
             ->values()
             ->all();
@@ -1814,7 +1815,7 @@ class OrganizerReportService
         $query = Event::query()->createdByOrganizer($organizerId);
 
         if (! empty($filters['event_id'])) {
-            $query->where('id', $filters['event_id']);
+            $query->forFilter()->where('id', $filters['event_id']);
         }
 
         if (! empty($filters['status'])) {

@@ -1,6 +1,7 @@
 import {
     Chart,
     ArcElement,
+    BarController,
     BarElement,
     CategoryScale,
     DoughnutController,
@@ -9,6 +10,7 @@ import {
     LineController,
     LineElement,
     LinearScale,
+    PieController,
     PointElement,
     Tooltip,
 } from 'chart.js';
@@ -22,6 +24,7 @@ import { bindDashboardPdfExportButtons } from './dashboard-pdf-export';
 
 Chart.register(
     ArcElement,
+    BarController,
     BarElement,
     CategoryScale,
     DoughnutController,
@@ -30,6 +33,7 @@ Chart.register(
     LineController,
     LineElement,
     LinearScale,
+    PieController,
     PointElement,
     Tooltip,
 );
@@ -218,14 +222,34 @@ function createDoughnutChart(canvasId, labels, data, options = {}) {
     });
 }
 
-function initAdminReports() {
-    const data = window.adminReportData;
-    if (!data) return;
+const adminReportCardTargets = {
+    userGrowth: 'adminOverviewUserGrowthChart',
+    userDistribution: 'adminOverviewUserDistributionChart',
+    revenueTrend: 'adminOverviewRevenueTrendChart',
+    ticketSalesTrend: 'adminOverviewTicketSalesChart',
+    eventsByCategory: 'adminOverviewEventsByCategoryChart',
+    platformGrowth: 'adminPlatformGrowthChart',
+    eventsStatus: 'adminEventsStatusChart',
+    topCategories: 'adminTopCategoriesChart',
+    userRoles: 'userRoleChart',
+    userRegistration: 'userRegistrationChart',
+    userStatus: 'userStatusChart',
+    paymentRevenue: 'paymentRevenueChart',
+    paymentStatus: 'paymentStatusChart',
+    paymentMethod: 'paymentMethodChart',
+    systemActivity: 'systemActivityChart',
+    systemAuditActions: 'systemAuditActionChart',
+};
 
-    const { chartLabels } = data;
-    const shortLabels = data.chartLabelsShort ?? chartLabels.map((label) => String(label).split(' ')[0]);
-    const overview = data.overview ?? {};
-    const roleDistribution = overview.userDistribution ?? data.users?.usersByRole ?? [];
+function buildAdminReportChartPainters(data) {
+    const chartLabels = data?.chartLabels ?? [];
+    const shortLabels = data?.chartLabelsShort ?? chartLabels.map((label) => String(label).split(' ')[0]);
+    const overview = data?.overview ?? {};
+    const admin = data?.admin ?? {};
+    const users = data?.users ?? {};
+    const payments = data?.payments ?? {};
+    const system = data?.system ?? {};
+    const roleDistribution = overview.userDistribution ?? users.usersByRole ?? [];
     const revenueTrend = overview.revenueTrend ?? {};
     const ticketSalesTrend = overview.ticketSalesTrend ?? {
         weekly: overview.ticketSalesWeekly ?? [],
@@ -268,7 +292,7 @@ function initAdminReports() {
     const chartBuilders = {
         userGrowth: (canvasId, options = {}) => createLineChart(canvasId, shortLabels, [{
             label: 'New Registrations',
-            data: overview.userGrowth ?? data.users?.registrationTrend ?? [],
+            data: overview.userGrowth ?? users.registrationTrend ?? [],
             borderColor: palette.indigo,
             backgroundColor: 'rgba(79, 70, 229, 0.12)',
             fill: true,
@@ -290,7 +314,7 @@ function initAdminReports() {
             revenueTrend.labels ?? shortLabels,
             [{
                 label: 'Revenue (LKR)',
-                data: revenueTrend.values ?? data.payments?.revenueTrend ?? [],
+                data: revenueTrend.values ?? payments.revenueTrend ?? [],
                 borderColor: palette.emerald,
                 backgroundColor: 'rgba(16, 185, 129, 0.12)',
                 fill: true,
@@ -318,7 +342,7 @@ function initAdminReports() {
         platformGrowth: (canvasId, options = {}) => createLineChart(canvasId, chartLabels, [
             {
                 label: 'New Users',
-                data: data.admin.platformGrowth,
+                data: admin.platformGrowth ?? [],
                 borderColor: palette.indigo,
                 backgroundColor: 'rgba(79, 70, 229, 0.1)',
                 fill: true,
@@ -329,7 +353,7 @@ function initAdminReports() {
             },
             {
                 label: 'New Events',
-                data: data.admin.eventGrowth,
+                data: admin.eventGrowth ?? [],
                 borderColor: palette.cyan,
                 backgroundColor: 'rgba(6, 182, 212, 0.1)',
                 fill: true,
@@ -342,28 +366,28 @@ function initAdminReports() {
 
         eventsStatus: (canvasId, options = {}) => createDoughnutChart(
             canvasId,
-            data.admin.eventsByStatus.map((i) => i.label),
-            data.admin.eventsByStatus.map((i) => i.count),
+            (admin.eventsByStatus ?? []).map((i) => i.label),
+            (admin.eventsByStatus ?? []).map((i) => i.count),
             options,
         ),
 
         topCategories: (canvasId, options = {}) => createBarChart(
             canvasId,
-            data.admin.topCategories.map((i) => i.label),
-            data.admin.topCategories.map((i) => i.count),
+            (admin.topCategories ?? []).map((i) => i.label),
+            (admin.topCategories ?? []).map((i) => i.count),
             { ...options, label: 'Events' },
         ),
 
         userRoles: (canvasId, options = {}) => createDoughnutChart(
             canvasId,
-            data.users.usersByRole.map((i) => i.label),
-            data.users.usersByRole.map((i) => i.count),
+            (users.usersByRole ?? []).map((i) => i.label),
+            (users.usersByRole ?? []).map((i) => i.count),
             options,
         ),
 
         userRegistration: (canvasId, options = {}) => createLineChart(canvasId, chartLabels, [{
             label: 'Registrations',
-            data: data.users.registrationTrend,
+            data: users.registrationTrend ?? [],
             borderColor: palette.blue,
             backgroundColor: 'rgba(37, 99, 235, 0.1)',
             fill: true,
@@ -377,11 +401,11 @@ function initAdminReports() {
             canvasId,
             ['Active', 'Inactive', 'Verified', 'Unverified', 'Locked'],
             [
-                data.users.activeUsers,
-                data.users.inactiveUsers,
-                data.users.verifiedUsers,
-                data.users.unverifiedUsers,
-                data.users.lockedUsers,
+                users.activeUsers ?? 0,
+                users.inactiveUsers ?? 0,
+                users.verifiedUsers ?? 0,
+                users.unverifiedUsers ?? 0,
+                users.lockedUsers ?? 0,
             ],
             {
                 ...options,
@@ -398,7 +422,7 @@ function initAdminReports() {
 
         paymentRevenue: (canvasId, options = {}) => createLineChart(canvasId, chartLabels, [{
             label: 'Revenue (LKR)',
-            data: data.payments.revenueTrend,
+            data: payments.revenueTrend ?? [],
             borderColor: palette.emerald,
             backgroundColor: 'rgba(16, 185, 129, 0.1)',
             fill: true,
@@ -410,21 +434,21 @@ function initAdminReports() {
 
         paymentStatus: (canvasId, options = {}) => createDoughnutChart(
             canvasId,
-            data.payments.paymentsByStatus.map((i) => i.label),
-            data.payments.paymentsByStatus.map((i) => i.count),
+            (payments.paymentsByStatus ?? []).map((i) => i.label),
+            (payments.paymentsByStatus ?? []).map((i) => i.count),
             options,
         ),
 
         paymentMethod: (canvasId, options = {}) => createDoughnutChart(
             canvasId,
-            data.payments.paymentsByMethod.map((i) => i.label),
-            data.payments.paymentsByMethod.map((i) => i.count),
+            (payments.paymentsByMethod ?? []).map((i) => i.label),
+            (payments.paymentsByMethod ?? []).map((i) => i.count),
             options,
         ),
 
         systemActivity: (canvasId, options = {}) => createLineChart(canvasId, chartLabels, [{
             label: 'Audit Log Entries',
-            data: data.system.activityTrend,
+            data: system.activityTrend ?? [],
             borderColor: palette.purple,
             backgroundColor: 'rgba(147, 51, 234, 0.1)',
             fill: true,
@@ -436,32 +460,45 @@ function initAdminReports() {
 
         systemAuditActions: (canvasId, options = {}) => createBarChart(
             canvasId,
-            data.system.auditByAction.map((i) => i.label),
-            data.system.auditByAction.map((i) => i.count),
+            (system.auditByAction ?? []).map((i) => i.label),
+            (system.auditByAction ?? []).map((i) => i.count),
             { ...options, label: 'Actions' },
         ),
     };
 
-    const cardTargets = {
-        userGrowth: 'adminOverviewUserGrowthChart',
-        userDistribution: 'adminOverviewUserDistributionChart',
-        revenueTrend: 'adminOverviewRevenueTrendChart',
-        ticketSalesTrend: 'adminOverviewTicketSalesChart',
-        eventsByCategory: 'adminOverviewEventsByCategoryChart',
-        platformGrowth: 'adminPlatformGrowthChart',
-        eventsStatus: 'adminEventsStatusChart',
-        topCategories: 'adminTopCategoriesChart',
-        userRoles: 'userRoleChart',
-        userRegistration: 'userRegistrationChart',
-        userStatus: 'userStatusChart',
-        paymentRevenue: 'paymentRevenueChart',
-        paymentStatus: 'paymentStatusChart',
-        paymentMethod: 'paymentMethodChart',
-        systemActivity: 'systemActivityChart',
-        systemAuditActions: 'systemAuditActionChart',
+    return {
+        chartBuilders,
+        buildTicketSalesChart,
+        ticketSalesTrend,
+        setTicketSalesRange(range) {
+            ticketSalesRange = range;
+        },
+        getTicketSalesRange() {
+            return ticketSalesRange;
+        },
     };
+}
 
-    const chartInstances = Object.entries(cardTargets)
+export function renderAdminReportExportCharts(data) {
+    if (!data) return;
+
+    window.adminReportData = data;
+    const { chartBuilders } = buildAdminReportChartPainters(data);
+    Object.entries(adminReportCardTargets).forEach(([key, canvasId]) => {
+        chartBuilders[key]?.(canvasId);
+    });
+}
+
+function initAdminReports() {
+    bindDashboardPdfExportButtons();
+
+    const data = window.adminReportData;
+    if (!data) return;
+
+    const painters = buildAdminReportChartPainters(data);
+    const { chartBuilders, buildTicketSalesChart, ticketSalesTrend, setTicketSalesRange, getTicketSalesRange } = painters;
+
+    const chartInstances = Object.entries(adminReportCardTargets)
         .map(([key, canvasId]) => chartBuilders[key]?.(canvasId))
         .filter(Boolean);
 
@@ -470,8 +507,8 @@ function initAdminReports() {
         (chart) => chart?.canvas?.id === 'adminOverviewTicketSalesChart',
     );
 
-    function rebuildTicketSalesChart(range = ticketSalesRange) {
-        ticketSalesRange = range;
+    function rebuildTicketSalesChart(range = getTicketSalesRange()) {
+        setTicketSalesRange(range);
         const chart = buildTicketSalesChart('adminOverviewTicketSalesChart', { range });
         if (ticketSalesChartIndex >= 0) {
             chartInstances[ticketSalesChartIndex] = chart;
@@ -497,7 +534,7 @@ function initAdminReports() {
         requestAnimationFrame(() => {
             fullscreenChart = builder('adminReportsChartFullscreen', {
                 fullscreen: true,
-                range: event.detail?.range ?? ticketSalesRange,
+                range: event.detail?.range ?? getTicketSalesRange(),
             });
         });
     });
@@ -531,8 +568,12 @@ function initAdminReports() {
 
     window.addEventListener('admin-reports-tab-changed', resizeCharts);
     window.addEventListener('resize', resizeCharts);
-
-    bindDashboardPdfExportButtons();
+    window.addEventListener('dashboard-pdf-export-prepare', () => {
+        requestAnimationFrame(() => {
+            resizeCharts();
+            setTimeout(resizeCharts, 120);
+        });
+    });
 }
 
 document.addEventListener('DOMContentLoaded', initAdminReports);

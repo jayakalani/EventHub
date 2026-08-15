@@ -162,11 +162,12 @@ class OrganizerReportRegistry
     private function eventOptions(int $organizerId): array
     {
         return Event::query()
+            ->forFilter()
             ->createdByOrganizer($organizerId)
             ->orderByDesc('date')
             ->limit(100)
-            ->get(['id', 'name'])
-            ->mapWithKeys(fn (Event $event) => [$event->id => $event->name])
+            ->get(['id', 'name', 'deleted_at'])
+            ->mapWithKeys(fn (Event $event) => [$event->id => $event->filterLabel()])
             ->all();
     }
 }

@@ -121,7 +121,9 @@ class AdminReportRegistry
                 'label' => (string) $filter['label'],
                 'options' => [],
                 'show_when' => $filter['show_when'] ?? null,
+                'hide_when' => $filter['hide_when'] ?? null,
                 'required' => (bool) ($filter['required'] ?? false),
+                'include_empty' => $filter['include_empty'] ?? true,
             ];
 
             if ($type === 'enum' && isset($filter['enum']) && enum_exists($filter['enum'])) {
@@ -137,7 +139,26 @@ class AdminReportRegistry
                 }
             } elseif ($type === 'events') {
                 $resolved['type'] = 'select';
-                $resolved['options'] = $this->eventOptions();
+                $events = $this->filterEvents();
+                $resolved['options'] = $events
+                    ->mapWithKeys(fn (Event $event) => [$event->id => $event->filterLabel()])
+                    ->all();
+                $resolved['option_scopes'] = $events
+                    ->mapWithKeys(fn (Event $event) => [$event->id => (int) $event->created_by])
+                    ->all();
+                $resolved['option_scope_maps'] = [
+                    'organizer_id' => $events
+                        ->mapWithKeys(fn (Event $event) => [$event->id => (int) $event->created_by])
+                        ->all(),
+                    'cro_id' => $events
+                        ->filter(fn (Event $event) => filled($event->contact_person))
+                        ->mapWithKeys(fn (Event $event) => [$event->id => (int) $event->contact_person])
+                        ->all(),
+                ];
+                $resolved['scope_by'] = 'organizer_id';
+                $resolved['scope_by_when'] = [
+                    ['when' => ['section' => 'support'], 'scope_by' => 'cro_id'],
+                ];
             } elseif ($type === 'organizers') {
                 $resolved['type'] = 'select';
                 $resolved['options'] = $this->organizerOptions();
@@ -167,16 +188,14 @@ class AdminReportRegistry
     }
 
     /**
-     * @return array<int|string, string>
+     * @return \Illuminate\Support\Collection<int, Event>
      */
-    private function eventOptions(): array
+    private function filterEvents()
     {
         return Event::query()
+            ->forFilter()
             ->orderByDesc('date')
-            ->limit(150)
-            ->get(['id', 'name'])
-            ->mapWithKeys(fn (Event $event) => [$event->id => $event->name])
-            ->all();
+            ->get(['id', 'name', 'deleted_at', 'created_by', 'contact_person']);
     }
 
     /**

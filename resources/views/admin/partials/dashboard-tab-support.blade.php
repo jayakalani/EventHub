@@ -15,6 +15,7 @@
     $resolvedComplaints = $supportReport['resolvedComplaints'] ?? 0;
     $recentInquiries = $supportReport['recentInquiries'] ?? collect();
     $recentComplaints = $supportReport['recentComplaints'] ?? collect();
+    $slaAging = $supportReport['slaAging'] ?? [];
 
     $scopeCaption = $supportReport['scopeCaption']
         ?? ($selectedCroName ? 'Assigned to '.$selectedCroName : 'All customer relations officers');
@@ -23,6 +24,8 @@
         'cro' => $selectedCroId,
         'organizer' => $selectedOrganizerId,
         'event' => $selectedEventId,
+        'from' => $activeFilters['from'] ?? ($dateFilter['from'] ?? null),
+        'to' => $activeFilters['to'] ?? ($dateFilter['to'] ?? null),
     ], fn ($value) => filled($value));
 
     $kpis = [
@@ -61,26 +64,14 @@
     <section class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
             <h2 class="text-lg font-bold text-slate-900">Support</h2>
-            <p class="text-sm text-slate-500">{{ $scopeCaption }} · inquiry and complaint workload</p>
-        </div>
-        <div class="flex flex-wrap items-center gap-2 sm:justify-end">
-            <a href="{{ route('admin.support-reports.export.csv', $exportParams) }}"
-                class="btn-smooth inline-flex items-center gap-1.5 rounded-lg border border-white/70 bg-white/50 px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm backdrop-blur hover:border-indigo-200 hover:bg-white/80 sm:text-sm">
-                <i class="bi bi-filetype-csv"></i>
-                Export CSV
-            </a>
-            <a href="{{ route('admin.support-reports.export.pdf', $exportParams) }}"
-                class="btn-smooth inline-flex items-center gap-1.5 rounded-lg border border-white/70 bg-white/50 px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm backdrop-blur hover:border-indigo-200 hover:bg-white/80 sm:text-sm">
-                <i class="bi bi-file-earmark-pdf"></i>
-                Export PDF
-            </a>
+            <p class="text-sm text-slate-500">{{ $scopeCaption }} · inquiry and complaint workload · date chips apply</p>
         </div>
     </section>
 
     <section class="space-y-3">
         <div>
             <h3 class="text-sm font-semibold text-slate-900">Workload snapshot</h3>
-            <p class="text-xs text-slate-500">Volume for the current CRO, organizer, and event filters.</p>
+            <p class="text-xs text-slate-500">CRO, organizer, event, and date chips.</p>
         </div>
 
         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -108,6 +99,52 @@
                     </div>
                 </div>
             @endforeach
+        </div>
+    </section>
+
+    <section class="space-y-3">
+        <div>
+            <h3 class="text-sm font-semibold text-slate-900">Volume and SLA</h3>
+            <p class="text-xs text-slate-500">Weekly intake and aging of open tickets in this scope.</p>
+        </div>
+
+        <div class="grid gap-4 lg:grid-cols-2">
+            <x-report-chart-card
+                title="Support volume"
+                description="Inquiries vs complaints · last 8 weeks, clipped to the date chips"
+                canvas-id="adminSupportVolumeChart"
+                expand-key="supportVolume"
+                expand-title="Support volume"
+                expand-description="Weekly inquiry and complaint counts for the current filters"
+            />
+            <div class="space-y-3">
+                <x-report-chart-card
+                    title="Open ticket SLA"
+                    description="24h aging · 48h overdue · urgent subjects"
+                    canvas-id="adminSupportSlaChart"
+                    expand-key="supportSla"
+                    expand-title="Open ticket SLA"
+                    expand-description="Open and in-progress tickets scored against SLA"
+                />
+                @if ($slaAging !== [])
+                    <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                        @foreach ($slaAging as $bucket)
+                            @php
+                                $tile = match ($bucket['key'] ?? '') {
+                                    'urgent' => ['bg' => 'bg-rose-50/80', 'text' => 'text-rose-700'],
+                                    'overdue' => ['bg' => 'bg-orange-50/80', 'text' => 'text-orange-800'],
+                                    'aging' => ['bg' => 'bg-amber-50/80', 'text' => 'text-amber-800'],
+                                    default => ['bg' => 'bg-emerald-50/80', 'text' => 'text-emerald-700'],
+                                };
+                            @endphp
+                            <div class="rounded-xl border border-white/60 {{ $tile['bg'] }} px-3 py-2.5 text-center backdrop-blur-sm">
+                                <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{{ $bucket['label'] }}</p>
+                                <p class="mt-0.5 text-lg font-bold {{ $tile['text'] }}">{{ number_format($bucket['count'] ?? 0) }}</p>
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
+            </div>
         </div>
     </section>
 

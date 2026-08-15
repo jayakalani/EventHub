@@ -76,9 +76,8 @@ function revealHiddenAncestors(element) {
 
     return () => {
         changes.forEach((change) => {
-            if (change.cloak) {
-                change.node.setAttribute('x-cloak', '');
-            }
+            // Never re-apply x-cloak: Alpine x-show owns visibility after init.
+            // Re-adding x-cloak forces display:none !important and blanks the active tab.
 
             if (change.display) {
                 change.node.style.setProperty('display', change.display, change.displayPriority || '');
@@ -252,9 +251,14 @@ export function captureDashboardChartImages(targets = []) {
                     wrapper.style.height = previousWrapper.height;
                 }
 
-                const chart = Chart.getChart(canvas);
-                chart?.resize();
-                chart?.update('none');
+                try {
+                    const chart = Chart.getChart(canvas);
+                    chart?.resize();
+                    chart?.update('none');
+                } catch (error) {
+                    console.warn('Unable to restore chart after PDF capture', canvasId, error);
+                }
+
                 restore();
             }
         })
@@ -286,6 +290,50 @@ function readFilterFormParams(formId) {
     return params;
 }
 
+function waitForPaint(ms = 180) {
+    return new Promise((resolve) => {
+        requestAnimationFrame(() => setTimeout(resolve, ms));
+    });
+}
+
+/**
+ * Warm Chart.js listeners. Charts are captured off-screen — do not change visible tabs.
+ * @param {Array<{ canvasId: string, title: string, section?: string }>} charts
+ */
+async function prepareSectionChartsForExport(charts = []) {
+    window.dispatchEvent(new CustomEvent('dashboard-pdf-export-prepare', {
+        detail: { charts },
+    }));
+    window.dispatchEvent(new CustomEvent('cro-reports-tab-changed'));
+    window.dispatchEvent(new CustomEvent('organizer-reports-tab-changed', {
+        detail: { tab: 'export' },
+    }));
+    window.dispatchEvent(new CustomEvent('admin-reports-tab-changed', {
+        detail: { tab: 'export' },
+    }));
+
+    const hasSectionMeta = charts.some((chart) => String(chart.section || '').trim());
+    if (! hasSectionMeta) {
+        ['support', 'performance', 'attendance', 'inquiry', 'complaints'].forEach((section) => {
+            window.dispatchEvent(new CustomEvent('cro-dashboard-section-changed', { detail: { section } }));
+        });
+    }
+
+    await waitForPaint(320);
+}
+
+function ensureRequiredExportAssets(button) {
+    const requiredCanvasId = button.getAttribute('data-require-canvas');
+    if (! requiredCanvasId) return true;
+    if (document.getElementById(requiredCanvasId)) return true;
+
+    const url = new URL(window.location.href);
+    url.searchParams.set('insights', '1');
+    url.searchParams.set('auto_pdf', '1');
+    window.location.assign(url.toString());
+    return false;
+}
+
 /**
  * @param {{ url: string, params?: Record<string, string|number|null|undefined>, charts?: Array<{ canvasId: string, title: string }>, filterFormId?: string }} options
  */
@@ -295,17 +343,7 @@ export async function submitDashboardPdfExport({ url, params = {}, charts = [], 
     const restoreCanvases = revealExportCanvases(charts);
 
     try {
-        window.dispatchEvent(new CustomEvent('organizer-reports-tab-changed', {
-            detail: { tab: 'export' },
-        }));
-        window.dispatchEvent(new CustomEvent('dashboard-pdf-export-prepare'));
-        window.dispatchEvent(new CustomEvent('cro-reports-tab-changed'));
-        ['support', 'performance', 'attendance', 'inquiry', 'complaints'].forEach((section) => {
-            window.dispatchEvent(new CustomEvent('cro-dashboard-section-changed', { detail: { section } }));
-        });
-        await new Promise((resolve) => {
-            requestAnimationFrame(() => setTimeout(resolve, 400));
-        });
+        await prepareSectionChartsForExport(charts);
 
         const formData = new FormData();
         formData.append('_token', csrfToken());
@@ -324,6 +362,7 @@ export async function submitDashboardPdfExport({ url, params = {}, charts = [], 
             formData.append(key, String(value));
         });
 
+        // Off-screen capture only — never switch Alpine tabs (avoids blank UI after export).
         captureDashboardChartImages(charts).forEach((chart, index) => {
             formData.append(`charts[${index}][title]`, chart.title);
             formData.append(`charts[${index}][image]`, chart.image);
@@ -371,6 +410,10 @@ export function bindDashboardPdfExportButtons(root = document) {
         button.addEventListener('click', async (event) => {
             event.preventDefault();
 
+            if (! ensureRequiredExportAssets(button)) {
+                return;
+            }
+
             let params = {};
             let charts = [];
 
@@ -399,7 +442,10 @@ export function bindDashboardPdfExportButtons(root = document) {
                 });
             } catch (error) {
                 console.error(error);
-                window.alert('Unable to export PDF. Please try again.');
+                const message = error instanceof Error && error.message
+                    ? error.message
+                    : 'Unable to export PDF. Please try again.';
+                window.alert(message);
             } finally {
                 button.disabled = false;
                 button.removeAttribute('aria-busy');

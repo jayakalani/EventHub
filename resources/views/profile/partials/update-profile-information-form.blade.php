@@ -121,9 +121,17 @@
 
         <div>
             <x-input-label for="email" :value="__('Email')" />
-            <x-text-input id="email" name="email" type="email" class="mt-1 block w-full" :value="old('email', $user->email)"
-                required autocomplete="username" />
-            <x-input-error class="mt-2" :messages="$errors->get('email')" />
+            @if ($user->adminProtectionError('change-email'))
+                <input type="hidden" name="email" value="{{ $user->email }}">
+                <x-text-input id="email" type="email" class="mt-1 block w-full" :value="$user->email" disabled />
+                <p class="mt-2 text-sm text-amber-700">
+                    {{ $user->adminProtectionError('change-email') }}
+                </p>
+            @else
+                <x-text-input id="email" name="email" type="email" class="mt-1 block w-full" :value="old('email', $user->email)"
+                    required autocomplete="username" />
+                <x-input-error class="mt-2" :messages="$errors->get('email')" />
+            @endif
 
             @if ($user instanceof \Illuminate\Contracts\Auth\MustVerifyEmail && !$user->hasVerifiedEmail())
                 <div>

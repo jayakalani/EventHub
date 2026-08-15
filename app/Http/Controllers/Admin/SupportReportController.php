@@ -9,7 +9,9 @@ use App\Models\Event;
 use App\Models\Inquiry;
 use App\Models\User;
 use App\Models\UserRole;
+use App\Support\CroSupportSla;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -26,6 +28,8 @@ class SupportReportController extends Controller
             'cro' => $request->input('cro'),
             'organizer' => $request->input('organizer'),
             'event' => $request->input('event'),
+            'from' => $request->input('from'),
+            'to' => $request->input('to'),
             'support' => 1,
             'section' => 'support',
         ], fn ($value) => filled($value));
@@ -52,13 +56,17 @@ class SupportReportController extends Controller
      *     resolvedInquiries: int,
      *     resolvedComplaints: int,
      *     recentInquiries: Collection,
-     *     recentComplaints: Collection
+     *     recentComplaints: Collection,
+     *     volumeTrend: array{labels: list<string>, inquiries: list<int>, complaints: list<int>},
+     *     slaAging: list<array{key: string, label: string, count: int, color: string}>
      * }
      */
     public function buildReportData(
         ?int $selectedCroId = null,
         ?int $selectedOrganizerId = null,
         ?int $selectedEventId = null,
+        ?string $from = null,
+        ?string $to = null,
     ): array {
         [$cros, $resolvedCroId, $selectedCroName] = $this->resolveCroFilter($selectedCroId);
         [$resolvedOrganizerId, $selectedOrganizerName, $resolvedEventId, $selectedEventName] = $this->resolveEventScope(
@@ -66,8 +74,8 @@ class SupportReportController extends Controller
             $selectedEventId,
         );
 
-        $inquiryQuery = $this->scopedInquiryQuery($resolvedCroId, $resolvedOrganizerId, $resolvedEventId);
-        $complaintQuery = $this->scopedComplaintQuery($resolvedCroId, $resolvedOrganizerId, $resolvedEventId);
+        $inquiryQuery = $this->scopedInquiryQuery($resolvedCroId, $resolvedOrganizerId, $resolvedEventId, $from, $to);
+        $complaintQuery = $this->scopedComplaintQuery($resolvedCroId, $resolvedOrganizerId, $resolvedEventId, $from, $to);
 
         $totalInquiries = (clone $inquiryQuery)->count();
         $totalComplaints = (clone $complaintQuery)->count();
@@ -110,6 +118,8 @@ class SupportReportController extends Controller
             'resolvedComplaints' => $resolvedComplaints,
             'recentInquiries' => $recentInquiries,
             'recentComplaints' => $recentComplaints,
+            'volumeTrend' => $this->volumeTrend($inquiryQuery, $complaintQuery, $from, $to),
+            'slaAging' => $this->slaAging($inquiryQuery, $complaintQuery, $pendingStatuses),
         ];
     }
 
@@ -121,12 +131,16 @@ class SupportReportController extends Controller
             $filters['cro'],
             $filters['organizer'],
             $filters['event'],
+            $filters['from'],
+            $filters['to'],
         )->with(['user', 'event'])->latest()->get();
 
         $complaints = $this->scopedComplaintQuery(
             $filters['cro'],
             $filters['organizer'],
             $filters['event'],
+            $filters['from'],
+            $filters['to'],
         )->with(['user', 'event'])->latest()->get();
 
         $filename = 'support-report-'.now()->format('Y-m-d-H-i-s').'.csv';
@@ -179,11 +193,15 @@ class SupportReportController extends Controller
             $filters['cro'],
             $filters['organizer'],
             $filters['event'],
+            $filters['from'],
+            $filters['to'],
         );
         $complaintQuery = $this->scopedComplaintQuery(
             $filters['cro'],
             $filters['organizer'],
             $filters['event'],
+            $filters['from'],
+            $filters['to'],
         );
 
         $totalInquiries = (clone $inquiryQuery)->count();
@@ -209,7 +227,7 @@ class SupportReportController extends Controller
     }
 
     /**
-     * @return array{cro: int|null, organizer: int|null, event: int|null}
+     * @return array{cro: int|null, organizer: int|null, event: int|null, from: string|null, to: string|null}
      */
     private function validatedExportFilters(Request $request): array
     {
@@ -221,10 +239,22 @@ class SupportReportController extends Controller
             $request->filled('event') ? (int) $request->input('event') : null,
         );
 
+        $request->merge([
+            'from' => $request->filled('from') ? $request->input('from') : null,
+            'to' => $request->filled('to') ? $request->input('to') : null,
+        ]);
+
+        $validated = $request->validate([
+            'from' => ['nullable', 'date'],
+            'to' => ['nullable', 'date', 'after_or_equal:from'],
+        ]);
+
         return [
             'cro' => $croId,
             'organizer' => $organizerId,
             'event' => $eventId,
+            'from' => $validated['from'] ?? null,
+            'to' => $validated['to'] ?? null,
         ];
     }
 
@@ -285,15 +315,15 @@ class SupportReportController extends Controller
         }
 
         if ($eventId) {
-            $eventQuery = Event::query()->where('id', $eventId);
+            $eventQuery = Event::query()->forFilter()->where('id', $eventId);
             if ($resolvedOrganizerId) {
                 $eventQuery->where('created_by', $resolvedOrganizerId);
             }
-            $event = $eventQuery->first(['id', 'name', 'created_by']);
+            $event = $eventQuery->first(['id', 'name', 'created_by', 'deleted_at']);
 
             if ($event) {
                 $resolvedEventId = (int) $event->id;
-                $selectedEventName = $event->name;
+                $selectedEventName = $event->filterLabel();
 
                 if (! $resolvedOrganizerId && $event->created_by) {
                     $owner = User::query()->find($event->created_by);
@@ -306,6 +336,104 @@ class SupportReportController extends Controller
         }
 
         return [$resolvedOrganizerId, $selectedOrganizerName, $resolvedEventId, $selectedEventName];
+    }
+
+    /**
+     * Weekly inquiry vs complaint volume. Uses the last 8 ISO weeks, clipped to the date chips.
+     *
+     * @return array{labels: list<string>, inquiries: list<int>, complaints: list<int>}
+     */
+    private function volumeTrend(Builder $inquiryQuery, Builder $complaintQuery, ?string $from, ?string $to): array
+    {
+        $end = filled($to) ? Carbon::parse($to)->endOfDay() : now();
+        $start = $end->copy()->subWeeks(7)->startOfWeek(Carbon::MONDAY);
+
+        if (filled($from)) {
+            $fromStart = Carbon::parse($from)->startOfWeek(Carbon::MONDAY);
+            if ($fromStart->gt($start)) {
+                $start = $fromStart;
+            }
+        }
+
+        $weeks = [];
+        $cursor = $start->copy();
+        while ($cursor->lte($end) && count($weeks) < 8) {
+            $weeks[$cursor->format('o-W')] = $cursor->format('M j');
+            $cursor->addWeek();
+        }
+
+        if ($weeks === []) {
+            return ['labels' => [], 'inquiries' => [], 'complaints' => []];
+        }
+
+        $keys = array_keys($weeks);
+        $inquiryCounts = $this->weeklyCounts($inquiryQuery);
+        $complaintCounts = $this->weeklyCounts($complaintQuery);
+
+        return [
+            'labels' => array_values($weeks),
+            'inquiries' => array_map(fn (string $key) => (int) ($inquiryCounts[$key] ?? 0), $keys),
+            'complaints' => array_map(fn (string $key) => (int) ($complaintCounts[$key] ?? 0), $keys),
+        ];
+    }
+
+    /**
+     * @return array<string, int>
+     */
+    private function weeklyCounts(Builder $query): array
+    {
+        return (clone $query)
+            ->selectRaw("DATE_FORMAT(created_at, '%x-%v') as week, COUNT(*) as count")
+            ->groupByRaw("DATE_FORMAT(created_at, '%x-%v')")
+            ->pluck('count', 'week')
+            ->map(fn ($count) => (int) $count)
+            ->all();
+    }
+
+    /**
+     * Open tickets scored against 24h aging / 48h overdue (plus urgent subjects).
+     *
+     * @param  list<SupportTicketStatusEnum>  $pendingStatuses
+     * @return list<array{key: string, label: string, count: int, color: string}>
+     */
+    private function slaAging(Builder $inquiryQuery, Builder $complaintQuery, array $pendingStatuses): array
+    {
+        $counts = [
+            'ok' => 0,
+            'aging' => 0,
+            'overdue' => 0,
+            'urgent' => 0,
+        ];
+
+        $tickets = (clone $inquiryQuery)
+            ->whereIn('status', $pendingStatuses)
+            ->get(['subject', 'created_at'])
+            ->concat(
+                (clone $complaintQuery)
+                    ->whereIn('status', $pendingStatuses)
+                    ->get(['subject', 'created_at'])
+            );
+
+        foreach ($tickets as $ticket) {
+            $level = CroSupportSla::level($ticket->created_at, $ticket->subject, true);
+            $counts[$level] = ($counts[$level] ?? 0) + 1;
+        }
+
+        $colors = [
+            'ok' => 'rgba(16, 185, 129, 0.85)',
+            'aging' => 'rgba(245, 158, 11, 0.85)',
+            'overdue' => 'rgba(249, 115, 22, 0.85)',
+            'urgent' => 'rgba(244, 63, 94, 0.85)',
+        ];
+
+        return collect(['ok', 'aging', 'overdue', 'urgent'])
+            ->map(fn (string $key) => [
+                'key' => $key,
+                'label' => CroSupportSla::levelLabel($key),
+                'count' => $counts[$key],
+                'color' => $colors[$key],
+            ])
+            ->all();
     }
 
     private function buildScopeCaption(
@@ -329,14 +457,24 @@ class SupportReportController extends Controller
             : 'All customer relations officers';
     }
 
-    private function scopedInquiryQuery(?int $croId, ?int $organizerId = null, ?int $eventId = null): Builder
-    {
-        return $this->applySupportScope(Inquiry::query(), $croId, $organizerId, $eventId);
+    private function scopedInquiryQuery(
+        ?int $croId,
+        ?int $organizerId = null,
+        ?int $eventId = null,
+        ?string $from = null,
+        ?string $to = null,
+    ): Builder {
+        return $this->applySupportScope(Inquiry::query(), $croId, $organizerId, $eventId, $from, $to);
     }
 
-    private function scopedComplaintQuery(?int $croId, ?int $organizerId = null, ?int $eventId = null): Builder
-    {
-        return $this->applySupportScope(Complaint::query(), $croId, $organizerId, $eventId);
+    private function scopedComplaintQuery(
+        ?int $croId,
+        ?int $organizerId = null,
+        ?int $eventId = null,
+        ?string $from = null,
+        ?string $to = null,
+    ): Builder {
+        return $this->applySupportScope(Complaint::query(), $croId, $organizerId, $eventId, $from, $to);
     }
 
     private function applySupportScope(
@@ -344,6 +482,8 @@ class SupportReportController extends Controller
         ?int $croId,
         ?int $organizerId,
         ?int $eventId,
+        ?string $from = null,
+        ?string $to = null,
     ): Builder {
         if ($croId) {
             $query->where('assigned_to', $croId);
@@ -356,6 +496,14 @@ class SupportReportController extends Controller
                 'event_id',
                 Event::query()->where('created_by', $organizerId)->select('id')
             );
+        }
+
+        if (filled($from)) {
+            $query->whereDate('created_at', '>=', $from);
+        }
+
+        if (filled($to)) {
+            $query->whereDate('created_at', '<=', $to);
         }
 
         return $query;

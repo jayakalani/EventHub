@@ -47,6 +47,52 @@
                     </div>
                 @endforeach
             </div>
+
+            @php
+                $conversionFunnel = $conversionFunnel ?? [];
+                $funnelViews = (int) (collect($conversionFunnel)->firstWhere('label', 'Views')['count'] ?? 0);
+                $funnelPaid = (int) (collect($conversionFunnel)->firstWhere('label', 'Paid')['count'] ?? 0);
+                $funnelConversion = $funnelViews > 0 ? round(($funnelPaid / $funnelViews) * 100, 1) : null;
+            @endphp
+            <div class="glass-card chart-expand-hit group p-4 sm:p-5">
+                <div class="mb-3 flex items-start justify-between gap-3">
+                    <div class="min-w-0">
+                        <h2 class="text-base font-bold text-slate-900">Conversion funnel</h2>
+                        <p class="mt-0.5 text-sm text-slate-500">Views → cart → paid</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        @if ($funnelConversion !== null)
+                            <span class="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+                                {{ $funnelConversion }}% view → paid
+                            </span>
+                        @endif
+                        <button type="button"
+                            @click="openChart('conversionFunnel', @js('Conversion funnel'), @js('Marketplace views to cart to confirmed purchases'))"
+                            class="btn-smooth flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/60 bg-cyan-50/70 text-cyan-600 backdrop-blur hover:bg-cyan-100/90 hover:shadow-sm"
+                            title="View fullscreen"
+                            aria-label="View Conversion funnel fullscreen">
+                            <i class="bi bi-arrows-fullscreen text-xs"></i>
+                        </button>
+                    </div>
+                </div>
+                <button type="button"
+                    @click="openChart('conversionFunnel', @js('Conversion funnel'), @js('Marketplace views to cart to confirmed purchases'))"
+                    class="btn-smooth block h-48 w-full cursor-pointer rounded-xl text-left hover:bg-white/40 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                    aria-label="Open Conversion funnel fullscreen">
+                    <canvas id="dashboardConversionFunnelChart" class="pointer-events-none"></canvas>
+                </button>
+                <div class="mt-3 flex flex-wrap gap-2">
+                    @foreach ($conversionFunnel as $stage)
+                        <span class="rounded-lg border border-white/60 bg-white/50 px-2.5 py-1 text-xs text-slate-500">
+                            <span class="font-semibold text-slate-700">{{ $stage['label'] }}:</span>
+                            {{ number_format($stage['count']) }}
+                            @if ($stage['rate'] !== null)
+                                <span class="text-indigo-600">({{ $stage['rate'] }}%)</span>
+                            @endif
+                        </span>
+                    @endforeach
+                </div>
+            </div>
             </section>
 
             {{-- Needs attention --}}
@@ -126,7 +172,12 @@
                             @endphp
                             <a href="{{ $item['href'] }}"
                                 @if (! empty($item['section']))
-                                    @click.prevent="setSection(@js($item['section']))"
+                                    @click.prevent="
+                                        setSection(@js($item['section']));
+                                        @if (! empty($item['scrollTo']))
+                                            $nextTick(() => document.querySelector(@js($item['scrollTo']))?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+                                        @endif
+                                    "
                                 @endif
                                 class="btn-smooth flex items-start gap-3 px-4 py-3.5 hover:bg-amber-50/40 sm:px-5"
                                 @if ($loop->index >= 3)
@@ -158,12 +209,206 @@
                 @endif
             </section>
 
+            {{-- Low inventory --}}
+            @php
+                $lowInventoryItems = $lowInventory['items'] ?? [];
+                $lowInventoryCount = (int) ($lowInventory['count'] ?? 0);
+            @endphp
+            @if ($lowInventoryCount > 0)
+            <section id="low-inventory" class="glass-card scroll-mt-28 overflow-hidden !p-0">
+                <div class="flex flex-col gap-3 border-b border-white/50 bg-white/30 px-4 py-3.5 backdrop-blur-sm sm:flex-row sm:items-center sm:justify-between sm:px-5">
+                    <div class="min-w-0">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <h2 class="text-base font-bold text-slate-900">Low inventory</h2>
+                            <span class="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-amber-100 px-2 text-xs font-bold text-amber-800">
+                                {{ number_format($lowInventoryCount) }}
+                            </span>
+                        </div>
+                        <p class="mt-0.5 text-sm text-slate-500">Upcoming and live events near sell-out · live stock, not the date chips</p>
+                    </div>
+                    <a href="{{ route('admin.events.index') }}"
+                        class="btn-smooth whitespace-nowrap text-xs font-semibold text-indigo-600 hover:text-indigo-800">
+                        Open events list →
+                    </a>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full text-sm">
+                        <thead class="bg-white/35 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500 backdrop-blur-sm">
+                            <tr>
+                                <th class="px-4 py-2.5 sm:px-5">Event</th>
+                                <th class="px-4 py-2.5 sm:px-5">Organizer</th>
+                                <th class="px-4 py-2.5 sm:px-5">Date</th>
+                                <th class="px-4 py-2.5 text-right sm:px-5">Left</th>
+                                <th class="px-4 py-2.5 text-right sm:px-5">Sold</th>
+                                <th class="px-4 py-2.5 sm:px-5">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-white/40">
+                            @foreach ($lowInventoryItems as $event)
+                                @php
+                                    $remaining = (int) ($event['remaining'] ?? 0);
+                                    $remainTone = $remaining === 0 ? 'text-rose-700' : 'text-amber-700';
+                                @endphp
+                                <tr class="btn-smooth relative cursor-pointer hover:bg-white/45">
+                                    <td class="px-4 py-3 sm:px-5">
+                                        <a href="{{ $event['url'] }}"
+                                            class="after:absolute after:inset-0 font-semibold text-slate-900"
+                                            aria-label="Open {{ $event['name'] }}">
+                                            {{ $event['name'] }}
+                                        </a>
+                                    </td>
+                                    <td class="max-w-[9rem] truncate px-4 py-3 text-slate-600 sm:px-5">{{ $event['organizer'] }}</td>
+                                    <td class="whitespace-nowrap px-4 py-3 text-slate-700 sm:px-5">{{ $event['when'] }}</td>
+                                    <td class="px-4 py-3 text-right font-semibold {{ $remainTone }} sm:px-5">
+                                        {{ number_format($remaining) }}
+                                    </td>
+                                    <td class="px-4 py-3 text-right text-slate-700 sm:px-5">
+                                        {{ number_format($event['sold']) }}
+                                        <span class="text-slate-400">/ {{ number_format($event['capacity']) }}</span>
+                                    </td>
+                                    <td class="px-4 py-3 sm:px-5">
+                                        <span @class([
+                                            'inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium',
+                                            'bg-emerald-100 text-emerald-700' => ($event['status'] ?? '') === 'ongoing',
+                                            'bg-sky-100 text-sky-700' => ($event['status'] ?? '') === 'upcoming',
+                                        ])>
+                                            {{ $event['statusLabel'] }}
+                                        </span>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+                @if ($lowInventoryCount > count($lowInventoryItems))
+                    <div class="border-t border-white/50 bg-white/25 px-4 py-3 text-center sm:px-5">
+                        <a href="{{ route('admin.events.index') }}" class="text-xs font-semibold text-indigo-600 hover:text-indigo-800">
+                            View all {{ number_format($lowInventoryCount) }} low-inventory events →
+                        </a>
+                    </div>
+                @endif
+            </section>
+            @endif
+
+            {{-- This week --}}
+            @php
+                $upcomingItems = $upcomingThisWeek['items'] ?? [];
+                $upcomingCount = (int) ($upcomingThisWeek['count'] ?? 0);
+                $upcomingListUrl = $upcomingThisWeek['listUrl'] ?? route('admin.events.index');
+            @endphp
+            <section class="glass-card overflow-hidden !p-0">
+                <div class="flex flex-col gap-3 border-b border-white/50 bg-white/30 px-4 py-3.5 backdrop-blur-sm sm:flex-row sm:items-center sm:justify-between sm:px-5">
+                    <div class="min-w-0">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <h2 class="text-base font-bold text-slate-900">This week</h2>
+                            @if ($upcomingCount > 0)
+                                <span class="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-indigo-100 px-2 text-xs font-bold text-indigo-700">
+                                    {{ number_format($upcomingCount) }}
+                                </span>
+                            @endif
+                        </div>
+                        <p class="mt-0.5 text-sm text-slate-500">Upcoming and live events on the calendar for the next 7 days · not the date chips</p>
+                    </div>
+                    <a href="{{ $upcomingListUrl }}"
+                        class="btn-smooth whitespace-nowrap text-xs font-semibold text-indigo-600 hover:text-indigo-800">
+                        Open events list →
+                    </a>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full text-sm">
+                        <thead class="bg-white/35 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500 backdrop-blur-sm">
+                            <tr>
+                                <th class="px-4 py-2.5 sm:px-5">Event</th>
+                                <th class="px-4 py-2.5 sm:px-5">Organizer</th>
+                                <th class="px-4 py-2.5 sm:px-5">Date / time</th>
+                                <th class="px-4 py-2.5 text-right sm:px-5">Tickets</th>
+                                <th class="px-4 py-2.5 sm:px-5">Status</th>
+                                <th class="px-4 py-2.5 text-right sm:px-5">Complaints</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-white/40">
+                            @forelse ($upcomingItems as $event)
+                                @php
+                                    $statusBadge = match ($event['status'] ?? '') {
+                                        'upcoming' => 'bg-sky-100 text-sky-700',
+                                        'ongoing' => 'bg-emerald-100 text-emerald-700',
+                                        'postponed' => 'bg-amber-100 text-amber-800',
+                                        default => 'bg-slate-100 text-slate-600',
+                                    };
+                                    $capacity = (int) ($event['capacity'] ?? 0);
+                                    $sold = (int) ($event['sold'] ?? 0);
+                                    $fillPercent = $capacity > 0 ? min(100, (int) round(($sold / $capacity) * 100)) : 0;
+                                    $ticketTone = match (true) {
+                                        $capacity > 0 && $sold >= $capacity => 'text-rose-700',
+                                        $fillPercent >= 85 => 'text-amber-700',
+                                        default => 'text-slate-700',
+                                    };
+                                @endphp
+                                <tr class="btn-smooth relative cursor-pointer hover:bg-white/45">
+                                    <td class="px-4 py-3 sm:px-5">
+                                        <a href="{{ $event['url'] }}"
+                                            class="after:absolute after:inset-0"
+                                            aria-label="Open {{ $event['name'] }}">
+                                            <span class="flex items-center gap-2">
+                                                <span class="truncate font-semibold text-slate-900">{{ $event['name'] }}</span>
+                                                @if (! empty($event['isToday']))
+                                                    <span class="relative shrink-0 rounded-full bg-indigo-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-indigo-700">Today</span>
+                                                @endif
+                                            </span>
+                                        </a>
+                                    </td>
+                                    <td class="max-w-[9rem] truncate px-4 py-3 text-slate-600 sm:px-5">{{ $event['organizer'] }}</td>
+                                    <td class="whitespace-nowrap px-4 py-3 text-slate-700 sm:px-5">{{ $event['when'] }}</td>
+                                    <td class="px-4 py-3 text-right sm:px-5">
+                                        <p class="font-semibold {{ $ticketTone }}">
+                                            {{ number_format($sold) }}
+                                            <span class="font-medium text-slate-400">/ {{ number_format($capacity) }}</span>
+                                        </p>
+                                    </td>
+                                    <td class="px-4 py-3 sm:px-5">
+                                        <span class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium {{ $statusBadge }}">
+                                            {{ $event['statusLabel'] }}
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-3 text-right sm:px-5">
+                                        @if ((int) ($event['openComplaints'] ?? 0) > 0)
+                                            <span class="inline-flex rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-semibold text-rose-700">
+                                                {{ number_format($event['openComplaints']) }}
+                                            </span>
+                                        @else
+                                            <span class="text-slate-400">0</span>
+                                        @endif
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="6" class="px-4 py-8">
+                                        <x-report-empty-state
+                                            class="!min-h-[8rem] border-0 bg-transparent shadow-none"
+                                            title="No events in the next 7 days."
+                                            hint="Try another organizer, or open the events list for the full catalog."
+                                        />
+                                    </td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+                @if ($upcomingCount > count($upcomingItems))
+                    <div class="border-t border-white/50 bg-white/25 px-4 py-3 text-center sm:px-5">
+                        <a href="{{ $upcomingListUrl }}" class="text-xs font-semibold text-indigo-600 hover:text-indigo-800">
+                            View all {{ number_format($upcomingCount) }} events this week →
+                        </a>
+                    </div>
+                @endif
+            </section>
+
             {{-- 3. Performance + mini calendar --}}
             <div class="grid gap-4 lg:grid-cols-5">
                 <section class="glass-card lg:col-span-3 overflow-hidden !p-0">
                     <div class="border-b border-white/50 bg-white/30 px-4 py-3.5 backdrop-blur-sm sm:px-5">
                         <h2 class="text-base font-bold text-slate-900">Organizer Performance</h2>
-                        <p class="mt-0.5 text-sm text-slate-500">Top organizers by revenue</p>
+                        <p class="mt-0.5 text-sm text-slate-500">Top organizers by confirmed sales · {{ $scopeCaption }}</p>
                     </div>
                     <div class="overflow-x-auto">
                         <table class="min-w-full text-sm">
@@ -208,79 +453,168 @@
                 </aside>
             </div>
 
-            {{-- 4. Payments --}}
-            <section class="glass-card p-4 sm:p-5">
-                <div class="mb-3 flex items-start justify-between gap-3">
-                    <div class="min-w-0">
-                        <h2 class="text-base font-bold text-slate-900">Payment Overview</h2>
-                        <p class="mt-0.5 text-sm text-slate-500">{{ $paymentScopeCaption }}</p>
-                    </div>
-                    <button type="button"
-                        @click="openChart('payments', @js('Payment Overview'), @js('Successful, pending, refunded, and failed payments'))"
-                        class="btn-smooth flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/60 bg-emerald-50/70 text-emerald-600 backdrop-blur hover:bg-emerald-100/90 hover:shadow-sm"
-                        title="View fullscreen"
-                        aria-label="View Payment Overview fullscreen">
-                        <i class="bi bi-arrows-fullscreen text-xs"></i>
-                    </button>
-                </div>
-
-                <div class="grid gap-4 lg:grid-cols-5 lg:items-center">
-                    <button type="button"
-                        @click="openChart('payments', @js('Payment Overview'), @js('Successful, pending, refunded, and failed payments'))"
-                        class="btn-smooth mx-auto block h-40 w-full max-w-[200px] cursor-pointer rounded-xl hover:bg-white/40 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 lg:col-span-2"
-                        aria-label="Open Payment Overview fullscreen">
-                        <canvas id="dashboardPaymentOverviewChart" class="pointer-events-none"></canvas>
-                    </button>
-
-                    <div class="grid grid-cols-2 gap-2 lg:col-span-3 sm:grid-cols-4">
-                        @foreach ([
-                            ['Successful', $payments['completed'], 'text-emerald-700', 'bg-emerald-50/55 border-emerald-200/50'],
-                            ['Pending', $payments['pending'], 'text-amber-700', 'bg-amber-50/55 border-amber-200/50'],
-                            ['Refunded', $payments['refunded'], 'text-purple-700', 'bg-purple-50/55 border-purple-200/50'],
-                            ['Failed', $payments['failed'], 'text-rose-700', 'bg-rose-50/55 border-rose-200/50'],
-                        ] as [$label, $value, $color, $bg])
-                            <div class="btn-smooth rounded-xl border {{ $bg }} px-2.5 py-2.5 text-center backdrop-blur-sm hover:-translate-y-0.5 hover:bg-white/70 hover:shadow-sm">
-                                <p class="text-[11px] font-medium text-slate-500">{{ $label }}</p>
-                                <p class="mt-0.5 text-lg font-bold {{ $color }}">{{ number_format($value) }}</p>
-                            </div>
-                        @endforeach
-                    </div>
-                </div>
-            </section>
-
-            {{-- 5. Users --}}
-            <div class="grid gap-4 lg:grid-cols-2">
-                <section class="glass-card p-4 sm:p-5">
+            {{-- Top events by revenue --}}
+            <section class="grid gap-4 lg:grid-cols-2">
+                <div class="glass-card chart-expand-hit group p-4 sm:p-5">
                     <div class="mb-3 flex items-start justify-between gap-3">
-                        <div>
-                            <h2 class="text-base font-bold text-slate-900">User Distribution</h2>
-                            <p class="mt-0.5 text-sm text-slate-500">Platform role composition</p>
+                        <div class="min-w-0">
+                            <h2 class="text-base font-bold text-slate-900">Top Events</h2>
+                            <p class="mt-0.5 text-sm text-slate-500">Highest net revenue listings</p>
                         </div>
                         <button type="button"
-                            @click="openChart('userDistribution', @js('User Distribution'), @js('Platform role composition'))"
-                            class="btn-smooth flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/60 bg-indigo-50/70 text-indigo-600 backdrop-blur hover:bg-indigo-100/90 hover:shadow-sm"
+                            @click="openChart('topEvents', @js('Top Events by Revenue'), @js('Net ticket revenue after approved refunds'))"
+                            class="btn-smooth flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/60 bg-emerald-50/70 text-emerald-600 backdrop-blur hover:bg-emerald-100/90 hover:shadow-sm"
                             title="View fullscreen"
-                            aria-label="View User Distribution fullscreen">
+                            aria-label="View Top Events fullscreen">
                             <i class="bi bi-arrows-fullscreen text-xs"></i>
                         </button>
                     </div>
                     <button type="button"
-                        @click="openChart('userDistribution', @js('User Distribution'), @js('Platform role composition'))"
-                        class="btn-smooth block h-56 w-full cursor-pointer rounded-xl text-left hover:bg-white/40 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:h-64"
-                        aria-label="Open User Distribution fullscreen">
-                        <canvas id="dashboardUserDistributionChart" class="pointer-events-none"></canvas>
+                        @click="openChart('topEvents', @js('Top Events by Revenue'), @js('Net ticket revenue after approved refunds'))"
+                        class="btn-smooth block h-80 w-full cursor-pointer rounded-xl text-left hover:bg-white/40 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                        aria-label="Open Top Events fullscreen">
+                        <canvas id="dashboardTopEventsChart" class="pointer-events-none"></canvas>
                     </button>
-                    <div class="mt-3 grid grid-cols-2 gap-2">
-                        @foreach ($rolePercents as $role)
-                            <div class="btn-smooth rounded-lg border border-white/60 bg-white/40 px-2.5 py-2 backdrop-blur-sm hover:-translate-y-0.5 hover:bg-white/70">
-                                <p class="truncate text-[11px] font-medium text-slate-500">{{ $role['label'] }}</p>
-                                <p class="text-sm font-bold text-slate-900">{{ $role['percent'] }}% <span class="font-medium text-slate-400">({{ number_format($role['count']) }})</span></p>
-                            </div>
-                        @endforeach
-                    </div>
-                </section>
+                </div>
 
                 <section class="glass-card overflow-hidden !p-0">
+                    <div class="border-b border-white/50 bg-white/30 px-4 py-3.5 backdrop-blur-sm sm:px-5">
+                        <h2 class="text-base font-bold text-slate-900">Revenue leaders</h2>
+                        <p class="mt-0.5 text-sm text-slate-500">Tickets, net take, and refund rate</p>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full text-sm">
+                            <thead class="bg-white/35 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500 backdrop-blur-sm">
+                                <tr>
+                                    <th class="px-4 py-2.5 sm:px-5">Event</th>
+                                    <th class="px-4 py-2.5 sm:px-5">Organizer</th>
+                                    <th class="px-4 py-2.5 text-right sm:px-5">Tickets</th>
+                                    <th class="px-4 py-2.5 text-right sm:px-5">Net</th>
+                                    <th class="px-4 py-2.5 text-right sm:px-5">Refund %</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-white/40">
+                                @forelse ($topEvents as $index => $event)
+                                    @php
+                                        $refundPercent = (float) ($event['refundPercent'] ?? 0);
+                                        $refundTone = match (true) {
+                                            $refundPercent >= 15 => 'bg-rose-100 text-rose-700',
+                                            $refundPercent >= 5 => 'bg-amber-100 text-amber-800',
+                                            default => 'text-slate-500',
+                                        };
+                                    @endphp
+                                    <tr class="btn-smooth relative cursor-pointer hover:bg-white/45">
+                                        <td class="px-4 py-3 sm:px-5">
+                                            <a href="{{ $event['url'] }}"
+                                                class="after:absolute after:inset-0"
+                                                aria-label="Open {{ $event['name'] }}">
+                                                <span class="flex items-center gap-2.5">
+                                                    <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold backdrop-blur-sm
+                                                        {{ $index === 0 ? 'bg-amber-100/80 text-amber-700' : ($index === 1 ? 'bg-slate-200/80 text-slate-700' : ($index === 2 ? 'bg-orange-100/80 text-orange-700' : 'bg-white/60 text-slate-600')) }}">
+                                                        {{ $index + 1 }}
+                                                    </span>
+                                                    <span class="truncate font-semibold text-slate-900">{{ $event['name'] }}</span>
+                                                </span>
+                                            </a>
+                                        </td>
+                                        <td class="max-w-[8rem] truncate px-4 py-3 text-slate-600 sm:px-5">{{ $event['organizer'] }}</td>
+                                        <td class="px-4 py-3 text-right text-slate-700 sm:px-5">{{ number_format($event['tickets']) }}</td>
+                                        <td class="px-4 py-3 text-right font-semibold text-emerald-700 sm:px-5">{{ $event['netLabel'] }}</td>
+                                        <td class="px-4 py-3 text-right sm:px-5">
+                                            <span @class([
+                                                'inline-flex rounded-full px-2 py-0.5 text-xs font-semibold',
+                                                $refundTone,
+                                            ])>
+                                                {{ number_format($refundPercent, 1) }}%
+                                            </span>
+                                        </td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="5" class="px-4 py-8">
+                                            <x-report-empty-state
+                                                class="!min-h-[8rem] border-0 bg-transparent shadow-none"
+                                                title="No ticket revenue yet."
+                                                hint="Confirmed sales in this scope will rank here."
+                                            />
+                                        </td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </section>
+
+            {{-- Refund rate by organizer --}}
+            @php
+                $organizerRefundRisk = $organizerRefundRisk ?? [];
+            @endphp
+            <section class="glass-card overflow-hidden !p-0">
+                <div class="border-b border-white/50 bg-white/30 px-4 py-3.5 backdrop-blur-sm sm:px-5">
+                    <h2 class="text-base font-bold text-slate-900">Refund rate by organizer</h2>
+                    <p class="mt-0.5 text-sm text-slate-500">Who is leaking GMV — not just who is biggest</p>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full text-sm">
+                        <thead class="bg-white/35 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500 backdrop-blur-sm">
+                            <tr>
+                                <th class="px-4 py-2.5 sm:px-5">Organizer</th>
+                                <th class="px-4 py-2.5 text-right sm:px-5">GMV</th>
+                                <th class="px-4 py-2.5 text-right sm:px-5">Refund %</th>
+                                <th class="px-4 py-2.5 text-right sm:px-5">Complaints</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-white/40">
+                            @forelse ($organizerRefundRisk as $organizer)
+                                @php
+                                    $refundPercent = (float) ($organizer['refundPercent'] ?? 0);
+                                    $refundTone = match (true) {
+                                        $refundPercent >= 15 => 'bg-rose-100 text-rose-700',
+                                        $refundPercent >= 5 => 'bg-amber-100 text-amber-800',
+                                        default => 'text-slate-500',
+                                    };
+                                @endphp
+                                <tr class="btn-smooth hover:bg-white/45">
+                                    <td class="px-4 py-3 font-semibold text-slate-900 sm:px-5">{{ $organizer['name'] }}</td>
+                                    <td class="px-4 py-3 text-right font-semibold text-slate-800 sm:px-5">{{ $organizer['grossLabel'] }}</td>
+                                    <td class="px-4 py-3 text-right sm:px-5">
+                                        <span @class([
+                                            'inline-flex rounded-full px-2 py-0.5 text-xs font-semibold',
+                                            $refundTone,
+                                        ])>
+                                            {{ number_format($refundPercent, 1) }}%
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-3 text-right sm:px-5">
+                                        @if ((int) ($organizer['openComplaints'] ?? 0) > 0)
+                                            <span class="inline-flex rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-semibold text-rose-700">
+                                                {{ number_format($organizer['openComplaints']) }}
+                                            </span>
+                                        @else
+                                            <span class="text-slate-400">0</span>
+                                        @endif
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="4" class="px-4 py-8">
+                                        <x-report-empty-state
+                                            class="!min-h-[8rem] border-0 bg-transparent shadow-none"
+                                            title="No refund leakage in this scope."
+                                            hint="Organizers with approved refunds will rank here by rate."
+                                        />
+                                    </td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            {{-- 5. Users + support peek --}}
+            <div class="grid gap-4 lg:grid-cols-5">
+                <section class="glass-card overflow-hidden !p-0 lg:col-span-3">
                     <div class="flex items-center justify-between gap-3 border-b border-white/50 bg-white/30 px-4 py-3.5 backdrop-blur-sm sm:px-5">
                         <div>
                             <h2 class="text-base font-bold text-slate-900">Recent Registrations</h2>
@@ -319,10 +653,7 @@
                         </table>
                     </div>
                 </section>
-            </div>
 
-            {{-- 6. Support + categories --}}
-            <div class="grid gap-4 lg:grid-cols-5">
                 <section class="glass-card lg:col-span-2 overflow-hidden !p-0">
                     <div class="flex items-center justify-between gap-3 border-b border-white/50 bg-white/30 px-4 py-3.5 backdrop-blur-sm sm:px-5">
                         <div class="min-w-0">
@@ -352,16 +683,6 @@
                             </div>
                         @endforeach
                     </div>
-                </section>
-
-                <section class="lg:col-span-3">
-                    <x-report-chart-card
-                        class="glass-card h-full"
-                        title="Event Categories"
-                        description="Number of events by category"
-                        canvas-id="dashboardEventsByCategoryChart"
-                        expand-key="eventsByCategory"
-                    />
                 </section>
             </div>
 

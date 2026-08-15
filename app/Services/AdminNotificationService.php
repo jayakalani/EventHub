@@ -93,6 +93,19 @@ class AdminNotificationService
         );
     }
 
+    public function notifyLastAdminLockPrevented(User $user): void
+    {
+        $this->notifyAllAdmins(
+            AdminNotificationCategory::Security,
+            'last_admin_lock_prevented',
+            'Repeated failed logins against the last admin account were ignored to prevent a platform lockout: '.$user->email.'.',
+            route('admin.users'),
+            [
+                'user_id' => $user->id,
+            ],
+        );
+    }
+
     public function notifyOrganizerCategoryDeleted(Event $event, ticketCategory $ticketCategory, User $actor): void
     {
         $this->notifyAllAdmins(

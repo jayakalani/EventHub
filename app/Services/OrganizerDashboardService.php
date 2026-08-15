@@ -646,13 +646,14 @@ class OrganizerDashboardService
     private function kpiEventFilter(int $organizerId, ?int $kpiEventId): array
     {
         $events = Event::query()
+            ->forFilter()
             ->createdByOrganizer($organizerId)
             ->orderByDesc('date')
             ->orderByDesc('id')
-            ->get(['id', 'name'])
+            ->get(['id', 'name', 'deleted_at'])
             ->map(fn (Event $event) => [
                 'id' => $event->id,
-                'name' => $event->name,
+                'name' => $event->filterLabel(),
             ])
             ->values()
             ->all();
@@ -683,6 +684,7 @@ class OrganizerDashboardService
     private function buildEventKpis(int $organizerId, int $eventId): array
     {
         $event = Event::query()
+            ->forFilter()
             ->createdByOrganizer($organizerId)
             ->withCount([
                 'ticketBookings as tickets_sold' => fn ($query) => $query->whereIn(
@@ -1248,7 +1250,7 @@ class OrganizerDashboardService
     private function engagementInsights(int $organizerId, ?int $eventId = null): array
     {
         $scope = function ($query) use ($organizerId, $eventId) {
-            $query->createdByOrganizer($organizerId);
+            $query->withTrashed()->createdByOrganizer($organizerId);
 
             if ($eventId) {
                 $query->where('id', $eventId);
@@ -1357,6 +1359,7 @@ class OrganizerDashboardService
     private function eventRevenueGoal(int $organizerId, array $filter): array
     {
         $event = Event::query()
+            ->forFilter()
             ->createdByOrganizer($organizerId)
             ->withSum([
                 'ticketBookings as revenue' => fn ($query) => $query->where('status', BookingStatusEnum::Confirmed),

@@ -124,9 +124,12 @@ class ReportController extends Controller
             $period = 'month';
         }
 
-        if ($period === 'custom') {
+        if (! empty($validated['date_from']) || ! empty($validated['date_to'])) {
             $from = $validated['date_from'] ?? null;
             $to = $validated['date_to'] ?? null;
+        } elseif ($period === 'custom') {
+            $from = null;
+            $to = null;
         } elseif ($period === 'week') {
             $from = now()->subDays(6)->toDateString();
             $to = now()->toDateString();

@@ -429,9 +429,15 @@
 
             {{-- Events --}}
             <div x-show="activeTab === 'admin'" x-cloak class="space-y-5">
-                <div>
-                    <h2 class="text-lg font-bold text-slate-900">Events</h2>
-                    <p class="text-sm text-slate-500">Event status mix and platform summary metrics</p>
+                <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-900">Events</h2>
+                        <p class="text-sm text-slate-500">Event status mix and platform summary metrics</p>
+                    </div>
+                    <a href="{{ route('admin.events.index') }}"
+                        class="btn-smooth inline-flex items-center gap-1.5 self-start text-xs font-semibold text-indigo-600 hover:text-indigo-800 sm:self-auto">
+                        Open events list →
+                    </a>
                 </div>
 
                 <div class="grid gap-4 lg:grid-cols-2">

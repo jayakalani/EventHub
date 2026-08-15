@@ -34,13 +34,28 @@ class GenerateAdminReportRequest extends FormRequest
             'filters.ticket_type' => ['nullable', 'string', Rule::in(['inquiry', 'complaint'])],
             'filters.check_in' => ['nullable', 'string', Rule::in(['checked_in', 'not_checked_in'])],
             'filters.active' => ['nullable', 'string', Rule::in(['0', '1'])],
-            'filters.section' => ['nullable', 'string', Rule::in(['admin', 'users', 'payments'])],
+            'filters.section' => ['nullable', 'string', Rule::in([
+                'all',
+                'full',
+                'performance',
+                'support',
+                'overview',
+                'activity',
+                'events',
+                'users',
+                'payments',
+                'admin',
+            ])],
             'filters.role_id' => ['nullable', 'integer', 'exists:user_roles,id'],
             'filters.organizer_id' => ['nullable', 'integer', 'exists:users,id'],
             'filters.event_id' => ['nullable', 'integer', 'exists:events,id'],
             'filters.cro_id' => ['nullable', 'integer', 'exists:users,id'],
             'filters.date_from' => ['nullable', 'date'],
             'filters.date_to' => ['nullable', 'date', 'after_or_equal:filters.date_from'],
+            'charts' => ['nullable', 'array', 'max:40'],
+            'charts.*.title' => ['required', 'string', 'max:120'],
+            'charts.*.image' => ['required', 'string', 'max:5000000'],
+            'charts.*.section' => ['nullable', 'string', 'max:40'],
         ];
     }
 
@@ -120,5 +135,26 @@ class GenerateAdminReportRequest extends FormRequest
         $filters = $this->input('filters', []);
 
         return is_array($filters) ? $filters : [];
+    }
+
+    /**
+     * @return list<array{title: string, image: string, section: string}>
+     */
+    public function selectedCharts(): array
+    {
+        return collect($this->validated()['charts'] ?? [])
+            ->filter(function (array $chart) {
+                $image = $chart['image'] ?? '';
+
+                return is_string($image)
+                    && preg_match('/^data:image\/(png|jpeg|jpg);base64,/', $image) === 1;
+            })
+            ->map(fn (array $chart) => [
+                'title' => (string) $chart['title'],
+                'image' => (string) $chart['image'],
+                'section' => (string) ($chart['section'] ?? ''),
+            ])
+            ->values()
+            ->all();
     }
 }

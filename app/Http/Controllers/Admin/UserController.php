@@ -6,15 +6,24 @@ use App\Http\Controllers\Admin\Concerns\FiltersUsers;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\UserRole;
+use App\Services\UserRoleChangeService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redirect;
+use Illuminate\Support\Facades\Response;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class UserController extends Controller
 {
     use FiltersUsers;
+
+    public function __construct(
+        protected UserRoleChangeService $roleChange,
+    ) {}
 
     /**
      * Display a listing of all users.
@@ -38,6 +47,55 @@ class UserController extends Controller
     }
 
     /**
+     * Export filtered users (all roles, including attendees) as CSV.
+     */
+    public function exportCsv(Request $request)
+    {
+        $users = $this->filteredUsersQuery($request)->latest()->get();
+
+        $csvData = [];
+        $csvData[] = ['ID', 'Name', 'Email', 'Contact Number', 'Role', 'Is Locked', 'Is Active'];
+
+        foreach ($users as $user) {
+            $csvData[] = [
+                $user->id,
+                $user->first_name.' '.$user->last_name,
+                $user->email,
+                $user->contact_number,
+                $user->userRole->name_en ?? '',
+                $user->is_locked ? 'Locked' : 'Unlocked',
+                $user->is_active ? 'Active' : 'Inactive',
+            ];
+        }
+
+        $filename = 'users_'.now()->format('Ymd_His').'.csv';
+        $handle = fopen('php://temp', 'r+');
+        foreach ($csvData as $row) {
+            fputcsv($handle, $row);
+        }
+        rewind($handle);
+        $content = stream_get_contents($handle);
+        fclose($handle);
+
+        return Response::make($content, 200, [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => "attachment; filename={$filename}",
+        ]);
+    }
+
+    /**
+     * Export filtered users (all roles, including attendees) as PDF.
+     */
+    public function exportPdf(Request $request)
+    {
+        $users = $this->filteredUsersQuery($request)->latest()->get();
+
+        $pdf = Pdf::loadView('admin.exports.users_pdf', compact('users'));
+
+        return $pdf->download('users_'.now()->format('Ymd_His').'.pdf');
+    }
+
+    /**
      * Show the form for editing the specified user.
      */
     public function edit($id): View
@@ -52,8 +110,15 @@ class UserController extends Controller
         }
 
         $roleChangeLocked = $user->adminProtectionError('demote') !== null;
+        $emailChangeLocked = $user->adminProtectionError('change-email') !== null;
+        $roleChangeContext = $this->roleChange->formContext($user);
 
-        return view('admin.users.user-edit', compact('user', 'roles', 'roleChangeLocked'));
+        return view('admin.users.user-edit', compact(
+            'user',
+            'roles',
+            'roleChangeLocked',
+            'emailChangeLocked',
+        ) + $roleChangeContext);
     }
 
     /**
@@ -85,6 +150,8 @@ class UserController extends Controller
                         });
                 }),
             ],
+            'reassign_organizer_id' => ['nullable', 'integer'],
+            'reassign_cro_id' => ['nullable', 'integer'],
         ]);
 
         $newRole = UserRole::query()->find((int) $validated['role_id']);
@@ -98,15 +165,41 @@ class UserController extends Controller
             }
         }
 
-        $user->fill($validated);
+        $user->fill(Arr::only($validated, [
+            'first_name',
+            'last_name',
+            'email',
+            'contact_number',
+            'role_id',
+        ]));
 
         $emailChanged = $user->isDirty('email');
+        $roleChanged = $user->isDirty('role_id');
 
         if ($emailChanged) {
+            if ($response = $this->denyProtectedAdminAction($user, 'change-email')) {
+                return $response;
+            }
+
             $user->email_verified_at = null;
         }
 
-        $user->save();
+        DB::transaction(function () use ($user, $newRole, $roleChanged, $validated) {
+            if ($roleChanged && $newRole) {
+                $this->roleChange->apply(
+                    $user,
+                    $newRole,
+                    ! empty($validated['reassign_organizer_id']) ? (int) $validated['reassign_organizer_id'] : null,
+                    ! empty($validated['reassign_cro_id']) ? (int) $validated['reassign_cro_id'] : null,
+                );
+            }
+
+            $user->save();
+        });
+
+        if ($roleChanged) {
+            $user->invalidateSessions();
+        }
 
         if ($emailChanged) {
             $user->sendEmailVerificationNotification();
@@ -173,6 +266,10 @@ class UserController extends Controller
             'locked_until' => null,
         ]);
 
+        if ($user->is_locked) {
+            $user->invalidateSessions();
+        }
+
         $status = $user->is_locked ? 'locked' : 'unlocked';
 
         return Redirect::route('admin.users')->with('success', "User {$user->first_name} {$user->last_name} has been {$status}.");
@@ -193,6 +290,10 @@ class UserController extends Controller
             'is_active' => ! $user->is_active,
         ]);
 
+        if (! $user->is_active) {
+            $user->invalidateSessions();
+        }
+
         $status = $user->is_active ? 'activated' : 'deactivated';
 
         return Redirect::route('admin.users')->with('success', "User {$user->first_name} {$user->last_name} has been {$status}.");
@@ -209,13 +310,14 @@ class UserController extends Controller
             return $response;
         }
 
+        $user->invalidateSessions();
         $user->delete();
 
         return Redirect::route('admin.users')->with('success', "User {$user->first_name} {$user->last_name} has been deleted.");
     }
 
     /**
-     * @param  'lock'|'deactivate'|'delete'|'demote'  $action
+     * @param  'lock'|'deactivate'|'delete'|'demote'|'change-email'  $action
      */
     private function denyProtectedAdminAction(User $user, string $action): ?RedirectResponse
     {
@@ -225,7 +327,7 @@ class UserController extends Controller
             return null;
         }
 
-        $fallback = $action === 'demote'
+        $fallback = in_array($action, ['demote', 'change-email'], true)
             ? route('admin.user.edit', $user->id)
             : route('admin.users');
 

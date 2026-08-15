@@ -35,9 +35,10 @@ class ReviewController extends Controller
         ];
 
         $events = Event::query()
+            ->forFilter()
             ->createdByOrganizer($organizerId)
             ->orderBy('name')
-            ->get(['id', 'name']);
+            ->get(['id', 'name', 'deleted_at']);
 
         return view('organizer.reviews.index', compact('ratings', 'stats', 'events', 'filters'));
     }
@@ -74,7 +75,7 @@ class ReviewController extends Controller
     private function ratingsQuery(int $organizerId, array $filters): Builder
     {
         $query = Rating::query()
-            ->whereHas('event', fn (Builder $q) => $q->createdByOrganizer($organizerId));
+            ->whereHas('event', fn (Builder $q) => $q->withTrashed()->createdByOrganizer($organizerId));
 
         if (! empty($filters['event_id'])) {
             $query->where('event_id', $filters['event_id']);

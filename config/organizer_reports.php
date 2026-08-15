@@ -119,20 +119,8 @@ return [
                     ],
                     'label' => 'Period',
                 ],
-                [
-                    'key' => 'date_from',
-                    'type' => 'date',
-                    'label' => 'From',
-                    'show_when' => ['period' => 'custom'],
-                    'required' => true,
-                ],
-                [
-                    'key' => 'date_to',
-                    'type' => 'date',
-                    'label' => 'To',
-                    'show_when' => ['period' => 'custom'],
-                    'required' => true,
-                ],
+                ['key' => 'date_from', 'type' => 'date', 'label' => 'From'],
+                ['key' => 'date_to', 'type' => 'date', 'label' => 'To'],
             ],
         ],
 
@@ -267,6 +255,8 @@ return [
                     ],
                     'label' => 'Active',
                 ],
+                ['key' => 'date_from', 'type' => 'date', 'label' => 'Event From'],
+                ['key' => 'date_to', 'type' => 'date', 'label' => 'Event To'],
             ],
         ],
 
@@ -429,6 +419,8 @@ return [
                     ],
                     'label' => 'Active',
                 ],
+                ['key' => 'date_from', 'type' => 'date', 'label' => 'Created From'],
+                ['key' => 'date_to', 'type' => 'date', 'label' => 'Created To'],
             ],
         ],
 
@@ -458,6 +450,8 @@ return [
                     ],
                     'label' => 'Active',
                 ],
+                ['key' => 'date_from', 'type' => 'date', 'label' => 'Created From'],
+                ['key' => 'date_to', 'type' => 'date', 'label' => 'Created To'],
             ],
         ],
 

@@ -100,5 +100,13 @@ class TicketCategoriesReport implements ReportGenerator
         if (isset($filters['active']) && $filters['active'] !== '') {
             $query->where('is_active', (bool) (int) $filters['active']);
         }
+
+        if (! empty($filters['date_from'])) {
+            $query->whereHas('event', fn (Builder $event) => $event->whereDate('date', '>=', $filters['date_from']));
+        }
+
+        if (! empty($filters['date_to'])) {
+            $query->whereHas('event', fn (Builder $event) => $event->whereDate('date', '<=', $filters['date_to']));
+        }
     }
 }

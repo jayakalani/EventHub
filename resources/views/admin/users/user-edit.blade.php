@@ -4,6 +4,11 @@
         $labelClass = 'mb-1.5 block text-xs font-semibold text-slate-600';
         $initials = strtoupper(substr($user->first_name ?? 'U', 0, 1).substr($user->last_name ?? '', 0, 1));
         $roleChangeLocked = $roleChangeLocked ?? false;
+        $emailChangeLocked = $emailChangeLocked ?? false;
+        $organizerAssets = $organizerAssets ?? 0;
+        $croAssets = $croAssets ?? 0;
+        $otherOrganizers = $otherOrganizers ?? collect();
+        $otherCros = $otherCros ?? collect();
         $isSelf = $user->isCurrentAuthUser();
     @endphp
 
@@ -165,12 +170,22 @@
                                     <div
                                         class="btn-smooth rounded-xl border border-white/60 bg-white/40 p-3 backdrop-blur-sm hover:-translate-y-0.5 hover:bg-white/70 hover:shadow-sm focus-within:border-indigo-200 focus-within:bg-white/80">
                                         <label for="email" class="{{ $labelClass }}">Email</label>
-                                        <input id="email" type="email" name="email"
-                                            value="{{ old('email', $user->email) }}" required
-                                            class="{{ $fieldClass }}">
-                                        <p class="mt-1.5 text-[11px] font-medium text-slate-500">
-                                            Changing email resets verification.
-                                        </p>
+                                            @if ($emailChangeLocked)
+                                                <input type="hidden" name="email" value="{{ $user->email }}">
+                                                <input id="email" type="email" value="{{ $user->email }}" disabled
+                                                    class="{{ $fieldClass }} opacity-70">
+                                                <p class="mt-1.5 text-[11px] font-medium text-amber-700">
+                                                    Email is locked because this is the last active admin account.
+                                                    Changing it would reset verification and lock you out.
+                                                </p>
+                                            @else
+                                                <input id="email" type="email" name="email"
+                                                    value="{{ old('email', $user->email) }}" required
+                                                    class="{{ $fieldClass }}">
+                                                <p class="mt-1.5 text-[11px] font-medium text-slate-500">
+                                                    Changing email resets verification.
+                                                </p>
+                                            @endif
                                     </div>
 
                                     <div
@@ -222,10 +237,67 @@
                                             @endforeach
                                         </select>
                                         <p class="mt-1.5 text-[11px] font-medium text-slate-500">
-                                            Changing the role can immediately affect access permissions.
+                                            Changing the role signs the user out immediately and updates access.
                                         </p>
                                     @endif
                                 </div>
+
+                                @if (! $roleChangeLocked && $organizerAssets > 0)
+                                    <div
+                                        class="mt-4 btn-smooth rounded-xl border border-white/60 bg-white/40 p-3 backdrop-blur-sm">
+                                        <label for="reassign_organizer_id" class="{{ $labelClass }}">Reassign organizer records</label>
+                                        @if ($otherOrganizers->isEmpty())
+                                            <p class="text-[11px] font-medium text-amber-700">
+                                                This user owns {{ $organizerAssets }} event/host/artist record(s). Create another active organizer before changing this role.
+                                            </p>
+                                        @else
+                                            <select id="reassign_organizer_id" name="reassign_organizer_id"
+                                                class="{{ $fieldClass }}">
+                                                <option value="">Select organizer</option>
+                                                @foreach ($otherOrganizers as $organizer)
+                                                    <option value="{{ $organizer->id }}"
+                                                        @selected((int) old('reassign_organizer_id') === $organizer->id)>
+                                                        {{ $organizer->full_name }}
+                                                    </option>
+                                                @endforeach
+                                            </select>
+                                            <p class="mt-1.5 text-[11px] font-medium text-slate-500">
+                                                Required when moving this user off the organizer role. {{ $organizerAssets }} record(s) will transfer.
+                                            </p>
+                                            @error('reassign_organizer_id')
+                                                <p class="mt-1.5 text-[11px] font-medium text-rose-700">{{ $message }}</p>
+                                            @enderror
+                                        @endif
+                                    </div>
+                                @endif
+
+                                @if (! $roleChangeLocked && $croAssets > 0)
+                                    <div
+                                        class="mt-4 btn-smooth rounded-xl border border-white/60 bg-white/40 p-3 backdrop-blur-sm">
+                                        <label for="reassign_cro_id" class="{{ $labelClass }}">Reassign CRO records</label>
+                                        @if ($otherCros->isEmpty())
+                                            <p class="text-[11px] font-medium text-amber-700">
+                                                This user is assigned to {{ $croAssets }} event/complaint/inquiry record(s). Create another active CRO before changing this role.
+                                            </p>
+                                        @else
+                                            <select id="reassign_cro_id" name="reassign_cro_id" class="{{ $fieldClass }}">
+                                                <option value="">Select CRO</option>
+                                                @foreach ($otherCros as $cro)
+                                                    <option value="{{ $cro->id }}"
+                                                        @selected((int) old('reassign_cro_id') === $cro->id)>
+                                                        {{ $cro->full_name }}
+                                                    </option>
+                                                @endforeach
+                                            </select>
+                                            <p class="mt-1.5 text-[11px] font-medium text-slate-500">
+                                                Required when moving this user off the CRO role. {{ $croAssets }} record(s) will transfer.
+                                            </p>
+                                            @error('reassign_cro_id')
+                                                <p class="mt-1.5 text-[11px] font-medium text-rose-700">{{ $message }}</p>
+                                            @enderror
+                                        @endif
+                                    </div>
+                                @endif
                             </div>
                         </div>
 

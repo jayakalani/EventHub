@@ -15,6 +15,7 @@ use App\Services\CroDashboardService;
 use App\Services\CroReportService;
 use App\Services\EventNotificationService;
 use App\Services\Exports\AdminDashboardExportBuilder;
+use App\Services\Exports\AdminReportExportBuilder;
 use App\Services\Exports\CroDashboardExportBuilder;
 use App\Services\Exports\CroReportExportBuilder;
 use App\Services\Exports\OrganizerDashboardExportBuilder;
@@ -38,6 +39,7 @@ class DashboardController extends Controller
         protected CroReportService $croReportService,
         protected ReportExportService $exportService,
         protected AdminDashboardExportBuilder $adminDashboardExportBuilder,
+        protected AdminReportExportBuilder $adminReportExportBuilder,
         protected OrganizerDashboardExportBuilder $organizerDashboardExportBuilder,
         protected OrganizerReportExportBuilder $organizerReportExportBuilder,
         protected CroDashboardExportBuilder $croDashboardExportBuilder,
@@ -88,6 +90,8 @@ class DashboardController extends Controller
             $filters['event'],
             $filters['cro'],
             $filters['event'],
+            $filters['from'],
+            $filters['to'],
         );
 
         // Heavy Support tab payload is deferred until first open.
@@ -97,6 +101,8 @@ class DashboardController extends Controller
                 $filters['cro'],
                 $filters['organizer'],
                 $filters['event'],
+                $filters['from'],
+                $filters['to'],
             )
             : null;
 
@@ -106,6 +112,8 @@ class DashboardController extends Controller
             ? $this->adminReportService->getAllReports(
                 $filters['organizer'],
                 $filters['event'],
+                $filters['from'],
+                $filters['to'],
             )
             : null;
 
@@ -119,7 +127,7 @@ class DashboardController extends Controller
     }
 
     /**
-     * Export the admin dashboard as PDF (respects current dropdown filters).
+     * Export the admin dashboard as PDF (all tabs, current filters, live charts).
      */
     public function exportAdminPdf(Request $request)
     {
@@ -127,11 +135,117 @@ class DashboardController extends Controller
 
         $filters = $this->validatedAdminDashboardFilters($request);
         $payload = $this->adminDashboardExportBuilder->build($filters);
-        $payload['charts'] = $this->validatedDashboardChartImages($request);
+
+        $eventsReport = $this->adminReportExportBuilder->build(
+            'admin',
+            $filters['organizer'],
+            $filters['event'],
+            ['from' => $filters['from'], 'to' => $filters['to']],
+        );
+        $usersReport = $this->adminReportExportBuilder->build(
+            'users',
+            $filters['organizer'],
+            $filters['event'],
+            ['from' => $filters['from'], 'to' => $filters['to']],
+        );
+        $paymentsReport = $this->adminReportExportBuilder->build(
+            'payments',
+            $filters['organizer'],
+            $filters['event'],
+            ['from' => $filters['from'], 'to' => $filters['to']],
+        );
+
+        $supportSection = $this->adminDashboardSupportSection($filters);
+
+        $performanceTables = collect($payload['tables'] ?? [])
+            ->map(function (array $table) {
+                $heading = (string) ($table['heading'] ?? 'Data');
+                $table['heading'] = preg_replace('/^Performance — /', '', $heading) ?: $heading;
+
+                return $table;
+            })
+            ->all();
+
+        $filterMeta = collect($payload['summary'] ?? [])
+            ->filter(fn (array $row) => in_array($row['label'] ?? '', [
+                'Date range',
+                'KPI / analytics scope',
+                'Payment scope',
+                'Support scope',
+            ], true))
+            ->values()
+            ->all();
+
+        $performanceSummary = collect($payload['summary'] ?? [])
+            ->reject(fn (array $row) => in_array($row['label'] ?? '', [
+                'Date range',
+                'KPI / analytics scope',
+                'Payment scope',
+                'Support scope',
+            ], true))
+            ->values()
+            ->all();
+
+        try {
+            $payload['charts'] = $this->validatedDashboardChartImages($request);
+        } catch (\Illuminate\Validation\ValidationException $exception) {
+            $payload['charts'] = [];
+        }
+
+        $payload['title'] = 'Administrator Dashboard';
+        $payload['subtitle'] = 'Performance, Support, Overview, Events, Users, and Payments';
+        $payload['filters'] = $filterMeta;
+        $payload['kpis'] = array_slice($performanceSummary, 0, 8);
+        $payload['sections'] = [
+            [
+                'key' => 'performance',
+                'title' => 'Performance',
+                'summary' => $performanceSummary,
+                'tables' => $performanceTables,
+            ],
+            $supportSection,
+            [
+                'key' => 'overview',
+                'title' => 'Overview',
+                'summary' => $eventsReport['summary'] ?? [],
+                'tables' => [],
+            ],
+            [
+                'key' => 'events',
+                'title' => 'Events',
+                'summary' => $eventsReport['summary'] ?? [],
+                'tables' => $eventsReport['tables'] ?? [],
+            ],
+            [
+                'key' => 'users',
+                'title' => 'Users',
+                'summary' => $usersReport['summary'] ?? [],
+                'tables' => $usersReport['tables'] ?? [],
+            ],
+            [
+                'key' => 'payments',
+                'title' => 'Payments',
+                'summary' => $paymentsReport['summary'] ?? [],
+                'tables' => $paymentsReport['tables'] ?? [],
+            ],
+        ];
+        $payload['tables'] = collect($payload['sections'])
+            ->flatMap(function (array $section) {
+                $sectionTitle = $section['title'] ?? 'Section';
+
+                return collect($section['tables'] ?? [])->map(fn (array $table) => [
+                    'heading' => $sectionTitle.' — '.($table['heading'] ?? 'Data'),
+                    'headers' => $table['headers'] ?? [],
+                    'rows' => $table['rows'] ?? [],
+                ]);
+            })
+            ->values()
+            ->all();
 
         return $this->exportService->downloadPdf(
             $payload,
             sprintf('admin-dashboard-%s.pdf', now()->format('Y-m-d-His')),
+            'organizer.exports.dashboard-pdf',
         );
     }
 
@@ -273,6 +387,7 @@ class DashboardController extends Controller
             ]);
 
             $event = Event::query()
+                ->forFilter()
                 ->createdByOrganizer(Auth::id())
                 ->findOrFail($validated['goal_event']);
 
@@ -529,7 +644,9 @@ class DashboardController extends Controller
      * @return array{
      *     organizer: int|null,
      *     event: int|null,
-     *     cro: int|null
+     *     cro: int|null,
+     *     from: string|null,
+     *     to: string|null
      * }
      */
     private function validatedAdminDashboardFilters(Request $request): array
@@ -538,12 +655,16 @@ class DashboardController extends Controller
             'organizer' => $request->filled('organizer') ? $request->input('organizer') : null,
             'event' => $request->filled('event') ? $request->input('event') : null,
             'cro' => $request->filled('cro') ? $request->input('cro') : null,
+            'from' => $request->filled('from') ? $request->input('from') : null,
+            'to' => $request->filled('to') ? $request->input('to') : null,
         ]);
 
         $validated = $request->validate([
             'organizer' => ['nullable', 'integer', 'exists:users,id'],
             'event' => ['nullable', 'integer', 'exists:events,id'],
             'cro' => ['nullable', 'integer', 'exists:users,id'],
+            'from' => ['nullable', 'date'],
+            'to' => ['nullable', 'date', 'after_or_equal:from'],
             'insights' => ['nullable', 'boolean'],
             'section' => ['nullable', 'string', 'max:40'],
         ]);
@@ -552,6 +673,8 @@ class DashboardController extends Controller
             'organizer' => isset($validated['organizer']) ? (int) $validated['organizer'] : null,
             'event' => isset($validated['event']) ? (int) $validated['event'] : null,
             'cro' => isset($validated['cro']) ? (int) $validated['cro'] : null,
+            'from' => $validated['from'] ?? null,
+            'to' => $validated['to'] ?? null,
         ];
     }
 
@@ -584,6 +707,79 @@ class DashboardController extends Controller
         $section = (string) $request->input('section', '');
 
         return in_array($section, ['support', 'support-reports'], true);
+    }
+
+    /**
+     * @param  array{organizer: int|null, event: int|null, cro: int|null, from: string|null, to: string|null}  $filters
+     * @return array{key: string, title: string, summary: list<array{label: string, value: string|int}>, tables: list<array{heading: string, headers: list<string>, rows: list<list<string|int|null>>}>}
+     */
+    private function adminDashboardSupportSection(array $filters): array
+    {
+        $report = app(SupportReportController::class)->buildReportData(
+            $filters['cro'],
+            $filters['organizer'],
+            $filters['event'],
+            $filters['from'],
+            $filters['to'],
+        );
+
+        $ticketRows = function ($tickets): array {
+            return collect($tickets)
+                ->take(10)
+                ->map(fn ($ticket) => [
+                    (string) ($ticket->subject ?? '—'),
+                    (string) ($ticket->user?->full_name ?? '—'),
+                    (string) ($ticket->event?->name ?? 'General'),
+                    $ticket->status?->label() ?? '—',
+                    $ticket->created_at?->format('d M Y, H:i') ?? '—',
+                ])
+                ->all();
+        };
+
+        return [
+            'key' => 'support',
+            'title' => 'Support',
+            'summary' => [
+                ['label' => 'Scope', 'value' => $report['scopeCaption'] ?? 'All CROs'],
+                ['label' => 'Total inquiries', 'value' => $report['totalInquiries'] ?? 0],
+                ['label' => 'Total complaints', 'value' => $report['totalComplaints'] ?? 0],
+                ['label' => 'Resolved jobs', 'value' => $report['resolvedCount'] ?? 0],
+                ['label' => 'Pending jobs', 'value' => $report['pendingCount'] ?? 0],
+                ...collect($report['slaAging'] ?? [])->map(fn ($bucket) => [
+                    'label' => 'SLA — '.($bucket['label'] ?? 'Open'),
+                    'value' => $bucket['count'] ?? 0,
+                ])->all(),
+            ],
+            'tables' => [
+                [
+                    'heading' => 'Support volume (weekly)',
+                    'headers' => ['Week', 'Inquiries', 'Complaints'],
+                    'rows' => collect($report['volumeTrend']['labels'] ?? [])->map(fn ($label, $index) => [
+                        $label,
+                        $report['volumeTrend']['inquiries'][$index] ?? 0,
+                        $report['volumeTrend']['complaints'][$index] ?? 0,
+                    ])->all(),
+                ],
+                [
+                    'heading' => 'Open ticket SLA',
+                    'headers' => ['Level', 'Open tickets'],
+                    'rows' => collect($report['slaAging'] ?? [])->map(fn ($bucket) => [
+                        $bucket['label'] ?? '',
+                        $bucket['count'] ?? 0,
+                    ])->all(),
+                ],
+                [
+                    'heading' => 'Recent inquiries',
+                    'headers' => ['Subject', 'User', 'Event', 'Status', 'Submitted'],
+                    'rows' => $ticketRows($report['recentInquiries'] ?? []),
+                ],
+                [
+                    'heading' => 'Recent complaints',
+                    'headers' => ['Subject', 'User', 'Event', 'Status', 'Submitted'],
+                    'rows' => $ticketRows($report['recentComplaints'] ?? []),
+                ],
+            ],
+        ];
     }
 
     /**
@@ -623,6 +819,7 @@ class DashboardController extends Controller
                 }
 
                 $exists = Event::query()
+                    ->forFilter()
                     ->createdByOrganizer($organizerId)
                     ->whereKey((int) $value)
                     ->exists();

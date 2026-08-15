@@ -8,6 +8,11 @@
         $support = $dashboard['support'];
         $todaySummary = $dashboard['todaySummary'];
         $organizerPerformance = $dashboard['organizerPerformance'];
+        $upcomingThisWeek = $dashboard['upcomingThisWeek'] ?? ['count' => 0, 'items' => [], 'listUrl' => route('admin.events.index')];
+        $topEvents = $dashboard['topEvents'] ?? [];
+        $conversionFunnel = $dashboard['conversionFunnel'] ?? [];
+        $lowInventory = $dashboard['lowInventory'] ?? ['count' => 0, 'items' => []];
+        $organizerRefundRisk = $dashboard['organizerRefundRisk'] ?? [];
         $platformAnalytics = $dashboard['platformAnalytics'];
         $attentionQueue = $dashboard['attentionQueue'] ?? ['count' => 0, 'items' => []];
         $scopeFilter = $dashboard['scopeFilter'] ?? [
@@ -79,16 +84,83 @@
             ?? ($supportReport['selectedCroId'] ?? null);
         $croOptions = $supportScopeFilter['cros']
             ?? ($supportReport['cros'] ?? []);
+        $dateFilter = $dashboard['dateFilter'] ?? ['from' => null, 'to' => null];
+        $activeFilters = [
+            'from' => $dateFilter['from'] ?? null,
+            'to' => $dateFilter['to'] ?? null,
+        ];
         $hasActiveFilters = filled($scopeFilter['selectedOrganizerId'] ?? null)
             || filled($scopeFilter['selectedEventId'] ?? null)
-            || filled($selectedCroId);
+            || filled($selectedCroId)
+            || filled($activeFilters['from'])
+            || filled($activeFilters['to']);
         $loadInsights = $loadInsights ?? false;
         $loadSupport = $loadSupport ?? false;
         $filterQuery = array_filter([
             'organizer' => $scopeFilter['selectedOrganizerId'] ?? null,
             'event' => $scopeFilter['selectedEventId'] ?? null,
             'cro' => $selectedCroId,
+            'from' => $activeFilters['from'],
+            'to' => $activeFilters['to'],
         ], fn ($value) => filled($value));
+        $filterQueryBase = array_filter([
+            'organizer' => $scopeFilter['selectedOrganizerId'] ?? null,
+            'event' => $scopeFilter['selectedEventId'] ?? null,
+            'cro' => $selectedCroId,
+        ], fn ($value) => filled($value));
+        $datePresets = [
+            [
+                'key' => '7d',
+                'label' => 'Last 7 days',
+                'from' => now()->subDays(6)->toDateString(),
+                'to' => now()->toDateString(),
+            ],
+            [
+                'key' => '30d',
+                'label' => 'Last 30 days',
+                'from' => now()->subDays(29)->toDateString(),
+                'to' => now()->toDateString(),
+            ],
+            [
+                'key' => 'month',
+                'label' => 'This month',
+                'from' => now()->startOfMonth()->toDateString(),
+                'to' => now()->toDateString(),
+            ],
+            [
+                'key' => 'last_month',
+                'label' => 'Last month',
+                'from' => now()->subMonthNoOverflow()->startOfMonth()->toDateString(),
+                'to' => now()->subMonthNoOverflow()->endOfMonth()->toDateString(),
+            ],
+            [
+                'key' => 'year',
+                'label' => 'This year',
+                'from' => now()->startOfYear()->toDateString(),
+                'to' => now()->toDateString(),
+            ],
+            [
+                'key' => 'all',
+                'label' => 'All time',
+                'from' => null,
+                'to' => null,
+            ],
+        ];
+        $activePreset = collect($datePresets)->first(function (array $preset) use ($activeFilters) {
+            if (($preset['key'] ?? '') === 'all') {
+                return blank($activeFilters['from'] ?? null) && blank($activeFilters['to'] ?? null);
+            }
+
+            return ($activeFilters['from'] ?? null) === ($preset['from'] ?? null)
+                && ($activeFilters['to'] ?? null) === ($preset['to'] ?? null);
+        });
+        $activePresetKey = $activePreset['key'] ?? null;
+        $adminSupportCharts = ($loadSupport && $supportReport)
+            ? [
+                'volume' => $supportReport['volumeTrend'] ?? ['labels' => [], 'inquiries' => [], 'complaints' => []],
+                'sla' => $supportReport['slaAging'] ?? [],
+            ]
+            : ['volume' => ['labels' => [], 'inquiries' => [], 'complaints' => []], 'sla' => []];
     @endphp
 
     <div class="admin-dashboard relative isolate overflow-hidden py-5 sm:py-6"
@@ -160,27 +232,38 @@
             supportUrl() {
                 return this.deferredTabUrl('support', 'support');
             },
-            setSection(section) {
+            setSection(section, options = {}) {
                 const map = { admin: 'events', 'support-reports': 'support' };
                 section = map[section] || section;
+                const silent = Boolean(options.silent);
 
-                if (section === 'support' && ! this.supportLoaded) {
+                if (! silent && section === 'support' && ! this.supportLoaded) {
                     this.rememberSection(section);
                     this.supportLoading = true;
                     window.location.assign(this.supportUrl().toString());
                     return;
                 }
 
-                if (this.analyticsTabs.includes(section) && ! this.insightsLoaded) {
+                if (! silent && this.analyticsTabs.includes(section) && ! this.insightsLoaded) {
                     this.rememberSection(section);
                     this.insightsLoading = true;
                     window.location.assign(this.insightsUrl(section).toString());
                     return;
                 }
 
+                // PDF capture only needs Performance canvases; avoid navigating away mid-export.
+                if (silent && section !== 'performance' && (
+                    (section === 'support' && ! this.supportLoaded)
+                    || (this.analyticsTabs.includes(section) && ! this.insightsLoaded)
+                )) {
+                    section = 'performance';
+                }
+
                 this.section = section;
                 this.rememberSection(section);
-                history.replaceState(null, '', '#' + section);
+                if (! silent) {
+                    history.replaceState(null, '', '#' + section);
+                }
                 this.$nextTick(() => {
                     window.dispatchEvent(new CustomEvent('admin-dashboard-section-changed', { detail: { section } }));
                     if (this.analyticsTabs.includes(section)) {
@@ -228,6 +311,25 @@
                 if (this.analyticsTabs.includes(this.section) && ! this.insightsLoaded) {
                     this.insightsLoading = true;
                     window.location.replace(this.insightsUrl(this.section).toString());
+                }
+
+                if (new URLSearchParams(window.location.search).get('auto_pdf') === '1') {
+                    const cleanUrl = new URL(window.location.href);
+                    cleanUrl.searchParams.delete('auto_pdf');
+                    history.replaceState(null, '', cleanUrl.pathname + cleanUrl.search + cleanUrl.hash);
+                    this.$nextTick(() => {
+                        const start = Date.now();
+                        const tryExport = () => {
+                            const ready = document.getElementById('adminOverviewUserGrowthChart')
+                                && window.adminReportData;
+                            if (ready || Date.now() - start > 4000) {
+                                document.querySelector('[data-dashboard-pdf-export]')?.click();
+                                return;
+                            }
+                            setTimeout(tryExport, 250);
+                        };
+                        setTimeout(tryExport, 500);
+                    });
                 }
             },
             toggleAutoApply() {
@@ -292,11 +394,28 @@
                         <div class="flex flex-wrap gap-2 sm:shrink-0 sm:justify-end">
                             <x-dashboard-export-pdf
                                 route="admin.dashboard.export.pdf"
-                                :params="request()->only(['organizer', 'event', 'cro'])"
+                                filter-form-id="admin-dashboard-filters"
+                                require-canvas="adminOverviewUserGrowthChart"
+                                :params="request()->only(['organizer', 'event', 'cro', 'from', 'to'])"
                                 :charts="[
-                                    ['canvasId' => 'dashboardPaymentOverviewChart', 'title' => 'Payment Overview'],
-                                    ['canvasId' => 'dashboardUserDistributionChart', 'title' => 'User Distribution'],
-                                    ['canvasId' => 'dashboardEventsByCategoryChart', 'title' => 'Events by Category'],
+                                    ['canvasId' => 'dashboardTopEventsChart', 'title' => 'Top Events by Revenue', 'section' => 'performance'],
+                                    ['canvasId' => 'dashboardConversionFunnelChart', 'title' => 'Conversion Funnel', 'section' => 'performance'],
+                                    ['canvasId' => 'adminSupportVolumeChart', 'title' => 'Support volume', 'section' => 'support'],
+                                    ['canvasId' => 'adminSupportSlaChart', 'title' => 'Open ticket SLA', 'section' => 'support'],
+                                    ['canvasId' => 'adminOverviewUserGrowthChart', 'title' => 'User Growth', 'section' => 'overview'],
+                                    ['canvasId' => 'adminOverviewUserDistributionChart', 'title' => 'User Distribution', 'section' => 'overview'],
+                                    ['canvasId' => 'adminOverviewRevenueTrendChart', 'title' => 'Revenue Trend', 'section' => 'overview'],
+                                    ['canvasId' => 'adminOverviewTicketSalesChart', 'title' => 'Ticket Sales Trend', 'section' => 'overview'],
+                                    ['canvasId' => 'adminOverviewEventsByCategoryChart', 'title' => 'Events by Category', 'section' => 'overview'],
+                                    ['canvasId' => 'adminEventsStatusChart', 'title' => 'Events by Status', 'section' => 'events'],
+                                    ['canvasId' => 'adminPlatformGrowthChart', 'title' => 'Platform Growth', 'section' => 'events'],
+                                    ['canvasId' => 'adminTopCategoriesChart', 'title' => 'Top Categories', 'section' => 'events'],
+                                    ['canvasId' => 'userStatusChart', 'title' => 'Account Status Breakdown', 'section' => 'users'],
+                                    ['canvasId' => 'userRoleChart', 'title' => 'Users by Role', 'section' => 'users'],
+                                    ['canvasId' => 'userRegistrationChart', 'title' => 'User Registration Trend', 'section' => 'users'],
+                                    ['canvasId' => 'paymentStatusChart', 'title' => 'Payment Status', 'section' => 'payments'],
+                                    ['canvasId' => 'paymentMethodChart', 'title' => 'Payment Methods', 'section' => 'payments'],
+                                    ['canvasId' => 'paymentRevenueChart', 'title' => 'Payment Revenue Trend', 'section' => 'payments'],
                                 ]"
                             />
                             <a href="{{ route('admin.reports') }}"
@@ -419,7 +538,26 @@
                             <p class="text-xs text-slate-500">Shared controls · each filter applies to the tabs noted below</p>
                         </div>
                     </div>
-                    <div class="flex flex-wrap items-center gap-2 sm:justify-end">
+                    <div class="flex flex-wrap items-center gap-1.5 sm:justify-end">
+                        @foreach ($datePresets as $preset)
+                            @php
+                                $presetQuery = $filterQueryBase;
+                                if (filled($preset['from'] ?? null)) {
+                                    $presetQuery['from'] = $preset['from'];
+                                }
+                                if (filled($preset['to'] ?? null)) {
+                                    $presetQuery['to'] = $preset['to'];
+                                }
+                            @endphp
+                            <a href="{{ route('dashboard', $presetQuery) }}"
+                                @click.prevent="window.location.href = @js(route('dashboard', $presetQuery)) + '#' + section"
+                                class="filter-chip btn-smooth inline-flex items-center rounded-xl border px-3 py-1.5 text-xs font-semibold transition duration-200
+                                    {{ $activePresetKey === $preset['key']
+                                        ? 'border-indigo-500/80 bg-indigo-600 text-white shadow-md shadow-indigo-500/25'
+                                        : 'border-white/70 bg-white/45 text-slate-600 backdrop-blur-md hover:-translate-y-0.5 hover:border-indigo-200 hover:bg-white/80 hover:text-indigo-700 hover:shadow-sm' }}">
+                                {{ $preset['label'] }}
+                            </a>
+                        @endforeach
                         <button type="button"
                             @click="toggleAutoApply()"
                             class="btn-smooth inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold backdrop-blur-md transition hover:-translate-y-0.5 hover:shadow-sm"
@@ -428,7 +566,7 @@
                                 : 'border-white/70 bg-white/60 text-slate-600'"
                             :aria-pressed="autoApply.toString()"
                             title="When on, filters apply as soon as you change a dropdown">
-                            
+                            Auto
                         </button>
                         @if ($hasActiveFilters)
                             <a href="{{ route('dashboard') }}"
@@ -449,7 +587,7 @@
                     <input type="hidden" name="support" value="1"
                         :disabled="!(supportLoaded || section === 'support')">
                     <input type="hidden" name="section" :value="section">
-                    <div class="lg:col-span-3">
+                    <div class="lg:col-span-2">
                         <label for="admin_organizer" class="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">Organizer</label>
                         <select id="admin_organizer" name="organizer"
                             class="filter-control w-full rounded-xl border border-white/70 bg-white/55 px-3 py-2.5 text-sm font-medium text-slate-800 shadow-sm backdrop-blur-md transition hover:border-indigo-200 hover:bg-white/80 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200/80">
@@ -463,7 +601,7 @@
                         </select>
                         <p class="mt-1 text-[10px] font-medium text-slate-400">Performance · Insights · Support</p>
                     </div>
-                    <div class="lg:col-span-3">
+                    <div class="lg:col-span-2">
                         <label for="admin_event" class="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">Event</label>
                         <select id="admin_event" name="event"
                             class="filter-control w-full rounded-xl border border-white/70 bg-white/55 px-3 py-2.5 text-sm font-medium text-slate-800 shadow-sm backdrop-blur-md transition hover:border-indigo-200 hover:bg-white/80 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200/80
@@ -485,7 +623,7 @@
                             <p class="mt-1 text-[10px] font-medium text-slate-400">Performance · Insights · Support</p>
                         @endif
                     </div>
-                    <div class="lg:col-span-4">
+                    <div class="lg:col-span-2">
                         <label for="admin_cro" class="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">CRO</label>
                         <select id="admin_cro" name="cro"
                             class="filter-control w-full rounded-xl border border-white/70 bg-white/55 px-3 py-2.5 text-sm font-medium text-slate-800 shadow-sm backdrop-blur-md transition hover:border-indigo-200 hover:bg-white/80 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200/80">
@@ -497,7 +635,19 @@
                                 </option>
                             @endforeach
                         </select>
-                        <p class="mt-1 text-[10px] font-medium text-slate-400">Support tab only</p>
+                        <p class="mt-1 text-[10px] font-medium text-slate-400">Support tab · dashboard PDF</p>
+                    </div>
+                    <div class="lg:col-span-2">
+                        <label for="admin_from" class="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">From</label>
+                        <input type="date" id="admin_from" name="from" value="{{ $activeFilters['from'] }}"
+                            class="filter-control w-full rounded-xl border border-white/70 bg-white/55 px-3 py-2.5 text-sm text-slate-800 shadow-sm backdrop-blur-md transition hover:border-indigo-200 hover:bg-white/80 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200/80">
+                        <p class="mt-1 text-[10px] font-medium text-slate-400">KPIs, charts, lists · not This week or Low inventory</p>
+                    </div>
+                    <div class="lg:col-span-2">
+                        <label for="admin_to" class="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">To</label>
+                        <input type="date" id="admin_to" name="to" value="{{ $activeFilters['to'] }}"
+                            class="filter-control w-full rounded-xl border border-white/70 bg-white/55 px-3 py-2.5 text-sm text-slate-800 shadow-sm backdrop-blur-md transition hover:border-indigo-200 hover:bg-white/80 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200/80">
+                        <p class="mt-1 text-[10px] font-medium text-slate-400">KPIs, charts, lists · not This week or Low inventory</p>
                     </div>
                     <div class="flex gap-2 lg:col-span-2">
                         <button type="submit"
@@ -670,6 +820,7 @@
         <script>
             window.adminDashboardData = @json($dashboard);
             window.adminReportData = @json($reports);
+            window.adminSupportCharts = @json($adminSupportCharts);
             (function () {
                 var scrollKey = 'admin-dashboard-scroll';
                 var sectionKey = 'admin-dashboard-section';
@@ -763,8 +914,8 @@
                     var form = document.getElementById('admin-dashboard-filters');
                     if (!form) return;
 
-                    form.querySelectorAll('select[name="organizer"], select[name="event"], select[name="cro"]').forEach(function (select) {
-                        select.addEventListener('change', function () {
+                    form.querySelectorAll('select[name="organizer"], select[name="event"], select[name="cro"], input[name="from"], input[name="to"]').forEach(function (control) {
+                        control.addEventListener('change', function () {
                             if (! isAutoApplyEnabled()) return;
                             prepareAndSubmit(form, this);
                         });

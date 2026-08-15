@@ -48,7 +48,11 @@
                 </div>
             @endif
 
-            <form method="POST" action="{{ route('admin.reports.generate') }}" class="space-y-4">
+            <form id="admin-report-form"
+                method="POST"
+                action="{{ route('admin.reports.generate') }}"
+                data-chart-data-url="{{ route('admin.reports.chart-data') }}"
+                class="space-y-4">
                 @csrf
                 <input type="hidden" name="report" :value="selectedKey">
                 <input type="hidden" name="format" :value="format">
@@ -144,9 +148,14 @@
                                     <select
                                         class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                                         :name="'filters[' + filter.key + ']'"
-                                        x-model="filters[filter.key]">
-                                        <option value="" x-text="filter.required ? 'Select…' : 'All'"></option>
-                                        <template x-for="(optLabel, optKey) in filter.options" :key="optKey">
+                                        x-model="filters[filter.key]"
+                                        @change="onFilterChange(filter)">
+                                        <option
+                                            value=""
+                                            :hidden="filter.include_empty === false"
+                                            :disabled="filter.include_empty === false"
+                                            x-text="filter.required ? 'Select…' : 'All'"></option>
+                                        <template x-for="(optLabel, optKey) in optionsFor(filter)" :key="optKey">
                                             <option :value="optKey" x-text="optLabel"></option>
                                         </template>
                                     </select>
@@ -189,6 +198,36 @@
                     </button>
                 </div>
             </form>
+
+            <div id="admin-analytics-export-charts"
+                class="pointer-events-none fixed top-0 w-[900px]"
+                style="left: -10000px;"
+                aria-hidden="true">
+                @foreach ([
+                    'dashboardTopEventsChart',
+                    'dashboardConversionFunnelChart',
+                    'adminSupportVolumeChart',
+                    'adminSupportSlaChart',
+                    'adminOverviewUserGrowthChart',
+                    'adminOverviewUserDistributionChart',
+                    'adminOverviewRevenueTrendChart',
+                    'adminOverviewTicketSalesChart',
+                    'adminOverviewEventsByCategoryChart',
+                    'adminEventsStatusChart',
+                    'adminPlatformGrowthChart',
+                    'adminTopCategoriesChart',
+                    'userStatusChart',
+                    'userRoleChart',
+                    'userRegistrationChart',
+                    'paymentStatusChart',
+                    'paymentMethodChart',
+                    'paymentRevenueChart',
+                ] as $canvasId)
+                    <div class="h-64 w-full">
+                        <canvas id="{{ $canvasId }}"></canvas>
+                    </div>
+                @endforeach
+            </div>
         </div>
     </div>
 
@@ -199,7 +238,7 @@
 
             const defaultFiltersFor = (key) => {
                 if (key === 'insights_analytics') {
-                    return { section: 'admin' };
+                    return { section: 'all' };
                 }
                 return {};
             };
@@ -227,11 +266,78 @@
 
                 get visibleFilters() {
                     return (this.current.filters || []).filter((filter) => {
+                        if (filter.hide_when) {
+                            const hidden = Object.entries(filter.hide_when).every(
+                                ([key, expected]) => String(this.filters[key] ?? '') === String(expected)
+                            );
+                            if (hidden) return false;
+                        }
                         if (!filter.show_when) return true;
                         return Object.entries(filter.show_when).every(
                             ([key, expected]) => String(this.filters[key] ?? '') === String(expected)
                         );
                     });
+                },
+
+                scopeKeyFor(filter) {
+                    if (Array.isArray(filter?.scope_by_when)) {
+                        for (const rule of filter.scope_by_when) {
+                            const when = rule.when || {};
+                            const matches = Object.entries(when).every(
+                                ([key, expected]) => String(this.filters[key] ?? '') === String(expected)
+                            );
+                            if (matches) return rule.scope_by;
+                        }
+                    }
+
+                    return filter?.scope_by || null;
+                },
+
+                optionsFor(filter) {
+                    const options = filter?.options || {};
+                    const scopeBy = this.scopeKeyFor(filter);
+                    if (!scopeBy) return options;
+
+                    const maps = filter?.option_scope_maps || {};
+                    const scopes = maps[scopeBy] || filter?.option_scopes || {};
+                    const scopeValue = String(this.filters[scopeBy] ?? '');
+                    if (!scopeValue) return options;
+
+                    const filtered = {};
+                    Object.keys(options).forEach((id) => {
+                        if (String(scopes[id] ?? '') === scopeValue) {
+                            filtered[id] = options[id];
+                        }
+                    });
+
+                    return filtered;
+                },
+
+                syncEventToScope() {
+                    const eventId = String(this.filters.event_id ?? '');
+                    if (!eventId) return;
+
+                    const eventFilter = (this.current.filters || []).find((filter) => filter.key === 'event_id');
+                    if (!eventFilter) return;
+
+                    const remaining = this.optionsFor(eventFilter);
+                    if (!Object.prototype.hasOwnProperty.call(remaining, eventId)) {
+                        this.filters.event_id = '';
+                    }
+                },
+
+                onFilterChange(filter) {
+                    if (filter?.key === 'section') {
+                        if (this.filters.section === 'support') {
+                            this.filters.organizer_id = '';
+                        } else {
+                            this.filters.cro_id = '';
+                        }
+                    }
+
+                    if (['organizer_id', 'cro_id', 'section'].includes(filter?.key)) {
+                        this.syncEventToScope();
+                    }
                 },
 
                 onReportChange() {
@@ -252,4 +358,5 @@
             };
         }
     </script>
+    @vite('resources/js/admin-report-builder.js')
 </x-app-layout>

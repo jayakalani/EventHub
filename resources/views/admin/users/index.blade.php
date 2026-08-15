@@ -113,12 +113,12 @@
                                 <i class="bi bi-person-plus"></i>
                                 New Employee
                             </a>
-                            <a href="{{ route('admin.employees.export.csv', request()->query()) }}"
+                            <a href="{{ route('admin.users.export.csv', request()->query()) }}"
                                 class="btn-smooth inline-flex items-center gap-1.5 rounded-lg border border-white/70 bg-white/50 px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm backdrop-blur hover:border-indigo-200 hover:bg-white/80 sm:text-sm">
                                 <i class="bi bi-filetype-csv"></i>
                                 Export CSV
                             </a>
-                            <a href="{{ route('admin.employees.export.pdf', request()->query()) }}"
+                            <a href="{{ route('admin.users.export.pdf', request()->query()) }}"
                                 class="btn-smooth inline-flex items-center gap-1.5 rounded-lg border border-white/70 bg-white/50 px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm backdrop-blur hover:border-indigo-200 hover:bg-white/80 sm:text-sm">
                                 <i class="bi bi-file-earmark-pdf"></i>
                                 Export PDF
@@ -405,7 +405,7 @@
 
                                     <td class="px-4 py-4 sm:px-6">
                                         <div class="flex flex-wrap gap-2">
-                                            @if ($canToggleLock && ! $isSelf)
+                                            @if ($canToggleLock)
                                                 <form action="{{ route('admin.user.toggleLock', $user->id) }}" method="POST">
                                                     @csrf
                                                     <button type="submit"
@@ -420,7 +420,7 @@
                                                 </form>
                                             @else
                                                 <span
-                                                    title="{{ $isSelf ? 'You cannot change your own lock status here' : 'Protected admin account' }}"
+                                                    title="{{ $isSelf ? 'You cannot lock your own account' : 'Protected admin account' }}"
                                                     class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset
                                                     {{ $user->is_locked
                                                         ? 'bg-amber-50 text-amber-700 ring-amber-200/70'
@@ -430,7 +430,7 @@
                                                 </span>
                                             @endif
 
-                                            @if ($canToggleActive && ! $isSelf)
+                                            @if ($canToggleActive)
                                                 <form action="{{ route('admin.user.toggleActive', $user->id) }}" method="POST">
                                                     @csrf
                                                     <button type="submit"
@@ -445,7 +445,7 @@
                                                 </form>
                                             @else
                                                 <span
-                                                    title="{{ $isSelf ? 'You cannot change your own account status here' : 'Protected admin account' }}"
+                                                    title="{{ $isSelf ? 'You cannot deactivate your own account' : 'Protected admin account' }}"
                                                     class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset
                                                     {{ $user->is_active
                                                         ? 'bg-emerald-50 text-emerald-700 ring-emerald-200/70'

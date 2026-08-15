@@ -378,6 +378,14 @@ class Event extends Model
         return $query->withTrashed()->where('contact_person', $croId);
     }
 
+    /**
+     * Include archived (soft-deleted) events in filter dropdowns and event-id lookups.
+     */
+    public function scopeForFilter($query)
+    {
+        return $query->withTrashed();
+    }
+
     public function isOwnedByOrganizer(?int $organizerId): bool
     {
         return $organizerId !== null && (int) $this->created_by === (int) $organizerId;

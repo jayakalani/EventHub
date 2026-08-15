@@ -31,6 +31,12 @@ class ProfileController extends Controller
         $validated = $request->validated();
         $user = $request->user();
 
+        if (($validated['email'] ?? '') !== $user->email) {
+            if ($message = $user->adminProtectionError('change-email')) {
+                return Redirect::route('profile.edit')->with('error', $message);
+            }
+        }
+
         $user->first_name = $validated['first_name'];
         $user->last_name = $validated['last_name'];
         $user->nic = $validated['nic'];
@@ -78,11 +84,15 @@ class ProfileController extends Controller
      */
     public function destroy(Request $request): RedirectResponse
     {
+        $user = $request->user();
+
+        if ($message = $user->adminProtectionError('self-delete')) {
+            return Redirect::route('profile.edit')->with('error', $message);
+        }
+
         $request->validateWithBag('userDeletion', [
             'password' => ['required', 'current_password'],
         ]);
-
-        $user = $request->user();
 
         Auth::logout();
 

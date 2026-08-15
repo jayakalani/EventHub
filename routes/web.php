@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\EmployeeController;
+use App\Http\Controllers\Admin\EventController as AdminEventController;
 use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\SupportReportController;
 use App\Http\Controllers\Admin\UserController;
@@ -143,6 +144,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
         // Users Management
         Route::get('/users', [UserController::class, 'index'])->name('users');
+        Route::get('/users/export/csv', [UserController::class, 'exportCsv'])->name('users.export.csv');
+        Route::get('/users/export/pdf', [UserController::class, 'exportPdf'])->name('users.export.pdf');
         Route::get('/user/{id}/edit', [UserController::class, 'edit'])->name('user.edit');
         Route::put('/user/{id}', [UserController::class, 'update'])->name('user.update');
         Route::post('/user/{id}/toggle-lock', [UserController::class, 'toggleLock'])->name('user.toggleLock');
@@ -150,6 +153,13 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('/user/{id}/resend-verification', [UserController::class, 'resendVerification'])->name('user.resendVerification');
         Route::post('/user/{id}/mark-verified', [UserController::class, 'markVerified'])->name('user.markVerified');
         Route::delete('/user/{id}', [UserController::class, 'destroy'])->name('user.destroy');
+
+        Route::get('/events', [AdminEventController::class, 'index'])->name('events.index');
+        Route::get('/events/export/csv', [AdminEventController::class, 'exportCsv'])->name('events.export.csv');
+        Route::get('/events/export/pdf', [AdminEventController::class, 'exportPdf'])->name('events.export.pdf');
+        Route::get('/events/{event}', [AdminEventController::class, 'show'])
+            ->whereNumber('event')
+            ->name('events.show');
 
         // Employee Management
         Route::get('/employees/create', [EmployeeController::class, 'create'])->name('employees.create');
@@ -180,6 +190,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
         // Reports & Analytics
         Route::get('/reports', [ReportController::class, 'index'])->name('reports');
+        Route::get('/reports/chart-data', [ReportController::class, 'chartData'])->name('reports.chart-data');
         Route::post('/reports/generate', [ReportController::class, 'generate'])->name('reports.generate');
         Route::get('/reports/export/excel', [ReportController::class, 'exportExcel'])->name('reports.export.excel');
         Route::post('/reports/export/pdf', [ReportController::class, 'exportPdf'])->name('reports.export.pdf');

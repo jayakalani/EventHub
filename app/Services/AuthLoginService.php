@@ -13,6 +13,10 @@ class AuthLoginService
     public function finalizeLogin(Request $request, User $user, bool $remember = false): RedirectResponse
     {
         if ($user->is_locked) {
+            $user->recoverIfLastAdminLocked();
+        }
+
+        if ($user->is_locked) {
             return redirect()->route('login')
                 ->with('error', 'Your account is locked due to multiple failed login attempts. Please contact the administrator.');
         }

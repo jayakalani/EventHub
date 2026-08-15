@@ -23,27 +23,23 @@ class RoleMiddleware
         }
 
         $user = Auth::user();
-        $roleName = $user->userRole?->role_name;
+        $roleName = $user->userRole?->name_en;
 
-        // If a specific role is required for this route
-        if ($requiredRole) {
-            if ($user->userRole?->name_en !== $requiredRole) {
-                if ($request->expectsJson()) {
-                    abort(403, 'Unauthorized action.');
-                }
-
-                $dashboard = getRoleBasedDashboard();
-
-                if ($dashboard !== 'login') {
-                    return redirect()
-                        ->route($dashboard)
-                        ->with('error', 'You do not have access to that area.');
-                }
-
+        if ($requiredRole && $roleName !== $requiredRole) {
+            if ($request->expectsJson()) {
                 abort(403, 'Unauthorized action.');
             }
+
+            $dashboard = getRoleBasedDashboard();
+
+            if ($dashboard !== 'login') {
+                return redirect()
+                    ->route($dashboard)
+                    ->with('error', 'You do not have access to that area.');
+            }
+
+            abort(403, 'Unauthorized action.');
         }
-              
 
         return $next($request);
     }

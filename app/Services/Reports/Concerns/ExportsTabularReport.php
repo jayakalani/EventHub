@@ -63,4 +63,25 @@ trait ExportsTabularReport
 
         return $name !== '' ? $name : ($user->email ?? '—');
     }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     * @return list<array{label: string, value: string}>
+     */
+    protected function dateRangeSummary(array $filters, string $label = 'Date range'): array
+    {
+        $from = $filters['date_from'] ?? null;
+        $to = $filters['date_to'] ?? null;
+        if (! filled($from) && ! filled($to)) {
+            return [];
+        }
+
+        $value = match (true) {
+            filled($from) && filled($to) => $from.' → '.$to,
+            filled($from) => 'From '.$from,
+            default => 'Until '.$to,
+        };
+
+        return [['label' => $label, 'value' => $value]];
+    }
 }

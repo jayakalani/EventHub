@@ -27,7 +27,7 @@ class Rating extends Model
 
     public function event(): BelongsTo
     {
-        return $this->belongsTo(Event::class);
+        return $this->belongsTo(Event::class)->withTrashed();
     }
 
     public function isOwnedByOrganizer(?int $organizerId): bool

@@ -13,6 +13,7 @@ export default defineConfig({
                 'resources/js/organizer-reports.js',
                 'resources/js/cro-reports.js',
                 'resources/js/cro-dashboard.js',
+                'resources/js/admin-report-builder.js',
                 'resources/js/cro-report-builder.js',
                 'resources/js/organizer-report-builder.js',
             ],

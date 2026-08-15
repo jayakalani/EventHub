@@ -60,7 +60,7 @@
                         <option value="">All Events</option>
                         @foreach ($events as $event)
                             <option value="{{ $event->id }}" @selected(($filters['event_id'] ?? null) == $event->id)>
-                                {{ $event->name }}
+                                {{ $event->filterLabel() }}
                             </option>
                         @endforeach
                     </select>

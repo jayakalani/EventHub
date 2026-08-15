@@ -72,6 +72,10 @@ class AuthController extends Controller
         // Check if user account is locked
         $user = User::where('email', $credentials['email'])->first();
 
+        if ($user) {
+            $user->recoverIfLastAdminLocked();
+        }
+
         if ($user && $user->is_locked) {
             return back()->with('error', 'Your account is locked due to multiple failed login attempts. Please contact the administrator.');
         }

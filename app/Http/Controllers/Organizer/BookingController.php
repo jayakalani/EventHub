@@ -49,9 +49,10 @@ class BookingController extends Controller
         ];
 
         $events = Event::query()
+            ->forFilter()
             ->createdByOrganizer($organizerId)
             ->orderBy('name')
-            ->get(['id', 'name']);
+            ->get(['id', 'name', 'deleted_at']);
 
         $hasOngoingEvents = Event::query()
             ->createdByOrganizer($organizerId)

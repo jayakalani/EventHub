@@ -34,9 +34,12 @@ class InsightsAnalyticsReport implements ReportGenerator
             $period = 'month';
         }
 
-        if ($period === 'custom') {
+        if (! empty($filters['date_from']) || ! empty($filters['date_to'])) {
             $from = $filters['date_from'] ?? null;
             $to = $filters['date_to'] ?? null;
+        } elseif ($period === 'custom') {
+            $from = null;
+            $to = null;
         } elseif ($period === 'week') {
             $from = now()->subDays(6)->toDateString();
             $to = now()->toDateString();

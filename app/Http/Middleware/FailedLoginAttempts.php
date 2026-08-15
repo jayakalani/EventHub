@@ -29,16 +29,16 @@ class FailedLoginAttempts
                 $user = User::where('email', $email)->first();
 
                 if ($user && $user->is_locked) {
-                    // Check if lock has expired
+                    $user->recoverIfLastAdminLocked();
+                    $user->refresh();
+
                     if ($user->locked_until && now()->greaterThan($user->locked_until)) {
-                        // Unlock automatically after lock period expires
                         $user->update([
                             'is_locked' => false,
                             'failed_attempts' => 0,
                             'locked_until' => null,
                         ]);
-                    } else {
-                        // Account is still locked
+                    } elseif ($user->is_locked) {
                         return back()->with('error', 'Your account is locked due to multiple failed login attempts. Please contact the administrator.');
                     }
                 }
@@ -59,12 +59,27 @@ class FailedLoginAttempts
             $failedAttempts = $user->failed_attempts + 1;
 
             if ($failedAttempts >= self::MAX_ATTEMPTS) {
+                // Never lock the last operational admin — that would make the platform unrecoverable.
+                if ($user->isSoleOperationalAdmin()) {
+                    $user->update([
+                        'failed_attempts' => $failedAttempts,
+                    ]);
+
+                    if ($failedAttempts === self::MAX_ATTEMPTS) {
+                        app(AdminNotificationService::class)->notifyLastAdminLockPrevented($user->fresh());
+                    }
+
+                    return;
+                }
+
                 // Lock the account permanently - requires manual unlock by admin
                 $user->update([
                     'failed_attempts' => $failedAttempts,
                     'is_locked' => true,
                     'locked_until' => null, // No auto-unlock
                 ]);
+
+                $user->invalidateSessions();
 
                 app(AdminNotificationService::class)->notifyAccountLocked($user->fresh());
             } else {

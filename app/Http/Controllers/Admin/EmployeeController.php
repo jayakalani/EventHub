@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\Concerns\FiltersUsers;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\UserRole;
+use App\Services\UserRoleChangeService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -15,6 +16,10 @@ use Illuminate\Validation\Rule;
 class EmployeeController extends Controller
 {
     use FiltersUsers;
+
+    public function __construct(
+        protected UserRoleChangeService $roleChange,
+    ) {}
 
     /**
      * Users with staff roles (excludes attendees), honoring list filters when present.
@@ -75,6 +80,7 @@ class EmployeeController extends Controller
         ]);
 
         $employee->markEmailAsVerified();
+        $this->roleChange->ensureOrganizerWallet($employee);
 
         return redirect()->route('admin.users')
             ->with('success', 'Employee created successfully.');

@@ -32,9 +32,10 @@ class SalesController extends Controller
         $stats = $this->salesService->stats($organizerId, $filters);
 
         $events = Event::query()
+            ->forFilter()
             ->createdByOrganizer($organizerId)
             ->orderBy('name')
-            ->get(['id', 'name']);
+            ->get(['id', 'name', 'deleted_at']);
 
         $ticketCategories = $this->ticketCategoryOptions($organizerId, $filters['event_id'] ?? null);
         $statuses = BookingStatusEnum::salesListStatuses();
@@ -127,6 +128,7 @@ class SalesController extends Controller
         $eventName = null;
         if (! empty($filters['event_id'])) {
             $eventName = Event::query()
+                ->forFilter()
                 ->createdByOrganizer($organizerId)
                 ->whereKey($filters['event_id'])
                 ->value('name');
@@ -177,7 +179,7 @@ class SalesController extends Controller
                 Rule::exists('ticket_categories', 'name')->where(function ($query) use ($request) {
                     $query->whereIn(
                         'event_id',
-                        Event::query()->createdByOrganizer((int) Auth::id())->select('id')
+                        Event::query()->forFilter()->createdByOrganizer((int) Auth::id())->select('id')
                     );
 
                     if ($request->filled('event_id')) {
@@ -201,7 +203,7 @@ class SalesController extends Controller
     private function ticketCategoryOptions(int $organizerId, ?int $eventId = null): array
     {
         return ticketCategory::query()
-            ->whereHas('event', fn ($query) => $query->createdByOrganizer($organizerId))
+            ->whereHas('event', fn ($query) => $query->withTrashed()->createdByOrganizer($organizerId))
             ->when($eventId, fn ($query) => $query->where('event_id', $eventId))
             ->orderBy('name')
             ->distinct()

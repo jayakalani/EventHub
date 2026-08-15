@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class User extends Authenticatable implements MustVerifyEmailContract
 {
@@ -203,6 +204,43 @@ class User extends Authenticatable implements MustVerifyEmailContract
     }
 
     /**
+     * Unlock this account when it is the last admin and no operational admin remains.
+     * Recovers a platform lockout from failed logins or a prior bug.
+     */
+    public function recoverIfLastAdminLocked(): bool
+    {
+        if (! $this->is_locked || ! $this->isAdmin() || ! $this->is_active) {
+            return false;
+        }
+
+        if (static::operationalAdminCount() > 0) {
+            return false;
+        }
+
+        $this->update([
+            'is_locked' => false,
+            'failed_attempts' => 0,
+            'locked_until' => null,
+        ]);
+
+        return true;
+    }
+
+    /**
+     * Drop persisted sessions so lock, deactivation, or role changes take effect immediately.
+     */
+    public function invalidateSessions(): void
+    {
+        if (config('session.driver') !== 'database') {
+            return;
+        }
+
+        DB::table(config('session.table', 'sessions'))
+            ->where('user_id', $this->id)
+            ->delete();
+    }
+
+    /**
      * Whether destructive account actions should be hidden for this row.
      * Unlock / activate remain available for other admins when the account is already impaired.
      */
@@ -216,10 +254,13 @@ class User extends Authenticatable implements MustVerifyEmailContract
     }
 
     /**
-     * Server-side guard message for lock / deactivate / delete / demote.
+     * Server-side guard message for lock / deactivate / delete / demote / self-delete / change-email.
      * Unlocking or reactivating is always allowed.
+     * `self-delete` is for Profile account deletion: other roles may leave, but the
+     * last operational admin must not, or the platform would have zero admins.
+     * `change-email` blocks the last operational admin from resetting verification.
      *
-     * @param  'lock'|'deactivate'|'delete'|'demote'  $action
+     * @param  'lock'|'deactivate'|'delete'|'demote'|'self-delete'|'change-email'  $action
      */
     public function adminProtectionError(string $action): ?string
     {
@@ -244,6 +285,12 @@ class User extends Authenticatable implements MustVerifyEmailContract
                 selfMessage: 'You cannot delete your own account.',
                 lastAdminMessage: 'Cannot delete the last active admin account.',
             ),
+            'self-delete' => $this->isSoleOperationalAdmin()
+                ? 'Cannot delete the last active admin account. Create or activate another admin first.'
+                : null,
+            'change-email' => $this->isSoleOperationalAdmin()
+                ? 'Cannot change the email of the last active admin account. Create or activate another admin first.'
+                : null,
             'demote' => $this->protectionErrorForImpairingAction(
                 $isSelf,
                 impairing: $this->isAdmin(),

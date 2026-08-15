@@ -41,6 +41,12 @@
                 </div>
             </div>
 
+            @if (session('error'))
+                <div class="mb-6 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-800">
+                    {{ session('error') }}
+                </div>
+            @endif
+
             <div class="space-y-6">
                 <div
                     class="overflow-hidden rounded-3xl border border-white/70 bg-white/90 p-6 shadow-lg shadow-indigo-100/30 backdrop-blur sm:p-8">

@@ -33,6 +33,11 @@
             'active' => request()->routeIs('admin.users', 'admin.user.*', 'admin.employees.*', 'admin.employee.*'),
         ],
         [
+            'label' => 'Events',
+            'href' => route('admin.events.index'),
+            'active' => request()->routeIs('admin.events.*'),
+        ],
+        [
             'label' => 'Categories',
             'href' => route('admin.event-categories.index'),
             'active' => request()->routeIs('admin.event-categories.*', 'admin.event.category.*'),

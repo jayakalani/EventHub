@@ -1,6 +1,7 @@
 import {
     Chart,
     ArcElement,
+    BarController,
     BarElement,
     CategoryScale,
     DoughnutController,
@@ -23,6 +24,7 @@ import { bindDashboardPdfExportButtons } from './dashboard-pdf-export';
 
 Chart.register(
     ArcElement,
+    BarController,
     BarElement,
     CategoryScale,
     DoughnutController,
@@ -175,6 +177,18 @@ function createBarChart(canvasId, labels, data, options = {}) {
     clearChartEmptyState(canvas);
 
     const fullscreen = Boolean(options.fullscreen);
+    const horizontal = Boolean(options.horizontal);
+    const font = fontFor(fullscreen);
+    const truncateAt = fullscreen ? 42 : 22;
+
+    const categoryTicks = {
+        font,
+        callback(value) {
+            const label = this.getLabelForValue(value);
+            if (!label) return '';
+            return label.length > truncateAt ? `${label.slice(0, truncateAt - 1)}…` : label;
+        },
+    };
 
     return new Chart(canvas, {
         type: 'bar',
@@ -189,6 +203,7 @@ function createBarChart(canvasId, labels, data, options = {}) {
             }],
         },
         options: {
+            indexAxis: horizontal ? 'y' : 'x',
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
@@ -199,17 +214,29 @@ function createBarChart(canvasId, labels, data, options = {}) {
                     bodyFont: { size: fullscreen ? 14 : 12 },
                     padding: fullscreen ? 14 : 12,
                     cornerRadius: 8,
+                    callbacks: options.tooltipCallbacks ?? {},
                 },
             },
             scales: {
                 x: {
-                    grid: { display: false },
-                    ticks: { font: fontFor(fullscreen), maxRotation: 45, minRotation: 0 },
+                    beginAtZero: true,
+                    grid: horizontal
+                        ? { color: 'rgba(148, 163, 184, 0.2)' }
+                        : { display: false },
+                    ticks: {
+                        font,
+                        ...(horizontal ? (options.valueTicks ?? {}) : { maxRotation: 45, minRotation: 0 }),
+                    },
                 },
                 y: {
                     beginAtZero: true,
-                    grid: { color: 'rgba(148, 163, 184, 0.2)' },
-                    ticks: { font: fontFor(fullscreen), precision: 0 },
+                    grid: horizontal
+                        ? { display: false }
+                        : { color: 'rgba(148, 163, 184, 0.2)' },
+                    ticks: {
+                        font,
+                        ...(horizontal ? categoryTicks : { precision: 0 }),
+                    },
                 },
             },
         },
@@ -313,119 +340,127 @@ function createPieChart(canvasId, labels, data, colors = null, options = {}) {
     });
 }
 
+const adminDashboardCardTargets = {
+    topEvents: 'dashboardTopEventsChart',
+    conversionFunnel: 'dashboardConversionFunnelChart',
+    supportVolume: 'adminSupportVolumeChart',
+    supportSla: 'adminSupportSlaChart',
+};
+
+function buildAdminDashboardChartPainters(data, supportCharts = {}) {
+    const topEventRows = data?.topEvents ?? [];
+    const funnelRows = data?.conversionFunnel ?? [];
+    const volumeLabels = supportCharts.volume?.labels ?? [];
+    const slaRows = supportCharts.sla ?? [];
+
+    return {
+        topEvents: (canvasId, options = {}) => createBarChart(
+            canvasId,
+            topEventRows.map((item) => item.name),
+            topEventRows.map((item) => item.net),
+            {
+                ...options,
+                horizontal: true,
+                label: 'Net revenue (LKR)',
+                colors: ['rgba(16, 185, 129, 0.85)'],
+                tooltipCallbacks: {
+                    label(context) {
+                        const row = topEventRows[context.dataIndex] ?? {};
+                        const tickets = Number(row.tickets || 0).toLocaleString();
+                        return ` ${formatCompactLkr(context.raw)} · ${tickets} tickets`;
+                    },
+                },
+                valueTicks: {
+                    callback(value) {
+                        return formatCompactLkr(value).replace('LKR ', '');
+                    },
+                },
+            },
+        ),
+        conversionFunnel: (canvasId, options = {}) => createBarChart(
+            canvasId,
+            funnelRows.map((item) => item.label),
+            funnelRows.map((item) => item.count),
+            {
+                ...options,
+                horizontal: true,
+                label: 'Count',
+                colors: [
+                    'rgba(6, 182, 212, 0.85)',
+                    'rgba(245, 158, 11, 0.85)',
+                    'rgba(16, 185, 129, 0.85)',
+                ],
+                tooltipCallbacks: {
+                    label(context) {
+                        const row = funnelRows[context.dataIndex] ?? {};
+                        const rate = row.rate == null ? '' : ` · ${row.rate}% of previous`;
+                        return ` ${Number(context.raw || 0).toLocaleString()}${rate}`;
+                    },
+                },
+            },
+        ),
+        supportVolume: (canvasId, options = {}) => createLineChart(canvasId, volumeLabels, [
+            {
+                label: 'Inquiries',
+                data: supportCharts.volume?.inquiries ?? [],
+                borderColor: palette.indigo,
+                backgroundColor: 'rgba(79, 70, 229, 0.12)',
+                fill: true,
+                tension: 0.35,
+                pointRadius: options.fullscreen ? 6 : 4,
+                pointHoverRadius: options.fullscreen ? 8 : 6,
+                pointBackgroundColor: palette.indigo,
+                borderWidth: options.fullscreen ? 3 : 2,
+            },
+            {
+                label: 'Complaints',
+                data: supportCharts.volume?.complaints ?? [],
+                borderColor: palette.rose,
+                backgroundColor: 'rgba(244, 63, 94, 0.10)',
+                fill: true,
+                tension: 0.35,
+                pointRadius: options.fullscreen ? 6 : 4,
+                pointHoverRadius: options.fullscreen ? 8 : 6,
+                pointBackgroundColor: palette.rose,
+                borderWidth: options.fullscreen ? 3 : 2,
+            },
+        ], options),
+        supportSla: (canvasId, options = {}) => createBarChart(
+            canvasId,
+            slaRows.map((item) => item.label),
+            slaRows.map((item) => item.count),
+            {
+                ...options,
+                horizontal: true,
+                label: 'Open tickets',
+                colors: slaRows.map((item) => item.color ?? 'rgba(148, 163, 184, 0.85)'),
+            },
+        ),
+    };
+}
+
+export function renderAdminDashboardExportCharts(data, supportCharts = {}) {
+    if (!data) return;
+
+    window.adminDashboardData = data;
+    window.adminSupportCharts = supportCharts;
+
+    const chartBuilders = buildAdminDashboardChartPainters(data, supportCharts);
+    Object.entries(adminDashboardCardTargets).forEach(([key, canvasId]) => {
+        chartBuilders[key]?.(canvasId);
+    });
+}
+
 function initAdminDashboard() {
+    bindDashboardPdfExportButtons();
+
     const data = window.adminDashboardData;
     if (!data) return;
 
-    const { chartLabels, charts, users, payments } = data;
-    const weeklySales = charts.ticketSalesWeekly ?? [];
-    const eventsByCategory = charts.eventsByCategory ?? [];
-    const roleLabels = (users?.byRole ?? []).map((role) => role.label);
-    const roleCounts = (users?.byRole ?? []).map((role) => role.count);
-    const rolePalette = roleLabels.map((label, index) => roleColors[label] ?? chartColors[index % chartColors.length]);
+    const supportCharts = window.adminSupportCharts ?? {};
+    const chartBuilders = buildAdminDashboardChartPainters(data, supportCharts);
 
-    const paymentLabels = ['Successful', 'Pending', 'Refunded', 'Failed'];
-    const paymentCounts = [
-        payments?.completed ?? 0,
-        payments?.pending ?? 0,
-        payments?.refunded ?? 0,
-        payments?.failed ?? 0,
-    ];
-    const paymentColors = [
-        palette.emerald,
-        palette.amber,
-        palette.purple,
-        palette.rose,
-    ];
-
-    const chartBuilders = {
-        userDistribution: (canvasId, options = {}) => createDoughnutChart(
-            canvasId,
-            roleLabels,
-            roleCounts,
-            rolePalette,
-            options,
-        ),
-        userGrowth: (canvasId, options = {}) => createLineChart(canvasId, chartLabels, [{
-            label: 'New Registrations',
-            data: charts.userGrowth ?? [],
-            borderColor: palette.indigo,
-            backgroundColor: 'rgba(79, 70, 229, 0.12)',
-            fill: true,
-            tension: 0.4,
-            pointRadius: options.fullscreen ? 6 : 5,
-            pointHoverRadius: options.fullscreen ? 9 : 8,
-            pointBackgroundColor: palette.indigo,
-            borderWidth: options.fullscreen ? 3 : 2,
-        }], options),
-        revenue: (canvasId, options = {}) => createLineChart(canvasId, chartLabels, [{
-            label: 'Revenue (LKR)',
-            data: charts.revenue ?? [],
-            borderColor: palette.emerald,
-            backgroundColor: 'rgba(16, 185, 129, 0.12)',
-            fill: true,
-            tension: 0.4,
-            pointRadius: options.fullscreen ? 6 : 5,
-            pointHoverRadius: options.fullscreen ? 9 : 8,
-            pointBackgroundColor: palette.emerald,
-            borderWidth: options.fullscreen ? 3 : 2,
-        }], {
-            ...options,
-            tooltipCallbacks: {
-                label(context) {
-                    return ` ${context.dataset.label}: ${formatCompactLkr(context.raw)}`;
-                },
-            },
-            yTicks: {
-                callback(value) {
-                    return formatCompactLkr(value).replace('LKR ', '');
-                },
-            },
-        }),
-        ticketSales: (canvasId, options = {}) => createBarChart(
-            canvasId,
-            weeklySales.map((item) => item.label),
-            weeklySales.map((item) => item.count),
-            {
-                ...options,
-                label: 'Tickets Sold',
-                colors: [
-                    'rgba(6, 182, 212, 0.85)',
-                    'rgba(37, 99, 235, 0.85)',
-                    'rgba(79, 70, 229, 0.85)',
-                    'rgba(16, 185, 129, 0.85)',
-                ],
-            },
-        ),
-        payments: (canvasId, options = {}) => createPieChart(
-            canvasId,
-            paymentLabels,
-            paymentCounts,
-            paymentColors,
-            options,
-        ),
-        eventsByCategory: (canvasId, options = {}) => createBarChart(
-            canvasId,
-            eventsByCategory.map((item) => item.label),
-            eventsByCategory.map((item) => item.count),
-            {
-                ...options,
-                label: 'Events',
-                colors: chartColors.map((c) => c.replace('rgb', 'rgba').replace(')', ', 0.85)')),
-            },
-        ),
-    };
-
-    const cardTargets = {
-        userDistribution: 'dashboardUserDistributionChart',
-        userGrowth: 'dashboardUserGrowthChart',
-        revenue: 'dashboardRevenueChart',
-        ticketSales: 'dashboardTicketSalesChart',
-        payments: 'dashboardPaymentOverviewChart',
-        eventsByCategory: 'dashboardEventsByCategoryChart',
-    };
-
-    const chartInstances = Object.entries(cardTargets)
+    const chartInstances = Object.entries(adminDashboardCardTargets)
         .map(([key, canvasId]) => chartBuilders[key]?.(canvasId))
         .filter(Boolean);
 
@@ -459,7 +494,16 @@ function initAdminDashboard() {
         if (fullscreenChart) fullscreenChart.resize();
     });
 
-    bindDashboardPdfExportButtons();
+    window.addEventListener('dashboard-pdf-export-prepare', () => {
+        chartInstances.forEach((chart) => {
+            try {
+                chart.resize();
+                chart.update('none');
+            } catch (error) {
+                console.warn('Unable to refresh admin chart before PDF export', error);
+            }
+        });
+    });
 }
 
 document.addEventListener('DOMContentLoaded', initAdminDashboard);

@@ -51,6 +51,7 @@ enum AdminNotificationCategory: string
             ],
             self::Security => [
                 'account_locked' => 'Account locked',
+                'last_admin_lock_prevented' => 'Last admin lock prevented',
                 'organizer_category_deleted' => 'Category deleted by organizer',
             ],
         };

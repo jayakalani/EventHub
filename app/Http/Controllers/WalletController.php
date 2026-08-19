@@ -74,11 +74,30 @@ class WalletController extends Controller
             ->where('purpose', 'wallet_topup')
             ->firstOrFail();
 
-        if ($session->payment_status === 'paid') {
-            $this->stripeCheckoutService->fulfillWalletTopup(
-                $payment,
-                is_string($session->payment_intent) ? $session->payment_intent : null
-            );
+        $intentId = is_string($session->payment_intent) ? $session->payment_intent : null;
+
+        if ($session->payment_status !== 'paid') {
+            return redirect()
+                ->route('attendee.wallet.index')
+                ->withErrors(['topup' => 'Payment is still processing. Your wallet will update once Stripe confirms the charge.']);
+        }
+
+        try {
+            $this->stripeCheckoutService->fulfillWalletTopup($payment, $intentId);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return redirect()
+                ->route('attendee.wallet.index')
+                ->withErrors(['topup' => 'Payment received. Your wallet is being credited — refresh this page shortly or contact support if the balance does not update.']);
+        }
+
+        $payment->refresh();
+
+        if (! $payment->isCompleted()) {
+            return redirect()
+                ->route('attendee.wallet.index')
+                ->withErrors(['topup' => 'Payment received. Your wallet is being credited — refresh this page shortly or contact support if the balance does not update.']);
         }
 
         return redirect()

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\CartItem;
 use App\Models\Event;
+use App\Models\Payment;
 use App\Models\ticketCategory;
 use App\Services\CartInventoryService;
 use App\Services\StripeCheckoutService;
@@ -193,6 +194,10 @@ class CartController extends Controller
             return back()->withErrors(['quantity' => 'This cart item has expired and can no longer be updated.']);
         }
 
+        if (Payment::cartItemHasPendingStripeCheckout((int) $cartItem->id)) {
+            return back()->withErrors(['quantity' => 'This reservation is part of an in-progress payment. Complete or cancel checkout first.']);
+        }
+
         $validated = $request->validate([
             'quantity' => ['required', 'integer', 'min:1'],
         ]);
@@ -219,13 +224,21 @@ class CartController extends Controller
     {
         $this->authorizeCartItem($cartItem);
 
+        if (Payment::cartItemHasPendingStripeCheckout((int) $cartItem->id)) {
+            return back()->withErrors(['cart' => 'This reservation is part of an in-progress payment. Complete or cancel checkout first.']);
+        }
+
         $remainingSelected = collect(session('cart.selected_item_ids', []))
             ->map(fn ($id) => (int) $id)
             ->reject(fn (int $id) => $id === (int) $cartItem->id)
             ->values()
             ->all();
 
-        $this->cartInventoryService->releaseAndDelete($cartItem);
+        try {
+            $this->cartInventoryService->releaseAndDelete($cartItem);
+        } catch (RuntimeException $e) {
+            return back()->withErrors(['cart' => $e->getMessage()]);
+        }
 
         $this->rememberSelectedCartItemIds($remainingSelected);
 

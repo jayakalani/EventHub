@@ -14,7 +14,7 @@ class ArtistPolicy
 
     public function view(User $user, Artist $artist): bool
     {
-        return $this->owns($user, $artist);
+        return $user->isOrganizer();
     }
 
     public function create(User $user): bool

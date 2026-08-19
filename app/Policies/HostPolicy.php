@@ -14,7 +14,7 @@ class HostPolicy
 
     public function view(User $user, Host $host): bool
     {
-        return $this->owns($user, $host);
+        return $user->isOrganizer();
     }
 
     public function create(User $user): bool

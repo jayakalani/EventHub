@@ -36,7 +36,12 @@ class GoogleCompleteProfileRequest extends FormRequest
         return [
             'first_name' => ['required', 'string', 'max:255'],
             'last_name' => ['required', 'string', 'max:255'],
-            'nic' => ['required', 'string', 'max:16', Rule::unique(User::class)->ignore($this->user()->id)],
+            'nic' => [
+                'required',
+                'string',
+                'max:16',
+                Rule::unique(User::class)->ignore($this->user()->id)->whereNull('deleted_at'),
+            ],
             'contact_number' => ['required', 'string', 'max:20'],
             'date_of_birth' => ['required', 'date', 'before:'.$before],
             'address' => ['required', 'string', 'max:255'],

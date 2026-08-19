@@ -19,3 +19,4 @@ Schedule::command('cart:release-expired')->everyMinute();
 Schedule::command('cart:send-expiry-reminders')->everyFiveMinutes();
 Schedule::command('cart:send-pending-payment-reminders')->daily();
 Schedule::command('cart:purge-completed-events')->daily();
+Schedule::command('payments:fulfill-paid')->everyFiveMinutes();

@@ -18,6 +18,29 @@ class UserRole extends Model
     public const CRO = 'customer relations officer';
     public const ATTENDEE = 'attendee';
 
+    public static function attendee(): self
+    {
+        $role = static::withTrashed()->where('name_en', self::ATTENDEE)->first();
+
+        if ($role) {
+            if ($role->trashed()) {
+                $role->restore();
+            }
+
+            if (! $role->is_active) {
+                $role->update(['is_active' => true]);
+            }
+
+            return $role;
+        }
+
+        return static::query()->create([
+            'name_en' => self::ATTENDEE,
+            'name_si' => 'ප්‍රේක්ෂක',
+            'is_active' => true,
+        ]);
+    }
+
     /**
      * Staff roles that can be assigned when creating employees.
      *

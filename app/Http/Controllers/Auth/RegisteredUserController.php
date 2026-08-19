@@ -11,6 +11,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules;
 use Illuminate\View\View;
 
@@ -42,8 +43,20 @@ class RegisteredUserController extends Controller
         $request->validate([
             'first_name' => ['required', 'string', 'max:255'],
             'last_name' => ['required', 'string', 'max:255'],
-            'nic' => ['required', 'string', 'max:16', 'unique:users'],
-            'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class],
+            'nic' => [
+                'required',
+                'string',
+                'max:16',
+                Rule::unique('users', 'nic')->whereNull('deleted_at'),
+            ],
+            'email' => [
+                'required',
+                'string',
+                'lowercase',
+                'email',
+                'max:255',
+                Rule::unique('users', 'email')->whereNull('deleted_at'),
+            ],
             'date_of_birth' => ['required', 'date', 'before:'.$before],
             'contact_number' => ['required', 'string', 'max:20'],
             'address' => ['required', 'string', 'max:255'],
@@ -51,7 +64,7 @@ class RegisteredUserController extends Controller
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
         ]);
 
-        $role_id = UserRole::where('name_en', 'attendee')->first()->id;
+        $role_id = UserRole::attendee()->id;
 
         $user = User::create([
             'first_name' => $request->first_name,

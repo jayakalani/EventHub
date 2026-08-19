@@ -145,6 +145,10 @@
                         class="rounded-xl px-3.5 py-2 text-sm font-medium transition {{ request()->routeIs('cro.dashboard') ? $navActive : $navIdle }}">
                         Dashboard
                     </a>
+                    <a href="{{ route('cro.events.index') }}"
+                        class="rounded-xl px-3.5 py-2 text-sm font-medium transition {{ request()->routeIs('cro.events.*') ? $navActive : $navIdle }}">
+                        Events
+                    </a>
                     <a href="{{ route('cro.bookings.index') }}"
                         class="rounded-xl px-3.5 py-2 text-sm font-medium transition {{ request()->routeIs('cro.bookings.*') ? $navActive : $navIdle }}">
                         Guest List
@@ -456,6 +460,10 @@
                 <a href="{{ route('cro.dashboard') }}"
                     class="block rounded-xl px-3 py-2.5 transition hover:bg-[#0F0363]/5 hover:text-[#0F0363] {{ request()->routeIs('cro.dashboard') ? $navActive : 'text-slate-700' }}">
                     Dashboard
+                </a>
+                <a href="{{ route('cro.events.index') }}"
+                    class="block rounded-xl px-3 py-2.5 transition hover:bg-[#0F0363]/5 hover:text-[#0F0363] {{ request()->routeIs('cro.events.*') ? $navActive : 'text-slate-700' }}">
+                    Events
                 </a>
                 <a href="{{ route('cro.bookings.index') }}"
                     class="block rounded-xl px-3 py-2.5 transition hover:bg-[#0F0363]/5 hover:text-[#0F0363] {{ request()->routeIs('cro.bookings.*') ? $navActive : 'text-slate-700' }}">

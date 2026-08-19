@@ -7,6 +7,8 @@ use App\Services\TwoFactorService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class TwoFactorController extends Controller
@@ -37,6 +39,8 @@ class TwoFactorController extends Controller
             return redirect()->route('login');
         }
 
+        $this->ensureTwoFactorIsNotRateLimited((int) $userId, $request);
+
         $user = User::findOrFail($userId);
 
         $verified = false;
@@ -48,10 +52,14 @@ class TwoFactorController extends Controller
         }
 
         if (! $verified) {
+            RateLimiter::hit($this->twoFactorThrottleKey((int) $userId, $request), 60);
+
             return back()->withErrors([
                 'code' => 'The provided two-factor authentication code is invalid.',
             ]);
         }
+
+        RateLimiter::clear($this->twoFactorThrottleKey((int) $userId, $request));
 
         Auth::login($user, session('login.remember', false));
 
@@ -157,5 +165,28 @@ class TwoFactorController extends Controller
             'status' => 'recovery-codes-regenerated',
             'recovery_codes' => $recoveryCodes,
         ]);
+    }
+
+    private function ensureTwoFactorIsNotRateLimited(int $userId, Request $request): void
+    {
+        $key = $this->twoFactorThrottleKey($userId, $request);
+
+        if (! RateLimiter::tooManyAttempts($key, 5)) {
+            return;
+        }
+
+        $seconds = RateLimiter::availableIn($key);
+
+        throw ValidationException::withMessages([
+            'code' => trans('auth.throttle', [
+                'seconds' => $seconds,
+                'minutes' => (int) ceil($seconds / 60),
+            ]),
+        ]);
+    }
+
+    private function twoFactorThrottleKey(int $userId, Request $request): string
+    {
+        return 'two-factor:'.$userId.'|'.$request->ip();
     }
 }

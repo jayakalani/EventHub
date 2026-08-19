@@ -576,7 +576,7 @@ class OrganizerReportExportBuilder
     private function buildAudience(array $reports): array
     {
         $data = $reports['attendees'];
-        $demographics = $data['demographics'] ?? ['age' => [], 'gender' => [], 'location' => []];
+        $demographics = $data['demographics'] ?? ['age' => [], 'gender' => [], 'location' => [], 'province' => []];
         $topCustomers = $data['topCustomers'] ?? [];
 
         return [
@@ -600,8 +600,13 @@ class OrganizerReportExportBuilder
                     'rows' => collect($demographics['gender'] ?? [])->map(fn ($r) => [$r['label'], $r['count']])->all(),
                 ],
                 [
-                    'heading' => 'Location',
-                    'headers' => ['Location', 'Count'],
+                    'heading' => 'Province',
+                    'headers' => ['Province', 'Count'],
+                    'rows' => collect($demographics['province'] ?? [])->map(fn ($r) => [$r['label'], $r['count']])->all(),
+                ],
+                [
+                    'heading' => 'District',
+                    'headers' => ['District', 'Count'],
                     'rows' => collect($demographics['location'] ?? [])->map(fn ($r) => [$r['label'], $r['count']])->all(),
                 ],
                 [

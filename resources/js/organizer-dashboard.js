@@ -445,12 +445,14 @@ function initLiveSalesPulse() {
 export function renderOrganizerDashboardExportCharts(data, preferredPeriod) {
     if (!data?.charts?.periods) return;
 
-    const requested = preferredPeriod === 'week' || preferredPeriod === 'month'
-        ? preferredPeriod
-        : null;
-    const period = (requested && data.charts.periods[requested])
-        ? requested
-        : (data.charts.defaultPeriod ?? 'month');
+    const period = data.charts.periods.custom
+        ? 'custom'
+        : (
+            (preferredPeriod === 'week' || preferredPeriod === 'month')
+            && data.charts.periods[preferredPeriod]
+                ? preferredPeriod
+                : (data.charts.defaultPeriod ?? 'month')
+        );
     const payload = data.charts.periods[period] ?? data.charts.periods.month ?? {};
 
     Object.entries(chartConfigs).forEach(([key, config]) => {

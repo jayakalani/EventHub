@@ -54,6 +54,9 @@ class StripeCheckoutService
             ];
         }
 
+        $checkoutItems = $this->snapshotCheckoutItems($cartItems);
+        $cartItemIds = collect($checkoutItems)->pluck('cart_item_id')->all();
+
         $payment = Payment::create([
             'user_id' => $userId,
             'reference' => 'PAY-'.strtoupper(Str::random(10)),
@@ -62,21 +65,30 @@ class StripeCheckoutService
             'payment_method' => PaymentMethodEnum::Stripe,
             'purpose' => 'ticket_purchase',
             'status' => PaymentStatusEnum::Pending,
-            'cart_item_ids' => $cartItems->pluck('id')->values()->all(),
+            'cart_item_ids' => $cartItemIds,
+            'checkout_items' => $checkoutItems,
         ]);
 
-        $session = Session::create([
-            'payment_method_types' => ['card'],
-            'line_items' => $lineItems,
-            'mode' => 'payment',
-            'success_url' => route('attendee.checkout.success').'?session_id={CHECKOUT_SESSION_ID}',
-            'cancel_url' => route('attendee.checkout.cancel').'?payment_id='.$payment->id,
-            'client_reference_id' => (string) $userId,
-            'metadata' => [
-                'payment_id' => (string) $payment->id,
-                'user_id' => (string) $userId,
-            ],
-        ]);
+        $this->extendHoldsForCheckout($cartItemIds);
+
+        try {
+            $session = Session::create([
+                'payment_method_types' => ['card'],
+                'line_items' => $lineItems,
+                'mode' => 'payment',
+                'success_url' => route('attendee.checkout.success').'?session_id={CHECKOUT_SESSION_ID}',
+                'cancel_url' => route('attendee.checkout.cancel').'?payment_id='.$payment->id,
+                'client_reference_id' => (string) $userId,
+                'metadata' => [
+                    'payment_id' => (string) $payment->id,
+                    'user_id' => (string) $userId,
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            $payment->update(['status' => PaymentStatusEnum::Cancelled]);
+
+            throw $e;
+        }
 
         $payment->update(['stripe_session_id' => $session->id]);
 
@@ -91,6 +103,8 @@ class StripeCheckoutService
         $totalAmount = $cartItems->sum(fn (CartItem $item) => (float) $item->ticketCategory->ticket_price * $item->quantity);
 
         return DB::transaction(function () use ($cartItems, $user, $totalAmount) {
+            $checkoutItems = $this->snapshotCheckoutItems($cartItems);
+
             $payment = Payment::create([
                 'user_id' => $user->id,
                 'reference' => 'PAY-'.strtoupper(Str::random(10)),
@@ -99,7 +113,8 @@ class StripeCheckoutService
                 'payment_method' => PaymentMethodEnum::Wallet,
                 'purpose' => 'ticket_purchase',
                 'status' => PaymentStatusEnum::Pending,
-                'cart_item_ids' => $cartItems->pluck('id')->values()->all(),
+                'cart_item_ids' => collect($checkoutItems)->pluck('cart_item_id')->all(),
+                'checkout_items' => $checkoutItems,
             ]);
 
             $this->walletService->debit(
@@ -176,32 +191,31 @@ class StripeCheckoutService
                 return;
             }
 
-            $cartItems = CartItem::query()
-                ->where('user_id', $payment->user_id)
-                ->whereIn('id', $payment->cart_item_ids)
-                ->with(['ticketCategory', 'event'])
-                ->lockForUpdate()
-                ->get();
+            $lines = $this->checkoutLinesFor($payment);
 
-            if ($cartItems->isEmpty()) {
-                throw new RuntimeException('Cart items for this payment are no longer available.');
+            if ($lines === []) {
+                throw new RuntimeException('Checkout lines for this payment are no longer available.');
             }
 
-            $purchasedEventIds = $cartItems->pluck('event_id')->unique()->filter()->values()->all();
+            $purchasedEventIds = collect($lines)->pluck('event_id')->unique()->filter()->values()->all();
             $soldOutCategoryIds = [];
 
-            foreach ($cartItems as $cartItem) {
-                // Hard hold already reduced stock on add-to-cart. Consume that hold
-                // (or claim stock for legacy soft-hold rows) without a second decrement.
-                $category = $this->cartInventoryService->consumeHoldForPurchase($cartItem);
+            foreach ($lines as $line) {
+                $cartItem = CartItem::query()
+                    ->where('user_id', $payment->user_id)
+                    ->whereKey((int) ($line['cart_item_id'] ?? 0))
+                    ->lockForUpdate()
+                    ->first();
 
-                $unitPrice = (float) $category->ticket_price;
+                $category = $this->cartInventoryService->fulfillPaidLine($line, $cartItem);
+                $quantity = (int) $line['quantity'];
+                $unitPrice = (float) ($line['unit_price'] ?? $category->ticket_price);
 
-                for ($i = 0; $i < $cartItem->quantity; $i++) {
+                for ($i = 0; $i < $quantity; $i++) {
                     ticketBooking::create([
                         'user_id' => $payment->user_id,
-                        'event_id' => $cartItem->event_id,
-                        'ticket_category_id' => $cartItem->ticket_category_id,
+                        'event_id' => (int) $line['event_id'],
+                        'ticket_category_id' => (int) $line['ticket_category_id'],
                         'payment_id' => $payment->id,
                         'ticket_number' => $this->ticketQrService->generateTicketNumber(),
                         'ticket_price' => $unitPrice,
@@ -213,7 +227,7 @@ class StripeCheckoutService
                     $soldOutCategoryIds[] = $category->id;
                 }
 
-                $cartItem->delete();
+                $cartItem?->delete();
             }
 
             $payment->update([
@@ -290,5 +304,58 @@ class StripeCheckoutService
     private function toStripeAmount(float $amount): int
     {
         return (int) round($amount * 100);
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, CartItem>  $cartItems
+     * @return list<array{cart_item_id: int, event_id: int, ticket_category_id: int, quantity: int, unit_price: float, inventory_held: bool}>
+     */
+    private function snapshotCheckoutItems($cartItems): array
+    {
+        return $cartItems->map(fn (CartItem $item) => [
+            'cart_item_id' => (int) $item->id,
+            'event_id' => (int) $item->event_id,
+            'ticket_category_id' => (int) $item->ticket_category_id,
+            'quantity' => (int) $item->quantity,
+            'unit_price' => (float) $item->ticketCategory->ticket_price,
+            'inventory_held' => (bool) $item->inventory_held,
+        ])->values()->all();
+    }
+
+    /**
+     * @return list<array{cart_item_id?: int, event_id: int, ticket_category_id: int, quantity: int, unit_price?: float, inventory_held?: bool}>
+     */
+    private function checkoutLinesFor(Payment $payment): array
+    {
+        $snapshot = $payment->checkout_items ?? [];
+
+        if (is_array($snapshot) && $snapshot !== []) {
+            return array_values($snapshot);
+        }
+
+        $cartItems = CartItem::query()
+            ->where('user_id', $payment->user_id)
+            ->whereIn('id', $payment->cart_item_ids ?? [])
+            ->with('ticketCategory')
+            ->lockForUpdate()
+            ->get();
+
+        return $this->snapshotCheckoutItems($cartItems);
+    }
+
+    /**
+     * @param  list<int>  $cartItemIds
+     */
+    private function extendHoldsForCheckout(array $cartItemIds): void
+    {
+        if ($cartItemIds === []) {
+            return;
+        }
+
+        CartItem::query()
+            ->whereIn('id', $cartItemIds)
+            ->update([
+                'reserved_until' => now()->addHours(24),
+            ]);
     }
 }

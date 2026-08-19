@@ -14,9 +14,9 @@ use App\Models\RefundRequest;
 use App\Models\SavedEvent;
 use App\Models\ticketBooking;
 use App\Models\User;
+use App\Support\SriLankaDistricts;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
 class OrganizerReportService
 {
@@ -130,7 +130,7 @@ class OrganizerReportService
                 'avgTicketsPerAttendee' => 0,
                 'newAttendees' => 0,
                 'repeatAttendees' => 0,
-                'demographics' => ['age' => [], 'gender' => [], 'location' => [], 'available' => ['age' => false, 'gender' => false, 'location' => false, 'any' => false]],
+                'demographics' => ['age' => [], 'gender' => [], 'location' => [], 'province' => [], 'available' => ['age' => false, 'gender' => false, 'location' => false, 'province' => false, 'any' => false]],
                 'topCustomers' => [],
                 'attendeesByEvent' => [],
             ],
@@ -844,7 +844,8 @@ class OrganizerReportService
      *     age: list<array{label: string, count: int}>,
      *     gender: list<array{label: string, count: int}>,
      *     location: list<array{label: string, count: int}>,
-     *     available: array{age: bool, gender: bool, location: bool, any: bool}
+     *     province: list<array{label: string, count: int}>,
+     *     available: array{age: bool, gender: bool, location: bool, province: bool, any: bool}
      * }
      */
     private function buildDemographics($users): array
@@ -863,13 +864,15 @@ class OrganizerReportService
             'Female' => 0,
             'Unknown' => 0,
         ];
-        $locationBuckets = [];
+        $locationBuckets = array_fill_keys(SriLankaDistricts::NAMES, 0);
+        $provinceBuckets = array_fill_keys(SriLankaDistricts::PROVINCES, 0);
+        $unknownLocations = 0;
 
         foreach ($users as $user) {
             if (! $user instanceof User) {
                 $ageBuckets['Unknown']++;
                 $genderBuckets['Unknown']++;
-                $locationBuckets['Unknown'] = ($locationBuckets['Unknown'] ?? 0) + 1;
+                $unknownLocations++;
                 continue;
             }
 
@@ -897,8 +900,16 @@ class OrganizerReportService
                 $genderBuckets['Unknown']++;
             }
 
-            $location = $this->locationLabel($user->address);
-            $locationBuckets[$location] = ($locationBuckets[$location] ?? 0) + 1;
+            $district = SriLankaDistricts::resolve($user->address);
+            if ($district === null) {
+                $unknownLocations++;
+            } else {
+                $locationBuckets[$district]++;
+                $province = SriLankaDistricts::provinceFor($district);
+                if ($province !== null) {
+                    $provinceBuckets[$province]++;
+                }
+            }
         }
 
         $toChart = fn (array $buckets) => collect($buckets)
@@ -908,19 +919,33 @@ class OrganizerReportService
             ->all();
 
         $locations = collect($locationBuckets)
-            ->sortDesc()
             ->map(fn (int $count, string $label) => ['label' => $label, 'count' => $count])
+            ->sortBy([
+                ['count', 'desc'],
+                ['label', 'asc'],
+            ])
             ->values();
 
-        if ($locations->count() > 6) {
-            $top = $locations->take(5);
-            $other = (int) $locations->slice(5)->sum('count');
-            $locations = $top->push(['label' => 'Other', 'count' => $other]);
+        if ($unknownLocations > 0) {
+            $locations->push(['label' => 'Unknown', 'count' => $unknownLocations]);
+        }
+
+        $provinces = collect($provinceBuckets)
+            ->map(fn (int $count, string $label) => ['label' => $label, 'count' => $count])
+            ->sortBy([
+                ['count', 'desc'],
+                ['label', 'asc'],
+            ])
+            ->values();
+
+        if ($unknownLocations > 0) {
+            $provinces->push(['label' => 'Unknown', 'count' => $unknownLocations]);
         }
 
         $age = $toChart($ageBuckets);
         $gender = $toChart($genderBuckets);
         $location = $locations->all();
+        $province = $provinces->all();
 
         $knownCount = function (array $rows): int {
             return (int) collect($rows)
@@ -931,36 +956,21 @@ class OrganizerReportService
         $ageAvailable = $knownCount($age) > 0;
         $genderAvailable = $knownCount($gender) > 0;
         $locationAvailable = $knownCount($location) > 0;
+        $provinceAvailable = $knownCount($province) > 0;
 
         return [
             'age' => $age,
             'gender' => $gender,
             'location' => $location,
+            'province' => $province,
             'available' => [
                 'age' => $ageAvailable,
                 'gender' => $genderAvailable,
                 'location' => $locationAvailable,
-                'any' => $ageAvailable || $genderAvailable || $locationAvailable,
+                'province' => $provinceAvailable,
+                'any' => $ageAvailable || $genderAvailable || $locationAvailable || $provinceAvailable,
             ],
         ];
-    }
-
-    private function locationLabel(?string $address): string
-    {
-        if (! filled($address)) {
-            return 'Unknown';
-        }
-
-        $parts = preg_split('/[,\n]+/', $address) ?: [];
-        $parts = array_values(array_filter(array_map('trim', $parts)));
-
-        if ($parts === []) {
-            return 'Unknown';
-        }
-
-        $label = $parts[count($parts) - 1] ?: $parts[0];
-
-        return Str::limit($label, 32, '') ?: 'Unknown';
     }
 
     /**
@@ -1142,18 +1152,38 @@ class OrganizerReportService
         $rows = $this->organizerBookingsQuery($organizerId, $filters)
             ->where('status', BookingStatusEnum::Confirmed)
             ->join('ticket_categories', 'ticket_bookings.ticket_category_id', '=', 'ticket_categories.id')
-            ->selectRaw('ticket_categories.name as label, COUNT(*) as count')
-            ->groupBy('ticket_categories.id', 'ticket_categories.name')
+            ->selectRaw('MIN(ticket_categories.name) as label, COUNT(*) as count')
+            ->groupByRaw('LOWER(TRIM(ticket_categories.name))')
             ->orderByDesc('count')
             ->get();
 
         $total = max(1, (int) $rows->sum('count'));
 
         return $rows->map(fn ($row) => [
-            'label' => (string) $row->label,
+            'label' => $this->canonicalTicketCategoryLabel((string) $row->label),
             'count' => (int) $row->count,
             'percentage' => round(((int) $row->count / $total) * 100, 1),
         ])->values()->all();
+    }
+
+    private function canonicalTicketCategoryLabel(string $name): string
+    {
+        $normalized = mb_strtolower(trim(preg_replace('/\s+/', ' ', $name) ?? $name));
+
+        if ($normalized === '') {
+            return 'Unnamed';
+        }
+
+        return match ($normalized) {
+            'vip', 'v.i.p', 'v.i.p.' => 'VIP',
+            'gold' => 'Gold',
+            'silver' => 'Silver',
+            'platinum' => 'Platinum',
+            'regular' => 'Regular',
+            'general', 'general admission' => 'General',
+            'early bird', 'earlybird', 'early-bird' => 'Early Bird',
+            default => mb_convert_case($name, MB_CASE_TITLE, 'UTF-8'),
+        };
     }
 
     /**

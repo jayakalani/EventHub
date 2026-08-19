@@ -153,6 +153,12 @@ class ReportController extends Controller
                 $eventId,
                 $eventId,
                 $eventId,
+                [],
+                [
+                    'from' => $from,
+                    'to' => $to,
+                    'period' => $period,
+                ],
             ),
             'reports' => $this->reportService->getAllReports($organizerId, $reportFilters),
         ]);

@@ -227,6 +227,7 @@
                     'attendanceByEventChart',
                     'demographicsAgeChart',
                     'demographicsGenderChart',
+                    'demographicsProvinceChart',
                     'demographicsLocationChart',
                     'repeatVsNewChart',
                     'audienceEngagementVsSalesChart',

@@ -55,7 +55,7 @@ class ArtistController extends Controller
             'to_date' => ['nullable', 'date', 'after_or_equal:from_date'],
         ]);
 
-        $query = Artist::query()->createdByOrganizer((int) Auth::id());
+        $query = Artist::query();
 
         if (! empty($filters['search'])) {
             $query->where('name', 'like', '%'.$filters['search'].'%');
@@ -219,7 +219,7 @@ class ArtistController extends Controller
     {
         $this->authorize('viewAny', Artist::class);
 
-        $artists = Artist::query()->createdByOrganizer((int) Auth::id())->get();
+        $artists = Artist::query()->get();
 
         $csvData = [];
         $csvData[] = ['ID', 'Name', 'Email', 'Contact Number', 'Status', 'Created At'];
@@ -254,7 +254,7 @@ class ArtistController extends Controller
     {
         $this->authorize('viewAny', Artist::class);
 
-        $artists = Artist::query()->createdByOrganizer((int) Auth::id())->get();
+        $artists = Artist::query()->get();
 
         $pdf = \PDF::loadView('organizer.exports.artists_pdf', compact('artists'));
 

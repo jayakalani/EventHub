@@ -21,6 +21,7 @@ class Payment extends Model
         'payment_method',
         'purpose',
         'cart_item_ids',
+        'checkout_items',
     ];
 
     protected function casts(): array
@@ -30,7 +31,37 @@ class Payment extends Model
             'status' => PaymentStatusEnum::class,
             'payment_method' => PaymentMethodEnum::class,
             'cart_item_ids' => 'array',
+            'checkout_items' => 'array',
         ];
+    }
+
+    /**
+     * Cart item IDs currently reserved by an in-progress Stripe ticket checkout.
+     *
+     * @return list<int>
+     */
+    public static function pendingStripeCheckoutCartItemIds(): array
+    {
+        return static::query()
+            ->where('status', PaymentStatusEnum::Pending)
+            ->where('purpose', 'ticket_purchase')
+            ->where('payment_method', PaymentMethodEnum::Stripe)
+            ->get(['cart_item_ids', 'checkout_items'])
+            ->flatMap(function (self $payment) {
+                $fromSnapshot = collect($payment->checkout_items ?? [])->pluck('cart_item_id');
+
+                return $fromSnapshot->concat($payment->cart_item_ids ?? []);
+            })
+            ->map(fn ($id) => (int) $id)
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    public static function cartItemHasPendingStripeCheckout(int $cartItemId): bool
+    {
+        return in_array($cartItemId, static::pendingStripeCheckoutCartItemIds(), true);
     }
 
     public function user(): BelongsTo

@@ -58,10 +58,17 @@ class AdminReportService
         ?string $from = null,
         ?string $to = null,
     ): array {
+        $scopeFilter = $this->withDateRange($this->resolveScopeFilter($organizerId, $eventId), $from, $to);
+        $paymentScopeFilter = $this->withDateRange($this->resolveScopeFilter($paymentOrganizerId, $paymentEventId), $from, $to);
+        $supportScopeFilter = $this->withDateRange(
+            $this->resolveCroScopeFilter($supportCroId, $supportEventId, $organizerId),
+            $from,
+            $to,
+        );
         $dateScope = $this->withDateRange($this->globalScopeFilter(), $from, $to);
         $users = $this->getUserReports($dateScope);
-        $payments = $this->getPaymentReports($dateScope);
-        $admin = $this->getAdminReports($dateScope);
+        $payments = $this->getPaymentReports($paymentScopeFilter);
+        $admin = $this->getAdminReports($scopeFilter);
         $chartLabels = $this->lastSixMonthLabels();
         $shortChartLabels = $this->lastSixMonthShortLabels();
 
@@ -74,21 +81,14 @@ class AdminReportService
             ? round((($currentMonthUsers - $previousMonthUsers) / $previousMonthUsers) * 100, 1)
             : ($currentMonthUsers > 0 ? 100.0 : 0.0);
 
-        $ticketSalesByCategory = $this->ticketSalesByCategory($dateScope);
-        $weeklyTicketSales = $this->weeklyTicketSales($dateScope);
+        $ticketSalesByCategory = $this->ticketSalesByCategory($scopeFilter);
+        $weeklyTicketSales = $this->weeklyTicketSales($scopeFilter);
         $monthlyRevenue = collect($chartLabels)
             ->zip($payments['revenueTrend'])
             ->map(fn ($pair) => ['month' => $pair[0], 'amount' => $pair[1]])
             ->all();
 
-        $scopeFilter = $this->withDateRange($this->resolveScopeFilter($organizerId, $eventId), $from, $to);
-        $paymentScopeFilter = $this->withDateRange($this->resolveScopeFilter($paymentOrganizerId, $paymentEventId), $from, $to);
-        $supportScopeFilter = $this->withDateRange(
-            $this->resolveCroScopeFilter($supportCroId, $supportEventId, $organizerId),
-            $from,
-            $to,
-        );
-        $tickets = $this->getTicketReports($dateScope);
+        $tickets = $this->getTicketReports($scopeFilter);
         $kpis = $this->buildScopedKpis($scopeFilter, [
             'usersTotal' => $users['totalUsers'],
             'userGrowthPercent' => $userGrowthPercent,
@@ -114,11 +114,11 @@ class AdminReportService
             'postponed' => $statusCount('postponed'),
         ]);
         $paymentOverview = $this->scopedPaymentOverview($paymentScopeFilter, [
-            'completed' => $this->paymentCountByStatus(PaymentStatusEnum::Completed, $dateScope),
+            'completed' => $this->paymentCountByStatus(PaymentStatusEnum::Completed, $paymentScopeFilter),
             'pending' => $payments['pendingPayments'],
             'failed' => $payments['failedPayments'],
             'cancelled' => $payments['cancelledPayments'],
-            'refunded' => $this->scopedRefundedCount($dateScope),
+            'refunded' => $this->scopedRefundedCount($paymentScopeFilter),
             'pendingAmount' => $payments['pendingAmount'],
             'byStatus' => $payments['paymentsByStatus'],
         ]);
@@ -185,7 +185,7 @@ class AdminReportService
                 'revenue' => $payments['revenueTrend'],
                 'ticketSalesByCategory' => $ticketSalesByCategory,
                 'ticketSalesWeekly' => $weeklyTicketSales,
-                'eventsByCategory' => $this->eventsByCategory(8, $dateScope),
+                'eventsByCategory' => $this->eventsByCategory(8, $scopeFilter),
             ],
             'recentActivity' => $this->getSystemReports()['recentAuditLogs'],
         ];

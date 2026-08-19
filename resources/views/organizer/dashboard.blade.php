@@ -284,6 +284,7 @@
                                     ['canvasId' => 'attendanceByEventChart', 'title' => 'Attendance by event', 'section' => 'attendance'],
                                     ['canvasId' => 'demographicsAgeChart', 'title' => 'Age groups', 'section' => 'audience'],
                                     ['canvasId' => 'demographicsGenderChart', 'title' => 'Gender', 'section' => 'audience'],
+                                    ['canvasId' => 'demographicsProvinceChart', 'title' => 'Province', 'section' => 'audience'],
                                     ['canvasId' => 'demographicsLocationChart', 'title' => 'Location', 'section' => 'audience'],
                                     ['canvasId' => 'repeatVsNewChart', 'title' => 'Repeat vs new attendees', 'section' => 'audience'],
                                     ['canvasId' => 'audienceEngagementVsSalesChart', 'title' => 'Tickets vs engagement by event', 'section' => 'audience'],

@@ -111,7 +111,7 @@
             <div>
                 <div class="mb-4 flex items-center justify-between gap-3">
                     <h3 class="text-lg font-semibold text-gray-900">
-                        Events by this artist
+                        Your events with this artist
                     </h3>
                     <a href="{{ route('organizer.events.index', ['search' => $artist->name]) }}"
                         class="text-sm font-semibold text-indigo-600 hover:text-indigo-800">
@@ -162,7 +162,7 @@
                         </div>
                     @empty
                         <div class="col-span-full rounded-2xl border border-dashed border-gray-300 bg-white p-8 text-center text-gray-500">
-                            This artist has no events yet.
+                            You have no events with this artist yet.
                         </div>
                     @endforelse
                 </div>

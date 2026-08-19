@@ -64,6 +64,7 @@
                 // Audience
                 ['canvasId' => 'demographicsAgeChart', 'title' => 'Audience — Age groups'],
                 ['canvasId' => 'demographicsGenderChart', 'title' => 'Audience — Gender'],
+                ['canvasId' => 'demographicsProvinceChart', 'title' => 'Audience — Province'],
                 ['canvasId' => 'demographicsLocationChart', 'title' => 'Audience — Location'],
                 ['canvasId' => 'repeatVsNewChart', 'title' => 'Audience — Repeat vs new attendees'],
                 ['canvasId' => 'audienceEngagementVsSalesChart', 'title' => 'Audience — Tickets vs engagement by event'],
@@ -121,6 +122,7 @@
             'audience' => [
                 ['canvasId' => 'demographicsAgeChart', 'title' => 'Age groups'],
                 ['canvasId' => 'demographicsGenderChart', 'title' => 'Gender'],
+                ['canvasId' => 'demographicsProvinceChart', 'title' => 'Province'],
                 ['canvasId' => 'demographicsLocationChart', 'title' => 'Location'],
                 ['canvasId' => 'repeatVsNewChart', 'title' => 'Repeat vs new attendees'],
                 ['canvasId' => 'audienceEngagementVsSalesChart', 'title' => 'Tickets vs engagement by event'],
@@ -129,6 +131,7 @@
             'attendees' => [
                 ['canvasId' => 'demographicsAgeChart', 'title' => 'Age groups'],
                 ['canvasId' => 'demographicsGenderChart', 'title' => 'Gender'],
+                ['canvasId' => 'demographicsProvinceChart', 'title' => 'Province'],
                 ['canvasId' => 'demographicsLocationChart', 'title' => 'Location'],
                 ['canvasId' => 'repeatVsNewChart', 'title' => 'Repeat vs new attendees'],
                 ['canvasId' => 'overviewAttendeesByEventChart', 'title' => 'Attendees by event'],

@@ -55,7 +55,7 @@ class HostController extends Controller
             'to_date' => ['nullable', 'date', 'after_or_equal:from_date'],
         ]);
 
-        $query = Host::query()->createdByOrganizer((int) Auth::id());
+        $query = Host::query();
 
         if (! empty($filters['search'])) {
             $query->where('name', 'like', '%'.$filters['search'].'%');
@@ -163,7 +163,7 @@ class HostController extends Controller
     {
         $this->authorize('viewAny', Host::class);
 
-        $hosts = Host::query()->createdByOrganizer((int) Auth::id())->get();
+        $hosts = Host::query()->get();
 
         $csvData = [];
         $csvData[] = ['ID', 'Name', 'Email', 'Contact Number', 'Status', 'Created At'];
@@ -198,7 +198,7 @@ class HostController extends Controller
     {
         $this->authorize('viewAny', Host::class);
 
-        $hosts = Host::query()->createdByOrganizer((int) Auth::id())->get();
+        $hosts = Host::query()->get();
 
         $pdf = \PDF::loadView('organizer.exports.hosts_pdf', compact('hosts'));
 

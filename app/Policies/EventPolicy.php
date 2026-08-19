@@ -9,12 +9,16 @@ class EventPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->isOrganizer();
+        return $user->isOrganizer() || $user->isCro();
     }
 
     public function view(User $user, Event $event): bool
     {
-        return $this->owns($user, $event);
+        if ($this->owns($user, $event)) {
+            return true;
+        }
+
+        return $user->isCro() && $event->isAssignedToCro($user->id);
     }
 
     public function create(User $user): bool

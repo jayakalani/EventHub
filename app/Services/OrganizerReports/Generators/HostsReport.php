@@ -16,7 +16,6 @@ class HostsReport implements ReportGenerator
     public function generate(User $user, array $fields, array $filters, string $format): Response
     {
         $query = Host::query()
-            ->createdByOrganizer((int) $user->id)
             ->withCount('events')
             ->latest();
 

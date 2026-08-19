@@ -12,6 +12,7 @@ use App\Models\RefundRequest;
 use App\Models\ticketBooking;
 use App\Models\ticketCategory;
 use App\Models\User;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use RuntimeException;
@@ -30,28 +31,41 @@ class RefundRequestService
             throw new RuntimeException('This ticket cannot be cancelled.');
         }
 
-        $policy = $this->refundPolicyService->evaluate($booking);
+        try {
+            $refundRequest = DB::transaction(function () use ($booking, $reason) {
+                $booking = ticketBooking::query()->lockForUpdate()->findOrFail($booking->id);
+                $booking->unsetRelation('refundRequest');
+                $booking->load(['event', 'refundRequest', 'ticketCategory']);
 
-        $refundRequest = DB::transaction(function () use ($booking, $reason, $policy) {
-            $refundRequest = RefundRequest::create([
-                'ticket_booking_id' => $booking->id,
-                'user_id' => $booking->user_id,
-                'reason' => $reason,
-                'refund_percentage' => $policy->refundPercentage,
-                'refund_amount' => $policy->refundAmount,
-                'status' => $policy->status,
-            ]);
+                if (! $booking->isCancellable()) {
+                    throw new RuntimeException('This ticket cannot be cancelled or already has a refund request.');
+                }
 
-            if ($policy->status === RefundRequestStatusEnum::AutoDeclined) {
-                $booking->update(['status' => BookingStatusEnum::RefundDeclined]);
-            }
+                $policy = $this->refundPolicyService->evaluate($booking);
 
-            return $refundRequest;
-        });
+                $refundRequest = RefundRequest::create([
+                    'ticket_booking_id' => $booking->id,
+                    'user_id' => $booking->user_id,
+                    'reason' => $reason,
+                    'refund_percentage' => $policy->refundPercentage,
+                    'refund_amount' => $policy->refundAmount,
+                    'status' => $policy->status,
+                ]);
+
+                if ($policy->status === RefundRequestStatusEnum::AutoDeclined) {
+                    $booking->update(['status' => BookingStatusEnum::RefundDeclined]);
+                }
+
+                return $refundRequest;
+            });
+        } catch (UniqueConstraintViolationException $e) {
+            throw new RuntimeException('A refund request already exists for this ticket.');
+        }
 
         $refundRequest->load(['user', 'ticketBooking.event.contactPerson.userRole', 'ticketBooking.ticketCategory']);
+        $requiresCroReview = $refundRequest->status === RefundRequestStatusEnum::Pending;
 
-        if ($policy->requiresCroReview) {
+        if ($requiresCroReview) {
             Mail::to($refundRequest->user)->queue(new RefundRequestSubmittedMail($refundRequest));
         } else {
             Mail::to($refundRequest->user)->queue(new RefundRequestDeclinedMail($refundRequest));
@@ -66,14 +80,14 @@ class RefundRequestService
             ['refund_request_id' => $refundRequest->id],
         );
 
-        if ($policy->requiresCroReview && $refundRequest->ticketBooking?->event) {
+        if ($requiresCroReview && $refundRequest->ticketBooking?->event) {
             app(CroNotificationService::class)->notifyRefundRequestSubmitted(
                 $refundRequest->ticketBooking->event,
                 $refundRequest->id,
             );
         }
 
-        if (! $policy->requiresCroReview) {
+        if (! $requiresCroReview) {
             app(AttendeeNotificationService::class)->send(
                 $refundRequest->user,
                 AttendeeNotificationCategory::Refund,
@@ -98,56 +112,61 @@ class RefundRequestService
             throw new RuntimeException('This ticket is not eligible for a postponement refund.');
         }
 
-        return DB::transaction(function () use ($booking) {
-            $booking = ticketBooking::query()->lockForUpdate()->findOrFail($booking->id);
-            $booking->loadMissing('event', 'refundRequest', 'user');
+        try {
+            return DB::transaction(function () use ($booking) {
+                $booking = ticketBooking::query()->lockForUpdate()->findOrFail($booking->id);
+                $booking->unsetRelation('refundRequest');
+                $booking->load(['event', 'refundRequest', 'user']);
 
-            if (! $booking->isPostponementRefundable()) {
-                throw new RuntimeException('This ticket is not eligible for a postponement refund.');
-            }
-
-            $amount = (float) $booking->ticket_price;
-
-            $refundRequest = RefundRequest::create([
-                'ticket_booking_id' => $booking->id,
-                'user_id' => $booking->user_id,
-                'reason' => 'Full refund requested due to event postponement.',
-                'refund_percentage' => 100,
-                'refund_amount' => $amount,
-                'status' => RefundRequestStatusEnum::Approved,
-                'reviewed_by' => null,
-                'reviewed_at' => now(),
-                'cro_notes' => 'Automatically approved: full refund for postponed event (no CRO review).',
-            ]);
-
-            ticketCategory::query()
-                ->lockForUpdate()
-                ->where('id', $booking->ticket_category_id)
-                ->increment('no_of_available_tickets');
-
-            $this->walletService->credit(
-                $booking->user,
-                $amount,
-                'Full refund for postponed event: '.$booking->event->name.' (Ticket '.$booking->ticket_number.')',
-                $refundRequest,
-            );
-
-            $booking->update(['status' => BookingStatusEnum::Refunded]);
-
-            $this->auditLogService->logPostponementRefund($booking, $refundRequest);
-
-            DB::afterCommit(function () use ($refundRequest) {
-                $refundRequest->load(['user.wallet', 'ticketBooking.event', 'ticketBooking.ticketCategory']);
-                Mail::to($refundRequest->user)->queue(new RefundRequestApprovedMail($refundRequest));
-                $refundRequest->user->notifyNow(new \App\Notifications\RefundApprovedNotification($refundRequest));
-                $refundRequest->user->notifyNow(new \App\Notifications\RefundCompletedNotification($refundRequest));
-                if ($refundRequest->ticketBooking) {
-                    $refundRequest->user->notifyNow(new \App\Notifications\TicketRefundedNotification($refundRequest->ticketBooking));
+                if (! $booking->isPostponementRefundable()) {
+                    throw new RuntimeException('This ticket is not eligible for a postponement refund.');
                 }
-            });
 
-            return $refundRequest;
-        });
+                $amount = (float) $booking->ticket_price;
+
+                $refundRequest = RefundRequest::create([
+                    'ticket_booking_id' => $booking->id,
+                    'user_id' => $booking->user_id,
+                    'reason' => 'Full refund requested due to event postponement.',
+                    'refund_percentage' => 100,
+                    'refund_amount' => $amount,
+                    'status' => RefundRequestStatusEnum::Approved,
+                    'reviewed_by' => null,
+                    'reviewed_at' => now(),
+                    'cro_notes' => 'Automatically approved: full refund for postponed event (no CRO review).',
+                ]);
+
+                ticketCategory::query()
+                    ->lockForUpdate()
+                    ->where('id', $booking->ticket_category_id)
+                    ->increment('no_of_available_tickets');
+
+                $this->walletService->credit(
+                    $booking->user,
+                    $amount,
+                    'Full refund for postponed event: '.$booking->event->name.' (Ticket '.$booking->ticket_number.')',
+                    $refundRequest,
+                );
+
+                $booking->update(['status' => BookingStatusEnum::Refunded]);
+
+                $this->auditLogService->logPostponementRefund($booking, $refundRequest);
+
+                DB::afterCommit(function () use ($refundRequest) {
+                    $refundRequest->load(['user.wallet', 'ticketBooking.event', 'ticketBooking.ticketCategory']);
+                    Mail::to($refundRequest->user)->queue(new RefundRequestApprovedMail($refundRequest));
+                    $refundRequest->user->notifyNow(new \App\Notifications\RefundApprovedNotification($refundRequest));
+                    $refundRequest->user->notifyNow(new \App\Notifications\RefundCompletedNotification($refundRequest));
+                    if ($refundRequest->ticketBooking) {
+                        $refundRequest->user->notifyNow(new \App\Notifications\TicketRefundedNotification($refundRequest->ticketBooking));
+                    }
+                });
+
+                return $refundRequest;
+            });
+        } catch (UniqueConstraintViolationException $e) {
+            throw new RuntimeException('A refund request already exists for this ticket.');
+        }
     }
 
     public function approve(RefundRequest $refundRequest, User $reviewer, ?string $notes = null): void

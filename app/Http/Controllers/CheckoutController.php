@@ -44,17 +44,30 @@ class CheckoutController extends Controller
             ->where('user_id', Auth::id())
             ->firstOrFail();
 
-        if ($session->payment_status === 'paid') {
-            try {
-                $this->stripeCheckoutService->fulfillPayment(
-                    $payment,
-                    is_string($session->payment_intent) ? $session->payment_intent : null
-                );
-            } catch (\RuntimeException $e) {
-                return redirect()
-                    ->route('attendee.cart.index')
-                    ->withErrors(['checkout' => $e->getMessage()]);
-            }
+        $intentId = is_string($session->payment_intent) ? $session->payment_intent : null;
+
+        if ($session->payment_status !== 'paid') {
+            return redirect()
+                ->route('attendee.cart.index')
+                ->withErrors(['checkout' => 'Payment is still processing. Your tickets will appear once Stripe confirms the charge.']);
+        }
+
+        try {
+            $this->stripeCheckoutService->fulfillPayment($payment, $intentId);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return redirect()
+                ->route('attendee.bookings.index')
+                ->withErrors(['checkout' => 'Payment received. Your tickets are being prepared — refresh this page shortly or contact support if they do not appear.']);
+        }
+
+        $payment->refresh();
+
+        if (! $payment->isCompleted()) {
+            return redirect()
+                ->route('attendee.bookings.index')
+                ->withErrors(['checkout' => 'Payment received. Your tickets are being prepared — refresh this page shortly or contact support if they do not appear.']);
         }
 
         return redirect()
@@ -98,31 +111,56 @@ class CheckoutController extends Controller
             return response('Invalid payload', 400);
         }
 
-        if ($event->type === 'checkout.session.completed') {
+        if ($event->type === 'checkout.session.expired') {
             /** @var \Stripe\Checkout\Session $session */
             $session = $event->data->object;
-
-            if ($session->payment_status !== 'paid') {
-                return response('Ignored', 200);
-            }
 
             $payment = Payment::query()
                 ->where('stripe_session_id', $session->id)
                 ->first();
 
             if ($payment) {
-                try {
-                    $this->stripeCheckoutService->fulfillPayment(
-                        $payment,
-                        is_string($session->payment_intent) ? $session->payment_intent : null
-                    );
-                } catch (\RuntimeException $e) {
-                    Log::error('Stripe payment fulfillment failed.', [
-                        'payment_id' => $payment->id,
-                        'error' => $e->getMessage(),
-                    ]);
-                }
+                $this->stripeCheckoutService->markPaymentCancelled($payment);
             }
+
+            return response('OK', 200);
+        }
+
+        if ($event->type !== 'checkout.session.completed') {
+            return response('OK', 200);
+        }
+
+        /** @var \Stripe\Checkout\Session $session */
+        $session = $event->data->object;
+
+        if ($session->payment_status !== 'paid') {
+            return response('Ignored', 200);
+        }
+
+        $payment = Payment::query()
+            ->where('stripe_session_id', $session->id)
+            ->first();
+
+        if (! $payment) {
+            Log::error('Stripe webhook paid session has no matching payment.', [
+                'stripe_session_id' => $session->id,
+            ]);
+
+            return response('Payment not found', 500);
+        }
+
+        try {
+            $this->stripeCheckoutService->fulfillPayment(
+                $payment,
+                is_string($session->payment_intent) ? $session->payment_intent : null
+            );
+        } catch (\Throwable $e) {
+            Log::error('Stripe payment fulfillment failed.', [
+                'payment_id' => $payment->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response('Fulfillment failed', 500);
         }
 
         return response('OK', 200);

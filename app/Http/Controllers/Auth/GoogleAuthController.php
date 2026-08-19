@@ -43,6 +43,16 @@ class GoogleAuthController extends Controller
             $user = User::where('email', $googleUser->getEmail())->first();
 
             if ($user) {
+                if (filled($user->google_id) && $user->google_id !== $googleUser->getId()) {
+                    return redirect()->route('login')
+                        ->with('error', 'This email is already linked to a different Google account. Sign in with your password instead.');
+                }
+
+                if (! $user->email_verified_at) {
+                    return redirect()->route('login')
+                        ->with('error', 'An unverified account already uses this email. Sign in with your password and verify the email first, then you can link Google.');
+                }
+
                 $user->update([
                     'google_id' => $googleUser->getId(),
                     'email_verified_at' => $user->email_verified_at ?? now(),
@@ -106,7 +116,7 @@ class GoogleAuthController extends Controller
     protected function createGoogleUser($googleUser): User
     {
         $nameParts = $this->splitName($googleUser->getName());
-        $attendeeRole = UserRole::where('name_en', 'attendee')->first();
+        $attendeeRole = UserRole::attendee();
 
         return User::create([
             'first_name' => $nameParts['first_name'],
@@ -115,7 +125,7 @@ class GoogleAuthController extends Controller
             'email' => $googleUser->getEmail(),
             'google_id' => $googleUser->getId(),
             'contact_number' => '0000000000',
-            'role_id' => $attendeeRole?->id,
+            'role_id' => $attendeeRole->id,
             'password' => Hash::make(Str::random(32)),
             'email_verified_at' => now(),
             'profile_completed' => false,

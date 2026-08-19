@@ -121,7 +121,7 @@ class Event extends Model
 
         return $this->ticketBookings()
             ->where('user_id', $user->id)
-            ->where('status', BookingStatusEnum::Confirmed)
+            ->whereIn('status', BookingStatusEnum::retainedSaleStatuses())
             ->exists();
     }
 
@@ -335,6 +335,15 @@ class Event extends Model
 
         if (! $this->isCompleted()) {
             abort(403, 'Ratings and reviews are only available after the event has ended.');
+        }
+    }
+
+    public function ensurePurchaserCanLeaveFeedback(?User $user): void
+    {
+        $this->ensureFeedbackAllowed();
+
+        if (! $this->isPurchasedBy($user)) {
+            abort(403, 'Only attendees with a confirmed ticket can rate or review this event.');
         }
     }
 

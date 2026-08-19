@@ -152,11 +152,12 @@
         ];
         $peakHeatmapMax = max(1, (int) ($peakSalesHeatmap['max_sales'] ?? 1));
 
-        $demographics = $attendees['demographics'] ?? ['age' => [], 'gender' => [], 'location' => [], 'available' => ['age' => false, 'gender' => false, 'location' => false, 'any' => false]];
+        $demographics = $attendees['demographics'] ?? ['age' => [], 'gender' => [], 'location' => [], 'province' => [], 'available' => ['age' => false, 'gender' => false, 'location' => false, 'province' => false, 'any' => false]];
         $demographicsAvailable = $demographics['available'] ?? [
             'age' => false,
             'gender' => false,
             'location' => false,
+            'province' => false,
             'any' => false,
         ];
         $topCustomers = $attendees['topCustomers'] ?? [];
@@ -1705,22 +1706,43 @@
                             </div>
                         @endif
 
-                        @if ($demographicsAvailable['location'] ?? false)
+                        @if ($demographicsAvailable['province'] ?? false)
                             <div class="report-chart chart-expand-hit group relative rounded-xl border border-slate-100 p-3 sm:p-4"
-                                @click="openChart('demographicsLocation', 'Location', 'Attendee locations parsed from profile addresses')">
+                                @click="openChart('demographicsProvince', 'Province', 'Audience by Sri Lanka’s 9 provinces, mapped from profile addresses')">
                                 <div class="flex items-start justify-between gap-3">
                                     <div>
-                                        <h3 class="text-base font-bold text-slate-900">Location</h3>
-                                        <p class="mt-0.5 text-sm text-slate-500">From profile address</p>
+                                        <h3 class="text-base font-bold text-slate-900">Province</h3>
+                                        <p class="mt-0.5 text-sm text-slate-500">Sri Lanka’s 9 provinces (from profile address)</p>
                                     </div>
                                     <button type="button"
-                                        class="btn-smooth flex h-9 w-9 items-center justify-center rounded-xl bg-cyan-50 text-cyan-600 opacity-80 transition group-hover:bg-cyan-100 group-hover:opacity-100"
+                                        class="btn-smooth flex h-9 w-9 items-center justify-center rounded-xl bg-violet-50 text-violet-600 opacity-80 transition group-hover:bg-violet-100 group-hover:opacity-100"
                                         title="View fullscreen"
-                                        @click.stop="openChart('demographicsLocation', 'Location', 'Attendee locations parsed from profile addresses')">
+                                        @click.stop="openChart('demographicsProvince', 'Province', 'Audience by Sri Lanka’s 9 provinces, mapped from profile addresses')">
                                         <i class="bi bi-arrows-fullscreen text-sm"></i>
                                     </button>
                                 </div>
                                 <div class="mt-4 h-56">
+                                    <canvas id="demographicsProvinceChart"></canvas>
+                                </div>
+                            </div>
+                        @endif
+
+                        @if ($demographicsAvailable['location'] ?? false)
+                            <div class="report-chart chart-expand-hit group relative rounded-xl border border-slate-100 p-3 sm:p-4 lg:col-span-3"
+                                @click="openChart('demographicsLocation', 'Location', 'Audience by Sri Lanka’s 25 districts, mapped from profile addresses')">
+                                <div class="flex items-start justify-between gap-3">
+                                    <div>
+                                        <h3 class="text-base font-bold text-slate-900">Location</h3>
+                                        <p class="mt-0.5 text-sm text-slate-500">Sri Lanka’s 25 districts (from profile address)</p>
+                                    </div>
+                                    <button type="button"
+                                        class="btn-smooth flex h-9 w-9 items-center justify-center rounded-xl bg-cyan-50 text-cyan-600 opacity-80 transition group-hover:bg-cyan-100 group-hover:opacity-100"
+                                        title="View fullscreen"
+                                        @click.stop="openChart('demographicsLocation', 'Location', 'Audience by Sri Lanka’s 25 districts, mapped from profile addresses')">
+                                        <i class="bi bi-arrows-fullscreen text-sm"></i>
+                                    </button>
+                                </div>
+                                <div class="mt-4 h-[40rem]">
                                     <canvas id="demographicsLocationChart"></canvas>
                                 </div>
                             </div>

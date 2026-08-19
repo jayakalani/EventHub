@@ -10,6 +10,7 @@ import {
     LinearScale,
     LineController,
     LineElement,
+    PieController,
     PointElement,
     ScatterController,
     Tooltip,
@@ -33,6 +34,7 @@ Chart.register(
     LinearScale,
     LineController,
     LineElement,
+    PieController,
     PointElement,
     ScatterController,
     Tooltip,
@@ -59,6 +61,25 @@ const chartColors = [
     palette.purple,
     palette.slate,
 ];
+
+const ticketCategoryColors = {
+    regular: 'rgb(79, 70, 229)',
+    gold: 'rgb(202, 138, 4)',
+    silver: 'rgb(148, 163, 184)',
+    platinum: 'rgb(71, 85, 105)',
+    vip: 'rgb(147, 51, 234)',
+    general: 'rgb(37, 99, 235)',
+    'early bird': 'rgb(16, 185, 129)',
+};
+
+function colorForTicketCategory(label, index) {
+    const key = String(label ?? '').trim().toLowerCase();
+    if (ticketCategoryColors[key]) {
+        return ticketCategoryColors[key];
+    }
+
+    return chartColors[index % chartColors.length];
+}
 
 const defaultFont = {
     family: 'Figtree, ui-sans-serif, system-ui, sans-serif',
@@ -166,7 +187,12 @@ function createBarChart(canvasId, labels, data, options = {}) {
                     beginAtZero: true,
                     stacked: Boolean(options.stacked),
                     grid: options.horizontal ? { display: false } : { color: 'rgba(148, 163, 184, 0.2)' },
-                    ticks: { font: defaultFont },
+                    ticks: {
+                        font: options.horizontal
+                            ? { family: defaultFont.family, size: 11 }
+                            : defaultFont,
+                        autoSkip: options.horizontal ? false : undefined,
+                    },
                     title: options.yLabel
                         ? { display: true, text: options.yLabel, font: defaultFont }
                         : undefined,
@@ -495,7 +521,7 @@ function createScatterChart(canvasId, points, options = {}) {
     });
 }
 
-function createDoughnutChart(canvasId, labels, data, percentages = [], colors = null) {
+function createDoughnutChart(canvasId, labels, data, percentages = [], colors = null, type = 'doughnut') {
     const canvas = prepareCanvas(canvasId);
     if (!canvas) return null;
 
@@ -505,10 +531,15 @@ function createDoughnutChart(canvasId, labels, data, percentages = [], colors = 
 
     const backgroundColor = Array.isArray(colors) && colors.length
         ? colors
-        : chartColors.slice(0, labels.length);
+        : (labels.length > chartColors.length
+            ? labels.map((_, index) => {
+                const hue = Math.round((360 / labels.length) * index);
+                return `hsl(${hue} 62% 48%)`;
+            })
+            : chartColors.slice(0, labels.length));
 
     return new Chart(canvas, {
-        type: 'doughnut',
+        type,
         data: {
             labels,
             datasets: [{
@@ -522,7 +553,7 @@ function createDoughnutChart(canvasId, labels, data, percentages = [], colors = 
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            cutout: '65%',
+            cutout: type === 'pie' ? 0 : '65%',
             plugins: {
                 legend: {
                     position: 'bottom',
@@ -836,6 +867,7 @@ function buildChartSpecs(data) {
                 salesByCategory.map((item) => item.label),
                 salesByCategory.map((item) => item.count),
                 salesByCategory.map((item) => item.percentage),
+                salesByCategory.map((item, index) => colorForTicketCategory(item.label, index)),
             ),
         },
         engagement: {
@@ -1182,14 +1214,40 @@ function buildChartSpecs(data) {
                 );
             },
         },
-        demographicsLocation: {
-            canvasId: 'demographicsLocationChart',
+        demographicsProvince: {
+            canvasId: 'demographicsProvinceChart',
             render: (targetId) => {
-                const rows = data.attendees.demographics?.location ?? [];
+                const rows = (data.attendees.demographics?.province ?? [])
+                    .filter((item) => Number(item.count) > 0);
                 return createDoughnutChart(
                     targetId,
                     rows.map((item) => item.label),
                     rows.map((item) => item.count),
+                    [],
+                    null,
+                    'pie',
+                );
+            },
+        },
+        demographicsLocation: {
+            canvasId: 'demographicsLocationChart',
+            render: (targetId) => {
+                const rows = data.attendees.demographics?.location ?? [];
+                const count = rows.length;
+                const colors = rows.map((_, index) => {
+                    const hue = Math.round((360 / Math.max(count, 1)) * index);
+                    return `hsl(${hue} 62% 48%)`;
+                });
+
+                return createBarChart(
+                    targetId,
+                    rows.map((item) => item.label),
+                    rows.map((item) => item.count),
+                    {
+                        label: 'Attendees',
+                        horizontal: true,
+                        colors,
+                    },
                 );
             },
         },

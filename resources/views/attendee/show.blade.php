@@ -6,6 +6,7 @@
         $eventStatus = $event->publicFacingStatus($viewer);
         $isCancelled = $event->isCancelled();
         $isCompleted = $event->isCompleted();
+        $canLeaveFeedback = $isCompleted && $event->isPurchasedBy($viewer);
         $isPostponed = $revealPostponement;
         $statusStyles = [
             'upcoming' => 'bg-blue-500/90 text-white border-blue-400/30',
@@ -362,7 +363,13 @@
                                     </div>
                                     <div>
                                         <h2 class="text-xl font-bold text-slate-900">{{ t(['en' => 'Ratings', 'si' => 'ශ්‍රේණිගත කිරීම්']) }}</h2>
-                                        <p class="text-sm text-slate-500">{{ t(['en' => 'Rate this event and see what others think.', 'si' => 'මෙම ප්‍රසංගය ශ්‍රේණිගත කර අනෙක් අය සිතන දේ බලන්න.']) }}</p>
+                                        <p class="text-sm text-slate-500">
+                                            @if ($canLeaveFeedback)
+                                                {{ t(['en' => 'Rate this event and see what others think.', 'si' => 'මෙම ප්‍රසංගය ශ්‍රේණිගත කර අනෙක් අය සිතන දේ බලන්න.']) }}
+                                            @else
+                                                {{ t(['en' => 'See what attendees thought about this event.', 'si' => 'මෙම ප්‍රසංගය පිළිබඳ පැමිණ සිටි අය සිතූ දේ බලන්න.']) }}
+                                            @endif
+                                        </p>
                                     </div>
                                 </div>
                                 <span class="inline-flex w-fit items-center rounded-full bg-amber-50 px-4 py-1.5 text-sm font-semibold text-amber-700">
@@ -374,6 +381,7 @@
                                 </span>
                             </div>
 
+                            @if ($canLeaveFeedback)
                             <form action="{{ route('attendee.events.ratings.store', $event) }}" method="POST"
                                 class="mb-6 rounded-2xl border border-slate-200 bg-slate-50/70 p-5">
                                 @csrf
@@ -409,8 +417,13 @@
                                     <p class="mt-2 text-sm text-slate-500">{{ t(['en' => 'Your current rating:', 'si' => 'ඔබේ වත්මන් ශ්‍රේණිගත කිරීම:']) }} {{ $userRating }}/5</p>
                                 @endif
                             </form>
+                            @else
+                            <div class="mb-6 rounded-2xl border border-slate-200 bg-slate-50/70 px-5 py-4 text-sm text-slate-600">
+                                {{ t(['en' => 'Only attendees with a confirmed ticket can rate this event.', 'si' => 'තහවුරු කළ ටිකට් පතක් ඇති පැමිණ සිටි අයට පමණක් මෙම ප්‍රසංගය ශ්‍රේණිගත කළ හැක.']) }}
+                            </div>
+                            @endif
 
-                            @if ($userRating)
+                            @if ($canLeaveFeedback && $userRating)
                                 <form action="{{ route('attendee.events.ratings.destroy', $event) }}" method="POST"
                                     class="mb-6 -mt-2"
                                     onsubmit="return confirm(@js(t(['en' => 'Remove your rating?', 'si' => 'ඔබේ ශ්‍රේණිගත කිරීම ඉවත් කරන්නද?'])))">
@@ -449,7 +462,7 @@
                                     </div>
                                 @empty
                                     <div class="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-10 text-center text-slate-500">
-                                        {{ t(['en' => 'No ratings yet. Be the first to rate this event!', 'si' => 'තවම ශ්‍රේණිගත කිරීම් නැත. මෙම ප්‍රසංගය ශ්‍රේණිගත කරන පළමු අයා වන්න!']) }}
+                                        {{ t(['en' => 'No ratings yet.', 'si' => 'තවම ශ්‍රේණිගත කිරීම් නැත.']) }}
                                     </div>
                                 @endforelse
                             </div>
@@ -466,7 +479,13 @@
                                     </div>
                                     <div>
                                         <h2 class="text-xl font-bold text-slate-900">{{ t(['en' => 'Reviews', 'si' => 'සමාලෝචන']) }}</h2>
-                                        <p class="text-sm text-slate-500">{{ t(['en' => 'Share your thoughts about this event.', 'si' => 'මෙම ප්‍රසංගය පිළිබඳ ඔබේ අදහස් බෙදා ගන්න.']) }}</p>
+                                        <p class="text-sm text-slate-500">
+                                            @if ($canLeaveFeedback)
+                                                {{ t(['en' => 'Share your thoughts about this event.', 'si' => 'මෙම ප්‍රසංගය පිළිබඳ ඔබේ අදහස් බෙදා ගන්න.']) }}
+                                            @else
+                                                {{ t(['en' => 'Read reviews from attendees who attended this event.', 'si' => 'මෙම ප්‍රසංගයට පැමිණි අයගේ සමාලෝචන කියවන්න.']) }}
+                                            @endif
+                                        </p>
                                     </div>
                                 </div>
                                 <span class="inline-flex w-fit items-center rounded-full bg-indigo-50 px-4 py-1.5 text-sm font-semibold text-indigo-700">
@@ -474,6 +493,7 @@
                                 </span>
                             </div>
 
+                            @if ($canLeaveFeedback)
                             <form action="{{ route('attendee.events.comments.store', $event) }}" method="POST" class="mb-6">
                                 @csrf
                                 <label for="comment-body" class="sr-only">{{ t(['en' => 'Add a review', 'si' => 'සමාලෝචනයක් එකතු කරන්න']) }}</label>
@@ -491,6 +511,11 @@
                                     </button>
                                 </div>
                             </form>
+                            @else
+                            <div class="mb-6 rounded-2xl border border-slate-200 bg-slate-50/70 px-5 py-4 text-sm text-slate-600">
+                                {{ t(['en' => 'Only attendees with a confirmed ticket can write a review.', 'si' => 'තහවුරු කළ ටිකට් පතක් ඇති පැමිණ සිටි අයට පමණක් සමාලෝචනයක් ලිවිය හැක.']) }}
+                            </div>
+                            @endif
 
                             <div class="space-y-3">
                                 @forelse ($comments as $comment)
@@ -516,7 +541,7 @@
                                                         {{ $comment->body }}
                                                     </div>
 
-                                                    @if ($comment->user_id === Auth::id())
+                                                    @if ($canLeaveFeedback && $comment->user_id === Auth::id())
                                                         <form x-show="editingId === {{ $comment->id }}" x-cloak
                                                             action="{{ route('attendee.events.comments.update', [$event, $comment]) }}"
                                                             method="POST" class="mt-3 space-y-3">
@@ -541,11 +566,13 @@
 
                                             @if ($comment->user_id === Auth::id())
                                                 <div class="flex shrink-0 items-center gap-2">
+                                                    @if ($canLeaveFeedback)
                                                     <button type="button" x-show="editingId !== {{ $comment->id }}"
                                                         @click="editingId = {{ $comment->id }}"
                                                         class="rounded-lg px-3 py-1.5 text-xs font-semibold text-indigo-600 hover:bg-indigo-50">
                                                         {{ t(['en' => 'Edit', 'si' => 'සංස්කරණය']) }}
                                                     </button>
+                                                    @endif
                                                     <form action="{{ route('attendee.events.comments.destroy', [$event, $comment]) }}"
                                                         method="POST"
                                                         onsubmit="return confirm(@js(t(['en' => 'Delete this review?', 'si' => 'මෙම සමාලෝචනය මකන්නද?'])))">
@@ -562,7 +589,7 @@
                                     </div>
                                 @empty
                                     <div class="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-10 text-center text-slate-500">
-                                        {{ t(['en' => 'No reviews yet. Be the first to share your thoughts!', 'si' => 'තවම සමාලෝචන නැත. ඔබේ අදහස් බෙදා ගන්නා පළමු අයා වන්න!']) }}
+                                        {{ t(['en' => 'No reviews yet.', 'si' => 'තවම සමාලෝචන නැත.']) }}
                                     </div>
                                 @endforelse
                             </div>

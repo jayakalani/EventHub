@@ -29,6 +29,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ComplaintController;
 use App\Http\Controllers\Cro\BookingController as CroBookingController;
 use App\Http\Controllers\Cro\ComplaintController as CroComplaintController;
+use App\Http\Controllers\Cro\EventController as CroEventController;
 use App\Http\Controllers\Cro\HandoffController as CroHandoffController;
 use App\Http\Controllers\Cro\InquiryController as CroInquiryController;
 use App\Http\Controllers\Cro\ReportController as CroReportController;
@@ -105,7 +106,7 @@ Route::get('/two-factor-challenge', [TwoFactorController::class, 'showChallenge'
     ->name('two-factor.challenge');
 
 Route::post('/two-factor-challenge', [TwoFactorController::class, 'verifyChallenge'])
-    ->middleware(['guest', 'prevent-back'])
+    ->middleware(['guest', 'prevent-back', 'throttle:8,1'])
     ->name('two-factor.verify');
 
 // Google Single Sign-On
@@ -296,6 +297,12 @@ Route::prefix('organizer')->name('organizer.')->middleware(['auth', 'verified', 
 Route::prefix('cro')->name('cro.')->middleware(['auth', 'verified', 'prevent-back', 'role:'.UserRole::CRO])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'cro'])->name('dashboard');
     Route::post('/dashboard/export/pdf', [DashboardController::class, 'exportCroPdf'])->name('dashboard.export.pdf');
+    Route::get('/events', [CroEventController::class, 'index'])->name('events.index');
+    Route::get('/events/export/csv', [CroEventController::class, 'exportCsv'])->name('events.export.csv');
+    Route::get('/events/export/pdf', [CroEventController::class, 'exportPdf'])->name('events.export.pdf');
+    Route::get('/events/{event}', [CroEventController::class, 'show'])
+        ->whereNumber('event')
+        ->name('events.show');
     Route::get('/handoffs/{event}', [CroHandoffController::class, 'show'])->name('handoffs.show');
     Route::get('/bookings', [CroBookingController::class, 'index'])->name('bookings.index');
     Route::get('/bookings/export/csv', [CroBookingController::class, 'exportCsv'])->name('bookings.export.csv');

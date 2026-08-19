@@ -16,7 +16,6 @@ class ArtistsReport implements ReportGenerator
     public function generate(User $user, array $fields, array $filters, string $format): Response
     {
         $query = Artist::query()
-            ->createdByOrganizer((int) $user->id)
             ->withCount(['events', 'artistFollows as followers_count'])
             ->latest();
 

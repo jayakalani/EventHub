@@ -163,19 +163,18 @@ class EventController extends Controller
     /**
      * @return list<\Illuminate\Contracts\Validation\ValidationRule|string>
      */
-    private function ownedActiveHostRules(int $organizerId, ?int $allowInactiveHostId = null): array
+    private function activeHostRules(?int $allowInactiveHostId = null): array
     {
         return [
             'required',
-            Rule::exists('hosts', 'id')->where(function ($query) use ($organizerId, $allowInactiveHostId) {
-                $query->where('created_by', $organizerId)
-                    ->where(function ($scoped) use ($allowInactiveHostId) {
-                        $scoped->where('is_active', true);
+            Rule::exists('hosts', 'id')->where(function ($query) use ($allowInactiveHostId) {
+                $query->where(function ($scoped) use ($allowInactiveHostId) {
+                    $scoped->where('is_active', true);
 
-                        if ($allowInactiveHostId) {
-                            $scoped->orWhere('id', $allowInactiveHostId);
-                        }
-                    });
+                    if ($allowInactiveHostId) {
+                        $scoped->orWhere('id', $allowInactiveHostId);
+                    }
+                });
             }),
         ];
     }
@@ -184,21 +183,20 @@ class EventController extends Controller
      * @param  iterable<int>|null  $allowInactiveArtistIds
      * @return list<\Illuminate\Contracts\Validation\ValidationRule|string>
      */
-    private function ownedActiveArtistRules(int $organizerId, ?iterable $allowInactiveArtistIds = null): array
+    private function activeArtistRules(?iterable $allowInactiveArtistIds = null): array
     {
         $allowedIds = collect($allowInactiveArtistIds)->filter()->map(fn ($id) => (int) $id)->unique()->values();
 
         return [
             'integer',
-            Rule::exists('artists', 'id')->where(function ($query) use ($organizerId, $allowedIds) {
-                $query->where('created_by', $organizerId)
-                    ->where(function ($scoped) use ($allowedIds) {
-                        $scoped->where('is_active', true);
+            Rule::exists('artists', 'id')->where(function ($query) use ($allowedIds) {
+                $query->where(function ($scoped) use ($allowedIds) {
+                    $scoped->where('is_active', true);
 
-                        if ($allowedIds->isNotEmpty()) {
-                            $scoped->orWhereIn('id', $allowedIds->all());
-                        }
-                    });
+                    if ($allowedIds->isNotEmpty()) {
+                        $scoped->orWhereIn('id', $allowedIds->all());
+                    }
+                });
             }),
         ];
     }
@@ -279,14 +277,11 @@ class EventController extends Controller
     {
         $this->authorize('create', Event::class);
 
-        $organizerId = (int) Auth::id();
         $hosts = Host::query()
-            ->createdByOrganizer($organizerId)
             ->where('is_active', true)
             ->orderBy('name')
             ->get();
         $artists = Artist::query()
-            ->createdByOrganizer($organizerId)
             ->where('is_active', true)
             ->orderBy('name')
             ->get();
@@ -307,15 +302,14 @@ class EventController extends Controller
         $category = EventCategory::find($request->input('category_id'));
         $allowsArtists = $category?->allowsArtists() ?? false;
 
-        $organizerId = (int) Auth::id();
         $refundPartial = $this->refundPartialPercentageValidation();
 
         $validatedData = $request->validate([
             'name' => 'required|string|max:255',
-            'host_id' => $this->ownedActiveHostRules($organizerId),
+            'host_id' => $this->activeHostRules(),
             'category_id' => $this->assignableCategoryRules(),
             'artist_ids' => [$allowsArtists ? 'nullable' : 'prohibited', 'array'],
-            'artist_ids.*' => $this->ownedActiveArtistRules($organizerId),
+            'artist_ids.*' => $this->activeArtistRules(),
             'schedule_tba' => 'sometimes|boolean',
             'date' => ($scheduleTba ? 'nullable' : 'required').'|date|after:today',
             'time' => $this->eventTimeRules(! $scheduleTba),
@@ -592,9 +586,7 @@ class EventController extends Controller
     {
         $this->authorize('update', $event);
 
-        $organizerId = (int) Auth::id();
         $hosts = Host::query()
-            ->createdByOrganizer($organizerId)
             ->where(function ($query) use ($event) {
                 $query->where('is_active', true);
 
@@ -607,7 +599,6 @@ class EventController extends Controller
 
         $currentArtistIds = $event->artists()->pluck('artists.id');
         $artists = Artist::query()
-            ->createdByOrganizer($organizerId)
             ->where(function ($query) use ($currentArtistIds) {
                 $query->where('is_active', true);
 
@@ -641,7 +632,6 @@ class EventController extends Controller
         $category = EventCategory::find($request->input('category_id'));
         $allowsArtists = $category?->allowsArtists() ?? false;
 
-        $organizerId = (int) Auth::id();
         $categoryTicketTotal = (int) $event->ticketCategories()->sum('no_of_tickets');
         $minEventTickets = max(1, $categoryTicketTotal);
         $currentArtistIds = $event->artists()->pluck('artists.id');
@@ -654,10 +644,10 @@ class EventController extends Controller
 
         $rules = [
             'name' => 'required|string|max:255',
-            'host_id' => $this->ownedActiveHostRules($organizerId, $event->host_id ? (int) $event->host_id : null),
+            'host_id' => $this->activeHostRules($event->host_id ? (int) $event->host_id : null),
             'category_id' => $this->assignableCategoryRules($event->category_id ? (int) $event->category_id : null),
             'artist_ids' => [$allowsArtists ? 'nullable' : 'prohibited', 'array'],
-            'artist_ids.*' => $this->ownedActiveArtistRules($organizerId, $currentArtistIds),
+            'artist_ids.*' => $this->activeArtistRules($currentArtistIds),
             'schedule_tba' => 'sometimes|boolean',
             'date' => $dateRules,
             'time' => $this->eventTimeRules(! $scheduleTba),

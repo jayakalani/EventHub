@@ -133,9 +133,7 @@ class NotificationController extends Controller
 
         $notification->markAsRead();
 
-        $url = $notification->data['url'] ?? route('notifications.index');
-
-        return redirect($url);
+        return redirect($this->safeNotificationUrl($notification->data['url'] ?? null));
     }
 
     public function markAsUnread(string $id): RedirectResponse
@@ -155,5 +153,36 @@ class NotificationController extends Controller
         Auth::user()->unreadNotifications->markAsRead();
 
         return back()->with('success', 'All notifications marked as read.');
+    }
+
+    private function safeNotificationUrl(mixed $url): string
+    {
+        $fallback = route('notifications.index');
+
+        if (! is_string($url) || $url === '') {
+            return $fallback;
+        }
+
+        $url = trim($url);
+
+        if (str_starts_with($url, '/') && ! str_starts_with($url, '//')) {
+            return $url;
+        }
+
+        $appUrl = rtrim((string) config('app.url'), '/');
+        $appHost = parse_url($appUrl, PHP_URL_HOST);
+        $parsed = parse_url($url);
+        $scheme = strtolower((string) ($parsed['scheme'] ?? ''));
+
+        if (! in_array($scheme, ['http', 'https'], true)) {
+            return $fallback;
+        }
+
+        if (is_string($appHost) && $appHost !== ''
+            && strcasecmp((string) ($parsed['host'] ?? ''), $appHost) === 0) {
+            return $url;
+        }
+
+        return $fallback;
     }
 }

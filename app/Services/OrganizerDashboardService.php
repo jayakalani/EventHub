@@ -78,6 +78,8 @@ class OrganizerDashboardService
         $engagement['filter'] = $engagementFilter;
         $needsAttention = $this->needsAttention($organizerId);
         $onboarding = $this->onboardingChecklist($organizerId);
+        $chartFrom = filled($filterQuery['from'] ?? null) ? (string) $filterQuery['from'] : null;
+        $chartTo = filled($filterQuery['to'] ?? null) ? (string) $filterQuery['to'] : null;
 
         return [
             'stats' => [
@@ -87,8 +89,8 @@ class OrganizerDashboardService
                 'unpublishedEvents' => $statusCounts['unpublished'] ?? 0,
                 'cancelledEvents' => $statusCounts['cancelled'] ?? 0,
                 'postponedEvents' => $statusCounts['postponed'] ?? 0,
-                'totalHosts' => Host::where('created_by', $organizerId)->count(),
-                'totalArtists' => Artist::where('created_by', $organizerId)->count(),
+                'totalHosts' => Host::count(),
+                'totalArtists' => Artist::count(),
                 'totalAttendees' => $totalAttendees,
                 'ticketsSold' => $sales['totalTicketsSold'],
                 'grossRevenue' => $revenue['grossRevenue'],
@@ -114,7 +116,12 @@ class OrganizerDashboardService
                 ['key' => 'cancelled', 'label' => 'Cancelled', 'count' => $statusCounts['cancelled'] ?? 0, 'color' => 'rose'],
             ],
             'chartFilter' => $chartFilter,
-            'charts' => $this->buildChartPeriods($organizerId, $chartFilter['selectedEventId']),
+            'charts' => $this->buildChartPeriods(
+                $organizerId,
+                $chartFilter['selectedEventId'],
+                $chartFrom,
+                $chartTo,
+            ),
             'performance' => $performance['active'],
             'performanceCompleted' => $performance['completed'],
             'upcomingEvents' => $upcomingEvents,
@@ -154,42 +161,80 @@ class OrganizerDashboardService
     /**
      * @return array{defaultPeriod: string, periods: array<string, array<string, mixed>>}
      */
-    private function buildChartPeriods(int $organizerId, ?int $eventId = null): array
-    {
+    private function buildChartPeriods(
+        int $organizerId,
+        ?int $eventId = null,
+        ?string $from = null,
+        ?string $to = null,
+    ): array {
+        $periods = [
+            'week' => $this->chartPeriodPayload(
+                $organizerId,
+                'This Week',
+                now()->startOfWeek(),
+                now()->endOfWeek(),
+                now()->subWeek()->startOfWeek(),
+                now()->subWeek()->endOfWeek(),
+                'day',
+                $eventId,
+            ),
+            'month' => $this->chartPeriodPayload(
+                $organizerId,
+                'This Month',
+                now()->startOfMonth(),
+                now()->endOfMonth(),
+                now()->subMonthNoOverflow()->startOfMonth(),
+                now()->subMonthNoOverflow()->endOfMonth(),
+                'day',
+                $eventId,
+            ),
+            'year' => $this->chartPeriodPayload(
+                $organizerId,
+                'This Year',
+                now()->startOfYear(),
+                now()->endOfYear(),
+                now()->subYear()->startOfYear(),
+                now()->subYear(),
+                'month',
+                $eventId,
+            ),
+        ];
+
+        $defaultPeriod = 'month';
+
+        if (filled($from) || filled($to)) {
+            $start = filled($from)
+                ? Carbon::parse($from)->startOfDay()
+                : now()->subDays(29)->startOfDay();
+            $end = filled($to)
+                ? Carbon::parse($to)->endOfDay()
+                : now()->endOfDay();
+
+            if ($end->lt($start)) {
+                [$start, $end] = [$end->copy()->startOfDay(), $start->copy()->endOfDay()];
+            }
+
+            $spanDays = max(1, (int) $start->diffInDays($end));
+            $previousEnd = $start->copy()->subDay()->endOfDay();
+            $previousStart = $previousEnd->copy()->subDays($spanDays)->startOfDay();
+            $bucket = $spanDays > 90 ? 'month' : 'day';
+
+            $periods['custom'] = $this->chartPeriodPayload(
+                $organizerId,
+                $start->toDateString().' – '.$end->toDateString(),
+                $start,
+                $end,
+                $previousStart,
+                $previousEnd,
+                $bucket,
+                $eventId,
+            );
+            $defaultPeriod = 'custom';
+        }
+
         return [
-            'defaultPeriod' => 'month',
-            'periods' => [
-                'week' => $this->chartPeriodPayload(
-                    $organizerId,
-                    'This Week',
-                    now()->startOfWeek(),
-                    now()->endOfWeek(),
-                    now()->subWeek()->startOfWeek(),
-                    now()->subWeek()->endOfWeek(),
-                    'day',
-                    $eventId,
-                ),
-                'month' => $this->chartPeriodPayload(
-                    $organizerId,
-                    'This Month',
-                    now()->startOfMonth(),
-                    now()->endOfMonth(),
-                    now()->subMonthNoOverflow()->startOfMonth(),
-                    now()->subMonthNoOverflow()->endOfMonth(),
-                    'day',
-                    $eventId,
-                ),
-                'year' => $this->chartPeriodPayload(
-                    $organizerId,
-                    'This Year',
-                    now()->startOfYear(),
-                    now()->endOfYear(),
-                    now()->subYear()->startOfYear(),
-                    now()->subYear(),
-                    'month',
-                    $eventId,
-                ),
-            ],
+            'defaultPeriod' => $defaultPeriod,
+            'periods' => $periods,
         ];
     }
 
@@ -1055,7 +1100,7 @@ class OrganizerDashboardService
      */
     private function onboardingChecklist(int $organizerId): array
     {
-        $hasHost = Host::query()->where('created_by', $organizerId)->exists();
+        $hasHost = Host::query()->where('is_active', true)->exists();
 
         $events = Event::query()
             ->createdByOrganizer($organizerId)
@@ -1074,11 +1119,11 @@ class OrganizerDashboardService
         $steps = [
             [
                 'key' => 'host',
-                'label' => 'Create host',
-                'description' => 'Add the venue or brand hosting your events',
+                'label' => 'Choose a host',
+                'description' => 'Use an existing host or add a new one for your events',
                 'done' => $hasHost,
-                'cta' => 'Add host',
-                'url' => route('organizer.host.create'),
+                'cta' => 'View hosts',
+                'url' => route('organizer.hosts'),
             ],
             [
                 'key' => 'event',

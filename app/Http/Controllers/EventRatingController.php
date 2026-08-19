@@ -15,7 +15,7 @@ class EventRatingController extends Controller
      */
     public function store(Request $request, Event $event): RedirectResponse
     {
-        $event->ensureFeedbackAllowed();
+        $event->ensurePurchaserCanLeaveFeedback(Auth::user());
 
         $validated = $request->validate([
             'score' => 'required|integer|min:1|max:5',

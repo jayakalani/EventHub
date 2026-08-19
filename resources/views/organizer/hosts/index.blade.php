@@ -172,6 +172,9 @@
 
                             <!-- Actions -->
                             <div class="grid grid-cols-3 gap-2">
+                                @php
+                                    $hostLocked = $host->events_count > 0;
+                                @endphp
 
                                 <!-- View -->
                                 <a href="{{ route('organizer.hosts.show', $host) }}"
@@ -179,65 +182,68 @@
                                     View
                                 </a>
 
-                                <!-- Toggle -->
-                                @php
-                                    $hostLocked = $host->events_count > 0;
-                                @endphp
-                                @if ($host->is_active && $hostLocked)
-                                    <div class="col-span-3">
-                                        <button type="button" disabled
-                                            title="Linked to events — cannot deactivate"
-                                            class="w-full py-2 rounded-xl text-xs font-medium bg-gray-100 text-gray-400 cursor-not-allowed">
-                                            Deactivate
-                                        </button>
-                                    </div>
-                                @else
-                                    <form action="{{ route('organizer.hosts.toggleActive', $host) }}" method="POST"
-                                        class="col-span-3">
-                                        @csrf
+                                @can('toggleActive', $host)
+                                    <!-- Toggle -->
+                                    @if ($host->is_active && $hostLocked)
+                                        <div class="col-span-3">
+                                            <button type="button" disabled
+                                                title="Linked to events — cannot deactivate"
+                                                class="w-full py-2 rounded-xl text-xs font-medium bg-gray-100 text-gray-400 cursor-not-allowed">
+                                                Deactivate
+                                            </button>
+                                        </div>
+                                    @else
+                                        <form action="{{ route('organizer.hosts.toggleActive', $host) }}" method="POST"
+                                            class="col-span-3">
+                                            @csrf
 
-                                        <button type="submit"
-                                            onclick="return confirm('Are you sure you want to {{ $host->is_active ? 'deactivate' : 'activate' }} this host?')"
-                                            class="w-full py-2 rounded-xl text-xs font-medium transition
-                                            {{ $host->is_active
-                                                ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
+                                            <button type="submit"
+                                                onclick="return confirm('Are you sure you want to {{ $host->is_active ? 'deactivate' : 'activate' }} this host?')"
+                                                class="w-full py-2 rounded-xl text-xs font-medium transition
+                                                {{ $host->is_active
+                                                    ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
 
-                                            {{ $host->is_active ? 'Deactivate' : 'Activate' }}
-                                        </button>
-                                    </form>
-                                @endif
+                                                {{ $host->is_active ? 'Deactivate' : 'Activate' }}
+                                            </button>
+                                        </form>
+                                    @endif
+                                @endcan
 
-                                <!-- Edit -->
-                                <a href="{{ route('organizer.hosts.edit', $host) }}"
-                                    class="text-center px-3 py-2 rounded-xl bg-indigo-100 text-indigo-700 text-xs font-medium hover:bg-indigo-200 transition">
-                                    Edit
-                                </a>
+                                @can('update', $host)
+                                    <!-- Edit -->
+                                    <a href="{{ route('organizer.hosts.edit', $host) }}"
+                                        class="text-center px-3 py-2 rounded-xl bg-indigo-100 text-indigo-700 text-xs font-medium hover:bg-indigo-200 transition">
+                                        Edit
+                                    </a>
+                                @endcan
 
-                                <!-- Delete -->
-                                @if ($hostLocked)
-                                    @php
-                                        $hostDeleteBlockMessage = 'This host cannot be deleted because they are linked to '.$host->events_count.' event(s). Remove or reassign those events first.';
-                                    @endphp
-                                    <button type="button"
-                                        onclick="alert(@js($hostDeleteBlockMessage))"
-                                        class="col-span-2 w-full px-3 py-2 rounded-xl bg-gray-100 text-gray-400 text-xs font-medium cursor-not-allowed"
-                                        title="Linked to events — cannot delete">
-                                        Delete
-                                    </button>
-                                @else
-                                    <form action="{{ route('organizer.hosts.destroy', $host) }}" method="POST"
-                                        class="col-span-2">
-                                        @csrf
-                                        @method('DELETE')
-
-                                        <button type="submit"
-                                            onclick="return confirm('Delete this host? This cannot be undone.')"
-                                            class="w-full px-3 py-2 rounded-xl bg-red-100 text-red-600 text-xs font-medium hover:bg-red-200 transition">
+                                @can('delete', $host)
+                                    <!-- Delete -->
+                                    @if ($hostLocked)
+                                        @php
+                                            $hostDeleteBlockMessage = 'This host cannot be deleted because they are linked to '.$host->events_count.' event(s). Remove or reassign those events first.';
+                                        @endphp
+                                        <button type="button"
+                                            onclick="alert(@js($hostDeleteBlockMessage))"
+                                            class="col-span-2 w-full px-3 py-2 rounded-xl bg-gray-100 text-gray-400 text-xs font-medium cursor-not-allowed"
+                                            title="Linked to events — cannot delete">
                                             Delete
                                         </button>
-                                    </form>
-                                @endif
+                                    @else
+                                        <form action="{{ route('organizer.hosts.destroy', $host) }}" method="POST"
+                                            class="col-span-2">
+                                            @csrf
+                                            @method('DELETE')
+
+                                            <button type="submit"
+                                                onclick="return confirm('Delete this host? This cannot be undone.')"
+                                                class="w-full px-3 py-2 rounded-xl bg-red-100 text-red-600 text-xs font-medium hover:bg-red-200 transition">
+                                                Delete
+                                            </button>
+                                        </form>
+                                    @endif
+                                @endcan
 
                             </div>
 

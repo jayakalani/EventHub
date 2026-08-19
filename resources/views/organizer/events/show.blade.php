@@ -18,8 +18,8 @@
 
 <x-app-layout>
     <x-slot name="header">
-        <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div>
+        <div class="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div class="min-w-0">
                 <p class="text-xs font-medium uppercase tracking-wide text-indigo-600">
                     {{ __('Event Management') }}
                 </p>
@@ -28,7 +28,7 @@
                 </h2>
             </div>
 
-            <div class="flex flex-wrap items-center gap-2">
+            <div class="flex min-w-0 flex-wrap items-center gap-2">
                 <a href="{{ route('organizer.events.index') }}"
                     class="inline-flex items-center justify-center rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-sm font-semibold text-gray-700 shadow-sm transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
                     <svg class="mr-1.5 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -110,8 +110,8 @@
 
     <script type="application/json" id="organizer-event-show-config">@json($organizerEventShowConfig)</script>
 
-    <div class="bg-gradient-to-br from-slate-50 via-white to-indigo-50/40 py-6" x-data="JSON.parse(document.getElementById('organizer-event-show-config').textContent)">
-        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-4">
+    <div class="min-w-0 overflow-x-hidden bg-gradient-to-br from-slate-50 via-white to-indigo-50/40 py-6" x-data="JSON.parse(document.getElementById('organizer-event-show-config').textContent)">
+        <div class="mx-auto w-full min-w-0 max-w-7xl space-y-4 px-4 sm:px-6 lg:px-8">
 
             @if ($errors->any())
                 <div class="overflow-hidden rounded-xl border border-red-200 bg-red-50 px-4 py-3 shadow-sm">
@@ -186,34 +186,34 @@
 
             {{-- Hero Card --}}
             <div
-                class="overflow-hidden rounded-2xl border border-white/70 bg-white/90 shadow-lg shadow-indigo-100/40 backdrop-blur">
+                class="min-w-0 overflow-hidden rounded-2xl border border-white/70 bg-white/90 shadow-lg shadow-indigo-100/40 backdrop-blur">
                 @if ($event->cover)
-                    <div class="relative h-40 sm:h-52">
+                    <div class="relative h-48 w-full min-h-[12rem] sm:h-56 md:h-64 lg:h-72">
                         <img src="{{ asset('uploads/covers/events/' . $event->cover) }}" alt="{{ $event->name }}"
                             class="h-full w-full object-cover">
                         <div class="absolute inset-0 bg-gradient-to-t from-indigo-950/80 via-indigo-900/30 to-transparent">
                         </div>
-                        <div class="absolute bottom-0 left-0 right-0 p-4 sm:p-5">
-                            <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-                                <div>
+                        <div class="absolute inset-x-0 bottom-0 min-w-0 p-4 sm:p-5">
+                            <div class="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                                <div class="min-w-0">
                                     <p class="text-xs font-medium uppercase tracking-wide text-indigo-200">
                                         {{ __('Event') }} #{{ $event->id }}
                                     </p>
-                                    <h1 class="mt-0.5 text-2xl font-bold tracking-tight text-white sm:text-3xl">
+                                    <h1 class="mt-0.5 break-words text-xl font-bold tracking-tight text-white sm:text-2xl lg:text-3xl">
                                         {{ $event->name }}
                                     </h1>
-                                    <p class="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-indigo-100">
-                                        <span class="inline-flex items-center gap-1.5">
-                                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <p class="mt-1.5 flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 text-sm text-indigo-100">
+                                        <span class="inline-flex min-w-0 items-center gap-1.5">
+                                            <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
                                                     d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
                                                     d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                                             </svg>
-                                            {{ $event->place }}
+                                            <span class="break-words">{{ $event->place }}</span>
                                         </span>
                                         <span class="inline-flex items-center gap-1.5">
-                                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
                                                     d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                             </svg>
@@ -221,7 +221,7 @@
                                         </span>
                                     </p>
                                 </div>
-                                <div class="flex flex-wrap gap-2">
+                                <div class="flex shrink-0 flex-wrap gap-2">
                                     <span
                                         class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ring-1 {{ $statusClass }}">
                                         {{ $event->isPostponed() ? 'POSTPONED' : ucfirst($event->status ?? 'upcoming') }}
@@ -274,45 +274,45 @@
                 @endif
 
                 {{-- Stats Row --}}
-                <div class="grid grid-cols-2 gap-px bg-gray-100 sm:grid-cols-3 lg:grid-cols-9">
-                    <div class="bg-white px-4 py-3.5">
-                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ __('Total tickets') }}</p>
-                        <p class="mt-0.5 text-xl font-bold text-gray-900">{{ number_format($event->total_tickets) }}</p>
+                <div class="grid grid-cols-2 gap-px bg-gray-100 sm:grid-cols-3 md:grid-cols-5 xl:grid-cols-9">
+                    <div class="min-w-0 bg-white px-3 py-3 sm:px-4 sm:py-3.5">
+                        <p class="text-[11px] font-semibold uppercase leading-tight tracking-wide text-gray-500 sm:text-xs">{{ __('Total tickets') }}</p>
+                        <p class="mt-0.5 truncate text-lg font-bold text-gray-900 sm:text-xl">{{ number_format($event->total_tickets) }}</p>
                     </div>
-                    <div class="bg-white px-4 py-3.5">
-                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ __('Categories') }}</p>
-                        <p class="mt-0.5 text-xl font-bold text-indigo-600">{{ $ticketCategories->count() }}</p>
+                    <div class="min-w-0 bg-white px-3 py-3 sm:px-4 sm:py-3.5">
+                        <p class="text-[11px] font-semibold uppercase leading-tight tracking-wide text-gray-500 sm:text-xs">{{ __('Categories') }}</p>
+                        <p class="mt-0.5 truncate text-lg font-bold text-indigo-600 sm:text-xl">{{ $ticketCategories->count() }}</p>
                     </div>
-                    <div class="bg-white px-4 py-3.5">
-                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ __('Available') }}</p>
-                        <p class="mt-0.5 text-xl font-bold text-emerald-600">{{ number_format($totalAvailable) }}</p>
+                    <div class="min-w-0 bg-white px-3 py-3 sm:px-4 sm:py-3.5">
+                        <p class="text-[11px] font-semibold uppercase leading-tight tracking-wide text-gray-500 sm:text-xs">{{ __('Available') }}</p>
+                        <p class="mt-0.5 truncate text-lg font-bold text-emerald-600 sm:text-xl">{{ number_format($totalAvailable) }}</p>
                     </div>
-                    <div class="bg-white px-4 py-3.5">
-                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ __('In cart') }}</p>
-                        <p class="mt-0.5 text-xl font-bold text-amber-600">{{ number_format($totalHeld) }}</p>
+                    <div class="min-w-0 bg-white px-3 py-3 sm:px-4 sm:py-3.5">
+                        <p class="text-[11px] font-semibold uppercase leading-tight tracking-wide text-gray-500 sm:text-xs">{{ __('In cart') }}</p>
+                        <p class="mt-0.5 truncate text-lg font-bold text-amber-600 sm:text-xl">{{ number_format($totalHeld) }}</p>
                         @if ($totalAbandoned > 0)
                             <p class="mt-0.5 text-[11px] text-rose-600">{{ number_format($totalAbandoned) }} {{ __('abandoned') }}</p>
                         @endif
                     </div>
-                    <div class="bg-white px-4 py-3.5">
-                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ __('Sold') }}</p>
-                        <p class="mt-0.5 text-xl font-bold text-sky-600">{{ number_format($totalSold) }}</p>
+                    <div class="min-w-0 bg-white px-3 py-3 sm:px-4 sm:py-3.5">
+                        <p class="text-[11px] font-semibold uppercase leading-tight tracking-wide text-gray-500 sm:text-xs">{{ __('Sold') }}</p>
+                        <p class="mt-0.5 truncate text-lg font-bold text-sky-600 sm:text-xl">{{ number_format($totalSold) }}</p>
                     </div>
-                    <div class="bg-white px-4 py-3.5">
-                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ __('Likes') }}</p>
-                        <p class="mt-0.5 text-xl font-bold text-rose-600">{{ $event->likes_count ?? 0 }}</p>
+                    <div class="min-w-0 bg-white px-3 py-3 sm:px-4 sm:py-3.5">
+                        <p class="text-[11px] font-semibold uppercase leading-tight tracking-wide text-gray-500 sm:text-xs">{{ __('Likes') }}</p>
+                        <p class="mt-0.5 truncate text-lg font-bold text-rose-600 sm:text-xl">{{ $event->likes_count ?? 0 }}</p>
                     </div>
-                    <div class="bg-white px-4 py-3.5">
-                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ __('Saves') }}</p>
-                        <p class="mt-0.5 text-xl font-bold text-amber-600">{{ $event->saves_count ?? 0 }}</p>
+                    <div class="min-w-0 bg-white px-3 py-3 sm:px-4 sm:py-3.5">
+                        <p class="text-[11px] font-semibold uppercase leading-tight tracking-wide text-gray-500 sm:text-xs">{{ __('Saves') }}</p>
+                        <p class="mt-0.5 truncate text-lg font-bold text-amber-600 sm:text-xl">{{ $event->saves_count ?? 0 }}</p>
                     </div>
-                    <div class="bg-white px-4 py-3.5">
-                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ __('Comments') }}</p>
-                        <p class="mt-0.5 text-xl font-bold text-indigo-600">{{ $event->comments_count ?? 0 }}</p>
+                    <div class="min-w-0 bg-white px-3 py-3 sm:px-4 sm:py-3.5">
+                        <p class="text-[11px] font-semibold uppercase leading-tight tracking-wide text-gray-500 sm:text-xs">{{ __('Comments') }}</p>
+                        <p class="mt-0.5 truncate text-lg font-bold text-indigo-600 sm:text-xl">{{ $event->comments_count ?? 0 }}</p>
                     </div>
-                    <div class="bg-white px-4 py-3.5">
-                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ __('Rating') }}</p>
-                        <p class="mt-0.5 text-xl font-bold text-yellow-600">
+                    <div class="min-w-0 bg-white px-3 py-3 sm:px-4 sm:py-3.5">
+                        <p class="text-[11px] font-semibold uppercase leading-tight tracking-wide text-gray-500 sm:text-xs">{{ __('Rating') }}</p>
+                        <p class="mt-0.5 truncate text-lg font-bold text-yellow-600 sm:text-xl">
                             @if (($event->ratings_count ?? 0) > 0)
                                 {{ number_format($event->ratings_avg_score, 1) }}
                             @else
@@ -333,7 +333,7 @@
                         </p>
                     </div>
 
-                    <div class="grid gap-px bg-emerald-100 sm:grid-cols-2 lg:grid-cols-5">
+                    <div class="grid min-w-0 gap-px bg-emerald-100 sm:grid-cols-2 lg:grid-cols-5">
                         <div class="bg-white px-4 py-3.5">
                             <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ __('Revenue') }}</p>
                             <p class="mt-0.5 text-xl font-bold text-emerald-600">
@@ -371,8 +371,8 @@
 
                     <div class="border-t border-emerald-100 px-5 py-4 sm:px-6">
                         <h4 class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ __('Ticket Sales by Category') }}</h4>
-                        <div class="mt-3 overflow-x-auto">
-                            <table class="min-w-full">
+                        <div class="mt-3 min-w-0 overflow-x-auto">
+                            <table class="w-full min-w-[28rem]">
                                 <thead>
                                     <tr class="border-b border-gray-100">
                                         <th class="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">{{ __('Category') }}</th>
@@ -399,9 +399,9 @@
                 </div>
             @endif
 
-            <div class="grid gap-4 lg:grid-cols-[1fr_300px]">
+            <div class="grid min-w-0 w-full gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(16rem,18rem)]">
                 {{-- Main Content --}}
-                <div class="space-y-4">
+                <div class="min-w-0 space-y-4 lg:col-start-1 lg:row-start-1">
                     {{-- Event Information --}}
                     <div
                         class="overflow-hidden rounded-2xl border border-white/70 bg-white/90 p-5 shadow-md shadow-indigo-100/25 backdrop-blur sm:p-6">
@@ -412,7 +412,7 @@
                             </p>
                         </div>
 
-                        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div class="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
                             <div class="rounded-xl border border-gray-100 bg-gray-50/70 p-3">
                                 <div class="flex items-start gap-3">
                                     <div
@@ -426,7 +426,7 @@
                                         <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">
                                             {{ __('Host') }}
                                         </p>
-                                        <p class="mt-0.5 text-sm font-semibold text-gray-900">
+                                        <p class="mt-0.5 break-words text-sm font-semibold text-gray-900">
                                             {{ $event->host->name ?? __('N/A') }}
                                         </p>
                                     </div>
@@ -638,10 +638,11 @@
                             @endforelse
                         </div>
                     </div>
+                </div>
 
                     {{-- ticket Categories --}}
                     <div
-                        class="overflow-hidden rounded-2xl border border-white/70 bg-white/90 shadow-md shadow-indigo-100/25 backdrop-blur">
+                        class="min-w-0 overflow-hidden rounded-2xl border border-white/70 bg-white/90 shadow-md shadow-indigo-100/25 backdrop-blur lg:col-span-2 lg:col-start-1">
                         <div class="flex flex-col gap-3 border-b border-gray-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
                             <div>
                                 <h3 class="text-base font-semibold text-gray-900">{{ __('ticket Categories') }}</h3>
@@ -661,8 +662,8 @@
                             @endcan
                         </div>
 
-                        <div class="overflow-x-auto">
-                            <table class="min-w-full">
+                        <div class="min-w-0 w-full">
+                            <table class="w-full table-auto">
                                 <thead>
                                     <tr class="border-b border-gray-100 bg-gray-50/80">
                                         <th
@@ -850,10 +851,9 @@
                             </table>
                         </div>
                     </div>
-                </div>
 
                 {{-- Sidebar --}}
-                <aside class="space-y-3">
+                <aside class="min-w-0 w-full space-y-3 lg:col-start-2 lg:row-start-1">
                     <div class="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
                         <h4 class="text-xs font-semibold uppercase tracking-wide text-gray-500">
                             {{ __('Quick Actions') }}

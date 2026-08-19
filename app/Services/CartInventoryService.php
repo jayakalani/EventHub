@@ -3,9 +3,11 @@
 namespace App\Services;
 
 use App\Models\CartItem;
+use App\Models\Payment;
 use App\Models\ticketCategory;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use RuntimeException;
 
 class CartInventoryService
@@ -87,12 +89,22 @@ class CartInventoryService
      */
     public function releaseAndDelete(CartItem $cartItem): void
     {
+        if (Payment::cartItemHasPendingStripeCheckout((int) $cartItem->id)) {
+            throw new RuntimeException(
+                'This reservation is part of an in-progress payment. Complete or cancel checkout first.'
+            );
+        }
+
         DB::transaction(function () use ($cartItem) {
             $item = CartItem::query()
                 ->lockForUpdate()
                 ->find($cartItem->id);
 
             if (! $item) {
+                return;
+            }
+
+            if (Payment::cartItemHasPendingStripeCheckout((int) $item->id)) {
                 return;
             }
 
@@ -114,12 +126,18 @@ class CartInventoryService
         $deleted = 0;
 
         DB::transaction(function () use ($cartItems, &$deleted) {
+            $lockedIds = Payment::pendingStripeCheckoutCartItemIds();
+
             foreach ($cartItems as $cartItem) {
                 $item = CartItem::query()
                     ->lockForUpdate()
                     ->find($cartItem->id);
 
                 if (! $item) {
+                    continue;
+                }
+
+                if (in_array((int) $item->id, $lockedIds, true)) {
                     continue;
                 }
 
@@ -150,6 +168,12 @@ class CartInventoryService
             $item = CartItem::query()
                 ->lockForUpdate()
                 ->findOrFail($cartItem->id);
+
+            if (Payment::cartItemHasPendingStripeCheckout((int) $item->id)) {
+                throw new RuntimeException(
+                    'This reservation is part of an in-progress payment. Complete or cancel checkout first.'
+                );
+            }
 
             $currentQuantity = (int) $item->quantity;
             $delta = $newQuantity - $currentQuantity;
@@ -276,6 +300,52 @@ class CartInventoryService
         $category->refresh();
 
         $cartItem->update(['inventory_held' => true]);
+
+        return $category;
+    }
+
+    /**
+     * Apply inventory for a paid checkout line using the frozen snapshot.
+     * Uses an existing cart hold when present; otherwise claims stock (paid orders still issue).
+     *
+     * @param  array{cart_item_id?: int, event_id: int, ticket_category_id: int, quantity: int, unit_price?: float, inventory_held?: bool}  $line
+     */
+    public function fulfillPaidLine(array $line, ?CartItem $cartItem): ticketCategory
+    {
+        $category = ticketCategory::query()
+            ->lockForUpdate()
+            ->findOrFail((int) $line['ticket_category_id']);
+
+        $paidQuantity = max(0, (int) $line['quantity']);
+        $heldQuantity = ($cartItem && $cartItem->inventory_held)
+            ? (int) $cartItem->quantity
+            : 0;
+
+        $need = $paidQuantity - $heldQuantity;
+
+        if ($need > 0) {
+            $available = (int) $category->no_of_available_tickets;
+
+            if ($need > $available) {
+                Log::warning('Paid checkout claimed more tickets than remaining stock.', [
+                    'ticket_category_id' => $category->id,
+                    'paid_quantity' => $paidQuantity,
+                    'held_quantity' => $heldQuantity,
+                    'available' => $available,
+                ]);
+
+                if ($available > 0) {
+                    $category->decrement('no_of_available_tickets', $available);
+                }
+            } else {
+                $category->decrement('no_of_available_tickets', $need);
+            }
+
+            $category->refresh();
+        } elseif ($need < 0) {
+            $this->release($category, abs($need));
+            $category->refresh();
+        }
 
         return $category;
     }

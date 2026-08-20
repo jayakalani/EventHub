@@ -154,11 +154,13 @@ class ReportController extends Controller
                 $eventId,
                 $eventId,
                 [],
-                [
+                array_filter([
                     'from' => $from,
                     'to' => $to,
-                    'period' => $period,
-                ],
+                    'status' => $validated['status'] ?? null,
+                    'focus_event' => $eventId,
+                ], fn ($value) => filled($value)),
+                $reportFilters,
             ),
             'reports' => $this->reportService->getAllReports($organizerId, $reportFilters),
         ]);

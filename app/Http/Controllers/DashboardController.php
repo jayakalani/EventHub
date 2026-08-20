@@ -259,6 +259,19 @@ class DashboardController extends Controller
         $this->organizerDashboardService->syncLowInventoryNotifications($organizerId);
 
         $filters = $this->validatedOrganizerDashboardFilters($request);
+        $reportFilters = $this->validatedOrganizerReportFilters($request);
+
+        if (empty($reportFilters['event_id']) && ! empty($filters['focus_event'])) {
+            $reportFilters['event_id'] = $filters['focus_event'];
+        }
+
+        $filters['query'] = array_filter([
+            ...$filters['query'],
+            'from' => $reportFilters['from'] ?? null,
+            'to' => $reportFilters['to'] ?? null,
+            'status' => $reportFilters['status'] ?? null,
+        ], fn ($value) => filled($value));
+
         $dashboard = $this->organizerDashboardService->getDashboardData(
             $organizerId,
             $filters['kpi_event'],
@@ -268,9 +281,8 @@ class DashboardController extends Controller
             $filters['focus_event'],
             $filters['override_flags'],
             $filters['query'],
+            $reportFilters,
         );
-
-        $reportFilters = $this->validatedOrganizerReportFilters($request);
 
         // Shared focus event drives Insights event scope when no explicit event_id is set.
         if (empty($reportFilters['event_id']) && ! empty($filters['focus_event'])) {
@@ -315,7 +327,7 @@ class DashboardController extends Controller
             $reportFilters['event_id'] = $filters['focus_event'];
         }
 
-        $payload = $this->organizerDashboardExportBuilder->build((int) Auth::id(), $filters);
+        $payload = $this->organizerDashboardExportBuilder->build((int) Auth::id(), $filters, $reportFilters);
         $insights = $this->organizerReportExportBuilder->build((int) Auth::id(), 'full', $reportFilters);
 
         $performanceTables = collect($payload['tables'] ?? [])

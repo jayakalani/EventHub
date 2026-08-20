@@ -26,6 +26,7 @@ class OrganizerDashboardService
     /**
      * @param  array{kpi?: bool, goal?: bool, chart?: bool, engagement?: bool}  $overrideFlags
      * @param  array<string, int|string>  $filterQuery
+     * @param  array{from?: string|null, to?: string|null, event_id?: int|null, status?: string|null}  $reportFilters
      * @return array<string, mixed>
      */
     public function getDashboardData(
@@ -37,10 +38,30 @@ class OrganizerDashboardService
         ?int $focusEventId = null,
         array $overrideFlags = [],
         array $filterQuery = [],
+        array $reportFilters = [],
     ): array {
         $reportService = app(OrganizerReportService::class);
-        $sales = $reportService->getTicketSalesReport($organizerId);
-        $revenue = $reportService->getRevenueReport($organizerId);
+        $focusFilter = $this->kpiEventFilter($organizerId, $focusEventId);
+        $kpiFilter = $this->kpiEventFilter($organizerId, $kpiEventId);
+        $kpiFilter['isOverride'] = (bool) ($overrideFlags['kpi'] ?? false);
+        $chartFilter = $this->kpiEventFilter($organizerId, $chartEventId);
+        $chartFilter['isOverride'] = (bool) ($overrideFlags['chart'] ?? false);
+
+        $kpiScopedFilters = $this->scopedReportFilters(
+            $reportFilters,
+            $kpiFilter['selectedEventId'] ?? ($reportFilters['event_id'] ?? null),
+        );
+        $chartScopedFilters = $this->scopedReportFilters(
+            $reportFilters,
+            $chartFilter['selectedEventId'] ?? ($reportFilters['event_id'] ?? null),
+        );
+
+        $sales = $reportService->getTicketSalesReport($organizerId, $kpiScopedFilters);
+        $revenue = $reportService->getRevenueReport($organizerId, $kpiScopedFilters);
+        $filterLabel = $this->dashboardFilterLabel(
+            $kpiScopedFilters['from'] ?? null,
+            $kpiScopedFilters['to'] ?? null,
+        );
 
         $totalAttendees = (int) ticketBooking::query()
             ->whereHas('event', fn ($query) => $query->createdByOrganizer($organizerId))
@@ -56,9 +77,6 @@ class OrganizerDashboardService
         $todaySummary = $this->todaySummary($organizerId);
         $dayOfOps = $this->dayOfOps($organizerId);
         $nextUpcomingEvent = $this->nextUpcomingEvent($organizerId);
-        $focusFilter = $this->kpiEventFilter($organizerId, $focusEventId);
-        $kpiFilter = $this->kpiEventFilter($organizerId, $kpiEventId);
-        $kpiFilter['isOverride'] = (bool) ($overrideFlags['kpi'] ?? false);
         $kpis = $kpiFilter['selectedEventId']
             ? $this->buildEventKpis($organizerId, $kpiFilter['selectedEventId'])
             : $this->buildKpis($organizerId, [
@@ -67,19 +85,15 @@ class OrganizerDashboardService
                 'grossRevenue' => $revenue['grossRevenue'],
                 'netRevenue' => $revenue['netRevenue'],
                 'totalRefunded' => $revenue['totalRefunded'],
-            ]);
+            ], $kpiScopedFilters);
         $revenueGoal = $this->revenueGoal($organizerId, $goalEventId);
         $revenueGoal['isOverride'] = (bool) ($overrideFlags['goal'] ?? false);
-        $chartFilter = $this->kpiEventFilter($organizerId, $chartEventId);
-        $chartFilter['isOverride'] = (bool) ($overrideFlags['chart'] ?? false);
         $engagementFilter = $this->kpiEventFilter($organizerId, $engagementEventId);
         $engagementFilter['isOverride'] = (bool) ($overrideFlags['engagement'] ?? false);
         $engagement = $this->engagementInsights($organizerId, $engagementFilter['selectedEventId']);
         $engagement['filter'] = $engagementFilter;
         $needsAttention = $this->needsAttention($organizerId);
         $onboarding = $this->onboardingChecklist($organizerId);
-        $chartFrom = filled($filterQuery['from'] ?? null) ? (string) $filterQuery['from'] : null;
-        $chartTo = filled($filterQuery['to'] ?? null) ? (string) $filterQuery['to'] : null;
 
         return [
             'stats' => [
@@ -103,6 +117,8 @@ class OrganizerDashboardService
             'onboarding' => $onboarding,
             'focusFilter' => $focusFilter,
             'filterQuery' => $filterQuery,
+            'dashboardFilters' => $kpiScopedFilters,
+            'filterLabel' => $filterLabel,
             'kpiFilter' => $kpiFilter,
             'kpis' => $kpis,
             'revenueGoal' => $revenueGoal,
@@ -119,8 +135,7 @@ class OrganizerDashboardService
             'charts' => $this->buildChartPeriods(
                 $organizerId,
                 $chartFilter['selectedEventId'],
-                $chartFrom,
-                $chartTo,
+                $chartScopedFilters,
             ),
             'performance' => $performance['active'],
             'performanceCompleted' => $performance['completed'],
@@ -159,86 +174,48 @@ class OrganizerDashboardService
     }
 
     /**
-     * @return array{defaultPeriod: string, periods: array<string, array<string, mixed>>}
+     * @param  array{from?: string|null, to?: string|null, event_id?: int|null, status?: string|null}  $reportFilters
+     * @return array{defaultPeriod: string, periodLabel: string, periods: array<string, array<string, mixed>>}
      */
     private function buildChartPeriods(
         int $organizerId,
         ?int $eventId = null,
-        ?string $from = null,
-        ?string $to = null,
+        array $reportFilters = [],
     ): array {
-        $periods = [
-            'week' => $this->chartPeriodPayload(
-                $organizerId,
-                'This Week',
-                now()->startOfWeek(),
-                now()->endOfWeek(),
-                now()->subWeek()->startOfWeek(),
-                now()->subWeek()->endOfWeek(),
-                'day',
-                $eventId,
-            ),
-            'month' => $this->chartPeriodPayload(
-                $organizerId,
-                'This Month',
-                now()->startOfMonth(),
-                now()->endOfMonth(),
-                now()->subMonthNoOverflow()->startOfMonth(),
-                now()->subMonthNoOverflow()->endOfMonth(),
-                'day',
-                $eventId,
-            ),
-            'year' => $this->chartPeriodPayload(
-                $organizerId,
-                'This Year',
-                now()->startOfYear(),
-                now()->endOfYear(),
-                now()->subYear()->startOfYear(),
-                now()->subYear(),
-                'month',
-                $eventId,
-            ),
-        ];
+        [$start, $end, $previousStart, $previousEnd, $label] = $this->resolveDashboardPeriod(
+            $organizerId,
+            $eventId,
+            $reportFilters,
+        );
 
-        $defaultPeriod = 'month';
+        $spanDays = max(1, (int) $start->copy()->startOfDay()->diffInDays($end->copy()->startOfDay()));
+        $bucket = $spanDays > 90 ? 'month' : 'day';
+        $eventStatus = $reportFilters['status'] ?? null;
 
-        if (filled($from) || filled($to)) {
-            $start = filled($from)
-                ? Carbon::parse($from)->startOfDay()
-                : now()->subDays(29)->startOfDay();
-            $end = filled($to)
-                ? Carbon::parse($to)->endOfDay()
-                : now()->endOfDay();
-
-            if ($end->lt($start)) {
-                [$start, $end] = [$end->copy()->startOfDay(), $start->copy()->endOfDay()];
-            }
-
-            $spanDays = max(1, (int) $start->diffInDays($end));
-            $previousEnd = $start->copy()->subDay()->endOfDay();
-            $previousStart = $previousEnd->copy()->subDays($spanDays)->startOfDay();
-            $bucket = $spanDays > 90 ? 'month' : 'day';
-
-            $periods['custom'] = $this->chartPeriodPayload(
-                $organizerId,
-                $start->toDateString().' – '.$end->toDateString(),
-                $start,
-                $end,
-                $previousStart,
-                $previousEnd,
-                $bucket,
-                $eventId,
-            );
-            $defaultPeriod = 'custom';
-        }
+        $payload = $this->chartPeriodPayload(
+            $organizerId,
+            $label,
+            $start,
+            $end,
+            $previousStart,
+            $previousEnd,
+            $bucket,
+            $eventId,
+            $eventStatus,
+            $reportFilters,
+        );
 
         return [
-            'defaultPeriod' => $defaultPeriod,
-            'periods' => $periods,
+            'defaultPeriod' => 'filtered',
+            'periodLabel' => $label,
+            'periods' => [
+                'filtered' => $payload,
+            ],
         ];
     }
 
     /**
+     * @param  array{from?: string|null, to?: string|null, event_id?: int|null, status?: string|null}  $reportFilters
      * @return array{label: string, revenue: array<string, mixed>, tickets: array<string, mixed>}
      */
     private function chartPeriodPayload(
@@ -250,18 +227,44 @@ class OrganizerDashboardService
         Carbon $previousEnd,
         string $bucket,
         ?int $eventId = null,
+        ?string $eventStatus = null,
+        array $reportFilters = [],
     ): array {
-        $currentRevenueSeries = $this->bookingSeries($organizerId, $currentStart, $currentEnd, $bucket, 'sum', $eventId);
-        $currentTicketSeries = $this->bookingSeries($organizerId, $currentStart, $currentEnd, $bucket, 'count', $eventId);
+        $currentRevenueSeries = $this->bookingSeries(
+            $organizerId,
+            $currentStart,
+            $currentEnd,
+            $bucket,
+            'sum',
+            $eventId,
+            $eventStatus,
+        );
+        $currentTicketSeries = $this->bookingSeries(
+            $organizerId,
+            $currentStart,
+            $currentEnd,
+            $bucket,
+            'count',
+            $eventId,
+            $eventStatus,
+        );
 
-        $currentRevenueTotal = array_sum($currentRevenueSeries['values']);
-        $currentTicketTotal = array_sum($currentTicketSeries['values']);
+        $reportService = app(OrganizerReportService::class);
+        $scopedFilters = $this->scopedReportFilters($reportFilters, $eventId);
+        $currentPeriodFilters = array_merge($scopedFilters, [
+            'from' => $currentStart->toDateString(),
+            'to' => $currentEnd->toDateString(),
+        ]);
+        $previousPeriodFilters = array_merge($scopedFilters, [
+            'from' => $previousStart->toDateString(),
+            'to' => $previousEnd->toDateString(),
+        ]);
 
-        $previousRevenueTotal = (float) $this->organizerConfirmedBookings($organizerId, $eventId)
-            ->whereBetween('created_at', [$previousStart, $previousEnd])
-            ->sum('ticket_price');
+        $currentRevenueTotal = (float) $reportService->getRevenueReport($organizerId, $currentPeriodFilters)['netRevenue'];
+        $currentTicketTotal = (int) array_sum($currentTicketSeries['values']);
 
-        $previousTicketTotal = (int) $this->organizerConfirmedBookings($organizerId, $eventId)
+        $previousRevenueTotal = (float) $reportService->getRevenueReport($organizerId, $previousPeriodFilters)['netRevenue'];
+        $previousTicketTotal = (int) $this->organizerConfirmedBookings($organizerId, $eventId, $eventStatus)
             ->whereBetween('created_at', [$previousStart, $previousEnd])
             ->count();
 
@@ -296,6 +299,7 @@ class OrganizerDashboardService
         string $bucket,
         string $aggregate,
         ?int $eventId = null,
+        ?string $eventStatus = null,
     ): array {
         $effectiveEnd = $end->copy()->min(now()->endOfDay());
 
@@ -311,7 +315,7 @@ class OrganizerDashboardService
                 $cursor->addMonth();
             }
 
-            $rows = $this->organizerConfirmedBookings($organizerId, $eventId)
+            $rows = $this->organizerConfirmedBookings($organizerId, $eventId, $eventStatus)
                 ->whereBetween('created_at', [$start, $effectiveEnd])
                 ->selectRaw(
                     $aggregate === 'sum'
@@ -343,7 +347,7 @@ class OrganizerDashboardService
             $cursor->addDay();
         }
 
-        $rows = $this->organizerConfirmedBookings($organizerId, $eventId)
+        $rows = $this->organizerConfirmedBookings($organizerId, $eventId, $eventStatus)
             ->whereBetween('created_at', [$start, $effectiveEnd])
             ->selectRaw(
                 $aggregate === 'sum'
@@ -364,10 +368,16 @@ class OrganizerDashboardService
         ];
     }
 
-    private function organizerConfirmedBookings(int $organizerId, ?int $eventId = null)
+    private function organizerConfirmedBookings(int $organizerId, ?int $eventId = null, ?string $eventStatus = null)
     {
         $query = ticketBooking::query()
-            ->whereHas('event', fn ($query) => $query->createdByOrganizer($organizerId))
+            ->whereHas('event', function ($query) use ($organizerId, $eventStatus) {
+                $query->createdByOrganizer($organizerId);
+
+                if ($eventStatus) {
+                    $query->where('status', $eventStatus);
+                }
+            })
             ->whereIn('status', BookingStatusEnum::retainedSaleStatuses());
 
         if ($eventId) {
@@ -384,6 +394,80 @@ class OrganizerDashboardService
         }
 
         return $current > 0 ? 100.0 : 0.0;
+    }
+
+    /**
+     * @param  array{from?: string|null, to?: string|null, event_id?: int|null, status?: string|null}  $reportFilters
+     * @return array{from?: string|null, to?: string|null, event_id?: int|null, status?: string|null}
+     */
+    private function scopedReportFilters(array $reportFilters, ?int $eventId = null): array
+    {
+        $scoped = array_filter([
+            'from' => $reportFilters['from'] ?? null,
+            'to' => $reportFilters['to'] ?? null,
+            'status' => $reportFilters['status'] ?? null,
+            'event_id' => $eventId ?? ($reportFilters['event_id'] ?? null),
+        ], fn ($value) => filled($value));
+
+        return $scoped;
+    }
+
+    /**
+     * @param  array{from?: string|null, to?: string|null, event_id?: int|null, status?: string|null}  $reportFilters
+     * @return array{0: Carbon, 1: Carbon, 2: Carbon, 3: Carbon, 4: string}
+     */
+    private function resolveDashboardPeriod(int $organizerId, ?int $eventId, array $reportFilters): array
+    {
+        $from = $reportFilters['from'] ?? null;
+        $to = $reportFilters['to'] ?? null;
+        $eventStatus = $reportFilters['status'] ?? null;
+
+        if (filled($from) || filled($to)) {
+            $start = filled($from)
+                ? Carbon::parse($from)->startOfDay()
+                : Carbon::parse($to)->startOfDay();
+            $end = filled($to)
+                ? Carbon::parse($to)->endOfDay()
+                : now()->endOfDay();
+        } else {
+            $start = $this->earliestBookingDate($organizerId, $eventId, $eventStatus)
+                ?? now()->startOfMonth()->startOfDay();
+            $end = now()->endOfDay();
+        }
+
+        if ($end->lt($start)) {
+            [$start, $end] = [$end->copy()->startOfDay(), $start->copy()->endOfDay()];
+        }
+
+        $spanDays = max(1, (int) $start->copy()->startOfDay()->diffInDays($end->copy()->startOfDay()));
+        $previousEnd = $start->copy()->subDay()->endOfDay();
+        $previousStart = $previousEnd->copy()->subDays($spanDays)->startOfDay();
+
+        return [$start, $end, $previousStart, $previousEnd, $this->dashboardFilterLabel($from, $to)];
+    }
+
+    private function dashboardFilterLabel(?string $from, ?string $to): string
+    {
+        if (filled($from) && filled($to)) {
+            return Carbon::parse($from)->format('M j, Y').' – '.Carbon::parse($to)->format('M j, Y');
+        }
+
+        if (filled($from)) {
+            return 'From '.Carbon::parse($from)->format('M j, Y');
+        }
+
+        if (filled($to)) {
+            return 'Through '.Carbon::parse($to)->format('M j, Y');
+        }
+
+        return 'All time';
+    }
+
+    private function earliestBookingDate(int $organizerId, ?int $eventId = null, ?string $eventStatus = null): ?Carbon
+    {
+        $earliest = $this->organizerConfirmedBookings($organizerId, $eventId, $eventStatus)->min('created_at');
+
+        return $earliest ? Carbon::parse($earliest)->startOfDay() : null;
     }
 
     /**
@@ -498,46 +582,42 @@ class OrganizerDashboardService
      *     netRevenue?: float,
      *     totalRefunded?: float
      * }  $stats
+     * @param  array{from?: string|null, to?: string|null, event_id?: int|null, status?: string|null}  $reportFilters
      * @return list<array<string, mixed>>
      */
-    private function buildKpis(int $organizerId, array $stats): array
+    private function buildKpis(int $organizerId, array $stats, array $reportFilters = []): array
     {
         $bookingsQuery = fn () => ticketBooking::query()
             ->whereHas('event', fn ($query) => $query->createdByOrganizer($organizerId))
             ->whereIn('status', BookingStatusEnum::retainedSaleStatuses());
 
-        $thisMonthRevenue = (float) $bookingsQuery()
-            ->where('created_at', '>=', now()->startOfMonth())
-            ->sum('ticket_price');
-
-        $lastMonthRevenue = (float) $bookingsQuery()
-            ->whereBetween('created_at', [
-                now()->subMonthNoOverflow()->startOfMonth(),
-                now()->subMonthNoOverflow()->endOfMonth(),
-            ])
-            ->sum('ticket_price');
-
-        $thisMonthRefunded = (float) ticketBooking::query()
-            ->whereHas('event', fn ($query) => $query->createdByOrganizer($organizerId))
-            ->where('status', BookingStatusEnum::Refunded)
-            ->where('updated_at', '>=', now()->startOfMonth())
-            ->sum('ticket_price');
-
-        $lastMonthRefunded = (float) ticketBooking::query()
-            ->whereHas('event', fn ($query) => $query->createdByOrganizer($organizerId))
-            ->where('status', BookingStatusEnum::Refunded)
-            ->whereBetween('updated_at', [
-                now()->subMonthNoOverflow()->startOfMonth(),
-                now()->subMonthNoOverflow()->endOfMonth(),
-            ])
-            ->sum('ticket_price');
-
-        $thisMonthNet = $thisMonthRevenue - $thisMonthRefunded;
-        $lastMonthNet = $lastMonthRevenue - $lastMonthRefunded;
-        $netPercent = $this->percentChange($thisMonthNet, $lastMonthNet);
-
         $netRevenue = (float) ($stats['netRevenue'] ?? (($stats['grossRevenue'] ?? 0) - ($stats['totalRefunded'] ?? 0)));
         $totalRefunded = (float) ($stats['totalRefunded'] ?? 0);
+        $hasDateFilter = filled($reportFilters['from'] ?? null) || filled($reportFilters['to'] ?? null);
+
+        if ($hasDateFilter) {
+            [, , $previousStart, $previousEnd] = $this->resolveDashboardPeriod(
+                $organizerId,
+                $reportFilters['event_id'] ?? null,
+                $reportFilters,
+            );
+            $reportService = app(OrganizerReportService::class);
+            $previousNet = (float) $reportService->getRevenueReport($organizerId, array_merge($reportFilters, [
+                'from' => $previousStart->toDateString(),
+                'to' => $previousEnd->toDateString(),
+            ]))['netRevenue'];
+            $netPercent = $this->percentChange($netRevenue, $previousNet);
+            $trendHint = $totalRefunded > 0
+                ? 'LKR '.number_format($totalRefunded, 0).' refunded · vs previous period'
+                : 'Compared with previous period';
+            $showRevenueTrend = true;
+        } else {
+            $netPercent = 0;
+            $trendHint = $totalRefunded > 0
+                ? 'LKR '.number_format($totalRefunded, 0).' refunded · All time'
+                : 'All time total';
+            $showRevenueTrend = false;
+        }
 
         $ticketsToday = (int) $bookingsQuery()
             ->whereDate('created_at', now()->toDateString())
@@ -553,12 +633,10 @@ class OrganizerDashboardService
                 'emoji' => '💰',
                 'value' => 'LKR '.number_format($netRevenue, 0),
                 'trendValue' => $netPercent,
-                'trendLabel' => abs($netPercent).'%',
-                'trendHint' => $totalRefunded > 0
-                    ? 'LKR '.number_format($totalRefunded, 0).' refunded · vs last month'
-                    : 'Compared with last month',
+                'trendLabel' => $showRevenueTrend ? abs($netPercent).'%' : '',
+                'trendHint' => $trendHint,
                 'trendUp' => $netPercent >= 0,
-                'showTrend' => true,
+                'showTrend' => $showRevenueTrend,
                 'icon' => 'bi-cash-stack',
                 'accent' => 'emerald',
             ],

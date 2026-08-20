@@ -96,6 +96,8 @@
 
         $filterQueryBase = array_filter([
             'focus_event' => $focusFilter['selectedEventId'] ?? null,
+            'from' => $activeFilters['from'] ?? null,
+            'to' => $activeFilters['to'] ?? null,
             'status' => $activeFilters['status'] ?? null,
             'tab' => $tab,
         ], fn ($value) => filled($value));

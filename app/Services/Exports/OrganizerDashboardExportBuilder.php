@@ -20,10 +20,15 @@ class OrganizerDashboardExportBuilder
      *     override_flags?: array{kpi?: bool, goal?: bool, chart?: bool, engagement?: bool},
      *     query?: array<string, int|string>
      * }  $filters
+     * @param  array{from?: string|null, to?: string|null, event_id?: int|null, status?: string|null}  $reportFilters
      * @return array{title: string, summary: list<array{label: string, value: string|int|float}>, tables: list<array{heading: string, headers: list<string>, rows: list<list<string|int|float|null>>}>}
      */
-    public function build(int $organizerId, array $filters = []): array
+    public function build(int $organizerId, array $filters = [], array $reportFilters = []): array
     {
+        if (empty($reportFilters['event_id']) && ! empty($filters['focus_event'])) {
+            $reportFilters['event_id'] = $filters['focus_event'];
+        }
+
         $dashboard = $this->dashboardService->getDashboardData(
             $organizerId,
             $filters['kpi_event'] ?? null,
@@ -33,6 +38,7 @@ class OrganizerDashboardExportBuilder
             $filters['focus_event'] ?? null,
             $filters['override_flags'] ?? [],
             $filters['query'] ?? [],
+            $reportFilters,
         );
 
         $focusFilter = $dashboard['focusFilter'] ?? [];
@@ -41,7 +47,9 @@ class OrganizerDashboardExportBuilder
         $engagementFilter = $dashboard['engagement']['filter'] ?? [];
         $revenueGoal = $dashboard['revenueGoal'] ?? [];
         $kpis = $dashboard['kpis'] ?? [];
-        $charts = $dashboard['charts']['periods']['month'] ?? [];
+        $charts = $dashboard['charts']['periods'][$dashboard['charts']['defaultPeriod'] ?? 'filtered']
+            ?? $dashboard['charts']['periods']['filtered']
+            ?? [];
         $engagement = $dashboard['engagement'] ?? [];
         $performance = $dashboard['performance'] ?? [];
         $performanceCompleted = $dashboard['performanceCompleted'] ?? [];

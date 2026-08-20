@@ -185,7 +185,7 @@ async function generateAnalyticsPdf(form, button) {
 
     try {
         const payload = await fetchChartPayload(form, filters);
-        renderOrganizerDashboardExportCharts(payload.dashboard ?? {}, filters.period);
+        renderOrganizerDashboardExportCharts(payload.dashboard ?? {});
         renderOrganizerReportExportCharts(payload.reports ?? {});
         await waitForPaint();
 

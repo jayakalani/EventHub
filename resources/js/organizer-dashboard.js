@@ -191,25 +191,27 @@ function initOrganizerDashboard() {
     const data = window.organizerDashboardData;
     if (!data?.charts?.periods) return;
 
-    let currentPeriod = data.charts.defaultPeriod ?? 'month';
+    const currentPeriod = data.charts.defaultPeriod ?? 'filtered';
     let fullscreenChart = null;
     const chartInstances = {};
 
-    function periodPayload(period = currentPeriod) {
-        return data.charts.periods[period] ?? data.charts.periods.month;
+    function periodPayload() {
+        return data.charts.periods[currentPeriod]
+            ?? data.charts.periods.filtered
+            ?? data.charts.periods[Object.keys(data.charts.periods)[0]]
+            ?? {};
     }
 
-    function metricFor(key, period = currentPeriod) {
-        return periodPayload(period)[key] ?? { labels: [], series: [], totalFormatted: '0', changePercent: 0, up: true };
+    function metricFor(key) {
+        return periodPayload()[key] ?? { labels: [], series: [], totalFormatted: '0', changePercent: 0, up: true };
     }
 
-    function renderCharts(period = currentPeriod) {
-        currentPeriod = period;
-        const payload = periodPayload(period);
-        updatePeriodLabels(payload.label ?? 'This Month');
+    function renderCharts() {
+        const payload = periodPayload();
+        updatePeriodLabels(payload.label ?? data.filterLabel ?? 'All time');
 
         Object.entries(chartConfigs).forEach(([key, config]) => {
-            const metric = metricFor(key, period);
+            const metric = metricFor(key);
             updateMetricUi(key, metric);
             chartInstances[key] = createTrendChart(
                 config.canvasId,
@@ -220,10 +222,9 @@ function initOrganizerDashboard() {
         });
 
         if (fullscreenChart && document.getElementById('organizerChartFullscreen')) {
-            // Keep fullscreen in sync if open with a known chart key stored on the canvas.
             const activeKey = document.getElementById('organizerChartFullscreen')?.dataset?.chartKey;
             if (activeKey && chartConfigs[activeKey]) {
-                const metric = metricFor(activeKey, period);
+                const metric = metricFor(activeKey);
                 fullscreenChart = createTrendChart(
                     'organizerChartFullscreen',
                     metric.labels ?? [],
@@ -256,23 +257,16 @@ function initOrganizerDashboard() {
         }
     }
 
-    renderCharts(currentPeriod);
-
-    window.addEventListener('organizer-chart-period', (event) => {
-        const period = event.detail?.period;
-        if (!period || !data.charts.periods[period]) return;
-        renderCharts(period);
-    });
+    renderCharts();
 
     window.addEventListener('organizer-chart-expand', (event) => {
         const key = event.detail?.key;
-        const period = event.detail?.period ?? currentPeriod;
         const config = chartConfigs[key];
         if (!config) return;
 
         destroyFullscreenChart();
 
-        const metric = metricFor(key, period);
+        const metric = metricFor(key);
         const canvas = document.getElementById('organizerChartFullscreen');
         if (canvas) {
             canvas.dataset.chartKey = key;
@@ -442,18 +436,14 @@ function initLiveSalesPulse() {
     start();
 }
 
-export function renderOrganizerDashboardExportCharts(data, preferredPeriod) {
+export function renderOrganizerDashboardExportCharts(data) {
     if (!data?.charts?.periods) return;
 
-    const period = data.charts.periods.custom
-        ? 'custom'
-        : (
-            (preferredPeriod === 'week' || preferredPeriod === 'month')
-            && data.charts.periods[preferredPeriod]
-                ? preferredPeriod
-                : (data.charts.defaultPeriod ?? 'month')
-        );
-    const payload = data.charts.periods[period] ?? data.charts.periods.month ?? {};
+    const period = data.charts.defaultPeriod ?? 'filtered';
+    const payload = data.charts.periods[period]
+        ?? data.charts.periods.filtered
+        ?? data.charts.periods[Object.keys(data.charts.periods)[0]]
+        ?? {};
 
     Object.entries(chartConfigs).forEach(([key, config]) => {
         const metric = payload[key] ?? { labels: [], series: [] };

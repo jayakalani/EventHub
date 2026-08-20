@@ -9,7 +9,7 @@
                             Whole-event totals for
                             <span class="font-semibold text-slate-700">{{ $focusFilter['selectedEventName'] ?? $kpiFilter['selectedEventName'] }}</span>
                         @else
-                            All-events monthly overview
+                            {{ $dashboard['filterLabel'] ?? 'All time' }} overview
                         @endif
                     </p>
                 </div>
@@ -96,29 +96,16 @@
             {{-- Analytics trends --}}
             @php
                 $chartPeriods = $dashboard['charts']['periods'] ?? [];
-                $defaultChartPeriod = $dashboard['charts']['defaultPeriod'] ?? 'month';
+                $defaultChartPeriod = $dashboard['charts']['defaultPeriod'] ?? 'filtered';
+                $activeChartPeriod = $chartPeriods[$defaultChartPeriod] ?? reset($chartPeriods) ?: [];
             @endphp
-            <section class="space-y-3" x-data="{ chartPeriod: @js($defaultChartPeriod) }">
-                <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-                    <div>
-                        <h2 class="text-sm font-semibold text-slate-900">Sales analytics</h2>
-                        <p class="text-xs text-slate-500">
-                            Revenue and ticket trend for
-                            <span data-chart-period-label>{{ $chartPeriods[$defaultChartPeriod]['label'] ?? 'This Month' }}</span>
-                        </p>
-                    </div>
-                    <div class="inline-flex rounded-xl border border-white/70 bg-white/60 p-1 shadow-sm">
-                        @foreach (['week' => '7 days', 'month' => '30 days'] as $periodKey => $periodLabel)
-                            <button type="button"
-                                class="rounded-lg px-3 py-1.5 text-xs font-semibold transition"
-                                :class="chartPeriod === '{{ $periodKey }}'
-                                    ? 'bg-indigo-600 text-white shadow-sm'
-                                    : 'text-slate-600 hover:bg-white/80'"
-                                @click="chartPeriod = '{{ $periodKey }}'; window.dispatchEvent(new CustomEvent('organizer-chart-period', { detail: { period: '{{ $periodKey }}' } }))">
-                                {{ $periodLabel }}
-                            </button>
-                        @endforeach
-                    </div>
+            <section class="space-y-3">
+                <div class="min-w-0">
+                    <h2 class="text-sm font-semibold text-slate-900">Sales analytics</h2>
+                    <p class="text-xs text-slate-500">
+                        Revenue and ticket trend for
+                        <span data-chart-period-label>{{ $activeChartPeriod['label'] ?? ($dashboard['filterLabel'] ?? 'All time') }}</span>
+                    </p>
                 </div>
 
                 <div class="grid gap-3 lg:grid-cols-2">
@@ -127,13 +114,13 @@
                             <div>
                                 <p class="text-xs font-medium text-slate-500">Revenue</p>
                                 <p class="mt-0.5 text-lg font-bold tracking-tight text-slate-900" data-chart-total="revenue">
-                                    {{ $chartPeriods[$defaultChartPeriod]['revenue']['totalFormatted'] ?? '0' }}
+                                    {{ $activeChartPeriod['revenue']['totalFormatted'] ?? 'LKR 0' }}
                                 </p>
                             </div>
                             <span data-chart-change="revenue"
-                                class="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-bold {{ ($chartPeriods[$defaultChartPeriod]['revenue']['up'] ?? true) ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600' }}">
-                                {{ ($chartPeriods[$defaultChartPeriod]['revenue']['up'] ?? true) ? '▲' : '▼' }}
-                                {{ abs((float) ($chartPeriods[$defaultChartPeriod]['revenue']['changePercent'] ?? 0)) }}%
+                                class="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-bold {{ ($activeChartPeriod['revenue']['up'] ?? true) ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600' }}">
+                                {{ ($activeChartPeriod['revenue']['up'] ?? true) ? '▲' : '▼' }}
+                                {{ abs((float) ($activeChartPeriod['revenue']['changePercent'] ?? 0)) }}%
                             </span>
                         </div>
                         <div class="mt-4 h-56">
@@ -146,13 +133,13 @@
                             <div>
                                 <p class="text-xs font-medium text-slate-500">Tickets sold</p>
                                 <p class="mt-0.5 text-lg font-bold tracking-tight text-slate-900" data-chart-total="tickets">
-                                    {{ $chartPeriods[$defaultChartPeriod]['tickets']['totalFormatted'] ?? '0' }}
+                                    {{ $activeChartPeriod['tickets']['totalFormatted'] ?? '0' }}
                                 </p>
                             </div>
                             <span data-chart-change="tickets"
-                                class="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-bold {{ ($chartPeriods[$defaultChartPeriod]['tickets']['up'] ?? true) ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600' }}">
-                                {{ ($chartPeriods[$defaultChartPeriod]['tickets']['up'] ?? true) ? '▲' : '▼' }}
-                                {{ abs((float) ($chartPeriods[$defaultChartPeriod]['tickets']['changePercent'] ?? 0)) }}%
+                                class="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-bold {{ ($activeChartPeriod['tickets']['up'] ?? true) ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600' }}">
+                                {{ ($activeChartPeriod['tickets']['up'] ?? true) ? '▲' : '▼' }}
+                                {{ abs((float) ($activeChartPeriod['tickets']['changePercent'] ?? 0)) }}%
                             </span>
                         </div>
                         <div class="mt-4 h-56">

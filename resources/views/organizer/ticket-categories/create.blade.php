@@ -60,7 +60,8 @@
                             <input type="number" step="0" name="ticket_price" id="ticket_price" min="0"
                                 class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" required>
                         </div>
-
+                        {{-- Timed discount (optional) --}}
+                        
                         {{-- Ticket Color --}}
                         <div>
                             <label for="ticket_color" class="block text-sm font-medium text-gray-700">Ticket

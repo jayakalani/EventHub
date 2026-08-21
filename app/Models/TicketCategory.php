@@ -34,10 +34,13 @@ class ticketCategory extends Model
         'no_of_tickets',
         'no_of_available_tickets',
         'ticket_price',
+        //'discount_price',
         'ticket_color',
         'is_active',
         'booking_start',
         'booking_end',
+        //'discount_start',
+        //'discount_end',
     ];
 
     /**
@@ -47,6 +50,13 @@ class ticketCategory extends Model
         'is_active'     => 'boolean',
         'booking_start' => 'datetime',
         'booking_end'   => 'datetime',
+        //'is_active' => 'boolean',
+        //'ticket_price' => 'decimal:2',
+        //'discount_price' => 'decimal:2',
+        //'booking_start' => 'datetime',
+        //'booking_end' => 'datetime',
+        //'discount_start' => 'datetime',
+        //'discount_end' => 'datetime',
     ];
 
     /**

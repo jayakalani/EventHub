@@ -700,6 +700,7 @@
 
                                             <div class="mt-4 flex items-end justify-between gap-3">
                                                 <div>
+                                                    
                                                     <p class="text-2xl font-bold text-indigo-600">Rs {{ number_format($category->ticket_price) }}</p>
                                                     <p class="text-xs text-slate-500">{{ t(['en' => 'per ticket', 'si' => 'ටිකට් එකකට']) }}</p>
                                                 </div>

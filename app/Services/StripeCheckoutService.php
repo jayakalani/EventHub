@@ -101,7 +101,7 @@ class StripeCheckoutService
     public function payWithWallet($cartItems, User $user): Payment
     {
         $totalAmount = $cartItems->sum(fn (CartItem $item) => (float) $item->ticketCategory->ticket_price * $item->quantity);
-
+         //$totalAmount = $cartItems->sum(fn (CartItem $item) => $item->ticketCategory->effectivePrice() * $item->quantity);
         return DB::transaction(function () use ($cartItems, $user, $totalAmount) {
             $checkoutItems = $this->snapshotCheckoutItems($cartItems);
 
@@ -210,7 +210,7 @@ class StripeCheckoutService
                 $category = $this->cartInventoryService->fulfillPaidLine($line, $cartItem);
                 $quantity = (int) $line['quantity'];
                 $unitPrice = (float) ($line['unit_price'] ?? $category->ticket_price);
-
+                //$unitPrice = (float) ($line['unit_price'] ?? $category->effectivePrice());
                 for ($i = 0; $i < $quantity; $i++) {
                     ticketBooking::create([
                         'user_id' => $payment->user_id,
@@ -318,6 +318,7 @@ class StripeCheckoutService
             'ticket_category_id' => (int) $item->ticket_category_id,
             'quantity' => (int) $item->quantity,
             'unit_price' => (float) $item->ticketCategory->ticket_price,
+            //'unit_price' => $item->ticketCategory->effectivePrice(),
             'inventory_held' => (bool) $item->inventory_held,
         ])->values()->all();
     }

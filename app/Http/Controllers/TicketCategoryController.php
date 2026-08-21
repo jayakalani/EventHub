@@ -56,9 +56,11 @@ class ticketCategoryController extends Controller
             'ticket_color' => ['required', 'string', 'max:255'],
             'is_active' => ['boolean'],
             'booking_start' => ['nullable', 'date'],
-            'booking_end' => ['nullable', 'date', 'after_or_equal:booking_start'],
+            'booking_end' => ['nullable', 'date', 'after:booking_start'],
             //'discount_start' => ['nullable', 'date', 'required_with:discount_price,discount_end'],
             //'discount_end' => ['nullable', 'date', 'required_with:discount_price,discount_start', 'after_or_equal:discount_start'],
+        ], [
+            'booking_end.after' => 'The booking end date must be after the booking start date.',
         ]);
 
         if ($windowErrors = $this->bookingWindowErrors($event, $validatedData)) {
@@ -156,7 +158,7 @@ class ticketCategoryController extends Controller
             'ticket_color' => ['required', 'string', 'max:255'],
             'is_active' => ['boolean'],
             'booking_start' => ['nullable', 'date'],
-            'booking_end' => ['nullable', 'date', 'after_or_equal:booking_start'],
+            'booking_end' => ['nullable', 'date', 'after:booking_start'],
             //'discount_price' => ['nullable', 'numeric', 'min:0'],
             //'discount_start' => ['nullable', 'date', 'required_with:discount_price,discount_end'],
             //'discount_end' => ['nullable', 'date', 'required_with:discount_price,discount_start', 'after_or_equal:discount_start'],
@@ -169,6 +171,7 @@ class ticketCategoryController extends Controller
 
         $validatedData = $request->validate($rules, [
             'no_of_tickets.min' => $this->minTicketsValidationMessage($minTickets, $soldCount, $heldCount),
+            'booking_end.after' => 'The booking end date must be after the booking start date.',
         ]);
 
         /*if ($priceLocked && isset($validatedData['discount_price']) && $validatedData['discount_price'] !== null) {
@@ -303,15 +306,19 @@ class ticketCategoryController extends Controller
         $eventDate = Carbon::parse($event->date)->toDateString();
         $errors = [];
 
-        foreach (['booking_start', 'booking_end'] as $field) {
-            if (empty($data[$field])) {
-                continue;
+        if (! empty($data['booking_start'])) {
+            $startDate = Carbon::parse($data['booking_start'])->toDateString();
+
+            if ($startDate > $eventDate) {
+                $errors['booking_start'] = "Booking start cannot be after the event date ({$eventDate}).";
             }
+        }
 
-            $windowDate = Carbon::parse($data[$field])->toDateString();
+        if (! empty($data['booking_end'])) {
+            $endDate = Carbon::parse($data['booking_end'])->toDateString();
 
-            if ($windowDate > $eventDate) {
-                $errors[$field] = "Booking window cannot be after the event date ({$eventDate}).";
+            if ($endDate >= $eventDate) {
+                $errors['booking_end'] = "The booking end date must be before the event date ({$eventDate}).";
             }
         }
 

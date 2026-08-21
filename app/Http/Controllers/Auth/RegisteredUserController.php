@@ -33,12 +33,7 @@ class RegisteredUserController extends Controller
     public function store(Request $request): RedirectResponse
     {
 
-        $date = new Carbon;
-        $before = $date->subYears(16)->format('Y-m-d');
-
-        $message = [
-            'before' => 'You must be 16 years or older to register',
-        ];
+        $before = (new Carbon)->subYears(16)->format('Y-m-d');
 
         $request->validate([
             'first_name' => ['required', 'string', 'max:255'],
@@ -62,6 +57,8 @@ class RegisteredUserController extends Controller
             'address' => ['required', 'string', 'max:255'],
             'gender' => ['required', 'string'],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
+        ], [
+            'date_of_birth.before' => 'You must be 16 years or older to register.',
         ]);
 
         $role_id = UserRole::attendee()->id;

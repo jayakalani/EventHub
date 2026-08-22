@@ -69,12 +69,12 @@
                         Create Host
                     </a>
 
-                    <a href="{{ route('organizer.hosts.export.csv') }}"
+                    <a href="{{ route('organizer.hosts.export.csv', request()->only(['search', 'status', 'from_date', 'to_date'])) }}"
                         class="px-3 py-2 bg-green-600 text-white text-sm rounded-xl hover:bg-green-700 transition">
                         CSV
                     </a>
 
-                    <a href="{{ route('organizer.hosts.export.pdf') }}"
+                    <a href="{{ route('organizer.hosts.export.pdf', request()->only(['search', 'status', 'from_date', 'to_date'])) }}"
                         class="px-3 py-2 bg-red-600 text-white text-sm rounded-xl hover:bg-red-700 transition">
                         PDF
                     </a>

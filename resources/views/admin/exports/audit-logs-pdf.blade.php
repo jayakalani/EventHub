@@ -187,6 +187,9 @@
         <div class="report-info">
             <strong>Generated:</strong><br>
             {{ now()->format('d M Y h:i A') }}
+            @if (!empty($truncated))
+                <br><span style="color:#b45309;">Showing latest {{ $maxRows }} of {{ number_format($totalMatched) }}</span>
+            @endif
         </div>
     </div>
 
@@ -259,11 +262,15 @@
                     <tr>
 
                         <td>
-                            {{ $log->created_at->format('d/m/Y') }}
-                            <br>
-                            <span style="color:#6b7280;">
-                                {{ $log->created_at->format('h:i A') }}
-                            </span>
+                            @if ($log->created_at)
+                                {{ $log->created_at->format('d/m/Y') }}
+                                <br>
+                                <span style="color:#6b7280;">
+                                    {{ $log->created_at->format('h:i A') }}
+                                </span>
+                            @else
+                                —
+                            @endif
                         </td>
 
                         <td>
@@ -286,13 +293,13 @@
 
                         <td>
                             <div class="json-box">
-                                {{ $log->old_values ?? '-' }}
+                                {{ $log->old_values_export ?? '-' }}
                             </div>
                         </td>
 
                         <td>
                             <div class="json-box">
-                                {{ $log->new_values ?? '-' }}
+                                {{ $log->new_values_export ?? '-' }}
                             </div>
                         </td>
 

@@ -48,32 +48,11 @@ class HostController extends Controller
     {
         $this->authorize('viewAny', Host::class);
 
-        $filters = $request->validate([
-            'search' => ['nullable', 'string', 'max:255'],
-            'status' => ['nullable', 'string', Rule::in(['active', 'inactive'])],
-            'from_date' => ['nullable', 'date'],
-            'to_date' => ['nullable', 'date', 'after_or_equal:from_date'],
-        ]);
-
-        $query = Host::query();
-
-        if (! empty($filters['search'])) {
-            $query->where('name', 'like', '%'.$filters['search'].'%');
-        }
-
-        if (! empty($filters['status'])) {
-            $query->where('is_active', $filters['status'] === 'active');
-        }
-
-        if (! empty($filters['from_date'])) {
-            $query->whereDate('created_at', '>=', $filters['from_date']);
-        }
-
-        if (! empty($filters['to_date'])) {
-            $query->whereDate('created_at', '<=', $filters['to_date']);
-        }
-
-        $hosts = $query->withCount('events')->latest()->paginate(20)->withQueryString();
+        $hosts = $this->filteredHostsQuery($request)
+            ->withCount('events')
+            ->latest()
+            ->paginate(20)
+            ->withQueryString();
 
         return view('organizer.hosts.index', compact('hosts'));
     }
@@ -163,7 +142,7 @@ class HostController extends Controller
     {
         $this->authorize('viewAny', Host::class);
 
-        $hosts = Host::query()->get();
+        $hosts = $this->filteredHostsQuery($request)->latest()->get();
 
         $csvData = [];
         $csvData[] = ['ID', 'Name', 'Email', 'Contact Number', 'Status', 'Created At'];
@@ -175,7 +154,7 @@ class HostController extends Controller
                 $host->email,
                 $host->contact_number,
                 $host->is_active ? 'Active' : 'Inactive',
-                $host->created_at->format('Y-m-d H:i'),
+                optional($host->created_at)->format('Y-m-d H:i') ?? '',
             ];
         }
 
@@ -198,11 +177,44 @@ class HostController extends Controller
     {
         $this->authorize('viewAny', Host::class);
 
-        $hosts = Host::query()->get();
+        $hosts = $this->filteredHostsQuery($request)->latest()->get();
 
         $pdf = \PDF::loadView('organizer.exports.hosts_pdf', compact('hosts'));
 
         return $pdf->download('hosts_'.now()->format('Ymd_His').'.pdf');
+    }
+
+    /**
+     * @return \Illuminate\Database\Eloquent\Builder<\App\Models\Host>
+     */
+    private function filteredHostsQuery(Request $request)
+    {
+        $filters = $request->validate([
+            'search' => ['nullable', 'string', 'max:255'],
+            'status' => ['nullable', 'string', Rule::in(['active', 'inactive'])],
+            'from_date' => ['nullable', 'date'],
+            'to_date' => ['nullable', 'date', 'after_or_equal:from_date'],
+        ]);
+
+        $query = Host::query();
+
+        if (! empty($filters['search'])) {
+            $query->where('name', 'like', '%'.$filters['search'].'%');
+        }
+
+        if (! empty($filters['status'])) {
+            $query->where('is_active', $filters['status'] === 'active');
+        }
+
+        if (! empty($filters['from_date'])) {
+            $query->whereDate('created_at', '>=', $filters['from_date']);
+        }
+
+        if (! empty($filters['to_date'])) {
+            $query->whereDate('created_at', '<=', $filters['to_date']);
+        }
+
+        return $query;
     }
 
     private function storeHostCover(\Illuminate\Http\UploadedFile $file): string

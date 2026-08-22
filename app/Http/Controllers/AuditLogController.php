@@ -91,13 +91,24 @@ class AuditLogController extends Controller
 
     public function exportPdf(Request $request)
     {
-        $logs = $this->filteredQuery($request)
-            ->with('user')
-            ->latest()
-            ->get();
+        $maxRows = 200;
 
-        $pdf = Pdf::loadView('admin.exports.audit-logs-pdf', compact('logs'))
-            ->setPaper('a4', 'landscape');
+        $baseQuery = $this->filteredQuery($request);
+        $totalMatched = (clone $baseQuery)->count();
+
+        $logs = $baseQuery->with('user')->latest()->limit($maxRows)->get()->map(function (AuditLog $log) {
+            $log->setAttribute('old_values_export', $this->formatAuditValuesForPdf($log->old_values));
+            $log->setAttribute('new_values_export', $this->formatAuditValuesForPdf($log->new_values));
+
+            return $log;
+        });
+
+        $pdf = Pdf::loadView('admin.exports.audit-logs-pdf', [
+            'logs' => $logs,
+            'totalMatched' => $totalMatched,
+            'truncated' => $totalMatched > $maxRows,
+            'maxRows' => $maxRows,
+        ])->setPaper('a4', 'landscape');
 
         return $pdf->download('audit-logs.pdf');
     }
@@ -138,5 +149,25 @@ class AuditLogController extends Controller
         }
 
         return $query;
+    }
+
+    private function formatAuditValuesForPdf(mixed $value): string
+    {
+        if ($value === null || $value === '' || $value === []) {
+            return '-';
+        }
+
+        if (is_array($value) || is_object($value)) {
+            $encoded = json_encode($value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            $value = $encoded === false ? '-' : $encoded;
+        } else {
+            $value = (string) $value;
+        }
+
+        if (strlen($value) > 180) {
+            return substr($value, 0, 177).'...';
+        }
+
+        return $value;
     }
 }

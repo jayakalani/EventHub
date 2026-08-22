@@ -48,32 +48,7 @@ class ArtistController extends Controller
     {
         $this->authorize('viewAny', Artist::class);
 
-        $filters = $request->validate([
-            'search' => ['nullable', 'string', 'max:255'],
-            'status' => ['nullable', 'string', Rule::in(['active', 'inactive'])],
-            'from_date' => ['nullable', 'date'],
-            'to_date' => ['nullable', 'date', 'after_or_equal:from_date'],
-        ]);
-
-        $query = Artist::query();
-
-        if (! empty($filters['search'])) {
-            $query->where('name', 'like', '%'.$filters['search'].'%');
-        }
-
-        if (! empty($filters['status'])) {
-            $query->where('is_active', $filters['status'] === 'active');
-        }
-
-        if (! empty($filters['from_date'])) {
-            $query->whereDate('created_at', '>=', $filters['from_date']);
-        }
-
-        if (! empty($filters['to_date'])) {
-            $query->whereDate('created_at', '<=', $filters['to_date']);
-        }
-
-        $artists = $query
+        $artists = $this->filteredArtistsQuery($request)
             ->withCount(['events', 'artistFollows'])
             ->latest()
             ->paginate(20)
@@ -219,7 +194,7 @@ class ArtistController extends Controller
     {
         $this->authorize('viewAny', Artist::class);
 
-        $artists = Artist::query()->get();
+        $artists = $this->filteredArtistsQuery($request)->latest()->get();
 
         $csvData = [];
         $csvData[] = ['ID', 'Name', 'Email', 'Contact Number', 'Status', 'Created At'];
@@ -231,7 +206,7 @@ class ArtistController extends Controller
                 $artist->email,
                 $artist->contact_number,
                 $artist->is_active ? 'Active' : 'Inactive',
-                $artist->created_at->format('Y-m-d H:i'),
+                optional($artist->created_at)->format('Y-m-d H:i') ?? '',
             ];
         }
 
@@ -254,11 +229,44 @@ class ArtistController extends Controller
     {
         $this->authorize('viewAny', Artist::class);
 
-        $artists = Artist::query()->get();
+        $artists = $this->filteredArtistsQuery($request)->latest()->get();
 
         $pdf = \PDF::loadView('organizer.exports.artists_pdf', compact('artists'));
 
         return $pdf->download('artists_'.now()->format('Ymd_His').'.pdf');
+    }
+
+    /**
+     * @return \Illuminate\Database\Eloquent\Builder<\App\Models\Artist>
+     */
+    private function filteredArtistsQuery(Request $request)
+    {
+        $filters = $request->validate([
+            'search' => ['nullable', 'string', 'max:255'],
+            'status' => ['nullable', 'string', Rule::in(['active', 'inactive'])],
+            'from_date' => ['nullable', 'date'],
+            'to_date' => ['nullable', 'date', 'after_or_equal:from_date'],
+        ]);
+
+        $query = Artist::query();
+
+        if (! empty($filters['search'])) {
+            $query->where('name', 'like', '%'.$filters['search'].'%');
+        }
+
+        if (! empty($filters['status'])) {
+            $query->where('is_active', $filters['status'] === 'active');
+        }
+
+        if (! empty($filters['from_date'])) {
+            $query->whereDate('created_at', '>=', $filters['from_date']);
+        }
+
+        if (! empty($filters['to_date'])) {
+            $query->whereDate('created_at', '<=', $filters['to_date']);
+        }
+
+        return $query;
     }
 
     private function removalBlockedMessage(Artist $artist, string $action): ?string

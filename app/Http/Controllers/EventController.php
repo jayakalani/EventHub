@@ -853,11 +853,11 @@ class EventController extends Controller
                 $event->id,
                 $event->name,
                 $event->place,
-                $event->date,
-                $event->time,
+                $event->date ?? '',
+                $event->time ?? '',
                 $event->no_of_tickets,
                 $event->trashed() ? 'archived' : $event->status,
-                $event->created_at->format('Y-m-d H:i'),
+                optional($event->created_at)->format('Y-m-d H:i') ?? '',
             ];
         }
 
